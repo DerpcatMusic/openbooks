@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Effect, Layer } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ConnectionStore, ConnectionVault, Scraper, connect, disconnect, handle, mercurySync, scrape, status, sync } from "./index.ts";
 import type { Conn, ScrapeCmd, ScrapeResult } from "./index.ts";
 import { run } from "./scrape.ts";

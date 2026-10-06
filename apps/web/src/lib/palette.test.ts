@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { looksLikeQuestion, md, rank, registered, registerTools, score, type PaletteItem } from "./palette.ts";
 
 const item = (id: string, en: string, he: string): PaletteItem => ({ id, label: { en, he }, icon: "home", run: () => {} });

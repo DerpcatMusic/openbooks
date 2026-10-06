@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { bracketsText, parseBrackets } from "./tables.ts";
 
 test("brackets round-trip through the text editor", () => {
