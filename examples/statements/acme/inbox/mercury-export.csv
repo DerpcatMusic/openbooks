@@ -1,0 +1,5 @@
+Date (UTC),Description,Amount,Status,Source Account,Bank Description,Reference,Mercury Category,Timestamp
+02-20-2025,Stripe,250.10,Sent,Mercury Checking,STRIPE PAYOUT,ref-1,Income,02-20-2025 10:00:00
+3/7/2025,Meta Ads,-120.00,Sent,Mercury Credit,FACEBK ADS,,Advertising,03-07-2025 11:00:00
+05-11-2025,Unknown Vendor,-15.75,Sent,Mercury Checking,POS 1234,ref-3,,05-11-2025 09:00:00
+05-12-2025,Refund,10,Failed,Mercury Checking,,ref-4,,05-12-2025 09:00:00

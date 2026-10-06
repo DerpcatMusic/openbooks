@@ -1,0 +1,7 @@
+Status,Reference,Note,Amount,Type,Direction,Name,Date
+Done,B100,lesson,350.00,Transfer,Credit,Dana Levi,05.02.25
+Done,B101,,120.50,Transfer,Credit,Noa Cohen,06.02.25
+Done,B102,gift,80.00,Transfer,Debit,Dana Levi,07.02.25
+Done,B103,workshop,"1,200.00",Transfer,Credit,Yossi Ben,15.11.25
+Pending,B104,,60.00,Transfer,Credit,Dana Levi,20.11.25
+Done,B105,lesson,400.00,Transfer,Credit,Dana Levi,03.01.26

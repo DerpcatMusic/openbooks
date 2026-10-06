@@ -1,0 +1,34 @@
+{
+  "name": "@openbooks/web",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "check:overflow": "bun scripts/overflow-check.ts",
+    "check:svelte": "svelte-kit sync && bun scripts/svelte-check.cjs"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/country-il": "workspace:*",
+    "@openbooks/country-us": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "pdf-lib": "1.17.1"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "4.0.0",
+    "@sveltejs/kit": "3.0.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@tailwindcss/vite": "4.3.3",
+    "svelte": "5.57.1",
+    "svelte-check": "4.7.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3"
+  }
+}

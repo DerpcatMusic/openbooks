@@ -1,0 +1,126 @@
+{
+  "note": "Frozen at 2024 levels. BL: btl.gov.il self-employed advances 2025 circular",
+  "point": 2904,
+  "brackets": [
+    [84120, 0.1],
+    [120720, 0.14],
+    [193800, 0.2],
+    [269280, 0.31],
+    [560280, 0.35],
+    [721560, 0.47],
+    [null, 0.5]
+  ],
+  "zairCeiling": 120000,
+  "capitalRate": 0.15,
+  "blRateReduced": 0.0447,
+  "blRateFull": 0.1283,
+  "healthRateReduced": 0.0323,
+  "healthRateFull": 0.0517,
+  "pensionRate1": 0.0445,
+  "pensionRate2": 0.1255,
+  "depositPct": 0.11,
+  "creditPct": 0.05,
+  "donationMin": 207,
+  "avgWageMonthly": 12536,
+  "blReducedMonthly": 7522,
+  "blMaxMonthly": 50695,
+  "blMinMonthly": 3134,
+  "mezakaMonthly": 9700,
+  "vatRate": 0.18,
+  "ltd": {
+    "corpRate": 0.23,
+    "divRate": 0.3,
+    "surtax": 0.03,
+    "surtaxCapital": 0.02,
+    "surtaxThreshold": 721560,
+    "eeReduced": 0.0425,
+    "eeFull": 0.1196,
+    "erReduced": 0.0446,
+    "erFull": 0.0738
+  },
+  "costs": {
+    "patur": 1800,
+    "zair": 600,
+    "murshe": 6500,
+    "ltd": 42650,
+    "llc": 6500,
+    "ccorp": 15000
+  },
+  "costsNote": "ESTIMATES, ₪/yr, edit to your quotes. patur ≈150/mo bookkeeping; zair short report; murshe ≈540/mo; Ltd ≈2,000/mo bookkeeping + ~15k audit + Registrar fee (1,338 early, 2026) + payroll; LLC/C-corp: the Israeli accountant side (US costs are in us.costs). Sources: b144 directory, gov.il Registrar fees 2026",
+  "ltdNote": "Ordinance §126 (23%), §125ב (30% dividend to a ≥10% holder), §121ב surtax 3% + 2% on capital income above 721,560. BL controlling-shareholder salary rates from btl.gov.il 2026 employers circular (employee incl. health / employer)",
+  "sources": {
+    "brackets": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121",
+      "effective": "2025-01-01",
+      "note": "Frozen at 2024 levels (Economic Arrangements Law)"
+    },
+    "zairCeiling": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_87ד",
+      "effective": "2025-01-01"
+    },
+    "depositPct": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_47",
+      "effective": "2025-01-01"
+    },
+    "creditPct": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45א",
+      "effective": "2025-01-01"
+    },
+    "donationMin": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_46",
+      "effective": "2025-01-01"
+    },
+    "blRateReduced": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "blRateFull": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "healthRateReduced": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "healthRateFull": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "blReducedMonthly": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "blMaxMonthly": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "blMinMonthly": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "avgWageMonthly": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01"
+    },
+    "ltd.corpRate": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_126",
+      "effective": "2025-01-01"
+    },
+    "ltd.divRate": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_125ב",
+      "effective": "2025-01-01"
+    },
+    "ltd.surtax": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121ב",
+      "effective": "2025-01-01"
+    },
+    "ltd.surtaxCapital": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121ב",
+      "effective": "2025-01-01"
+    },
+    "ltd.surtaxThreshold": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121ב",
+      "effective": "2025-01-01"
+    }
+  }
+}

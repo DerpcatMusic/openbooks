@@ -1,0 +1,18 @@
+{
+  "name": "@openbooks/country-il",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./form/*": "./form/*"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "effect": "4.0.1"
+  },
+  "devDependencies": {
+    "@openbooks/country-us": "workspace:*"
+  }
+}

@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBooks</title>
+    <meta
+      name="description"
+      content="Local-first bookkeeping and tax for freelancers, Israeli osek and US LLCs. Bank sync, invoices, P&L, Form 1301 and 5472. Open source, one file, no cloud."
+    />
+    <meta property="og:title" content="OpenBooks — bookkeeping that lives on your computer" />
+    <meta property="og:description" content="Bank sync, invoices, reports and tax forms for an Israeli osek and a US LLC. Open source, no cloud." />
+    <meta property="og:image" content="img/home-dark.webp" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%235b5bf7'/><path d='M9 9h9a5 5 0 0 1 0 10h-5v4H9z' fill='white'/></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f7f7fa;
+        --panel: #ffffff;
+        --ink: #0d0d14;
+        --ink-2: #3b3b4a;
+        --sub: #6b6b7b;
+        --line: #e6e6ee;
+        --accent: #5b5bf7;
+        --accent-2: #a35bf7;
+        --glow: rgba(91, 91, 247, 0.18);
+        --chip: #eeeefb;
+        --shadow: 0 30px 80px -30px rgba(20, 20, 60, 0.35);
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #09090f;
+          --panel: #12121b;
+          --ink: #f4f4f8;
+          --ink-2: #c9c9d6;
+          --sub: #8a8a9c;
+          --line: #22222f;
+          --accent: #7b7bff;
+          --accent-2: #c07bff;
+          --glow: rgba(123, 123, 255, 0.22);
+          --chip: #1b1b2a;
+          --shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.9);
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #09090f;
+        --panel: #12121b;
+        --ink: #f4f4f8;
+        --ink-2: #c9c9d6;
+        --sub: #8a8a9c;
+        --line: #22222f;
+        --accent: #7b7bff;
+        --accent-2: #c07bff;
+        --glow: rgba(123, 123, 255, 0.22);
+        --chip: #1b1b2a;
+        --shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.9);
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.6 Geist,
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      .wrap {
+        width: min(1180px, 100% - 32px);
+        margin-inline: auto;
+      }
+      .mono {
+        font-family: "Geist Mono", ui-monospace, monospace;
+      }
+
+      /* nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: saturate(1.6) blur(14px);
+        background: color-mix(in oklab, var(--bg) 72%, transparent);
+        border-bottom: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+      }
+      nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        height: 60px;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .logo i {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid;
+        place-items: center;
+      }
+      .logo i::after {
+        content: "";
+        width: 10px;
+        height: 12px;
+        border: 2.5px solid #fff;
+        border-radius: 2px 6px 6px 2px;
+        border-bottom: 0;
+      }
+      nav .links {
+        display: flex;
+        gap: 22px;
+        margin-inline-start: auto;
+        font-size: 14px;
+        color: var(--sub);
+      }
+      nav .links a:hover {
+        color: var(--ink);
+      }
+      @media (max-width: 720px) {
+        nav .links a:not(.btn) {
+          display: none;
+        }
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition:
+          transform 0.15s,
+          background 0.15s,
+          box-shadow 0.15s;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn.primary {
+        background: var(--ink);
+        color: var(--bg);
+      }
+      .btn.ghost {
+        background: var(--chip);
+        color: var(--ink);
+      }
+      .btn.sm {
+        height: 34px;
+        padding: 0 14px;
+        font-size: 13px;
+      }
+      .btn.lg {
+        height: 48px;
+        padding: 0 24px;
+        font-size: 15px;
+      }
+
+      /* hero */
+      .hero {
+        position: relative;
+        padding: 96px 0 40px;
+        text-align: center;
+        isolation: isolate;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -60px 0 auto;
+        height: 760px;
+        z-index: -1;
+        background:
+          radial-gradient(600px 300px at 30% 30%, var(--glow), transparent 70%),
+          radial-gradient(600px 320px at 72% 22%, color-mix(in oklab, var(--accent-2) 22%, transparent), transparent 70%);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px 6px 6px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--ink-2);
+        white-space: nowrap;
+        max-width: 100%;
+      }
+      .pill b {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      h1 {
+        font-size: clamp(40px, 7.4vw, 84px);
+        line-height: 1;
+        letter-spacing: -0.045em;
+        font-weight: 600;
+        margin: 26px auto 22px;
+        max-width: 14ch;
+        text-wrap: balance;
+      }
+      h1 em {
+        font-style: normal;
+        background: linear-gradient(120deg, var(--accent), var(--accent-2) 60%, #f57bb0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .lede {
+        font-size: clamp(17px, 2vw, 20px);
+        color: var(--sub);
+        max-width: 620px;
+        margin: 0 auto;
+        text-wrap: balance;
+      }
+      .cta {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 34px;
+      }
+      .meta {
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--sub);
+        display: flex;
+        gap: 18px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .meta span::before {
+        content: "✓";
+        color: var(--accent);
+        margin-inline-end: 6px;
+      }
+
+      /* product shot */
+      .shot {
+        margin: 56px auto 0;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        background: var(--panel);
+      }
+      .shot .bar {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .shot .bar i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--line);
+      }
+      .shot .bar span {
+        margin-inline: auto;
+        font-size: 12px;
+        color: var(--sub);
+      }
+      .shot picture {
+        display: block;
+      }
+      .shot img {
+        width: 100%;
+        height: auto;
+      }
+      .fade {
+        position: relative;
+      }
+      .fade::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: 30%;
+        background: linear-gradient(transparent, var(--bg));
+        pointer-events: none;
+      }
+
+      /* sections */
+      section {
+        padding: 96px 0 0;
+      }
+      .kicker {
+        font-size: 13px;
+        color: var(--accent);
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+      h2 {
+        font-size: clamp(30px, 4.4vw, 48px);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        font-weight: 600;
+        margin: 10px 0 14px;
+        max-width: 18ch;
+        text-wrap: balance;
+      }
+      .sub {
+        color: var(--sub);
+        max-width: 560px;
+        font-size: 17px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-top: 40px;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        min-width: 0;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+      }
+      .card:hover {
+        border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+        transform: translateY(-2px);
+      }
+      .card .ic {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: var(--chip);
+        color: var(--accent);
+        margin-bottom: 16px;
+      }
+      .card h3 {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin-bottom: 6px;
+      }
+      .card p {
+        color: var(--sub);
+        font-size: 14.5px;
+      }
+
+      /* tabs gallery */
+      .tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 34px;
+      }
+      .tabs button {
+        font: inherit;
+        font-size: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--ink-2);
+        border-radius: 999px;
+        height: 36px;
+        padding: 0 16px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .tabs button[aria-selected="true"] {
+        background: var(--ink);
+        color: var(--bg);
+        border-color: var(--ink);
+      }
+      .gallery .shot {
+        margin-top: 18px;
+      }
+
+      /* split */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: center;
+      }
+      @media (max-width: 900px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+      .list {
+        display: grid;
+        gap: 14px;
+        margin-top: 26px;
+        padding: 0;
+        list-style: none;
+      }
+      .list li {
+        display: flex;
+        gap: 12px;
+        color: var(--ink-2);
+        font-size: 15.5px;
+      }
+      .list li::before {
+        content: "";
+        flex: none;
+        width: 20px;
+        height: 20px;
+        margin-top: 2px;
+        border-radius: 6px;
+        background: var(--chip)
+          url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5 10.5l3 3 7-7' fill='none' stroke='%237b7bff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+          center/14px no-repeat;
+      }
+
+      .term {
+        background: #0b0b12;
+        color: #d6d6e4;
+        border-radius: 16px;
+        padding: 22px 24px;
+        font-size: 14px;
+        line-height: 1.9;
+        border: 1px solid #22222f;
+        overflow-x: auto;
+        box-shadow: var(--shadow);
+      }
+      .term .c {
+        color: #6b6b85;
+      }
+      .term .p {
+        color: #7b7bff;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel);
+        margin-top: 40px;
+      }
+      .stats div {
+        padding: 26px 22px;
+        border-inline-start: 1px solid var(--line);
+        min-width: 0;
+      }
+      .stats div:first-child {
+        border: 0;
+      }
+      .stats b {
+        display: block;
+        font-size: 30px;
+        letter-spacing: -0.03em;
+        font-weight: 600;
+      }
+      .stats span {
+        color: var(--sub);
+        font-size: 14px;
+      }
+      @media (max-width: 720px) {
+        .stats {
+          grid-template-columns: 1fr 1fr;
+        }
+        .stats div:nth-child(3) {
+          border-inline-start: 0;
+        }
+        .stats div:nth-child(n + 3) {
+          border-top: 1px solid var(--line);
+        }
+      }
+
+      .final {
+        margin: 110px 0 0;
+        padding: 72px 24px;
+        text-align: center;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        background: var(--panel);
+      }
+      .final::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(500px 220px at 50% 0%, var(--glow), transparent 70%);
+      }
+      .final h2 {
+        margin-inline: auto;
+      }
+      footer {
+        padding: 48px 0 56px;
+        color: var(--sub);
+        font-size: 13px;
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      footer a:hover {
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="wrap">
+        <a class="logo" href="./"><i></i>OpenBooks</a>
+        <div class="links">
+          <a href="#features">Features</a>
+          <a href="#tax">Tax</a>
+          <a href="#private">Privacy</a>
+          <a href="https://github.com/DerpcatMusic/openbooks">GitHub</a>
+          <a class="btn primary sm" href="demo/">Live demo</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="wrap">
+        <span class="pill"><b>NEW</b> Israeli osek + US LLC, one person, both countries</span>
+        <h1>Your books. <em>Your machine.</em></h1>
+        <p class="lede">
+          Bank sync, invoices, reports and tax forms for freelancers and small businesses. Everything lives in one file on your computer. No account, no cloud,
+          no subscription.
+        </p>
+        <div class="cta">
+          <a class="btn primary lg" href="demo/">Try the live demo →</a>
+          <a class="btn ghost lg" href="https://github.com/DerpcatMusic/openbooks/releases/latest">Download</a>
+        </div>
+        <div class="meta"><span>Free & open source</span><span>English + עברית</span><span>One 90&nbsp;MB binary</span></div>
+        <div class="fade">
+          <div class="shot">
+            <div class="bar"><i></i><i></i><i></i><span class="mono">127.0.0.1:8765</span></div>
+            <picture>
+              <source srcset="img/home-dark.webp" media="(prefers-color-scheme: dark)" />
+              <img src="img/home-light.webp" alt="OpenBooks home: cash, revenue and expenses for a US LLC" width="2880" height="1800" />
+            </picture>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="features" class="wrap">
+      <div class="kicker">Everything a one-person business needs</div>
+      <h2>Mercury-grade bookkeeping, without handing over your data.</h2>
+      <p class="sub">Import statements or connect your bank once. Rules classify the rest. Reports, invoices and tax forms update as you go.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 21h18M5 21V10m4 11V10m6 11V10m4 11V10M2 10l10-6 10 6" />
+            </svg>
+          </div>
+          <h3>Bank sync</h3>
+          <p>Mercury's API, Israeli banks and cards (Hapoalim, Leumi, Max, Cal, One Zero…), bit, and any bank's CSV.</p>
+        </div>
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z" />
+            </svg>
+          </div>
+          <h3>Rules & review</h3>
+          <p>Classify once, it sticks. A keyboard-first review queue clears the rest in minutes.</p>
+        </div>
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6" /></svg>
+          </div>
+          <h3>Real reports</h3>
+          <p>P&L, balance sheet, cash flow and general ledger. Monthly, total or against last year. Export to CSV.</p>
+        </div>
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5" />
+            </svg>
+          </div>
+          <h3>Invoices & receipts</h3>
+          <p>US invoices, Israeli חשבון עסקה and קבלה with proper numbering. Matched to payments automatically.</p>
+        </div>
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 21l-4.3-4.3M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z" />
+            </svg>
+          </div>
+          <h3>⌘K for everything</h3>
+          <p>Jump to any page, transaction or counterparty. Press Tab to ask your books a question with your own AI key or a local model.</p>
+        </div>
+        <div class="card">
+          <div class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h10M4 17h7M17 14l3 3-3 3" />
+            </svg>
+          </div>
+          <h3>Works with Claude</h3>
+          <p>A built-in MCP server lets Claude or any MCP client read your books and propose changes you approve.</p>
+        </div>
+      </div>
+
+      <div class="gallery">
+        <div class="tabs" role="tablist" aria-label="Screens">
+          <button role="tab" aria-selected="true" data-shot="reports">Reports</button>
+          <button role="tab" aria-selected="false" data-shot="transactions">Transactions</button>
+          <button role="tab" aria-selected="false" data-shot="invoices">Invoices</button>
+          <button role="tab" aria-selected="false" data-shot="taxximizer">Taxximizer</button>
+          <button role="tab" aria-selected="false" data-shot="tax-il">טופס 1301</button>
+        </div>
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i><span class="mono" id="shot-url">openbooks / reports</span></div>
+          <picture id="shot">
+            <source srcset="img/reports-dark.webp" media="(prefers-color-scheme: dark)" />
+            <img src="img/reports-light.webp" alt="OpenBooks screen" width="2880" height="1800" />
+          </picture>
+        </div>
+      </div>
+    </section>
+
+    <section id="tax" class="wrap split">
+      <div>
+        <div class="kicker">Tax, built in</div>
+        <h2>The forms fill themselves from your books.</h2>
+        <p class="sub">Country packs carry each year's rates, deadlines and forms, with the source for every number.</p>
+        <ul class="list">
+          <li>
+            Israel: Form 1301 printed over the official form, a proof pack PDF, and a planner for osek zair's 30% deemed expenses, Bituach Leumi, pension and
+            credit points.
+          </li>
+          <li>US: Form 5472 and pro forma 1120 for a foreign-owned single-member LLC, with filing deadlines and a checklist.</li>
+          <li>Cross-border: one person, both countries. Treaty withholding and what each country taxes, in one place.</li>
+          <li>Taxximizer asks the questions an accountant would and shows what each answer is worth.</li>
+        </ul>
+      </div>
+      <div class="shot" style="margin: 0">
+        <div class="bar"><i></i><i></i><i></i><span class="mono">openbooks / taxximizer</span></div>
+        <picture>
+          <source srcset="img/taxximizer-dark.webp" media="(prefers-color-scheme: dark)" />
+          <img src="img/taxximizer-light.webp" alt="Taxximizer: tax savings for an Israeli osek" width="2880" height="1800" />
+        </picture>
+      </div>
+    </section>
+
+    <section id="private" class="wrap split">
+      <div class="term mono" aria-label="Install">
+        <div class="c"># download, run, done</div>
+        <div><span class="p">$</span> ./openbooks</div>
+        <div class="c">→ http://127.0.0.1:8765</div>
+        <br />
+        <div class="c"># or plug it into Claude</div>
+        <div><span class="p">$</span> claude mcp add openbooks -- ./openbooks mcp</div>
+        <br />
+        <div class="c"># or from source</div>
+        <div><span class="p">$</span> bun install && bun apps/server/src/main.ts</div>
+      </div>
+      <div>
+        <div class="kicker">Private by design</div>
+        <h2>No servers. Nothing to breach.</h2>
+        <ul class="list">
+          <li>Your books are one SQLite file. Back up the folder and you've backed up everything.</li>
+          <li>Bank logins and API keys are sealed with a passphrase (AES-256-GCM, scrypt).</li>
+          <li>Listens on 127.0.0.1 only. Blocks other websites and DNS rebinding.</li>
+          <li>Privacy mode scrambles every number for screenshots and screen-shares.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="stats">
+        <div><b>$0</b><span>forever, AGPL-3.0</span></div>
+        <div><b>1 file</b><span>your whole books</span></div>
+        <div><b>2</b><span>countries, more welcome</span></div>
+        <div><b>0</b><span>accounts to create</span></div>
+      </div>
+
+      <div class="final">
+        <div class="kicker">See it with real-looking numbers</div>
+        <h2>Click around two made-up businesses.</h2>
+        <p class="sub" style="margin-inline: auto">
+          A US LLC and an Israeli osek zair, 21 months of transactions. Every total is computed by the same engine you'd run at home.
+        </p>
+        <div class="cta">
+          <a class="btn primary lg" href="demo/">Open the live demo →</a
+          ><a class="btn ghost lg" href="https://github.com/DerpcatMusic/openbooks">Star on GitHub</a>
+        </div>
+      </div>
+
+      <footer>
+        <span>OpenBooks is a tool, not tax advice. Have a professional review anything you file.</span>
+        <span
+          ><a href="https://github.com/DerpcatMusic/openbooks">GitHub</a> ·
+          <a href="https://github.com/DerpcatMusic/openbooks/blob/main/LICENSE">AGPL-3.0</a></span
+        >
+      </footer>
+    </section>
+
+    <script>
+      const pic = document.getElementById("shot"),
+        label = document.getElementById("shot-url");
+      for (const b of document.querySelectorAll("[data-shot]"))
+        b.addEventListener("click", () => {
+          document.querySelectorAll("[data-shot]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+          const n = b.dataset.shot;
+          pic.querySelector("source").srcset = `img/${n}-dark.webp`;
+          pic.querySelector("img").src = `img/${n}-light.webp`;
+          label.textContent = `openbooks / ${n === "tax-il" ? "tax/il" : n}`;
+        });
+    </script>
+  </body>
+</html>

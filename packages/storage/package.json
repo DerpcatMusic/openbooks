@@ -1,0 +1,17 @@
+{
+  "name": "@openbooks/storage",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/country-il": "workspace:*",
+    "@openbooks/country-us": "workspace:*",
+    "@openbooks/importers": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "effect": "4.0.1"
+  }
+}

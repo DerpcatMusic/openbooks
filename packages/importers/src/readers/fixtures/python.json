@@ -1,0 +1,571 @@
+{
+ "pdf": {
+  "rows": [
+   {
+    "date": "2025-03-01",
+    "amount": 2500.5,
+    "desc": "ישראל ישראלי העברה מ",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "a.pdf",
+    "page": 1,
+    "key": "10,000.00"
+   },
+   {
+    "date": "2025-03-09",
+    "amount": 1000.0,
+    "desc": "בע\"מ x תשלום מלקוח",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "a.pdf",
+    "page": 2,
+    "key": "12,500.50"
+   },
+   {
+    "date": "2025-03-15",
+    "amount": 200.0,
+    "desc": "חיוב - בע\"מ x",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "a.pdf",
+    "page": 2,
+    "key": "13,500.50"
+   }
+  ],
+  "checks": [
+   {
+    "file": "a.pdf",
+    "label": "One Zero statement",
+    "period": [
+     "2025-03-01",
+     "2025-03-31"
+    ],
+    "parsed": 3700.5,
+    "total": 3500.5
+   }
+  ],
+  "uidAmounts": [
+   "2500.5",
+   "1000.0",
+   "200.0"
+  ]
+ },
+ "pdf-first": {
+  "rows": [
+   {
+    "date": "2025-04-19",
+    "amount": 7.25,
+    "desc": "01/04/2025-30/04/2025 tail",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "first.pdf",
+    "page": 1,
+    "key": "1.00"
+   }
+  ],
+  "checks": [
+   {
+    "file": "first.pdf",
+    "label": "One Zero statement",
+    "period": [
+     "2025-04-01",
+     "2025-04-30"
+    ],
+    "parsed": 7.25,
+    "total": 7.25
+   }
+  ],
+  "uidAmounts": [
+   "7.25"
+  ]
+ },
+ "sync": {
+  "rows": [
+   {
+    "date": "2025-05-01",
+    "amount": 300,
+    "desc": "in",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 1,
+    "key": "z1"
+   },
+   {
+    "date": "2025-05-01",
+    "amount": 300.0,
+    "desc": "float literal",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 2,
+    "key": "77"
+   },
+   {
+    "date": "2025-05-02",
+    "amount": 12.5,
+    "desc": "",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 3,
+    "key": "None"
+   },
+   {
+    "date": "2025-05-02",
+    "amount": 100.0,
+    "desc": "exp",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 4,
+    "key": ""
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "300",
+   "300.0",
+   "12.5",
+   "100.0"
+  ]
+ },
+ "sync-all": {
+  "rows": [
+   {
+    "date": "2025-05-01",
+    "amount": 300,
+    "desc": "in",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 1,
+    "key": "z1"
+   },
+   {
+    "date": "2025-05-01",
+    "amount": 300.0,
+    "desc": "float literal",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 2,
+    "key": "77"
+   },
+   {
+    "date": "2025-05-02",
+    "amount": 12.5,
+    "desc": "",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 3,
+    "key": "None"
+   },
+   {
+    "date": "2025-05-02",
+    "amount": 100.0,
+    "desc": "exp",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 4,
+    "key": ""
+   },
+   {
+    "date": "2025-05-02",
+    "amount": -50,
+    "desc": "out",
+    "source": "bank",
+    "account": "One Zero",
+    "file": "onezero-sync.json",
+    "page": 5,
+    "key": "z2"
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "300",
+   "300.0",
+   "12.5",
+   "100.0",
+   "-50"
+  ]
+ },
+ "hapoalim": {
+  "rows": [
+   {
+    "date": "2025-03-02",
+    "amount": 1000.0,
+    "desc": "משכורת",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 1,
+    "key": "Hapoalim ••1234|111|"
+   },
+   {
+    "date": "2025-03-06",
+    "amount": -20.0,
+    "desc": "Coffee",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 2,
+    "key": "Hapoalim ••1234|2025-03-06|-20.0|Coffee|0|"
+   },
+   {
+    "date": "2025-03-06",
+    "amount": -20.0,
+    "desc": "Coffee",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 3,
+    "key": "Hapoalim ••1234|2025-03-06|-20.0|Coffee|1|"
+   },
+   {
+    "date": "2025-07-01",
+    "amount": -33.34,
+    "desc": "summer, before midnight",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 4,
+    "key": "Hapoalim ••1234|2025-07-01|-33.34|summer, before midnight|0|"
+   },
+   {
+    "date": "2025-07-02",
+    "amount": -1.0,
+    "desc": "summer, midnight",
+    "memo": "note",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 5,
+    "key": "Hapoalim ••1234|113|"
+   },
+   {
+    "date": "2025-01-01",
+    "amount": 5.0,
+    "desc": "",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 6,
+    "key": "Hapoalim ••1234|114.5|"
+   },
+   {
+    "date": "2025-01-02",
+    "amount": 5.0,
+    "desc": "12",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 7,
+    "key": "Hapoalim ••1234|x|"
+   },
+   {
+    "date": "not a date",
+    "amount": 5.0,
+    "desc": "bad date",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 8,
+    "key": "Hapoalim ••1234|y|"
+   },
+   {
+    "date": "2025-02-30",
+    "amount": 5.0,
+    "desc": "invalid day",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 9,
+    "key": "Hapoalim ••1234|z|"
+   },
+   {
+    "date": "2025-03-09",
+    "amount": 5.0,
+    "desc": "offset",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••1234",
+    "file": "hapoalim-sync.json",
+    "page": 10,
+    "key": "Hapoalim ••1234|w|"
+   },
+   {
+    "date": "2025-03-06",
+    "amount": -20.0,
+    "desc": "Coffee",
+    "memo": "",
+    "source": "scraper:hapoalim",
+    "account": "Hapoalim ••",
+    "file": "hapoalim-sync.json",
+    "page": 11,
+    "key": "Hapoalim ••|2025-03-06|-20.0|Coffee|0|"
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "1000.0",
+   "-20.0",
+   "-20.0",
+   "-33.34",
+   "-1.0",
+   "5.0",
+   "5.0",
+   "5.0",
+   "5.0",
+   "5.0",
+   "-20.0"
+  ]
+ },
+ "max": {
+  "rows": [
+   {
+    "date": "2025-02-11",
+    "amount": -45.3,
+    "desc": "SOFTWARE INC",
+    "memo": "-12.5 USD",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 1,
+    "key": "max ••5678|a1|"
+   },
+   {
+    "date": "2025-03-02",
+    "amount": -100.0,
+    "desc": "Laptop",
+    "memo": "installment 2/6",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 2,
+    "key": "max ••5678|i1|2"
+   },
+   {
+    "date": "2025-04-02",
+    "amount": -100.0,
+    "desc": "Laptop",
+    "memo": "installment 3/6",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 3,
+    "key": "max ••5678|i1|3"
+   },
+   {
+    "date": "2025-02-11",
+    "amount": -9.0,
+    "desc": "same currency",
+    "memo": "",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 4,
+    "key": "max ••5678|e1|"
+   },
+   {
+    "date": "2025-02-11",
+    "amount": -1.0,
+    "desc": "no charged currency",
+    "memo": "None EUR",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 5,
+    "key": "max ••5678|e2|"
+   },
+   {
+    "date": "2025-05-01",
+    "amount": -1.0,
+    "desc": "",
+    "memo": "installment None/3",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 6,
+    "key": "max ••5678|i2|"
+   },
+   {
+    "date": "2025-01-16",
+    "amount": -1.0,
+    "desc": "",
+    "memo": "",
+    "source": "scraper:max",
+    "account": "max ••5678",
+    "file": "max-sync.json",
+    "page": 7,
+    "key": "max ••5678|i3|"
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "-45.3",
+   "-100.0",
+   "-100.0",
+   "-9.0",
+   "-1.0",
+   "-1.0",
+   "-1.0"
+  ]
+ },
+ "bit": {
+  "rows": [
+   {
+    "date": "2025-03-01",
+    "amount": 150.0,
+    "desc": "bit: Dana Levi T1",
+    "source": "bit",
+    "account": "bit",
+    "who": "Dana Levi",
+    "file": "bit.csv",
+    "page": 2,
+    "key": "T1"
+   },
+   {
+    "date": "2025-03-15",
+    "amount": 1200.5,
+    "desc": "bit: Levi, Dana T2",
+    "source": "bit",
+    "account": "bit",
+    "who": "Levi, Dana",
+    "file": "bit.csv",
+    "page": 3,
+    "key": "T2"
+   },
+   {
+    "date": "2025-03-18",
+    "amount": 75.5,
+    "desc": "bit: Multi\nLine T6",
+    "source": "bit",
+    "account": "bit",
+    "who": "Multi\nLine",
+    "file": "bit.csv",
+    "page": 8,
+    "key": "T6"
+   },
+   {
+    "date": "2025-03-20",
+    "amount": 9.0,
+    "desc": "bit: Quote\"in T8",
+    "source": "bit",
+    "account": "bit",
+    "who": "Quote\"in",
+    "file": "bit.csv",
+    "page": 10,
+    "key": "T8"
+   },
+   {
+    "date": "2025-03-21",
+    "amount": 9.0,
+    "desc": "bit: Closedtail T9",
+    "source": "bit",
+    "account": "bit",
+    "who": "Closedtail",
+    "file": "bit.csv",
+    "page": 11,
+    "key": "T9"
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "150.0",
+   "1200.5",
+   "75.5",
+   "9.0",
+   "9.0"
+  ]
+ },
+ "bit-noowner": {
+  "rows": [
+   {
+    "date": "2025-03-01",
+    "amount": 150.0,
+    "desc": "bit: Dana Levi T1",
+    "source": "bit",
+    "account": "bit",
+    "who": "Dana Levi",
+    "file": "bit.csv",
+    "page": 2,
+    "key": "T1"
+   },
+   {
+    "date": "2025-03-15",
+    "amount": 1200.5,
+    "desc": "bit: Levi, Dana T2",
+    "source": "bit",
+    "account": "bit",
+    "who": "Levi, Dana",
+    "file": "bit.csv",
+    "page": 3,
+    "key": "T2"
+   },
+   {
+    "date": "2025-03-17",
+    "amount": 500.0,
+    "desc": "bit: Me Myself T5",
+    "source": "bit",
+    "account": "bit",
+    "who": "Me Myself",
+    "file": "bit.csv",
+    "page": 6,
+    "key": "T5"
+   },
+   {
+    "date": "2025-03-18",
+    "amount": 75.5,
+    "desc": "bit: Multi\nLine T6",
+    "source": "bit",
+    "account": "bit",
+    "who": "Multi\nLine",
+    "file": "bit.csv",
+    "page": 8,
+    "key": "T6"
+   },
+   {
+    "date": "2025-03-20",
+    "amount": 9.0,
+    "desc": "bit: Quote\"in T8",
+    "source": "bit",
+    "account": "bit",
+    "who": "Quote\"in",
+    "file": "bit.csv",
+    "page": 10,
+    "key": "T8"
+   },
+   {
+    "date": "2025-03-21",
+    "amount": 9.0,
+    "desc": "bit: Closedtail T9",
+    "source": "bit",
+    "account": "bit",
+    "who": "Closedtail",
+    "file": "bit.csv",
+    "page": 11,
+    "key": "T9"
+   }
+  ],
+  "checks": [],
+  "uidAmounts": [
+   "150.0",
+   "1200.5",
+   "500.0",
+   "75.5",
+   "9.0",
+   "9.0"
+  ]
+ }
+}

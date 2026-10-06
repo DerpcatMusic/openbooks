@@ -1,0 +1,135 @@
+{
+ "source": "scraper",
+ "companyId": "hapoalim",
+ "name": "Hapoalim",
+ "accounts": [
+  {
+   "accountNumber": "12-345-001234",
+   "balance": 900,
+   "txns": [
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": 111,
+     "date": "2025-03-01T22:00:00.000Z",
+     "processedDate": "2025-03-01T22:00:00.000Z",
+     "originalAmount": 1000,
+     "chargedAmount": 1000,
+     "description": "משכורת"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "date": "2025-03-05T22:00:00.000Z",
+     "processedDate": "2025-03-05T22:00:00.000Z",
+     "originalAmount": -20,
+     "chargedAmount": -20,
+     "description": "Coffee"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "date": "2025-03-05T22:00:00.000Z",
+     "processedDate": "2025-03-05T22:00:00.000Z",
+     "originalAmount": -20,
+     "chargedAmount": -20,
+     "description": "  Coffee  "
+    },
+    {
+     "type": "normal",
+     "status": "pending",
+     "originalCurrency": "ILS",
+     "identifier": 112,
+     "date": "2025-03-07T22:00:00.000Z",
+     "processedDate": "2025-03-07T22:00:00.000Z",
+     "originalAmount": -60,
+     "chargedAmount": -60,
+     "description": "pending"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": 0,
+     "date": "2025-07-01T20:59:59+00:00",
+     "chargedAmount": "-33.335",
+     "description": "summer, before midnight"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": 113,
+     "date": "2025-07-01T21:00:00Z",
+     "chargedAmount": -1.005,
+     "description": "summer, midnight",
+     "memo": "note"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": 114.5,
+     "date": "2025-01-01",
+     "chargedAmount": 5,
+     "description": null
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": "x",
+     "date": "2025-01-02T10:00:00",
+     "chargedAmount": 5,
+     "description": 12
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": "y",
+     "date": "not a date at all",
+     "chargedAmount": 5,
+     "description": "bad\u001cdate"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": "z",
+     "date": "2025-02-30T10:00:00Z",
+     "chargedAmount": 5,
+     "description": "invalid day"
+    },
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "identifier": "w",
+     "date": "2025-03-10T01:30:00+05:30",
+     "chargedAmount": 5,
+     "description": "offset"
+    }
+   ]
+  },
+  {
+   "accountNumber": 98765,
+   "txns": []
+  },
+  {
+   "txns": [
+    {
+     "type": "normal",
+     "status": "completed",
+     "originalCurrency": "ILS",
+     "date": "2025-03-05T22:00:00.000Z",
+     "chargedAmount": -20,
+     "description": "Coffee"
+    }
+   ]
+  }
+ ]
+}

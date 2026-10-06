@@ -1,0 +1,25 @@
+{
+  "name": "@openbooks/server",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/country-il": "workspace:*",
+    "@openbooks/country-us": "workspace:*",
+    "@openbooks/importers": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "@openbooks/storage": "workspace:*",
+    "@openbooks/tools": "workspace:*",
+    "effect": "4.0.1",
+    "israeli-bank-scrapers": "6.12.2",
+    "pdf-lib": "1.17.1",
+    "puppeteer-core": "24.43.1"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1"
+  }
+}

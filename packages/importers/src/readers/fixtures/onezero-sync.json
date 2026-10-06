@@ -1,0 +1,7 @@
+{"source": "onezero", "syncedAt": "2025-05-03T10:00:00", "accounts": [{"accountNumber": "9", "txns": [
+{"identifier": "z0", "date": "2025-03-31T00:00:00", "chargedAmount": 999, "description": "covered by the PDF"},
+{"identifier": "z1", "date": "2025-05-01T00:00:00", "chargedAmount": 300, "description": "in"},
+{"identifier": 77, "date": "2025-05-01T09:00:00", "chargedAmount": 300.0, "description": "float literal"},
+{"identifier": null, "date": "2025-05-02T00:00:00", "chargedAmount": 12.5},
+{"date": "2025-05-02T00:00:00", "chargedAmount": 1e2, "description": "exp"},
+{"identifier": "z2", "date": "2025-05-02T00:00:00", "chargedAmount": -50, "description": "out"}]}, {"accountNumber": "10"}]}

@@ -1,0 +1,268 @@
+[
+ {
+  "id": "us-w8ben-royalties-treaty",
+  "country": "us",
+  "title_en": "W-8BEN treaty claim: 10% on copyright / film royalties",
+  "title_he": "W-8BEN – שיעור אמנה של 10% על תמלוגי זכויות יוצרים",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "llc-disregarded"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "usRoyalties",
+    "q_en": "US-source royalties/AdSense paid to you (USD)",
+    "q_he": "תמלוגים / אדסנס ממקור אמריקאי ששולמו לך (דולר)",
+    "type": "number"
+   }
+  ],
+  "rule": "Israeli resident individual (also the owner of a disregarded LLC, who signs the W-8BEN in their own name). Rates: copyright and film/TV 10%, patents / industrial 15%, versus 30% default.",
+  "saving": "usRoyalties*(0.30-0.10)",
+  "values": {
+   "default": 0.3,
+   "copyright": 0.1,
+   "filmTV": 0.1,
+   "industrial": 0.15,
+   "interestGeneral": 0.175,
+   "dividends": 0.25
+  },
+  "how_en": "Submit W-8BEN in AdSense / platform tax info: claim treaty Art. 14 per the platform form, Israeli TIN (ת.ז.).",
+  "how_he": "למלא W-8BEN בפרטי המס של אדסנס / הפלטפורמה, להצהיר על תושבות ישראלית לפי האמנה ולציין מספר זהות.",
+  "risk": "none",
+  "source": "https://www.irs.gov/pub/irs-lbi/tax-treaty-table-1.pdf",
+  "verified": true
+ },
+ {
+  "id": "us-services-no-withholding",
+  "country": "us",
+  "title_en": "Services done in Israel = no US withholding",
+  "title_he": "שירותים שבוצעו בישראל – ללא ניכוי מס בארה\"ב",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "usClientFees",
+    "q_en": "Fees from US clients for work done in Israel",
+    "q_he": "שכר טרחה מלקוחות בארה\"ב על עבודה שבוצעה בישראל",
+    "type": "number"
+   }
+  ],
+  "rule": "Services performed outside the US are foreign-source, so there is no chapter 3 withholding. Give the W-8BEN (or W-8BEN-E for a Ltd), never a W-9 (an LLC owned by a foreigner still gives the owner's W-8BEN).",
+  "saving": "avoid erroneous 30% / backup withholding",
+  "values": {},
+  "how_en": "Send the W-8BEN with the first invoice; keep a copy.",
+  "how_he": "לשלוח W-8BEN עם החשבונית הראשונה ולשמור עותק.",
+  "risk": "none",
+  "source": "IRC §861/862; secondary",
+  "verified": false
+ },
+ {
+  "id": "us-reclaim-overwithheld",
+  "country": "us",
+  "title_en": "Reclaim excess US withholding (1040-NR)",
+  "title_he": "החזר ניכוי יתר בארה\"ב (1040-NR)",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "llc-disregarded"
+  ],
+  "kind": "refund",
+  "ask": [
+   {
+    "key": "usWithheldPct",
+    "q_en": "Rate actually withheld on 1042-S",
+    "q_he": "שיעור הניכוי בפועל לפי 1042-S",
+    "type": "number"
+   }
+  ],
+  "rule": "If usWithheldPct > treaty rate, Israel won't credit the excess, so file 1040-NR (needs an ITIN) within 3 years.",
+  "saving": "(withheld - treaty)*income",
+  "values": {},
+  "how_en": "File 1040-NR with 1042-S and form 8833 if needed.",
+  "how_he": "להגיש 1040-NR עם טופס 1042-S (ו-8833 במידת הצורך).",
+  "risk": "low",
+  "source": "https://www.irs.gov/forms-pubs/about-form-1040-nr",
+  "verified": false
+ },
+ {
+  "id": "us-5472-pro-forma",
+  "country": "us",
+  "title_en": "Form 5472 + pro forma 1120 every year",
+  "title_he": "טופס 5472 ו-1120 פרו-פורמה מדי שנה",
+  "applies_to": [
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "llcFormed",
+    "q_en": "Year the LLC was formed",
+    "q_he": "שנת הקמת ה-LLC",
+    "type": "year"
+   }
+  ],
+  "rule": "Foreign-owned disregarded LLC with any reportable transaction (capital contribution, owner draws, payments) must file, even with zero income. Penalty $25,000 per form per year.",
+  "saving": "avoid $25,000+",
+  "values": {
+   "penalty": 25000,
+   "due": "Apr 15 (Form 7004 extends to Oct 15)"
+  },
+  "how_en": "Mail/fax pro forma 1120 + 5472 to the IRS; file 7004 by Apr 15 if needed.",
+  "how_he": "לשלוח לרשות המסים האמריקאית 1120 פרו-פורמה עם 5472 בדואר / פקס; להגיש 7004 עד 15.4 אם צריך הארכה.",
+  "risk": "none",
+  "source": "https://www.irs.gov/forms-pubs/about-form-5472",
+  "verified": false
+ },
+ {
+  "id": "us-state-choice",
+  "country": "us",
+  "title_en": "State choice and annual fees",
+  "title_he": "בחירת מדינת ההתאגדות ואגרות שנתיות",
+  "applies_to": [
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "llcState",
+    "q_en": "State of formation",
+    "q_he": "מדינת ההתאגדות",
+    "type": "select",
+    "options": [
+     "WY",
+     "NM",
+     "DE",
+     "other"
+    ]
+   }
+  ],
+  "rule": "With no US nexus there is no state income tax; cost is fees + registered agent. WY ~$60/yr report, NM no annual report, DE $400/yr LLC tax.",
+  "saving": "fee difference",
+  "values": {
+   "WY": 60,
+   "NM": 0,
+   "DE": 400
+  },
+  "how_en": "Pay the annual report / franchise tax on time to avoid dissolution.",
+  "how_he": "לשלם את הדוח השנתי / מס הזיכיון בזמן כדי למנוע ביטול ההתאגדות.",
+  "risk": "none",
+  "source": "state SOS sites (secondary)",
+  "verified": false
+ },
+ {
+  "id": "us-avoid-eci",
+  "country": "us",
+  "title_en": "Keep income non-ECI (no US trade/PE)",
+  "title_he": "להימנע מהכנסה הקשורה לעסק בארה\"ב (ECI)",
+  "applies_to": [
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "usPresence",
+    "q_en": "Any US office, employees, dependent agents, inventory, or work performed in the US?",
+    "q_he": "האם יש בארה\"ב משרד, עובדים, סוכן תלוי, מלאי, או עבודה שמבוצעת שם?",
+    "type": "bool"
+   }
+  ],
+  "rule": "!usPresence → no US income tax on business profits (treaty Art. 8 PE). With a US presence, a 1040-NR return or C-corp tax applies.",
+  "saving": "US tax avoided",
+  "values": {},
+  "how_en": "Perform work from Israel and document it; avoid US fulfilment / agents.",
+  "how_he": "לבצע את העבודה מישראל ולתעד; להימנע מסוכנים או ממרכזי שילוח בארה\"ב.",
+  "risk": "low",
+  "source": "US–Israel treaty Art. 8 (secondary)",
+  "verified": false
+ },
+ {
+  "id": "us-ccorp-pitfalls",
+  "country": "us",
+  "title_en": "C-corp election pitfalls for Israeli residents",
+  "title_he": "מלכודות בבחירת C-Corp לתושב ישראל",
+  "applies_to": [
+   "llc-ccorp"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "managedFromIsrael",
+    "q_en": "Are decisions made from Israel?",
+    "q_he": "האם ההחלטות מתקבלות מישראל?",
+    "type": "bool"
+   }
+  ],
+  "rule": "21% federal tax + state; dividends to Israel bear 25%/12.5% US tax plus Israeli 30% with credit. If managedFromIsrael, it can be an Israeli-resident company (23%) → double tax. §75ב CFC / §75ב1 foreign professional company can attribute profits. Usually inferior to disregarded + Israeli transparency.",
+  "saving": "avoid double taxation",
+  "values": {
+   "usCorp": 0.21
+  },
+  "how_en": "Revisit with a cross-border CPA; consider reverting via Form 8832 (60-month rule).",
+  "how_he": "לבחון מחדש עם רו\"ח המתמחה במיסוי בינלאומי; לשקול חזרה לסיווג שקוף בטופס 8832 (בכפוף לכלל 60 החודשים).",
+  "risk": "high",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_75ב1",
+  "verified": false
+ },
+ {
+  "id": "us-llc-fbar-boi",
+  "country": "us",
+  "title_en": "FBAR for the LLC; BOI no longer needed",
+  "title_he": "FBAR ל-LLC ו-BOI שאינו נדרש עוד",
+  "applies_to": [
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "llcForeignAccounts",
+    "q_en": "Does the LLC hold non-US accounts (e.g. Israeli bank, Wise EU) with an aggregate > $10k?",
+    "q_he": "האם ל-LLC חשבונות מחוץ לארה\"ב (בנק ישראלי, Wise אירופה) ביתרה מצטברת מעל 10,000$?",
+    "type": "bool"
+   }
+  ],
+  "rule": "A US LLC is a US person for FBAR even if disregarded. A non-US owner has no personal FBAR. Domestic companies are exempt from BOI (FinCEN, March 2025).",
+  "saving": "penalty avoidance",
+  "values": {
+   "fbarThreshold": 10000
+  },
+  "how_en": "FinCEN 114 by Apr 15 (auto-extension to Oct 15).",
+  "how_he": "להגיש FinCEN 114 עד 15.4 (הארכה אוטומטית עד 15.10).",
+  "risk": "low",
+  "source": "FinCEN (secondary)",
+  "verified": false
+ },
+ {
+  "id": "us-sec179-only-eci",
+  "country": "us",
+  "title_en": "Section 179 / bonus depreciation only if US-taxable",
+  "title_he": "פחת מואץ (סעיף 179) רלוונטי רק כשיש חבות מס בארה\"ב",
+  "applies_to": [
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "deduction",
+  "ask": [],
+  "rule": "No ECI means US deductions are irrelevant. Depreciation follows Israeli rates on the Israeli return.",
+  "saving": "0 unless ECI",
+  "values": {},
+  "how_en": "Use the Israeli depreciation schedule.",
+  "how_he": "להשתמש בלוח הפחת הישראלי.",
+  "risk": "none",
+  "source": "secondary",
+  "verified": false
+ }
+]

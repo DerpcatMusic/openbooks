@@ -1,0 +1,8 @@
+{
+ "name": "openbooks-connectors",
+ "private": true,
+ "type": "module",
+ "dependencies": {
+  "israeli-bank-scrapers": "^6.12.2"
+ }
+}

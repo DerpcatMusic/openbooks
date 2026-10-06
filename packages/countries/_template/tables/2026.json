@@ -1,0 +1,8 @@
+{
+  "note": "Example only",
+  "brackets": [
+    [10000, 0],
+    [null, 0.2]
+  ],
+  "sources": { "brackets": { "url": "https://example.org/official-rates", "effective": "2026-01-01" } }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@openbooks/country-template",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "effect": "4.0.1"
+  }
+}
