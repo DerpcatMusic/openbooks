@@ -1,0 +1,8 @@
+{
+  "biz.llc-disregarded": "Single-member LLC",
+  "biz.llc-disregarded.sub": "Disregarded · 5472 + pro forma 1120 for foreign owners",
+  "biz.llc-ccorp": "LLC taxed as C-corp",
+  "biz.llc-ccorp.sub": "21% federal · Form 1120 · dividends withheld",
+  "biz.llc-partnership": "Multi-member LLC",
+  "biz.llc-partnership.sub": "Partnership · Form 1065 + K-1s"
+}

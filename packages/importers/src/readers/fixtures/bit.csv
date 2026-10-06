@@ -1,0 +1,13 @@
+﻿Status,Transaction ID,Type,Amount,Currency,Direction,Name,Date
+Done,T1,Transfer,150,ILS,Credit,Dana Levi,01.03.25
+Done,T2,Transfer,"1,200.50",ILS,Credit,"Levi, Dana",15.03.25
+Done,T3,Transfer,40,ILS,Debit,Shop,16.03.25
+Pending,T4,Transfer,40,ILS,Credit,Dana Levi,16.03.25
+Done,T5,Transfer,500,ILS,Credit,Me Myself,17.03.25
+
+Done,T6,Transfer, 75.5 ,ILS,Credit,"Multi
+Line",18.03.25
+Done,T7,Transfer,,ILS,Credit,Empty,19.03.25
+Done,T8,Transfer,9,ILS,Credit,Quote"in,20.03.25
+Done,T9,Transfer,9,ILS,Credit,"Closed"tail,21.03.25,extra
+short,row

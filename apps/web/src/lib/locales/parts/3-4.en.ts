@@ -1,0 +1,22 @@
+// Item 3.4: transactions, drawer, review, counterparties, rules (keys new in the TS app; the rest are in a.en.ts / en.ts).
+export default {
+  "txn34.selectCol": "Select",
+  "txn34.more": "Showing {n} of {total} · show more",
+  "txn34.clearFilters": "Clear filters",
+  "txn34.year": "Tax year",
+  "txn34.showYear": "Show {year}",
+  "txn34.pickFirst": "Pick a ledger account first; the rule sends matches there.",
+  "txn34.catches": { one: "This text matches {n} transaction right now.", other: "This text matches {n} transactions right now." },
+  "txn34.attachHint": "Attach a receipt or invoice so it travels with the transaction.",
+  "review34.keys": "1–5 pick · / search · R remember · → skip · ← back · Z undo",
+  "rules34.actions": "Reorder or remove",
+  "rules34.preview": "Show the matching transactions",
+  "rules34.empty": "No rules yet",
+  "rules34.emptyText": "Add one here, or choose “Create rule” after categorizing a transaction.",
+  "rules34.previewTitle": "Matches for “{rule}”",
+  "rules34.previewHelp": "These transactions land on this rule (it's the first one that matches them) and go to {cat}.",
+  "rules34.unmatchedTitle": "Matched by no rule",
+  "rules34.unmatchedHelp": "No rule matches these. Rows you categorized by hand aren't counted.",
+  "rules34.draft": "Includes your unsaved changes.",
+  "rules34.andMore": { one: "…and {n} more", other: "…and {n} more" },
+};

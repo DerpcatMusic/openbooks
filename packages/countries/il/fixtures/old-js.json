@@ -1,0 +1,1356 @@
+{
+ "taxximizer": [
+  {
+   "input": {
+    "revenue": 100000,
+    "expenses": 10000,
+    "clients": "business",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 10000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": true,
+     "cost": 1800,
+     "vatCost": 0,
+     "tax": 0,
+     "bl": 4797.1,
+     "keep": 83402.9,
+     "cash": 72202.9,
+     "pension": 11200,
+     "zair": true,
+     "noteKey": "patur",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 11200
+      }
+     ]
+    },
+    {
+     "key": "murshe",
+     "label": "murshePlus",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": -1525.4237288135591,
+     "tax": 0,
+     "bl": 4797.1,
+     "keep": 80228.32372881356,
+     "cash": 69028.32372881356,
+     "pension": 11200,
+     "zair": true,
+     "noteKey": "murshePlus",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 11200
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": -1525.4237288135591,
+     "tax": 356.7327389830525,
+     "bl": 4006.6000000000004,
+     "keep": 44462.09098983051,
+     "cash": 44462.09098983051,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 46000,
+       "div": 596
+      }
+     ],
+     "salary": 46000,
+     "div": 595.8442711864434
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": -1525.4237288135591,
+     "tax": 0,
+     "bl": 6272.237288135593,
+     "keep": 74433.18644067796,
+     "cash": 59789.186440677964,
+     "pension": 14644,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 14644
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": -1525.4237288135591,
+     "tax": 442.66313898305236,
+     "bl": 5400.200000000001,
+     "keep": 59882.560589830515,
+     "cash": 59882.560589830515,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 62000,
+       "div": 739
+      }
+     ],
+     "salary": 62000,
+     "div": 739.3722711864432
+    }
+   ],
+   "best": "patur"
+  },
+  {
+   "input": {
+    "revenue": 100000,
+    "expenses": 10000,
+    "clients": "consumer",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 10000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": true,
+     "cost": 1800,
+     "vatCost": 0,
+     "tax": 0,
+     "bl": 4797.1,
+     "keep": 83402.9,
+     "cash": 72202.9,
+     "pension": 11200,
+     "zair": true,
+     "noteKey": "patur",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 11200
+      }
+     ]
+    },
+    {
+     "key": "murshe",
+     "label": "murshePlus",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": 13728.813559322025,
+     "tax": 0,
+     "bl": 4065.3389830508477,
+     "keep": 65705.84745762713,
+     "cash": 56213.847457627126,
+     "pension": 9492,
+     "zair": true,
+     "noteKey": "murshePlus",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 9492
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": 13728.813559322025,
+     "tax": 66.37774915254815,
+     "bl": 2787.2,
+     "keep": 30717.60869152543,
+     "cash": 30717.60869152543,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 32000,
+       "div": 111
+      }
+     ],
+     "salary": 32000,
+     "div": 110.86955932204356
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": 13728.813559322025,
+     "tax": 0,
+     "bl": 5226.864406779661,
+     "keep": 60224.32203389832,
+     "cash": 48021.32203389832,
+     "pension": 12203,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 12203
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": 13728.813559322025,
+     "tax": 152.30814915254808,
+     "bl": 4180.8,
+     "keep": 46138.07829152543,
+     "cash": 46138.07829152543,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 48000,
+       "div": 254
+      }
+     ],
+     "salary": 48000,
+     "div": 254.39755932204343
+    }
+   ],
+   "best": "patur"
+  },
+  {
+   "input": {
+    "revenue": 100000,
+    "expenses": 10000,
+    "clients": "foreign",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 10000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": true,
+     "cost": 1800,
+     "vatCost": 0,
+     "tax": 0,
+     "bl": 4797.1,
+     "keep": 83402.9,
+     "cash": 72202.9,
+     "pension": 11200,
+     "zair": true,
+     "noteKey": "patur",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 11200
+      }
+     ]
+    },
+    {
+     "key": "murshe",
+     "label": "murshePlus",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": -1525.4237288135591,
+     "tax": 0,
+     "bl": 4797.1,
+     "keep": 80228.32372881356,
+     "cash": 69028.32372881356,
+     "pension": 11200,
+     "zair": true,
+     "noteKey": "murshePlus",
+     "levers": [
+      {
+       "k": "zair"
+      },
+      {
+       "k": "pension",
+       "amount": 11200
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": -1525.4237288135591,
+     "tax": 356.7327389830525,
+     "bl": 4006.6000000000004,
+     "keep": 44462.09098983051,
+     "cash": 44462.09098983051,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 46000,
+       "div": 596
+      }
+     ],
+     "salary": 46000,
+     "div": 595.8442711864434
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": 0,
+     "tax": 0,
+     "bl": 6167.7,
+     "keep": 73012.3,
+     "cash": 58612.3,
+     "pension": 14400,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 14400
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": 0,
+     "tax": 221.00340000000006,
+     "bl": 5313.1,
+     "keep": 58665.8966,
+     "cash": 58665.8966,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 61000,
+       "div": 369
+      }
+     ],
+     "salary": 61000,
+     "div": 369.13800000000003
+    }
+   ],
+   "best": "patur"
+  },
+  {
+   "input": {
+    "revenue": 450000,
+    "expenses": 45000,
+    "clients": "business",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 45000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": false,
+     "why": {
+      "k": "ceiling",
+      "amount": 122833
+     }
+    },
+    {
+     "key": "murshe",
+     "label": "murshe",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": -6864.406779661018,
+     "tax": 69232.8557479322,
+     "bl": 60005.245220338984,
+     "keep": 276126.3058113898,
+     "cash": 238878.30581138982,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "murshe",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": -6864.406779661018,
+     "tax": 86854.86090142373,
+     "bl": 34444.086800000005,
+     "keep": 247865.45907823733,
+     "cash": 247865.45907823733,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 228904,
+       "div": 97071
+      }
+     ],
+     "salary": 228904,
+     "div": 97071.14554033898
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": -6864.406779661018,
+     "tax": 69232.8557479322,
+     "bl": 60005.245220338984,
+     "keep": 271806.3058113898,
+     "cash": 234558.30581138982,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": -6864.406779661018,
+     "tax": 94504.03420262373,
+     "bl": 34592.231199999995,
+     "keep": 256968.14137703727,
+     "cash": 256968.14137703727,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 229670,
+       "div": 109451
+      }
+     ],
+     "salary": 229670,
+     "div": 109450.79682433898
+    }
+   ],
+   "best": "murshe"
+  },
+  {
+   "input": {
+    "revenue": 450000,
+    "expenses": 45000,
+    "clients": "consumer",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 45000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": false,
+     "why": {
+      "k": "ceiling",
+      "amount": 122833
+     }
+    },
+    {
+     "key": "murshe",
+     "label": "murshe",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": 61779.6610169491,
+     "tax": 46840.67650991188,
+     "bl": 47649.31301694916,
+     "keep": 242230.34945618984,
+     "cash": 204982.34945618984,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "murshe",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": 61779.6610169491,
+     "tax": 55292.835413586465,
+     "bl": 34357.4436,
+     "keep": 210870.05996946446,
+     "cash": 210870.05996946446,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 228456,
+       "div": 44586
+      }
+     ],
+     "salary": 228456,
+     "div": 44585.631384949185
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": 61779.6610169491,
+     "tax": 46840.67650991188,
+     "bl": 47649.31301694916,
+     "keep": 237910.34945618984,
+     "cash": 200662.34945618984,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": 61779.6610169491,
+     "tax": 63070.41384398647,
+     "bl": 34371.3684,
+     "keep": 219978.55673906443,
+     "cash": 219978.55673906443,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 228528,
+       "div": 57539
+      }
+     ],
+     "salary": 228528,
+     "div": 57539.0999129492
+    }
+   ],
+   "best": "murshe"
+  },
+  {
+   "input": {
+    "revenue": 450000,
+    "expenses": 45000,
+    "clients": "foreign",
+    "points": 2.25,
+    "paturOk": true,
+    "fx": 3.6,
+    "costs": {},
+    "vatExpenses": 45000
+   },
+   "rows": [
+    {
+     "key": "patur",
+     "label": "patur",
+     "ok": false,
+     "why": {
+      "k": "ceiling",
+      "amount": 122833
+     }
+    },
+    {
+     "key": "murshe",
+     "label": "murshe",
+     "ok": true,
+     "cost": 6500,
+     "vatCost": -6864.406779661018,
+     "tax": 69232.8557479322,
+     "bl": 60005.245220338984,
+     "keep": 276126.3058113898,
+     "cash": 238878.30581138982,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "murshe",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ltd",
+     "label": "ltd",
+     "ok": true,
+     "cost": 42700,
+     "vatCost": -6864.406779661018,
+     "tax": 86854.86090142373,
+     "bl": 34444.086800000005,
+     "keep": 247865.45907823733,
+     "cash": 247865.45907823733,
+     "pension": 0,
+     "noteKey": "ltd",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 228904,
+       "div": 97071
+      }
+     ],
+     "salary": 228904,
+     "div": 97071.14554033898
+    },
+    {
+     "key": "llc",
+     "label": "llc",
+     "ok": true,
+     "cost": 10820,
+     "vatCost": 0,
+     "tax": 66990.60139200001,
+     "bl": 58769.652,
+     "keep": 268419.746608,
+     "cash": 231171.74660800002,
+     "pension": 37248,
+     "zair": false,
+     "noteKey": "llc",
+     "levers": [
+      {
+       "k": "actual"
+      },
+      {
+       "k": "pension",
+       "amount": 37248
+      }
+     ]
+    },
+    {
+     "key": "ccorp",
+     "label": "ccorp",
+     "ok": true,
+     "cost": 25800,
+     "vatCost": 0,
+     "tax": 91386.53821439999,
+     "bl": 34543.1076,
+     "keep": 253270.3541856,
+     "cash": 253270.3541856,
+     "pension": 0,
+     "noteKey": "ccorp",
+     "levers": [
+      {
+       "k": "salaryDiv",
+       "salary": 229416,
+       "div": 104375
+      }
+     ],
+     "salary": 229416,
+     "div": 104375.217408
+    }
+   ],
+   "best": "murshe"
+  }
+ ],
+ "plans": [
+  {
+   "input": {
+    "turnover": 26000,
+    "expenses": 20000,
+    "zair": true,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 18200,
+    "pensionDed": 2002,
+    "pensionCredit": 0,
+    "blBase": 41304,
+    "bl": 1846.2887999999998,
+    "health": 1334.1192,
+    "blDed": 0,
+    "taxable": 15698,
+    "gross": 1569.8000000000002,
+    "pointsCredit": 1569.8000000000002,
+    "donationCredit": 0,
+    "tax": 0,
+    "total": 3180.408,
+    "toPay": 0,
+    "effective": 0.12232338461538461,
+    "keep": 22819.592
+   }
+  },
+  {
+   "input": {
+    "turnover": 120000,
+    "expenses": 20000,
+    "zair": true,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 84000,
+    "pensionDed": 9240,
+    "pensionCredit": 0,
+    "blBase": 74760,
+    "bl": 3341.772,
+    "health": 2414.748,
+    "blDed": 0,
+    "taxable": 74260,
+    "gross": 7426,
+    "pointsCredit": 7426,
+    "donationCredit": 0,
+    "tax": 0,
+    "total": 5756.52,
+    "toPay": 0,
+    "effective": 0.04797100000000001,
+    "keep": 114243.48
+   }
+  },
+  {
+   "input": {
+    "turnover": 260000,
+    "expenses": 20000,
+    "zair": true,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 182000,
+    "pensionDed": 10000,
+    "pensionCredit": 0,
+    "blBase": 172000,
+    "bl": 14339.9504,
+    "health": 7099.141600000001,
+    "blDed": 0,
+    "taxable": 171500,
+    "gross": 23692,
+    "pointsCredit": 7986,
+    "donationCredit": 350,
+    "tax": 15256,
+    "total": 36695.092000000004,
+    "toPay": 15256,
+    "effective": 0.14113496923076924,
+    "keep": 223304.908
+   }
+  },
+  {
+   "input": {
+    "turnover": 900000,
+    "expenses": 20000,
+    "zair": true,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 630000,
+    "pensionDed": 10000,
+    "pensionCredit": 0,
+    "blBase": 620000,
+    "bl": 71818.35040000001,
+    "health": 30260.7416,
+    "blDed": 0,
+    "taxable": 619500,
+    "gross": 176195.4,
+    "pointsCredit": 7986,
+    "donationCredit": 350,
+    "tax": 167759.4,
+    "total": 269838.492,
+    "toPay": 167759.4,
+    "effective": 0.2998205466666667,
+    "keep": 630161.5079999999
+   }
+  },
+  {
+   "input": {
+    "turnover": 26000,
+    "expenses": 20000,
+    "zair": false,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 6000,
+    "pensionDed": 660,
+    "pensionCredit": 0,
+    "blBase": 41304,
+    "bl": 1846.2887999999998,
+    "health": 1334.1192,
+    "blDed": 960.070176,
+    "taxable": 3879.929824,
+    "gross": 387.9929824,
+    "pointsCredit": 387.9929824,
+    "donationCredit": 0,
+    "tax": 0,
+    "total": 3180.408,
+    "toPay": 0,
+    "effective": 0.12232338461538461,
+    "keep": 2819.592
+   }
+  },
+  {
+   "input": {
+    "turnover": 120000,
+    "expenses": 20000,
+    "zair": false,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 100000,
+    "pensionDed": 10000,
+    "pensionCredit": 0,
+    "blBase": 90000,
+    "bl": 4022.9999999999995,
+    "health": 2907,
+    "blDed": 2091.96,
+    "taxable": 87408.04,
+    "gross": 8872.325599999998,
+    "pointsCredit": 7986,
+    "donationCredit": 350,
+    "tax": 436.3255999999983,
+    "total": 7366.325599999998,
+    "toPay": 436.3255999999983,
+    "effective": 0.06138604666666665,
+    "keep": 92633.6744
+   }
+  },
+  {
+   "input": {
+    "turnover": 260000,
+    "expenses": 20000,
+    "zair": false,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 240000,
+    "pensionDed": 10000,
+    "pensionCredit": 0,
+    "blBase": 230000,
+    "bl": 21781.350399999996,
+    "health": 10097.741600000001,
+    "blDed": 11326.302207999997,
+    "taxable": 218173.697792,
+    "gross": 33026.739558400004,
+    "pointsCredit": 7986,
+    "donationCredit": 350,
+    "tax": 24590.739558400004,
+    "total": 56469.8315584,
+    "toPay": 24590.739558400004,
+    "effective": 0.21719165984,
+    "keep": 183530.1684416
+   }
+  },
+  {
+   "input": {
+    "turnover": 900000,
+    "expenses": 20000,
+    "zair": false,
+    "points": 2.75,
+    "pension": 10000,
+    "donations": 1000,
+    "selfEmployed": true,
+    "deductions": 500,
+    "credits": 100
+   },
+   "plan": {
+    "business": 880000,
+    "pensionDed": 10000,
+    "pensionCredit": 0,
+    "blBase": 622920,
+    "bl": 72192.98640000001,
+    "health": 30411.7056,
+    "blDed": 37540.35292800001,
+    "taxable": 831959.647072,
+    "gross": 279363.42353599996,
+    "pointsCredit": 7986,
+    "donationCredit": 350,
+    "tax": 270927.42353599996,
+    "total": 373532.11553599994,
+    "toPay": 270927.42353599996,
+    "effective": 0.41503568392888884,
+    "keep": 506467.88446400006
+   }
+  }
+ ],
+ "advisor": {
+  "answers": {
+   "pensionDeposits": 0,
+   "khDeposits": 0,
+   "isWoman": true,
+   "childBirthYears": "2022, 2024",
+   "parentRole": "mother",
+   "disabilityPremium": 3000,
+   "phoneCosts": 2400,
+   "usRoyalties": 4000
+  },
+  "ctx": {
+   "y": 2026,
+   "type": "osek-murshe",
+   "types": [
+    "osek-murshe"
+   ],
+   "turnover": 260000,
+   "expenses": 0,
+   "points": 2.25,
+   "fx": 3.6
+  },
+  "result": [
+   {
+    "id": "il-credit-children",
+    "status": "save",
+    "saving": 20328,
+    "missing": []
+   },
+   {
+    "id": "il-pension-self-employed-47",
+    "status": "save",
+    "saving": 15517,
+    "missing": []
+   },
+   {
+    "id": "il-keren-hishtalmut-self",
+    "status": "save",
+    "saving": 3627,
+    "missing": []
+   },
+   {
+    "id": "us-w8ben-royalties-treaty",
+    "status": "save",
+    "saving": 2880,
+    "missing": []
+   },
+   {
+    "id": "il-credit-woman",
+    "status": "save",
+    "saving": 1452,
+    "missing": []
+   },
+   {
+    "id": "il-disability-insurance",
+    "status": "save",
+    "saving": 930,
+    "missing": []
+   },
+   {
+    "id": "il-phone",
+    "status": "save",
+    "saving": 563,
+    "missing": []
+   },
+   {
+    "id": "il-year-end-deposits",
+    "status": "check",
+    "saving": 0,
+    "missing": []
+   },
+   {
+    "id": "il-surtax-smoothing",
+    "status": "check",
+    "saving": 0,
+    "missing": []
+   },
+   {
+    "id": "il-vat-allocation-numbers",
+    "status": "check",
+    "saving": 0,
+    "missing": []
+   },
+   {
+    "id": "il-credit-single-parent",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "singleParent",
+     "otherParentDeceasedOrUnlisted"
+    ]
+   },
+   {
+    "id": "il-credit-discharged-soldier",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "dischargeDate",
+     "fullService"
+    ]
+   },
+   {
+    "id": "il-credit-academic-degree",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "degreeType",
+     "degreeEndYear",
+     "studyYears"
+    ]
+   },
+   {
+    "id": "il-credit-new-immigrant",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "aliyahDate"
+    ]
+   },
+   {
+    "id": "il-credit-disabled-child",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "disabledChild"
+    ]
+   },
+   {
+    "id": "il-credit-alimony-remarried",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "paysAlimonyRemarried"
+    ]
+   },
+   {
+    "id": "il-credit-reservist",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "combatReserveDaysPrevYear"
+    ]
+   },
+   {
+    "id": "il-yishuv-mezake",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "yishuv"
+    ]
+   },
+   {
+    "id": "il-donations-46",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "donationsTotal"
+    ]
+   },
+   {
+    "id": "il-life-insurance-45a",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "lifeInsurancePremium"
+    ]
+   },
+   {
+    "id": "il-bl-deduction-47a",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "blPaidInYear"
+    ]
+   },
+   {
+    "id": "il-home-office",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "homeOfficeRooms",
+     "homeCosts",
+     "ownsHome"
+    ]
+   },
+   {
+    "id": "il-car-expenses",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "carCosts",
+     "carPrice"
+    ]
+   },
+   {
+    "id": "il-travel-abroad",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "tripsAbroad"
+    ]
+   },
+   {
+    "id": "il-loss-carryforward-28",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "priorLosses"
+    ]
+   },
+   {
+    "id": "il-capital-loss-offset",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "hasCapitalGains"
+    ]
+   },
+   {
+    "id": "il-cash-basis-timing",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "expectHigherIncomeNextYear"
+    ]
+   },
+   {
+    "id": "il-advances-adjust",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "advancePct"
+    ]
+   },
+   {
+    "id": "il-kh-withdrawal-timing",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "khOpenYear"
+    ]
+   },
+   {
+    "id": "il-osek-zair-vs-actual",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "singleBusiness"
+    ]
+   },
+   {
+    "id": "il-patur-vs-murshe",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "foreignClientShare",
+     "vatableInputs"
+    ]
+   },
+   {
+    "id": "il-spouse-joint-business",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "spouseWorksInBusiness"
+    ]
+   },
+   {
+    "id": "il-family-employment",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "childWorks"
+    ]
+   },
+   {
+    "id": "il-incorporation-threshold",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "reinvestShare"
+    ]
+   },
+   {
+    "id": "il-refund-6-years",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "yearsNotOptimized"
+    ]
+   },
+   {
+    "id": "il-withholding-certificate",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "israeliClientsWithhold"
+    ]
+   },
+   {
+    "id": "il-foreign-tax-credit",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "foreignTaxWithheld"
+    ]
+   },
+   {
+    "id": "il-section14-oleh",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "residencyStartDate"
+    ]
+   },
+   {
+    "id": "il-bl-adjust-advances",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "blMonthlyAdvance"
+    ]
+   },
+   {
+    "id": "il-bl-passive-income",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "passiveOnly"
+    ]
+   },
+   {
+    "id": "il-foreign-assets-reporting",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "ownsForeignEntity",
+     "transfersAbroad"
+    ]
+   },
+   {
+    "id": "us-services-no-withholding",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "usClientFees"
+    ]
+   },
+   {
+    "id": "us-reclaim-overwithheld",
+    "status": "ask",
+    "saving": 0,
+    "missing": [
+     "usWithheldPct"
+    ]
+   },
+   {
+    "id": "il-depreciation",
+    "status": "info",
+    "saving": 0,
+    "missing": []
+   },
+   {
+    "id": "il-professional-development",
+    "status": "info",
+    "saving": 0,
+    "missing": []
+   },
+   {
+    "id": "il-vat-input-mixed",
+    "status": "info",
+    "saving": 0,
+    "missing": []
+   }
+  ]
+ }
+}

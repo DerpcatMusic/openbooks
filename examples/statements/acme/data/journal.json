@@ -1,0 +1,2 @@
+[{"id": "je-1", "date": "2025-06-30", "memo": "Accrued hosting", "lines": [{"account": "cogs:hosting", "debit": 80.4}, {"account": "transfer:internal", "credit": 80.4}]},
+ {"id": "je-2", "date": "2026-01-15", "lines": [{"account": "expense:equipment", "debit": 300}, {"account": "equity:owner", "credit": 300}]}]

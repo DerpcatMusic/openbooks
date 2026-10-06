@@ -1,0 +1,1736 @@
+[
+ {
+  "id": "il-credit-woman",
+  "country": "il",
+  "title_en": "Woman's 0.5 credit point",
+  "title_he": "חצי נקודת זיכוי לאישה",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "isWoman",
+    "q_en": "Are you a woman?",
+    "q_he": "האם את אישה?",
+    "type": "bool"
+   }
+  ],
+  "rule": "isWoman",
+  "saving": "0.5 * creditPointValue[year], capped at income tax",
+  "values": {
+   "creditPointValue": {
+    "2025": 2904,
+    "2026": 2904
+   }
+  },
+  "how_en": "Automatic on the annual return (form 1301); check that it was applied.",
+  "how_he": "ניתנת אוטומטית בדוח השנתי (טופס 1301). כדאי לבדוק שנלקחה בחשבון.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_36א",
+  "verified": true
+ },
+ {
+  "id": "il-credit-children",
+  "country": "il",
+  "title_en": "Child credit points by age",
+  "title_he": "נקודות זיכוי בעד ילדים לפי גיל",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "childBirthYears",
+    "q_en": "Birth year of each child under 19",
+    "q_he": "שנת הלידה של כל ילד מתחת לגיל 19",
+    "type": "number"
+   },
+   {
+    "key": "parentRole",
+    "q_en": "Are you the mother or the father?",
+    "q_he": "את/ה האם או האב?",
+    "type": "select",
+    "options": [
+     "mother",
+     "father"
+    ]
+   }
+  ],
+  "rule": "age = year - birthYear; points from the table for each child; only against income from personal exertion",
+  "saving": "sum(points) * creditPointValue[year], capped at tax",
+  "values": {
+   "mother": {
+    "birthYear": 2.5,
+    "age1_2": 4.5,
+    "age3": 3.5,
+    "age4_5": 2.5,
+    "age6_17": 2,
+    "age18": 0.5
+   },
+   "father": {
+    "birthYear": 2.5,
+    "age1_2": 4.5,
+    "age3": 3.5,
+    "age4_5": 2.5,
+    "age6_17": 1,
+    "age18": 0
+   },
+   "note": "the mother may move 1 birth-year point to the following year"
+  },
+  "how_en": "Claim on form 1301. Each parent claims separately. Unclaimed years: file for a refund (up to 6 years back).",
+  "how_he": "דורשים בדוח השנתי (1301). כל הורה בנפרד. על שנים שלא נדרשו אפשר לבקש החזר עד 6 שנים אחורה.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_66 ; #סעיף_40",
+  "verified": true
+ },
+ {
+  "id": "il-credit-single-parent",
+  "country": "il",
+  "title_en": "Single / separated parent extra point",
+  "title_he": "נקודת זיכוי נוספת להורה יחיד / הורים החיים בנפרד",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "singleParent",
+    "q_en": "Are you a single parent, or separated with the children living with you?",
+    "q_he": "האם את/ה הורה יחיד, או חי/ה בנפרד והילדים גרים אצלך?",
+    "type": "bool"
+   },
+   {
+    "key": "otherParentDeceasedOrUnlisted",
+    "q_en": "Is the other parent deceased or not listed?",
+    "q_he": "האם ההורה האחר נפטר או אינו רשום?",
+    "type": "bool"
+   }
+  ],
+  "rule": "singleParent && children under 19 => +1 point; otherParentDeceasedOrUnlisted => +1 more (§40(ב)(1ב)). The single-parent table equals the mother's table.",
+  "saving": "points * creditPointValue[year]",
+  "values": {
+   "pointsSeparated": 1,
+   "pointsOrphanExtra": 1
+  },
+  "how_en": "Form 1301 (and form 116 for salaried employees).",
+  "how_he": "בדוח השנתי (ולשכירים בטופס 116).",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_40",
+  "verified": true
+ },
+ {
+  "id": "il-credit-discharged-soldier",
+  "country": "il",
+  "title_en": "Discharged soldier / national service credit",
+  "title_he": "נקודות זיכוי לחייל משוחרר / בוגר שירות לאומי",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "dischargeDate",
+    "q_en": "Month and year your regular / national service ended",
+    "q_he": "חודש ושנת סיום השירות הסדיר / הלאומי",
+    "type": "year"
+   },
+   {
+    "key": "fullService",
+    "q_en": "Did you serve at least 23 months (men) or 22 months (women)?",
+    "q_he": "האם שירתת לפחות 23 חודשים (גבר) / 22 חודשים (אישה)?",
+    "type": "bool"
+   }
+  ],
+  "rule": "For each month in the 36 months after the discharge month: 1/6 point if fullService, otherwise 1/12. Personal-exertion income only.",
+  "saving": "monthsInYear * (fullService?1/6:1/12) * creditPointValue[year]",
+  "values": {
+   "maxPerYearFull": 2,
+   "months": 36
+  },
+  "how_en": "Attach the discharge certificate (תעודת שחרור) to form 1301.",
+  "how_he": "לצרף תעודת שחרור לדוח השנתי.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_39א",
+  "verified": true
+ },
+ {
+  "id": "il-credit-academic-degree",
+  "country": "il",
+  "title_en": "Academic degree / vocational certificate points",
+  "title_he": "נקודות זיכוי לבעלי תואר אקדמי / תעודת מקצוע",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "degreeType",
+    "q_en": "Highest qualification completed",
+    "q_he": "התואר / התעודה האחרונים שסיימת",
+    "type": "select",
+    "options": [
+     "none",
+     "BA",
+     "MA",
+     "PhD-medicine",
+     "vocational-1700h"
+    ]
+   },
+   {
+    "key": "degreeEndYear",
+    "q_en": "Year studies ended",
+    "q_he": "שנת סיום הלימודים",
+    "type": "year"
+   },
+   {
+    "key": "studyYears",
+    "q_en": "Number of study years",
+    "q_he": "מספר שנות לימוד",
+    "type": "number"
+   }
+  ],
+  "rule": "Finished 2023 or later: BA gives 1 point for min(studyYears,3) years starting the year after completion; MA gives 0.5 for up to 2 years. Finished 2014–2022: one year only, either the next year or the one after. A vocational certificate (1,700h or more) gives 1 point; the taxpayer chooses one regime (§40ה).",
+  "saving": "points * creditPointValue[year]",
+  "values": {
+   "BA": 1,
+   "MA": 0.5,
+   "vocational": 1
+  },
+  "how_en": "Attach form 119 (degree confirmation) to form 1301; claim past years as a refund.",
+  "how_he": "לצרף טופס 119 (אישור זכאות לתואר) לדוח. שנים שלא נדרשו – בבקשה להחזר.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_40ג",
+  "verified": true
+ },
+ {
+  "id": "il-credit-new-immigrant",
+  "country": "il",
+  "title_en": "New immigrant credit points (54 months)",
+  "title_he": "נקודות זיכוי לעולה חדש",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "aliyahDate",
+    "q_en": "Aliyah month/year (or first residency for a minor returning resident)",
+    "q_he": "חודש ושנת עלייה",
+    "type": "year"
+   }
+  ],
+  "rule": "Months 1–12: 1/12 point per month; 13–30: 1/4; 31–42: 1/6; 43–54: 1/12. An absence of 6–36 months can be excluded from the count.",
+  "saving": "sum(monthly fractions in year) * creditPointValue[year]",
+  "values": {
+   "m1_12": 0.0833,
+   "m13_30": 0.25,
+   "m31_42": 0.1667,
+   "m43_54": 0.0833
+  },
+  "how_en": "Form 1301 plus a copy of the immigrant certificate (תעודת עולה).",
+  "how_he": "בדוח השנתי, בצירוף תעודת עולה.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_35",
+  "verified": true
+ },
+ {
+  "id": "il-credit-disabled-child",
+  "country": "il",
+  "title_en": "Disabled child – 2 points",
+  "title_he": "שתי נקודות זיכוי בעד ילד נטול יכולת",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "disabledChild",
+    "q_en": "Do you have a child with a qualifying disability (paralysis, blindness, intellectual disability, autism, severe learning disability in special ed.)?",
+    "q_he": "האם יש לך ילד נטול יכולת (שיתוק, עיוורון, פיגור, אוטיזם, לקות למידה חמורה בחינוך מיוחד)?",
+    "type": "bool"
+   }
+  ],
+  "rule": "disabledChild, and the child's own income does not exceed the ceiling; not combined with the institution credit (§44).",
+  "saving": "2 * creditPointValue[year] per parent",
+  "values": {
+   "points": 2,
+   "childIncomeCeiling2025": 188000
+  },
+  "how_en": "Form 127 with medical approval at the assessing office, then claim on form 1301 (refundable 6 years back).",
+  "how_he": "הגשת טופס 127 עם אישור רפואי לפקיד השומה, ודרישה בדוח. אפשר לבקש החזר עד 6 שנים אחורה.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45 ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-credit-alimony-remarried",
+  "country": "il",
+  "title_en": "Remarried and paying alimony – 1 point",
+  "title_he": "נקודת זיכוי לגרוש/ה שנישא/ה מחדש ומשלם/ת מזונות",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "paysAlimonyRemarried",
+    "q_en": "Are you divorced, remarried, and paying alimony to your ex-spouse under a court order?",
+    "q_he": "האם את/ה גרוש/ה שנישא/ה מחדש ומשלם/ת מזונות לבן/בת הזוג לשעבר לפי פסק דין?",
+    "type": "bool"
+   }
+  ],
+  "rule": "paysAlimonyRemarried",
+  "saving": "1 * creditPointValue[year]",
+  "values": {
+   "points": 1
+  },
+  "how_en": "Form 1301 with the court ruling and proof of payment.",
+  "how_he": "בדוח השנתי, בצירוף פסק הדין ואסמכתאות תשלום.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_40א",
+  "verified": false
+ },
+ {
+  "id": "il-credit-reservist",
+  "country": "il",
+  "title_en": "Combat reservist credit points (2026+)",
+  "title_he": "נקודות זיכוי ללוחמי מילואים",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "combatReserveDaysPrevYear",
+    "q_en": "Combat reserve days served in the previous calendar year",
+    "q_he": "כמה ימי מילואים כלוחם שירתת בשנה הקודמת?",
+    "type": "number"
+   }
+  ],
+  "rule": "Tax years 2026–2027 (days served in 2025–2026): 30–39 days = 0.5; 40–49 = 0.75; 50 or more = 1, plus 0.25 per extra 5 days, max 4. From 2028: 20 days = 0.75, plus 0.25 per 5 days, max 4.",
+  "saving": "points * creditPointValue[year]",
+  "values": {
+   "2026": {
+    "30": 0.5,
+    "40": 0.75,
+    "50": 1,
+    "stepDays": 5,
+    "stepPts": 0.25,
+    "max": 4
+   }
+  },
+  "how_en": "IDF confirmation of combat days; form 1301. Reservists also get an extended deadline for pension / keren hishtalmut deposits (§53א).",
+  "how_he": "אישור צה\"ל על ימי שירות כלוחם, ודרישה בדוח השנתי. ללוחמי מילואים יש גם הארכת מועד להפקדות לפנסיה ולקרן השתלמות (סעיף 53א).",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_39ב",
+  "verified": true
+ },
+ {
+  "id": "il-yishuv-mezake",
+  "country": "il",
+  "title_en": "Qualifying-town tax discount (§11)",
+  "title_he": "הטבת מס לתושבי יישוב מזכה (סעיף 11)",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "yishuv",
+    "q_en": "Town of permanent residence (and since when)",
+    "q_he": "יישוב המגורים הקבוע (וממתי)",
+    "type": "select",
+    "options": [
+     "<ITA list>"
+    ]
+   }
+  ],
+  "rule": "Resident of a listed town for at least 12 consecutive months (center of life). The discount is rate[yishuv] × personal-exertion income up to ceiling[yishuv].",
+  "saving": "rate[yishuv] * min(profit, ceiling[yishuv])",
+  "values": {
+   "rate": "7%-20% by town, per the yearly ITA table",
+   "ceiling": "by town"
+  },
+  "how_en": "Form 1312א (residency certificate from the local authority) attached to form 1301.",
+  "how_he": "אישור תושבות מהרשות המקומית (טופס 1312א) מצורף לדוח.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_11",
+  "verified": false
+ },
+ {
+  "id": "il-donations-46",
+  "country": "il",
+  "title_en": "Donations – 35% credit",
+  "title_he": "זיכוי 35% על תרומות (סעיף 46)",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "donationsTotal",
+    "q_en": "Total donations this year to §46-approved organizations",
+    "q_he": "סך התרומות השנה למוסדות עם אישור לפי סעיף 46",
+    "type": "number"
+   }
+  ],
+  "rule": "donationsTotal ≥ min. Credit base ≤ 30% of taxable income. The excess carries forward 3 years. A company gets a 23% credit.",
+  "saving": "0.35 * min(donationsTotal, 0.3*taxableIncome)",
+  "values": {
+   "rateIndividual": 0.35,
+   "rateCompany": 0.23,
+   "min2025": 207,
+   "capPctIncome": 0.3,
+   "capAbs2025": 10354816
+  },
+  "how_en": "Pay by Dec 31. Receipts on the digital donations system appear in your personal area (אזור אישי) automatically.",
+  "how_he": "לשלם עד 31.12. קבלות שדווחו במערכת התרומות הדיגיטלית מופיעות אוטומטית באזור האישי.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221 ; https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_46",
+  "verified": false
+ },
+ {
+  "id": "il-life-insurance-45a",
+  "country": "il",
+  "title_en": "Life insurance / survivors' pension credit",
+  "title_he": "זיכוי על ביטוח חיים וקצבת שארים (סעיף 45א)",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "lifeInsurancePremium",
+    "q_en": "Annual private life-insurance (risk) premiums",
+    "q_he": "פרמיות שנתיות לביטוח חיים (ריסק) פרטי",
+    "type": "number"
+   }
+  ],
+  "rule": "Premiums paid by you for yourself, your spouse or your child. Life insurance gets a 25% credit, within the 5%-of-qualifying-income cap shared with pension.",
+  "saving": "0.25 * min(premium, 0.05*min(profit,qualifyingIncomeCap))",
+  "values": {
+   "rate": 0.25,
+   "qualifyingIncomeCap2025": 225600
+  },
+  "how_en": "Annual certificate from the insurer (אישור שנתי למס) attached to form 1301.",
+  "how_he": "אישור שנתי למס מחברת הביטוח, מצורף לדוח.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-pension-self-employed-47",
+  "country": "il",
+  "title_en": "Self-employed pension deposits (§47 deduction + §45א credit)",
+  "title_he": "הפקדה לפנסיה לעצמאי – ניכוי וזיכוי",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "pensionDeposits",
+    "q_en": "Personal deposits to a pension fund this year",
+    "q_he": "הפקדות עצמאיות לקרן פנסיה השנה",
+    "type": "number"
+   }
+  ],
+  "rule": "Mandatory minimum for the self-employed: 4.45% of income up to half the average wage, 12.55% above that up to the average wage. Tax-optimal deposit ≈ 16% of min(profit, 225,600): 11% is deducted, 5% earns a 35% credit (credit base up to 116,400). Allowed for osek zair too.",
+  "saving": "0.11*min(profit,225600)*marginalRate + 0.35*0.05*min(profit,116400)",
+  "values": {
+   "deductPct": 0.11,
+   "creditPct": 0.05,
+   "creditRate": 0.35,
+   "deductCeiling2025": 225600,
+   "creditCeiling2025": 116400,
+   "2026": "frozen (assumed same)"
+  },
+  "how_en": "Deposit by Dec 31 (reservists get an extension); certificate from the fund attached to form 1301.",
+  "how_he": "להפקיד עד 31.12 (ללוחמי מילואים יש הארכה). אישור שנתי מהקופה מצורף לדוח.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221 ; https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_47",
+  "verified": false
+ },
+ {
+  "id": "il-disability-insurance",
+  "country": "il",
+  "title_en": "Loss-of-work-capacity insurance deduction",
+  "title_he": "ניכוי בגין ביטוח אובדן כושר עבודה",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "disabilityPremium",
+    "q_en": "Annual disability (אובדן כושר) insurance premiums paid privately",
+    "q_he": "פרמיות שנתיות לביטוח אובדן כושר עבודה ששילמת באופן פרטי",
+    "type": "number"
+   }
+  ],
+  "rule": "The policy runs to at least age 60. The deduction is up to 3.5% of business / salary income, subject to a ceiling.",
+  "saving": "min(disabilityPremium, 0.035*min(profit,356100)) * marginalRate",
+  "values": {
+   "pct": 0.035,
+   "incomeCeiling2025": 356100,
+   "maxDeduction2025": 12463
+  },
+  "how_en": "Insurer certificate attached to form 1301.",
+  "how_he": "אישור מס מחברת הביטוח, מצורף לדוח.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-keren-hishtalmut-self",
+  "country": "il",
+  "title_en": "Keren hishtalmut for the self-employed",
+  "title_he": "קרן השתלמות לעצמאים",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "khDeposits",
+    "q_en": "Deposits to a self-employed keren hishtalmut this year",
+    "q_he": "הפקדות לקרן השתלמות לעצמאים השנה",
+    "type": "number"
+   }
+  ],
+  "rule": "4.5% of income (≤ ceiling) is deductible. Depositing up to 7% (≤ the tax-free-gains cap) keeps all gains tax-free after 6 years. Allowed for osek zair (§87ד keeps §17(5א)).",
+  "saving": "min(khDeposits, 0.045*min(profit,293397)) * marginalRate; plus tax-free yield on up to 20,566/yr",
+  "values": {
+   "incomeCeiling": {
+    "2025": 293397,
+    "2026": 293397
+   },
+   "maxDeduction": {
+    "2025": 13203,
+    "2026": 13202
+   },
+   "taxFreeDepositCap": {
+    "2026": 20566
+   }
+  },
+  "how_en": "Deposit by Dec 31; the fund certificate goes in form 1301.",
+  "how_he": "להפקיד עד 31.12; אישור הקופה מצורף לדוח.",
+  "risk": "none",
+  "source": "https://www.supermarker.themarker.com/Gemel/MaximumDepositsAndAmounts.aspx ; https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_87ד",
+  "verified": false
+ },
+ {
+  "id": "il-bl-deduction-47a",
+  "country": "il",
+  "title_en": "Deduct 52% of Bituach Leumi paid",
+  "title_he": "ניכוי 52% מדמי הביטוח הלאומי ששולמו",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "blPaidInYear",
+    "q_en": "BL (excluding health) actually paid during the year on self-employment income",
+    "q_he": "דמי ביטוח לאומי (ללא בריאות) ששולמו בפועל בשנה על הכנסה כעצמאי",
+    "type": "number"
+   }
+  ],
+  "rule": "Paid before year end. Not available to osek zair (§87ד).",
+  "saving": "0.52*blPaidInYear*marginalRate",
+  "values": {
+   "pct": 0.52
+  },
+  "how_en": "Before Dec 31, pay any BL shortfall or advances owed, so the deduction lands this year.",
+  "how_he": "לשלם השלמה / מקדמות לביטוח לאומי עד 31.12, כדי שהניכוי ייכנס לשנה הנוכחית.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_47א ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-home-office",
+  "country": "il",
+  "title_en": "Home office share of rent / arnona / electricity",
+  "title_he": "הוצאות משרד בבית – שכירות, ארנונה, חשמל",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "homeOfficeRooms",
+    "q_en": "Rooms used exclusively for work / total rooms",
+    "q_he": "מספר החדרים המשמשים לעבודה בלבד / סך החדרים",
+    "type": "number"
+   },
+   {
+    "key": "homeCosts",
+    "q_en": "Annual rent (or mortgage interest), arnona, electricity, internet",
+    "q_he": "שכר דירה (או ריבית משכנתא), ארנונה, חשמל ואינטרנט – שנתי",
+    "type": "number"
+   },
+   {
+    "key": "ownsHome",
+    "q_en": "Do you own the apartment?",
+    "q_he": "האם הדירה בבעלותך?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Dedicated work space. Deduction share = homeOfficeRooms/total rooms (common practice is about 1/3 of electricity). If ownsHome, warn about a partial loss of the sale exemption (מס שבח) for the business part.",
+  "saving": "homeCosts*share*marginalRate",
+  "values": {},
+  "how_en": "Keep a floor plan and photos; book the share monthly. VAT on the mixed part is only partly recoverable.",
+  "how_he": "לשמור תשריט ותמונות, ולרשום את החלק היחסי מדי חודש. מע\"מ על הוצאה מעורבת מותר רק בחלקו.",
+  "risk": "low",
+  "source": "secondary practice; https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_17",
+  "verified": false
+ },
+ {
+  "id": "il-car-expenses",
+  "country": "il",
+  "title_en": "Car expenses: the higher of 45% or (expenses − שווי)",
+  "title_he": "הוצאות רכב – 45% או הוצאות בניכוי שווי שימוש, הגבוה",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "carCosts",
+    "q_en": "Annual car costs incl. fuel, insurance, licence, repairs, leasing",
+    "q_he": "הוצאות רכב שנתיות כולל דלק, ביטוח, רישוי, תיקונים וליסינג",
+    "type": "number"
+   },
+   {
+    "key": "carPrice",
+    "q_en": "Car list price (for שווי)",
+    "q_he": "מחיר המחירון של הרכב (לחישוב שווי)",
+    "type": "number"
+   }
+  ],
+  "rule": "Private car (M1/N1, <3.5t). Deductible = max(0.45*carCosts, carCosts - 12*0.0248*carPrice). Depreciation is 15%/yr and is included in costs. Not for zair (deemed 30%).",
+  "saving": "deductible*marginalRate",
+  "values": {
+   "pct": 0.45,
+   "shoviRate": 0.0248,
+   "depr": 0.15,
+   "shoviPriceCap2025": 563790
+  },
+  "how_en": "Book 100% of costs plus depreciation, then add back the non-deductible part in the annual adjustment.",
+  "how_he": "לרשום את מלוא ההוצאות והפחת, ולתאם את החלק שאינו מותר בדוח ההתאמה.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_רכב)",
+  "verified": true
+ },
+ {
+  "id": "il-phone",
+  "country": "il",
+  "title_en": "Mobile phone at least 50% deductible",
+  "title_he": "טלפון נייד – לפחות 50% מוכר",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "phoneCosts",
+    "q_en": "Annual mobile phone cost",
+    "q_he": "עלות שנתית של הטלפון הנייד",
+    "type": "number"
+   }
+  ],
+  "rule": "Non-deductible part = min(50% of cost, 115 ₪/month).",
+  "saving": "(phoneCosts - min(0.5*phoneCosts,1380))*marginalRate",
+  "values": {
+   "capMonthly2025": 115
+  },
+  "how_en": "Book it fully and add back the non-deductible part.",
+  "how_he": "לרשום במלואו ולתאם את החלק שאינו מותר.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-depreciation",
+  "country": "il",
+  "title_en": "Depreciation rates for equipment",
+  "title_he": "שיעורי פחת לציוד",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "deduction",
+  "ask": [],
+  "rule": "Fixed assets from the books, by category. Not for zair.",
+  "saving": "cost*rate*marginalRate per year",
+  "values": {
+   "personalComputers": 0.33,
+   "otherComputers": 0.25,
+   "electronicEquipment": 0.15,
+   "furniture": 0.06,
+   "privateCar": 0.15
+  },
+  "how_en": "Keep a fixed-asset register (טופס 1342) with the annual return.",
+  "how_he": "לנהל טבלת פחת (טופס 1342) ולצרף לדוח.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(פחת)",
+  "verified": true
+ },
+ {
+  "id": "il-professional-development",
+  "country": "il",
+  "title_en": "Courses, books, conferences, software",
+  "title_he": "השתלמויות, ספרות מקצועית, כנסים ותוכנות",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [],
+  "rule": "Maintains or improves existing professional skills. Not a new profession or an academic degree.",
+  "saving": "amount*marginalRate",
+  "values": {},
+  "how_en": "Keep invoices; foreign SaaS paid by card is fine with a receipt.",
+  "how_he": "לשמור חשבוניות; מנויי SaaS מחו\"ל ששולמו באשראי מוכרים עם קבלה.",
+  "risk": "low",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_17",
+  "verified": false
+ },
+ {
+  "id": "il-travel-abroad",
+  "country": "il",
+  "title_en": "Business travel abroad (per-diem caps)",
+  "title_he": "נסיעות לחו\"ל לצורכי עסק",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "tripsAbroad",
+    "q_en": "Business trips abroad this year (nights, purpose)",
+    "q_he": "נסיעות עסקיות לחו\"ל השנה (לילות ומטרה)",
+    "type": "number"
+   }
+  ],
+  "rule": "The trip is for income production. Flight up to business class is allowed. Lodging up to $335/night for the first 7 nights, then capped. Other expenses $97/day with lodging. Car rental up to $76/day.",
+  "saving": "allowed*marginalRate",
+  "values": {
+   "lodgingFirst7_2025": 335,
+   "perDiemWithLodging": 97,
+   "perDiemNoLodging": 162,
+   "carRentalDay": 76
+  },
+  "how_en": "Keep the agenda, client emails and boarding passes. Above the caps is an excess expense (ltd: 45% advance).",
+  "how_he": "לשמור תוכנית פגישות, התכתבויות וכרטיסי עלייה למטוס. מעבר לתקרות – הוצאה עודפת (בחברה: מקדמה של 45%).",
+  "risk": "low",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-loss-carryforward-28",
+  "country": "il",
+  "title_en": "Business loss offset & carryforward",
+  "title_he": "קיזוז הפסד עסקי והעברתו לשנים הבאות",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "deduction",
+  "ask": [
+   {
+    "key": "priorLosses",
+    "q_en": "Unused business losses from prior years",
+    "q_he": "הפסדים עסקיים מועברים משנים קודמות",
+    "type": "number"
+   }
+  ],
+  "rule": "A current business loss offsets any income in the same year, including salary. A carried-forward loss offsets only business income. A foreign business loss (§29) offsets foreign income first.",
+  "saving": "min(priorLosses,profit)*marginalRate",
+  "values": {},
+  "how_en": "File a return even in loss years so the loss is assessed; report it on form 1301.",
+  "how_he": "להגיש דוח גם בשנת הפסד כדי שההפסד ייקבע בשומה, ולדווח עליו בדוח השנתי.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_28",
+  "verified": true
+ },
+ {
+  "id": "il-capital-loss-offset",
+  "country": "il",
+  "title_en": "Harvest capital losses / offset across brokers",
+  "title_he": "מימוש הפסדי הון וקיזוז בין בנקים",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "refund",
+  "ask": [
+   {
+    "key": "hasCapitalGains",
+    "q_en": "Do you have capital gains or dividends at one broker and losses at another (incl. abroad)?",
+    "q_he": "האם יש לך רווחי הון או דיבידנדים בבנק / ברוקר אחד והפסדים באחר (כולל בחו\"ל)?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Capital losses offset capital gains, and dividend/interest from securities at the 25% rate. Unused losses carry forward without time limit. Realize losses before Dec 31.",
+  "saving": "offsetLoss*0.25",
+  "values": {
+   "rate": 0.25
+  },
+  "how_en": "Collect forms 867 from all brokers and file form 1301 with appendix ג (1322). Unclaimed past years: refund up to 6 years.",
+  "how_he": "לאסוף טופסי 867 מכל הגופים ולהגיש דוח עם נספח ג' (1322). על שנים קודמות – החזר עד 6 שנים.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_92 ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-cash-basis-timing",
+  "country": "il",
+  "title_en": "Timing income/expenses on cash basis",
+  "title_he": "תזמון הכנסות והוצאות בבסיס מזומן",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe"
+  ],
+  "kind": "timing",
+  "ask": [
+   {
+    "key": "expectHigherIncomeNextYear",
+    "q_en": "Do you expect next year's income to be higher or lower?",
+    "q_he": "האם צפויה הכנסה גבוהה או נמוכה יותר בשנה הבאה?",
+    "type": "select",
+    "options": [
+     "higher",
+     "lower",
+     "same"
+    ]
+   }
+  ],
+  "rule": "Individuals in services report on cash basis. If this year's marginal rate is higher: prepay real expenses (equipment, annual SaaS) before Dec 31 and, where commercially normal, collect in January. A receipt is the income event, not an invoice / payment request (חשבון עסקה).",
+  "saving": "shiftedAmount*(marginalRateNow - marginalRateNext)",
+  "values": {},
+  "how_en": "Issue חשבון עסקה (not a tax invoice) until payment; avoid artificial delays.",
+  "how_he": "להנפיק חשבון עסקה ולא חשבונית מס עד התשלום; בלי דחיות מלאכותיות.",
+  "risk": "low",
+  "source": "secondary practice",
+  "verified": false
+ },
+ {
+  "id": "il-year-end-deposits",
+  "country": "il",
+  "title_en": "Year-end checklist: deposits by Dec 31",
+  "title_he": "צ'קליסט סוף שנה – הפקדות עד 31.12",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "timing",
+  "ask": [],
+  "rule": "Pension, keren hishtalmut, disability, donations and BL top-up all count only if paid in the tax year.",
+  "saving": "sum of related items",
+  "values": {},
+  "how_en": "In mid-December, compute the expected profit and top up to the optimal deposits.",
+  "how_he": "באמצע דצמבר לחשב רווח צפוי ולהשלים הפקדות עד התקרה המיטבית.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-advances-adjust",
+  "country": "il",
+  "title_en": "Adjust income-tax advances; early payment avoids interest",
+  "title_he": "התאמת מקדמות מס הכנסה ותשלום מוקדם ללא ריבית",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "timing",
+  "ask": [
+   {
+    "key": "advancePct",
+    "q_en": "Current advance rate (% of turnover)",
+    "q_he": "שיעור המקדמות הנוכחי (% מהמחזור)",
+    "type": "number"
+   }
+  ],
+  "rule": "If expected tax / turnover < advancePct, request a reduction (until Jan 31 of the next year); raise it by Nov 30. Paying the balance by Jan 31 avoids all interest and indexation; by Feb 28, half; by Mar 31, a quarter.",
+  "saving": "cash-flow; interest avoided",
+  "values": {},
+  "how_en": "Online request (תיאום מקדמות) in the ITA personal area, or form 4.",
+  "how_he": "בקשה מקוונת לתיאום מקדמות באזור האישי ברשות המסים.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-surtax-smoothing",
+  "country": "il",
+  "title_en": "Keep yearly taxable income under the surtax threshold",
+  "title_he": "פיזור הכנסה מתחת לסף מס יסף",
+  "applies_to": [
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "timing",
+  "ask": [],
+  "rule": "Taxable income > 721,560: 3% surtax on the excess, plus 2% on capital income above it (from 2025). Shift timing of dividends, capital gains and large invoices across years.",
+  "saving": "0.03*(excess shifted) [+0.02 capital]",
+  "values": {
+   "threshold": {
+    "2025": 721560,
+    "2026": 721560
+   },
+   "rate": 0.03,
+   "capitalExtra": 0.02
+  },
+  "how_en": "Plan timing in Q4.",
+  "how_he": "לתכנן תזמון ברבעון האחרון.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121ב ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-kh-withdrawal-timing",
+  "country": "il",
+  "title_en": "Keren hishtalmut: keep after 6 years, withdraw tax-free",
+  "title_he": "קרן השתלמות – משיכה פטורה לאחר 6 שנים",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "timing",
+  "ask": [
+   {
+    "key": "khOpenYear",
+    "q_en": "Year the fund was opened",
+    "q_he": "שנת פתיחת הקרן",
+    "type": "year"
+   }
+  ],
+  "rule": "Liquid after 6 years (3 years for study purposes). Gains on deposits within the cap stay tax-free even if left in the fund. Early withdrawal is taxed at max(35%, marginal).",
+  "saving": "avoid 25% gains tax / 35% penalty",
+  "values": {
+   "years": 6
+  },
+  "how_en": "Don't withdraw early; keep it as a tax-free savings account.",
+  "how_he": "לא למשוך מוקדם; להשאיר כחיסכון פטור.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-osek-zair-vs-actual",
+  "country": "il",
+  "title_en": "Osek zair: 30% deemed expenses vs actual",
+  "title_he": "עוסק זעיר – 30% הוצאות נורמטיביות מול הוצאות בפועל",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "singleBusiness",
+    "q_en": "Is this your only business (no employees, not a partner)?",
+    "q_he": "האם זה העסק היחיד שלך (ללא עובדים ולא שותף)?",
+    "type": "bool"
+   }
+  ],
+  "rule": "turnover ≤ zair ceiling && singleBusiness: choose zair if actualExpenses < 0.30*turnover. Under zair: no depreciation, car or phone deductions and no 52% BL deduction; pension and keren hishtalmut are still allowed.",
+  "saving": "(0.30*turnover - actualExpenses)*marginalRate (if positive)",
+  "values": {
+   "ceiling": {
+    "2025": 120000,
+    "2026": 122833
+   },
+   "deemedPct": 0.3
+  },
+  "how_en": "Request a file-type change (בקשה לשינוי סוג תיק) to עסק זעיר; reporting is through the simplified online system, with no annual return or advances.",
+  "how_he": "להגיש בקשה לשינוי סוג תיק ל\"בעל עסק זעיר\"; הדיווח במערכת המקוצרת, ללא דוח שנתי וללא מקדמות.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_87ד ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-patur-vs-murshe",
+  "country": "il",
+  "title_en": "Patur vs murshe when clients are foreign",
+  "title_he": "עוסק פטור או מורשה כשהלקוחות מחו\"ל",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe"
+  ],
+  "kind": "vat",
+  "ask": [
+   {
+    "key": "foreignClientShare",
+    "q_en": "Share of turnover from foreign clients / platforms (YouTube, AdSense, foreign companies)",
+    "q_he": "שיעור המחזור מלקוחות או פלטפורמות בחו\"ל (יוטיוב, אדסנס, חברות זרות)",
+    "type": "number"
+   },
+   {
+    "key": "vatableInputs",
+    "q_en": "Annual purchases with Israeli VAT (equipment, rent, services)",
+    "q_he": "רכישות שנתיות עם מע\"מ ישראלי (ציוד, שכירות, שירותים)",
+    "type": "number"
+   }
+  ],
+  "rule": "If most turnover is exported services (0% VAT under §30(א)(5)), osek murshe charges no VAT to clients but recovers input VAT. Prefer murshe if 0.18*vatableInputs*(1-domesticShare) is material. Patur also must leave status if turnover > ceiling.",
+  "saving": "0.18*vatableInputs (recoverable portion)",
+  "values": {
+   "vatRate": 0.18,
+   "paturCeiling": {
+    "2025": 120000,
+    "2026": 122833
+   }
+  },
+  "how_en": "Register as osek murshe at the VAT office; issue 0% invoices to foreign residents and keep proof of foreign residency.",
+  "how_he": "להירשם כעוסק מורשה במע\"מ; להוציא חשבונית 0% ללקוח תושב חוץ ולשמור אסמכתא לתושבותו.",
+  "risk": "low",
+  "source": "VAT Law §30(א)(5); https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-vat-input-mixed",
+  "country": "il",
+  "title_en": "Recover input VAT on mixed-use items",
+  "title_he": "קיזוז מע\"מ תשומות על הוצאות מעורבות",
+  "applies_to": [
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "vat",
+  "ask": [],
+  "rule": "Private car: 2/3 of input VAT on running costs if used mainly for business (1/4 otherwise). Phone: 2/3. Home: by use share. No VAT on purchase of a private car (except special uses).",
+  "saving": "recoverable VAT",
+  "values": {
+   "car": 0.6667,
+   "phone": 0.6667
+  },
+  "how_en": "Book the VAT split in the monthly/bimonthly report (PCN874).",
+  "how_he": "לרשום את החלוקה בדוח התקופתי למע\"מ.",
+  "risk": "low",
+  "source": "VAT Regulations 14, 15א, 18 (secondary)",
+  "verified": false
+ },
+ {
+  "id": "il-vat-allocation-numbers",
+  "country": "il",
+  "title_en": "Insist on allocation numbers for large purchases",
+  "title_he": "לדרוש מספר הקצאה בחשבוניות גדולות",
+  "applies_to": [
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "compliance",
+  "ask": [],
+  "rule": "An invoice above the threshold without an allocation number means the input VAT is denied, and the expense is now disallowed too.",
+  "saving": "protects 18% VAT + expense deduction",
+  "values": {
+   "threshold": {
+    "2026-01": 10000,
+    "2026-06": 5000,
+    "2025": 20000
+   }
+  },
+  "how_en": "Verify the allocation number on every supplier invoice above the threshold before booking.",
+  "how_he": "לוודא מספר הקצאה בכל חשבונית ספק מעל הסף לפני הרישום.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-spouse-joint-business",
+  "country": "il",
+  "title_en": "Spouse works in the business – separate computation",
+  "title_he": "בן/בת זוג העובד/ת בעסק – חישוב מס נפרד",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "spouseWorksInBusiness",
+    "q_en": "Does your spouse genuinely work in the business (hours, role)?",
+    "q_he": "האם בן/בת הזוג עובד/ת בפועל בעסק (שעות ותפקיד)?",
+    "type": "bool"
+   }
+  ],
+  "rule": "§66(ד): each spouse's personal effort is required, income matches contribution, and if run from home, the home is regularly used and most activity happens there. Then each spouse gets their own credit points, low brackets and BL reduced band.",
+  "saving": "tax(profit) - [tax(share1)+tax(share2)] + BL reduced-band gain",
+  "values": {},
+  "how_en": "Document roles and pay split; report as a partnership or employee; BL has a joint-business spouse procedure.",
+  "how_he": "לתעד חלוקת תפקידים ושכר; לדווח כשותפות או כמעסיק; בביטוח לאומי יש הליך לבני זוג בעסק משותף.",
+  "risk": "medium",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_66",
+  "verified": true
+ },
+ {
+  "id": "il-family-employment",
+  "country": "il",
+  "title_en": "Employ adult children for real work",
+  "title_he": "העסקת ילדים בגירים בעבודה אמיתית",
+  "applies_to": [
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "childWorks",
+    "q_en": "Does a child (16+) actually do work for the business?",
+    "q_he": "האם ילד/ה (16+) עובד/ת בפועל בעסק?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Real work at market pay with payslips. The child's own credit points make about 6.5k ₪/yr tax-free. Watch BL and minimum wage.",
+  "saving": "wage*marginalRate - child tax",
+  "values": {},
+  "how_en": "Open an employer file (תיק ניכויים) and issue payslips (form 102).",
+  "how_he": "לפתוח תיק ניכויים ולהנפיק תלושי שכר (טופס 102).",
+  "risk": "medium",
+  "source": "secondary practice",
+  "verified": false
+ },
+ {
+  "id": "il-incorporation-threshold",
+  "country": "il",
+  "title_en": "When to move from osek to Ltd",
+  "title_he": "מתי לעבור מעוסק לחברה בע\"מ",
+  "applies_to": [
+   "osek-murshe"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "reinvestShare",
+    "q_en": "Share of profit you can leave in the business / reinvest",
+    "q_he": "איזה חלק מהרווח אפשר להשאיר בעסק ולהשקיע מחדש?",
+    "type": "number"
+   }
+  ],
+  "rule": "Ltd pays 23% + 30% on dividends = 46.1%, versus individual marginal 47–50% + BL. Worth it mainly if profit > ~500k and a meaningful reinvestShare. Beware §62א(א1) (single client) and §81ב.",
+  "saving": "compare models",
+  "values": {
+   "corpRate": 0.23,
+   "divRateMaterial": 0.3
+  },
+  "how_en": "Model with an accountant; account for incorporation, audit and payroll costs.",
+  "how_he": "לבצע סימולציה עם רואה חשבון, כולל עלויות הקמה, ביקורת ושכר.",
+  "risk": "low",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-refund-6-years",
+  "country": "il",
+  "title_en": "Claim refunds for up to 6 prior years",
+  "title_he": "בקשת החזר מס עד 6 שנים אחורה",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd"
+  ],
+  "kind": "refund",
+  "ask": [
+   {
+    "key": "yearsNotOptimized",
+    "q_en": "Which past years may have missed points, deposits or losses?",
+    "q_he": "באילו שנים קודמות ייתכן שלא נוצלו נקודות, הפקדות או הפסדים?",
+    "type": "number"
+   }
+  ],
+  "rule": "Non-filers: form 135 within 6 years after the tax year. Filers: amended return. Refund comes with interest and indexation.",
+  "saving": "sum of missed items",
+  "values": {
+   "lookbackYears": 6
+  },
+  "how_en": "Form 135 / online refund request in the personal area.",
+  "how_he": "טופס 135 או בקשה מקוונת להחזר באזור האישי.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_160",
+  "verified": true
+ },
+ {
+  "id": "il-withholding-certificate",
+  "country": "il",
+  "title_en": "Reduce Israeli client withholding",
+  "title_he": "אישור ניכוי במקור מופחת מלקוחות",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe"
+  ],
+  "kind": "refund",
+  "ask": [
+   {
+    "key": "israeliClientsWithhold",
+    "q_en": "Do Israeli clients withhold tax from your payments?",
+    "q_he": "האם לקוחות ישראלים מנכים לך מס במקור?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Without a certificate, clients withhold at high default rates; the excess is refunded only after the annual return.",
+  "saving": "cash-flow",
+  "values": {},
+  "how_en": "Request a withholding certificate online at taxes.gov.il and send it to clients.",
+  "how_he": "להגיש בקשה מקוונת לאישור ניכוי במקור ולשלוח ללקוחות.",
+  "risk": "none",
+  "source": "secondary",
+  "verified": false
+ },
+ {
+  "id": "il-foreign-tax-credit",
+  "country": "il",
+  "title_en": "Credit foreign (US) withholding against Israeli tax",
+  "title_he": "זיכוי מס זר מול המס בישראל",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "foreignTaxWithheld",
+    "q_en": "Foreign tax withheld (e.g. YouTube US withholding on form 1042-S)",
+    "q_he": "מס זר שנוכה (למשל ניכוי של יוטיוב בארה\"ב לפי טופס 1042-S)",
+    "type": "number"
+   }
+  ],
+  "rule": "Credit up to the Israeli tax on that income, limited to the treaty rate. Excess over the treaty rate must be reclaimed from the IRS.",
+  "saving": "min(foreignTaxWithheld, treatyRate*income, israeliTaxOnIncome)",
+  "values": {},
+  "how_en": "Report on appendix ד (1324) of form 1301 and attach 1042-S.",
+  "how_he": "לדווח בנספח ד' (1324) לדוח השנתי ולצרף את טופס 1042-S.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_200",
+  "verified": false
+ },
+ {
+  "id": "il-section14-oleh",
+  "country": "il",
+  "title_en": "10-year foreign-income exemption (new immigrant / senior returning resident)",
+  "title_he": "פטור ל-10 שנים על הכנסות מחו\"ל לעולה ולתושב חוזר ותיק",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "credit",
+  "ask": [
+   {
+    "key": "residencyStartDate",
+    "q_en": "Date you became resident (aliyah / return after 10+ years abroad)",
+    "q_he": "מועד תחילת התושבות (עלייה או חזרה אחרי 10 שנים ומעלה בחו\"ל)",
+    "type": "year"
+   }
+  ],
+  "rule": "Within 10 years: income produced or accrued outside Israel is exempt. Income from work performed in Israel for foreign clients is generally Israeli-source and NOT exempt. The reporting exemption was cancelled from 1.1.2026, so the foreign income must now be reported.",
+  "saving": "foreignSourceIncome*marginalRate",
+  "values": {
+   "years": 10
+  },
+  "how_en": "Separate truly foreign-source income; from 2026, report it on form 1301 even though it is exempt.",
+  "how_he": "להפריד הכנסות שמקורן באמת בחו\"ל; החל מ-2026 לדווח עליהן בדוח השנתי גם אם הן פטורות.",
+  "risk": "medium",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_14 ; https://www.bshcpa.co.il/ביטול-פטור-מדיווח-לתושבים-חוזרים/",
+  "verified": true
+ },
+ {
+  "id": "il-bl-adjust-advances",
+  "country": "il",
+  "title_en": "Adjust BL advances and claim excess back",
+  "title_he": "עדכון מקדמות ביטוח לאומי והחזר יתרה",
+  "applies_to": [
+   "osek-patur",
+   "osek-murshe",
+   "osek-zair"
+  ],
+  "kind": "bl",
+  "ask": [
+   {
+    "key": "blMonthlyAdvance",
+    "q_en": "Current monthly BL advance",
+    "q_he": "גובה מקדמת ביטוח לאומי חודשית",
+    "type": "number"
+   }
+  ],
+  "rule": "BL is 7.7% up to 60% of the average wage per month and 18% above, up to the ceiling. If the advance is above the expected liability, lower it. Caveat: under-reporting caps benefits (גמלה חוסמת) such as maternity or injury pay. After the final assessment (שומה סופית), BL refunds any overpayment.",
+  "saving": "cash-flow; refund of overpaid",
+  "values": {
+   "reducedBandMonthly": {
+    "2025": 7522,
+    "2026": 7703
+   },
+   "ceilingMonthly": {
+    "2025": 50695,
+    "2026": 51910
+   },
+   "reducedRate": 0.077,
+   "fullRate": 0.18,
+   "minIncomeMonthly2026": 3442
+  },
+  "how_en": "Online 'תיקון מקדמות' on btl.gov.il; you can raise advances until Dec 31.",
+  "how_he": "עדכון מקדמות מקוון באתר ביטוח לאומי; אפשר להגדיל עד 31.12.",
+  "risk": "low",
+  "source": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+  "verified": true
+ },
+ {
+  "id": "il-bl-passive-income",
+  "country": "il",
+  "title_en": "BL on passive income (no work income)",
+  "title_he": "ביטוח לאומי על הכנסה שאינה מעבודה",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded"
+  ],
+  "kind": "bl",
+  "ask": [
+   {
+    "key": "passiveOnly",
+    "q_en": "Do you have passive income (rent, royalties not from your own work) in a year without work income?",
+    "q_he": "האם יש לך הכנסה פסיבית (שכירות, תמלוגים שאינם מיגיעה אישית) בשנה ללא הכנסה מעבודה?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Non-working person with passive income: exempt up to 3,442/month; 12.09% up to 7,703; 12.17% above. Exempt categories exist (e.g. some interest, dividends, capital gains).",
+  "saving": "classify correctly",
+  "values": {
+   "2026": {
+    "exemptTo": 3442,
+    "reduced": 0.1209,
+    "full": 0.1217
+   }
+  },
+  "how_en": "Check classification with BL; don't label work royalties (e.g. YouTube) as passive.",
+  "how_he": "לבדוק את הסיווג מול ביטוח לאומי; אין לסווג הכנסה מיגיעה אישית (כמו יוטיוב) כפסיבית.",
+  "risk": "low",
+  "source": "https://www.btl.gov.il/Insurance/Rates/Pages/מי%20שאינם%20עובדים%20ובעלי%20הכנסה%20שלא%20מעבודה.aspx",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-salary-vs-dividend",
+  "country": "il",
+  "title_en": "Ltd: optimal salary vs dividend mix",
+  "title_he": "חברה – תמהיל אופטימלי של שכר ודיבידנד",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "ownerSalary",
+    "q_en": "Current annual salary paid to you by the company",
+    "q_he": "השכר השנתי שהחברה משלמת לך כיום",
+    "type": "number"
+   }
+  ],
+  "rule": "Dividend burden = 23% + 77%×30% = 46.1% (49.95% above surtax). Salary is deductible at 23% but bears marginal tax plus BL. Usually pay salary through the 31% bracket and take the rest as dividend. Salary also builds pension and BL rights.",
+  "saving": "simulate",
+  "values": {
+   "brackets2025": [
+    [
+     84120,
+     0.1
+    ],
+    [
+     120720,
+     0.14
+    ],
+    [
+     193800,
+     0.2
+    ],
+    [
+     269280,
+     0.31
+    ],
+    [
+     560280,
+     0.35
+    ],
+    [
+     721560,
+     0.47
+    ],
+    [
+     null,
+     0.5
+    ]
+   ],
+   "brackets2026": [
+    [
+     84120,
+     0.1
+    ],
+    [
+     120720,
+     0.14
+    ],
+    [
+     228000,
+     0.2
+    ],
+    [
+     301200,
+     0.31
+    ],
+    [
+     560280,
+     0.35
+    ],
+    [
+     721560,
+     0.47
+    ],
+    [
+     null,
+     0.5
+    ]
+   ],
+   "corp": 0.23,
+   "div": 0.3
+  },
+  "how_en": "Set payroll from January; dividends need a board resolution and 30% withholding within 7 days.",
+  "how_he": "לקבוע שכר מינואר; דיבידנד דורש החלטת דירקטוריון וניכוי מס של 30% תוך 7 ימים.",
+  "risk": "low",
+  "source": "https://www.efraty.com/?p=5221 ; https://www.maariv.co.il/economy/israel/article-1296704",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-pension-kh",
+  "country": "il",
+  "title_en": "Ltd: pension and keren hishtalmut through payroll",
+  "title_he": "חברה – פנסיה וקרן השתלמות דרך תלוש השכר",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "deduction",
+  "ask": [],
+  "rule": "Employer pension (up to 7.5% + 8.33% severance) is deductible to the company, with no tax and no BL for you up to 2.5× the average wage. Keren hishtalmut for a controlling shareholder: 4.5% company + 1.5% employee on salary up to 188,544.",
+  "saving": "contributions*(marginalRate+BL) - 0",
+  "values": {
+   "khSalaryCap": 188544,
+   "khCompanyMax": 8484,
+   "pensionSalaryCapAnnual": 376080
+  },
+  "how_en": "Add to payroll; deposits monthly.",
+  "how_he": "להוסיף להפרשות בתלוש; הפקדה חודשית.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-car",
+  "country": "il",
+  "title_en": "Ltd: company car vs private car",
+  "title_he": "חברה – רכב חברה או רכב פרטי",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "carPrice",
+    "q_en": "Car list price",
+    "q_he": "מחיר מחירון של הרכב",
+    "type": "number"
+   }
+  ],
+  "rule": "The company deducts full costs; you add שווי (2.48%/month of price; EV −1,310, plug-in −1,090) to salary. Compare against the private-car 45% rule.",
+  "saving": "compare",
+  "values": {
+   "shoviRate": 0.0248,
+   "evReduction": 1310,
+   "phevReduction": 1090,
+   "hybridReduction": 540
+  },
+  "how_en": "Run payroll with שווי רכב.",
+  "how_he": "לזקוף שווי רכב בתלוש.",
+  "risk": "low",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-dividend-timing",
+  "country": "il",
+  "title_en": "Ltd: dividend timing vs surtax and trapped-profits rules",
+  "title_he": "חברה – תזמון דיבידנד מול מס יסף ורווחים כלואים",
+  "applies_to": [
+   "ltd",
+   "llc-ccorp"
+  ],
+  "kind": "timing",
+  "ask": [
+   {
+    "key": "retainedEarnings",
+    "q_en": "Accumulated retained earnings",
+    "q_he": "עודפים צבורים",
+    "type": "number"
+   }
+  ],
+  "rule": "Split dividends across years so income stays under 721,560. Combine with the §81ב minimum distribution.",
+  "saving": "0.05*avoided excess",
+  "values": {
+   "threshold": 721560
+  },
+  "how_en": "Board resolution + 30% withholding report (form 102 / 126) by the 15th of the next month.",
+  "how_he": "החלטת דירקטוריון, ניכוי 30% ודיווח עד ה-15 בחודש העוקב.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-81b-trapped-profits",
+  "country": "il",
+  "title_en": "Undistributed-profits surcharge (§81ב)",
+  "title_he": "תוספת מס על רווחים שלא חולקו (סעיף 81ב)",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "retainedEarnings",
+    "q_en": "Accumulated retained earnings",
+    "q_he": "עודפים צבורים",
+    "type": "number"
+   },
+   {
+    "key": "passiveAssetsShare",
+    "q_en": "Share of assets in passive investments",
+    "q_he": "שיעור הנכסים בהשקעות פסיביות",
+    "type": "number"
+   }
+  ],
+  "rule": "Few-company (חברת מעטים) with accumulated profit > 750k: 2% yearly surcharge on 'excess profits'. Avoided by distributing 5% (2025, by 30.11.2025) or 6% (2026) of prior-year accumulated profits, or 50% of excess, or other exceptions.",
+  "saving": "0.02*excessProfits avoided",
+  "values": {
+   "threshold": 750000,
+   "surcharge": 0.02,
+   "minDist": {
+    "2025": 0.05,
+    "2026": 0.06
+   }
+  },
+  "how_en": "Compute per ITA circular 07/2025; report in the company annual return.",
+  "how_he": "לחשב לפי חוזר מס הכנסה 07/2025 ולדווח בדוח השנתי של החברה.",
+  "risk": "low",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_81ב ; https://www.efraty.com/?p=5221",
+  "verified": true
+ },
+ {
+  "id": "il-ltd-62a-personal-service",
+  "country": "il",
+  "title_en": "'Disguised employee' company trap (§62א(א1))",
+  "title_he": "חברת ארנק – מיסוי הכנסת חברה כהכנסת בעל השליטה (סעיף 62א(א1))",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "topClientShare",
+    "q_en": "Share of company revenue from your single largest client (incl. related parties)",
+    "q_he": "שיעור הכנסות החברה מהלקוח הגדול ביותר (כולל צדדים קשורים)",
+    "type": "number"
+   },
+   {
+    "key": "employees",
+    "q_en": "Number of employees (full-time equivalent)",
+    "q_he": "מספר מועסקים (במשרה מלאה)",
+    "type": "number"
+   }
+  ],
+  "rule": "From 2025, if ≥70% of revenue is the owner's service to one client for 22 of 36 months, with fewer than 4 employees (and profitability >25%), income is taxed as the owner's salary at marginal rates plus BL. Officer / management-fee income is attributed too. Legit mitigation: diversify clients, or genuine growth to 4+ employees.",
+  "saving": "avoid reclassification",
+  "values": {
+   "clientPct": 0.7,
+   "months": 22,
+   "window": 36,
+   "minEmployees": 4
+  },
+  "how_en": "Use the ITA simulator; if caught, consider operating as an osek.",
+  "how_he": "לבדוק בסימולטור של רשות המסים; אם חל הסעיף, לשקול פעילות כעוסק.",
+  "risk": "high",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_62א ; https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-ltd-excess-expenses",
+  "country": "il",
+  "title_en": "Ltd: 45% advance on excess expenses",
+  "title_he": "חברה – מקדמה 45% על הוצאות עודפות",
+  "applies_to": [
+   "ltd"
+  ],
+  "kind": "compliance",
+  "ask": [],
+  "rule": "Non-deductible parts of car, phone, gifts, refreshments and travel require a 45% advance; missing it means fines.",
+  "saving": "fines avoided",
+  "values": {
+   "rate": 0.45,
+   "giftPerPerson": 230,
+   "refreshmentPct": 0.8
+  },
+  "how_en": "Pay with the December report by Jan 15.",
+  "how_he": "לשלם עם הדיווח לחודש דצמבר, עד 15 בינואר.",
+  "risk": "none",
+  "source": "https://www.efraty.com/?p=5221",
+  "verified": false
+ },
+ {
+  "id": "il-foreign-assets-reporting",
+  "country": "il",
+  "title_en": "Israeli reporting of foreign entities and accounts",
+  "title_he": "דיווח בישראל על ישויות וחשבונות בחו\"ל",
+  "applies_to": [
+   "osek-patur",
+   "osek-zair",
+   "osek-murshe",
+   "ltd",
+   "llc-disregarded",
+   "llc-ccorp"
+  ],
+  "kind": "compliance",
+  "ask": [
+   {
+    "key": "ownsForeignEntity",
+    "q_en": "Do you hold 10%+ of a foreign entity (e.g. a US LLC)?",
+    "q_he": "האם את/ה מחזיק/ה 10% ומעלה בישות זרה (למשל LLC בארה\"ב)?",
+    "type": "bool"
+   },
+   {
+    "key": "transfersAbroad",
+    "q_en": "Did you transfer ₪500k+ abroad within 12 months?",
+    "q_he": "האם העברת לחו\"ל 500 אלף ₪ ומעלה במהלך 12 חודשים?",
+    "type": "bool"
+   }
+  ],
+  "rule": "Foreign income → annual return required. Transfer of 500k+ → report for that year and the next. Holding a foreign entity → form 150 and its income on the return; a controlling holder of a CFC or foreign professional company must file.",
+  "saving": "penalty avoidance",
+  "values": {
+   "transferThreshold": 500000
+  },
+  "how_en": "Form 1301 + form 150 + appendix 1324.",
+  "how_he": "דוח שנתי (1301), טופס 150 ונספח 1324.",
+  "risk": "none",
+  "source": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_131",
+  "verified": false
+ },
+ {
+  "id": "il-llc-transparency",
+  "country": "il",
+  "title_en": "Treat the US LLC as transparent in Israel (circular 5/2004)",
+  "title_he": "בקשה למיסוי שקוף של LLC בישראל (הוראת ביצוע 5/2004)",
+  "applies_to": [
+   "llc-disregarded"
+  ],
+  "kind": "structure",
+  "ask": [
+   {
+    "key": "llcUSClassification",
+    "q_en": "How is the LLC classified for US tax?",
+    "q_he": "כיצד מסווגת ה-LLC לצורכי מס בארה\"ב?",
+    "type": "select",
+    "options": [
+     "disregarded",
+     "partnership",
+     "c-corp"
+    ]
+   }
+  ],
+  "rule": "By default the ITA sees an LLC as a body of persons, and since it is managed from Israel it may be an Israeli-resident company. Electing transparency taxes the income as the owner's business income (marginal rates + BL) and avoids company/dividend layers and mismatches.",
+  "saving": "avoid double layers",
+  "values": {},
+  "how_en": "Elect in the first-year return per the circular; then report the LLC's P&L as your own business.",
+  "how_he": "לבחור במסלול השקיפות בדוח של שנת הפעילות הראשונה לפי הוראת הביצוע, ולדווח על רווח והפסד של ה-LLC כעסק שלך.",
+  "risk": "medium",
+  "source": "https://www.bshcpa.co.il/חברת-llc/",
+  "verified": false
+ }
+]

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBooks</title>
+    <!-- Before first paint: theme, font, language/direction and privacy, so nothing flashes (stores take over after load). -->
+    <script>
+      try {
+        const d = document.documentElement,
+          s = localStorage;
+        const t = s.getItem("ob-theme");
+        if (t === "light" || t === "dark") d.dataset.theme = t;
+        const f = s.getItem("ob-font");
+        if (f) d.style.setProperty("--app-font", JSON.stringify(f));
+        const l = s.getItem("ob-lang") || (navigator.language.toLowerCase().startsWith("he") ? "he" : "en");
+        d.lang = l;
+        d.dir = l === "he" ? "rtl" : "ltr";
+        if (s.getItem("ob-private") === "1") d.setAttribute("data-private", "");
+      } catch {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Inter:wght@300..700&family=Instrument+Sans:wght@400..700&family=Figtree:wght@300..700&family=Noto+Sans+Hebrew:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

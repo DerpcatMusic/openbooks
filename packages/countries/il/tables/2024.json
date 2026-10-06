@@ -1,0 +1,27 @@
+{
+  "note": "Frozen at 2024 levels through 2027 (Economic Arrangements Law)",
+  "point": 2904,
+  "brackets": [
+    [84120, 0.1],
+    [120720, 0.14],
+    [193800, 0.2],
+    [269280, 0.31],
+    [560280, 0.35],
+    [721560, 0.47],
+    [null, 0.5]
+  ],
+  "zairCeiling": 120000,
+  "capitalRate": 0.15,
+  "vatRate": 0.17,
+  "sources": {
+    "brackets": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_121",
+      "effective": "2024-01-01",
+      "note": "Frozen at 2024 levels (Economic Arrangements Law)"
+    },
+    "zairCeiling": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_87ד",
+      "effective": "2024-01-01"
+    }
+  }
+}

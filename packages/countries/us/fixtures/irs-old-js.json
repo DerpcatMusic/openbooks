@@ -1,0 +1,239 @@
+{
+ "cases": [
+  {
+   "input": {
+    "year": 2025,
+    "legalName": "Acme Sound LLC",
+    "ein": "12-3456789",
+    "state": "WY",
+    "formed": "2025-03-07",
+    "address": "30 N Gould St Ste R",
+    "cityStateZip": "Sheridan, WY 82801",
+    "naics": "512230",
+    "business": "Music publishing",
+    "owner": "Dana Levi",
+    "ownerAddress": "12 Herzl St, Tel Aviv, Israel",
+    "ownerCountry": "Israel",
+    "ownerTin": "123456782",
+    "totalAssets": 12345.67,
+    "transactions": [
+     {
+      "date": "2025-04-02",
+      "desc": "Owner capital",
+      "amount": 5000
+     },
+     {
+      "date": "2025-11-20",
+      "desc": "Draw – ‘December’",
+      "amount": -1250.5
+     }
+    ]
+   },
+   "f5472": {
+    "Page1[0].Pg1Header[0].f1_1[0]": "March 7",
+    "Page1[0].Pg1Header[0].f1_2[0]": "2025",
+    "Page1[0].Pg1Header[0].f1_3[0]": "December 31",
+    "Page1[0].Pg1Header[0].f1_4[0]": "2025",
+    "Page1[0].Line1a[0].f1_5[0]": "Acme Sound LLC",
+    "Page1[0].Line1a[0].f1_6[0]": "30 N Gould St Ste R",
+    "Page1[0].Line1a[0].f1_7[0]": "Sheridan, WY 82801",
+    "Page1[0].f1_8[0]": "12-3456789",
+    "Page1[0].f1_9[0]": "12,346",
+    "Page1[0].f1_10[0]": "Music publishing",
+    "Page1[0].f1_11[0]": "512230",
+    "Page1[0].Line1f_ReadOrder[0].f1_12[0]": "6,251",
+    "Page1[0].f1_13[0]": "1",
+    "Page1[0].f1_14[0]": "6,251",
+    "Page1[0].Line1j_ReadOrder[0].c1_2[0]": "X",
+    "Page1[0].f1_16[0]": "United States",
+    "Page1[0].f1_17[0]": "03/07/2025",
+    "Page1[0].f1_18[0]": "United States",
+    "Page1[0].f1_19[0]": "United States",
+    "Page1[0].c1_3[0]": "X",
+    "Page1[0].c1_4[0]": "X",
+    "Page1[0].f1_20[0]": "Dana Levi, 12 Herzl St, Tel Aviv, Israel",
+    "Page1[0].f1_23[0]": "123456782",
+    "Page1[0].f1_24[0]": "Israel",
+    "Page1[0].f1_25[0]": "Israel",
+    "Page1[0].f1_26[0]": "Israel",
+    "Page2[0].c2_1[0]": "X",
+    "Page2[0].f2_1[0]": "Dana Levi, 12 Herzl St, Tel Aviv, Israel",
+    "Page2[0].f2_4[0]": "123456782",
+    "Page2[0].c2_2[0]": "X",
+    "Page2[0].c2_4[0]": "X",
+    "Page2[0].f2_7[0]": "Israel",
+    "Page2[0].f2_8[0]": "Israel",
+    "Page2[0].PartV[0].c2_6[0]": "X",
+    "Page3[0].c3_1[1]": "X",
+    "Page3[0].c3_4[1]": "X",
+    "Page3[0].c3_5[1]": "X",
+    "Page3[0].c3_6[1]": "X",
+    "Page3[0].c3_7[1]": "X",
+    "Page3[0].c3_8[1]": "X",
+    "Page3[0].c3_9[1]": "X"
+   },
+   "f1120": {
+    "Page1[0].PgHeader[0].f1_1[0]": "March 7",
+    "Page1[0].PgHeader[0].f1_2[0]": "December 31",
+    "Page1[0].PgHeader[0].f1_3[0]": "25",
+    "Page1[0].NameFieldsReadOrder[0].f1_4[0]": "Acme Sound LLC",
+    "Page1[0].NameFieldsReadOrder[0].f1_5[0]": "30 N Gould St Ste R",
+    "Page1[0].NameFieldsReadOrder[0].f1_7[0]": "Sheridan",
+    "Page1[0].NameFieldsReadOrder[0].f1_8[0]": "WY",
+    "Page1[0].NameFieldsReadOrder[0].f1_10[0]": "82801",
+    "Page1[0].f1_11[0]": "12-3456789",
+    "Page1[0].f1_13[0]": "12,346",
+    "Page1[0].c1_6[0]": "X"
+   }
+  },
+  {
+   "input": {
+    "year": 2025,
+    "legalName": "דנה Studio LLC",
+    "ein": "98-7654321",
+    "formed": "2023-06-01",
+    "address": "1 Main St",
+    "cityStateZip": "Tel Aviv",
+    "naics": "",
+    "business": "Software",
+    "owner": "Dana",
+    "ownerCountry": "Israel",
+    "totalAssets": "",
+    "transactions": []
+   },
+   "f5472": {
+    "Page1[0].Pg1Header[0].f1_1[0]": "January 1",
+    "Page1[0].Pg1Header[0].f1_2[0]": "2025",
+    "Page1[0].Pg1Header[0].f1_3[0]": "December 31",
+    "Page1[0].Pg1Header[0].f1_4[0]": "2025",
+    "Page1[0].Line1a[0].f1_5[0]": " Studio LLC",
+    "Page1[0].Line1a[0].f1_6[0]": "1 Main St",
+    "Page1[0].Line1a[0].f1_7[0]": "Tel Aviv",
+    "Page1[0].f1_8[0]": "98-7654321",
+    "Page1[0].f1_10[0]": "Software",
+    "Page1[0].f1_13[0]": "1",
+    "Page1[0].f1_16[0]": "United States",
+    "Page1[0].f1_17[0]": "06/01/2023",
+    "Page1[0].f1_18[0]": "United States",
+    "Page1[0].f1_19[0]": "United States",
+    "Page1[0].c1_3[0]": "X",
+    "Page1[0].c1_4[0]": "X",
+    "Page1[0].f1_20[0]": "Dana",
+    "Page1[0].f1_24[0]": "Israel",
+    "Page1[0].f1_25[0]": "Israel",
+    "Page1[0].f1_26[0]": "Israel",
+    "Page2[0].c2_1[0]": "X",
+    "Page2[0].f2_1[0]": "Dana",
+    "Page2[0].c2_2[0]": "X",
+    "Page2[0].c2_4[0]": "X",
+    "Page2[0].f2_7[0]": "Israel",
+    "Page2[0].f2_8[0]": "Israel",
+    "Page3[0].c3_1[1]": "X",
+    "Page3[0].c3_4[1]": "X",
+    "Page3[0].c3_5[1]": "X",
+    "Page3[0].c3_6[1]": "X",
+    "Page3[0].c3_7[1]": "X",
+    "Page3[0].c3_8[1]": "X",
+    "Page3[0].c3_9[1]": "X"
+   },
+   "f1120": {
+    "Page1[0].NameFieldsReadOrder[0].f1_4[0]": " Studio LLC",
+    "Page1[0].NameFieldsReadOrder[0].f1_5[0]": "1 Main St",
+    "Page1[0].NameFieldsReadOrder[0].f1_7[0]": "Tel Aviv",
+    "Page1[0].f1_11[0]": "98-7654321"
+   }
+  },
+  {
+   "input": {
+    "year": 2026,
+    "legalName": "Plain LLC",
+    "ein": "11-1111111",
+    "cityStateZip": "  Sheridan,   wy  82801-1234 ",
+    "totalAssets": 0,
+    "transactions": [
+     {
+      "date": "2026-01-05",
+      "desc": "x",
+      "amount": "-99.4"
+     }
+    ]
+   },
+   "f5472": {
+    "Page1[0].Pg1Header[0].f1_1[0]": "January 1",
+    "Page1[0].Pg1Header[0].f1_2[0]": "2026",
+    "Page1[0].Pg1Header[0].f1_3[0]": "December 31",
+    "Page1[0].Pg1Header[0].f1_4[0]": "2026",
+    "Page1[0].Line1a[0].f1_5[0]": "Plain LLC",
+    "Page1[0].Line1a[0].f1_7[0]": "  Sheridan,   wy  82801-1234 ",
+    "Page1[0].f1_8[0]": "11-1111111",
+    "Page1[0].f1_9[0]": "0",
+    "Page1[0].Line1f_ReadOrder[0].f1_12[0]": "99",
+    "Page1[0].f1_13[0]": "1",
+    "Page1[0].f1_14[0]": "99",
+    "Page1[0].f1_16[0]": "United States",
+    "Page1[0].f1_18[0]": "United States",
+    "Page1[0].f1_19[0]": "United States",
+    "Page1[0].c1_3[0]": "X",
+    "Page1[0].c1_4[0]": "X",
+    "Page2[0].c2_1[0]": "X",
+    "Page2[0].c2_2[0]": "X",
+    "Page2[0].c2_4[0]": "X",
+    "Page2[0].PartV[0].c2_6[0]": "X",
+    "Page3[0].c3_1[1]": "X",
+    "Page3[0].c3_4[1]": "X",
+    "Page3[0].c3_5[1]": "X",
+    "Page3[0].c3_6[1]": "X",
+    "Page3[0].c3_7[1]": "X",
+    "Page3[0].c3_8[1]": "X",
+    "Page3[0].c3_9[1]": "X"
+   },
+   "f1120": {
+    "Page1[0].NameFieldsReadOrder[0].f1_4[0]": "Plain LLC",
+    "Page1[0].NameFieldsReadOrder[0].f1_7[0]": "Sheridan",
+    "Page1[0].NameFieldsReadOrder[0].f1_8[0]": "WY",
+    "Page1[0].NameFieldsReadOrder[0].f1_10[0]": "82801-1234",
+    "Page1[0].f1_11[0]": "11-1111111",
+    "Page1[0].f1_13[0]": "0"
+   }
+  },
+  {
+   "input": {
+    "year": 2024,
+    "legalName": "Late LLC",
+    "formed": "2024-01-01",
+    "totalAssets": -0.4
+   },
+   "f5472": {
+    "Page1[0].Pg1Header[0].f1_1[0]": "January 1",
+    "Page1[0].Pg1Header[0].f1_2[0]": "2024",
+    "Page1[0].Pg1Header[0].f1_3[0]": "December 31",
+    "Page1[0].Pg1Header[0].f1_4[0]": "2024",
+    "Page1[0].Line1a[0].f1_5[0]": "Late LLC",
+    "Page1[0].f1_9[0]": "-0",
+    "Page1[0].f1_13[0]": "1",
+    "Page1[0].Line1j_ReadOrder[0].c1_2[0]": "X",
+    "Page1[0].f1_16[0]": "United States",
+    "Page1[0].f1_17[0]": "01/01/2024",
+    "Page1[0].f1_18[0]": "United States",
+    "Page1[0].f1_19[0]": "United States",
+    "Page1[0].c1_3[0]": "X",
+    "Page1[0].c1_4[0]": "X",
+    "Page2[0].c2_1[0]": "X",
+    "Page2[0].c2_2[0]": "X",
+    "Page2[0].c2_4[0]": "X",
+    "Page3[0].c3_1[1]": "X",
+    "Page3[0].c3_4[1]": "X",
+    "Page3[0].c3_5[1]": "X",
+    "Page3[0].c3_6[1]": "X",
+    "Page3[0].c3_7[1]": "X",
+    "Page3[0].c3_8[1]": "X",
+    "Page3[0].c3_9[1]": "X"
+   },
+   "f1120": {
+    "Page1[0].NameFieldsReadOrder[0].f1_4[0]": "Late LLC",
+    "Page1[0].f1_13[0]": "-0",
+    "Page1[0].c1_6[0]": "X"
+   }
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+# text in the description → ledger account. First match wins.
+bit:,business:client
+העברה מ,business:client
+ADOBE,expense:software
+PROCREATE,expense:software
+צבעי,expense:equipment
+נייר,expense:equipment
+iPad,expense:equipment
+פרטנר,expense:phone-internet
+WeWork,expense:professional
+עמלת,expense:bank-fees
+מקס איט,transfer:internal
+חיסכון,own:savings

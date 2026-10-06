@@ -1,0 +1,33 @@
+{
+  "form5472Penalty": 25000,
+  "dueMonthDay": "04-15",
+  "extendedMonthDay": "10-15",
+  "note": "Foreign-owned single-member LLC: pro forma 1120 + 5472",
+  "delawareTax": 400,
+  "wyomingMin": 60,
+  "treatyRoyalty": 0.1,
+  "defaultWithholding": 0.3,
+  "nec1099": 2000,
+  "costs": {
+    "llc": 1200,
+    "ccorp": 3000
+  },
+  "corpRate": 0.21,
+  "treatyDividend": 0.25,
+  "costsNote": "ESTIMATES, $/yr: LLC = state fee + registered agent + 5472 prep (500–1,500); C-corp = 1120 prep (1,000–4,000) + Delaware franchise 400 + agent",
+  "sources": {
+    "form5472Penalty": {
+      "url": "https://www.irs.gov/instructions/i5472",
+      "effective": "2026-01-01"
+    },
+    "corpRate": {
+      "url": "https://www.law.cornell.edu/uscode/text/26/11",
+      "effective": "2018-01-01"
+    },
+    "treatyRoyalty": {
+      "url": "https://www.irs.gov/businesses/international-businesses/israel-tax-treaty-documents",
+      "effective": "1995-01-01",
+      "note": "US–Israel income tax treaty, royalties"
+    }
+  }
+}

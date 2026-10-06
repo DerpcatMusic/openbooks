@@ -1,0 +1,16 @@
+{
+  "accounts": [
+    {"id": "acc-chk", "name": "Mercury Checking", "currentBalance": 2391.56},
+    {"id": "acc-cc", "name": "Mercury Credit", "currentBalance": -64.99}
+  ],
+  "transactions": [
+    {"id": "t-001", "accountId": "acc-chk", "amount": 1200, "postedAt": "2025-01-15T10:00:00Z", "createdAt": "2025-01-14T10:00:00Z", "counterpartyName": "Stripe", "bankDescription": "STRIPE TRANSFER", "mercuryCategory": "Income", "kind": "externalTransfer", "status": "sent"},
+    {"id": "t-002", "accountId": "acc-chk", "amount": 345.67, "postedAt": null, "createdAt": "2025-02-03T08:00:00Z", "counterpartyName": "DistroKid", "kind": "externalTransfer", "status": "sent"},
+    {"id": "t-003", "accountId": "acc-cc", "amount": -20, "postedAt": "2025-02-10T00:00:00Z", "createdAt": "2025-02-10T00:00:00Z", "counterpartyName": "OpenAI", "mercuryCategory": "Software", "kind": "creditCardTransaction", "status": "sent"},
+    {"id": "t-004", "accountId": "acc-cc", "amount": -44.99, "postedAt": "2025-03-01T00:00:00Z", "createdAt": "2025-03-01T00:00:00Z", "counterpartyName": "Splice", "note": "samples", "kind": "creditCardTransaction", "status": "sent"},
+    {"id": "t-005", "accountId": "acc-chk", "amount": -500, "postedAt": "2025-03-05T00:00:00Z", "createdAt": "2025-03-05T00:00:00Z", "counterpartyName": "", "bankDescription": "Transfer to OWNER", "kind": "internalTransfer", "status": "sent"},
+    {"id": "t-006", "accountId": "acc-chk", "amount": -99.5, "postedAt": "2025-04-01T00:00:00Z", "createdAt": "2025-04-01T00:00:00Z", "counterpartyName": "Meta Ads", "kind": "debitCardTransaction", "status": "cancelled"},
+    {"id": "t-007", "accountId": "acc-chk", "amount": 1500.25, "postedAt": "2025-12-31T23:00:00Z", "createdAt": "2025-12-31T23:00:00Z", "counterpartyName": "Patreon", "kind": "externalTransfer", "status": "sent"},
+    {"id": "t-008", "accountId": "acc-chk", "amount": -53.36, "postedAt": "2026-01-02T00:00:00Z", "createdAt": "2026-01-02T00:00:00Z", "counterpartyName": "Some Cafe", "mercuryCategory": "Restaurants", "kind": "debitCardTransaction", "status": "sent"}
+  ]
+}

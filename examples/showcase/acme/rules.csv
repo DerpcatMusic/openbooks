@@ -1,0 +1,19 @@
+# text in the description / bank memo / [Mercury category] → ledger account. First match wins.
+Payment to Mercury Credit,transfer:internal
+Payment from Mercury Checking,transfer:internal
+OWNER,equity:owner
+ACH CREDIT,revenue:services
+DistroKid,revenue:music-royalties
+Stripe,revenue:plugin-sales
+Patreon,revenue:patreon
+Shopify,cogs:platform-fees
+Amazon Web Services,cogs:hosting
+OpenAI,cogs:ai-models
+Anthropic,cogs:ai-models
+Splice,expense:software
+Adobe,expense:software
+Meta Ads,expense:advertising
+[Equipment],expense:equipment
+[Travel],expense:travel
+REGISTERED AGENT,expense:professional
+CPA,expense:professional

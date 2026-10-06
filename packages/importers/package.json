@@ -1,0 +1,15 @@
+{
+  "name": "@openbooks/importers",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@openbooks/core": "workspace:*",
+    "@openbooks/schema": "workspace:*",
+    "effect": "4.0.1",
+    "israeli-bank-scrapers": "^6.12.2"
+  }
+}
