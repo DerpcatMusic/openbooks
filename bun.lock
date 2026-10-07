@@ -6,6 +6,7 @@
       "name": "openbooks",
       "devDependencies": {
         "@types/bun": "latest",
+        "puppeteer-core": "24.43.1",
         "typescript": "7.0.2",
         "vite-plus": "1.0.0",
       },
@@ -89,6 +90,7 @@
         "@openbooks/schema": "workspace:*",
         "effect": "4.0.1",
         "israeli-bank-scrapers": "^6.12.2",
+        "puppeteer": "^24.40.0",
       },
     },
     "packages/schema": {
