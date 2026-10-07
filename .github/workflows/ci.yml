@@ -2,6 +2,8 @@ name: CI
 on:
   push:
   pull_request:
+env:
+  PUPPETEER_SKIP_DOWNLOAD: "1"
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -13,5 +15,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run typecheck
+      - run: cd apps/web && bunx vp build # server tests serve the built app
       - run: bun run test
-      - run: cd apps/web && bunx vp build

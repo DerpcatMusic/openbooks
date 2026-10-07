@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { moneyParts, moneyText } from "./money.ts";
 import { place } from "./position.ts";
 

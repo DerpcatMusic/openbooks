@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { checkDictionaries } from "@openbooks/core";
 import en from "#lib/locales/parts/3-6.en.ts";
 import he from "#lib/locales/parts/3-6.he.ts";

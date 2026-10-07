@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { marks, type Layout } from "./marks.ts";
 
 test("1301 marks: X, cells right-aligned, money grouped", () => {

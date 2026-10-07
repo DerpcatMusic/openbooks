@@ -4,7 +4,7 @@
 // Never calls a real provider. Ports 8943 (fake provider) and 8944 (server).
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { request } from "node:http";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vite-plus/test";
 import { http, type Running, startTs, testBooks } from "./testing.ts";
 
 const KEY = "sk-ant-TESTSECRET-0123456789";
