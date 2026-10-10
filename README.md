@@ -17,7 +17,7 @@ Bank sync, invoices, reports and tax forms for freelancers, Israeli osek and US 
 <!-- derpcat-support -->
 <p align="center">
   <a href="https://www.patreon.com/derpcatmusic">
-    <img src=".github/support-derpcat.svg" alt="Donate on Patreon" width="440">
+    <img src=".github/support-derpcat.svg" alt="Donate on Patreon" width="480">
   </a>
 </p>
 <!-- /derpcat-support -->
