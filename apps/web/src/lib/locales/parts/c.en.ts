@@ -33,7 +33,7 @@ export default {
   "taxReturn.calcSub": "Same method as the Tax Authority's חישוב",
   "taxReturn.business": "Business income (150)",
   "taxReturn.bracket": "{rate} on {part}",
-  "taxReturn.fundProfit": "Fund profit ({field}) × {rate}%",
+  "taxReturn.fundProfit": "Special-rate income ({field}) × {rate}%",
   "taxReturn.gross": "Tax before credits",
   "taxReturn.resident": "Resident · {pts} pts",
   "taxReturn.soldier": "Released soldier · {pts} pts",

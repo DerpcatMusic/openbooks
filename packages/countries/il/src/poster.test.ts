@@ -2,7 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 import { posterBookmarklet, posterFields, posterScript } from "./poster.ts";
 
 // runs the generated script against a stand-in for the Tax Authority page
-function run(script: string, ids: Record<string, { type?: string; value?: string; checked?: boolean }>, path = "/shdochshana1301/frmTofes1301_2025.aspx") {
+function run(
+  script: string,
+  ids: Record<string, { type?: string; value?: string; checked?: boolean; tagName?: string }>,
+  path = "/shdochshana1301/frmTofes1301_2025.aspx",
+) {
   const els = Object.fromEntries(
     Object.entries(ids).map(([id, e]) => [
       id,

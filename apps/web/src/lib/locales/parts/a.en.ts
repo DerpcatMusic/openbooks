@@ -143,10 +143,4 @@ export default {
   "documents.einWhy": "Form 5472 · 1120 header",
   "documents.articles": "Articles of organization",
   "documents.articlesWhy": "formation date and state",
-  "documents.f830": "Form 830 — military service certificate",
-  "documents.f830Why": "fields 224 · 024",
-  "documents.f867": "Fund tax certificate (867) or account statement",
-  "documents.f867Why": "fields 157 · 040",
-  "documents.withheld": "Certificate for every withholding",
-  "documents.withheldWhy": "field 040",
 };

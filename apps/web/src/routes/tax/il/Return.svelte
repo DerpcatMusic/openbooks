@@ -6,7 +6,7 @@
   import { Button, Checkbox, IconButton, Input, toast } from "#lib/ui/index.ts";
   import { SECTIONS } from "./fields.ts";
   import { ilYear } from "./il.ts";
-  import { FUND_RATE_2006, posterBookmarklet, posterScript } from "@openbooks/country-il";
+  import { posterBookmarklet, posterScript } from "@openbooks/country-il";
   import { personNow, savePerson, withFact } from "#lib/person.ts";
 
   const b = $derived(ilYear(S.year));
@@ -118,13 +118,12 @@
     <div class="mt-4">
       {@render line(t("taxReturn.business"), fmt(b.taxable))}
       {#each b.rows as r (r.rate)}{@render line(t("taxReturn.bracket", { rate: pct(r.rate), part: fmt(r.part) }), fmt(r.tax), "ps-3 text-sub")}{/each}
-      {#if b.cap15}{@render line(t("taxReturn.fundProfit", { field: "060", rate: Math.round((b.T.capitalRate ?? 0.15) * 100) }), fmt(b.cap15 * (b.T.capitalRate ?? 0.15)), "text-sub")}{/if}
-      {#if b.cap25}{@render line(t("taxReturn.fundProfit", { field: "157", rate: Math.round(FUND_RATE_2006 * 100) }), fmt(b.cap25 * FUND_RATE_2006), "text-sub")}{/if}
+      {#each b.special as x (x.no)}{@render line(t("taxReturn.fundProfit", { field: x.no, rate: Math.round(x.rate * 100) }), fmt(x.tax), "text-sub")}{/each}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.gross"), fmt(b.gross))}
       {@render line(t("taxReturn.resident", { pts: b.resident }), "", "text-sub")}
       {#if b.soldier}{@render line(t("taxReturn.soldier", { pts: b.soldier.toFixed(2) }), "", "text-sub")}{/if}
-      {@render line(t("taxReturn.credits", { pts: b.points.toFixed(2), point: fmt(b.T.point) }), fmt(-b.credits), "text-good")}
+      {@render line(t("taxReturn.credits", { pts: (b.credits / b.T.point).toFixed(2), point: fmt(b.T.point) }), fmt(-b.credits), "text-good")}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.due"), fmt(b.due), "font-medium")}
       {#if b.withheld}{@render line(t("taxReturn.withheld"), fmt(-b.withheld), "text-sub")}{/if}

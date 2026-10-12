@@ -1,4 +1,5 @@
 import cpi from "../tables/cpi.json";
+import { ORDINARY, PERSONAL, RATED, WITHHELD, proofsNeeded } from "./catalog.ts";
 // Form 1301 (annual return) from the books: port of books(y) in web/src/lib/books.svelte.js. Field keys are the form's box numbers
 // (layout in packages/countries/il/form/, from layout.py). Values the user typed on the Tax page (doc "form"[year]) override the automatic ones.
 import { group, isBiz, plOf } from "@openbooks/core";
@@ -63,9 +64,6 @@ export function form1301Auto({ txns, type, profile: p = {} }: Pick<Form1301Input
   };
 }
 
-/** Section 15 of the 1301 (field 157): real gain on provident-fund deposits from 2006 is taxed at 25%. */
-export const FUND_RATE_2006 = 0.25;
-
 /** Index known on `date` (מדד ידוע): month M's index is published on the 15th of M+1. */
 function knownCpi(date: string): number | undefined {
   const d = new Date(date + "T00:00:00Z");
@@ -104,20 +102,29 @@ export function form1301(i: Form1301Input) {
   const n = (k: string) => +String(v(k)).replace(/,/g, "") || 0;
   const turnover = i.txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const capital = i.txns.filter((t) => group(t.category) === "capital");
-  const ord = n("150"),
+  const sum = (ks: readonly string[]) => ks.reduce((a, k) => a + n(k), 0);
+  const ord = sum(ORDINARY),
+    personal = sum(PERSONAL),
+    // every special-rate box with a value; 060's rate stays editable in Settings (capitalRate)
+    special = RATED.filter((d) => n(d.no!)).map((d) => {
+      const rate = d.no === "060" ? (T.capitalRate ?? d.rate!) : d.rate!;
+      return { no: d.no!, he: d.he, en: d.en, amount: n(d.no!), rate, tax: n(d.no!) * rate };
+    }),
     cap15 = n("060"), // provident-fund gains on deposits from 2003–2005 (15%)
     cap25 = n("157"), // provident-fund / child-savings gains on deposits from 2006 (25%), e.g. חיסכון לכל ילד
-    cap = cap15 + cap25;
+    cap = special.reduce((a, x) => a + x.amount, 0);
   const resident = v("020") ? 2.25 : 0,
     soldier = v("224") ? soldierPoints(p.discharge, p.serviceMonths, i.y) : 0,
     points = resident + soldier;
   const ordTax = bands(ord, T.brackets),
-    capTax = cap15 * (T.capitalRate ?? 0.15) + cap25 * FUND_RATE_2006,
-    gross = ordTax + capTax;
-  // resident points offset any tax; the discharged-soldier credit (s.39א) only tax on personal exertion (ordTax)
-  const credits = resident * T.point + Math.min(soldier * T.point, ordTax),
+    capTax = special.reduce((a, x) => a + x.tax, 0),
+    gross = ordTax + capTax,
+    // ponytail: personal exertion's share of the bracket tax, pro rata; exact would tax it first (it sits at the bottom brackets)
+    personalTax = ord ? (ordTax * personal) / ord : 0;
+  // resident points offset any tax; the discharged-soldier credit (s.39א) only tax on personal exertion
+  const credits = resident * T.point + Math.min(soldier * T.point, personalTax),
     due = Math.max(0, Math.round(gross - credits)),
-    withheld = n("040");
+    withheld = sum(WITHHELD);
   return {
     fields: { ...auto, ...Object.fromEntries(Object.entries(f).filter(([, x]) => x != null)) } as Record<string, string>,
     turnover,
@@ -127,6 +134,9 @@ export function form1301(i: Form1301Input) {
     cap,
     cap15,
     cap25,
+    special,
+    /** Documents the guide asks for, per box with a value. */
+    proofs: proofsNeeded(n),
     ordTax,
     capTax,
     gross,

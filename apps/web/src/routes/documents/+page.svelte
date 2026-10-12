@@ -2,7 +2,7 @@
   // Documents: statements in inbox/ (they feed the books) and the year's proofs (certificates the return needs), with a
   // checklist of what this year still needs. IL: preview report + proof pack. Drop files anywhere (the shell) or use Add.
   import { S, isUS, upload, fileUrl, packUrl, mdy, yearTxns, bizType, taxTable } from "#lib/stores/books.svelte.ts";
-  import { t } from "#lib/i18n.svelte.ts";
+  import { t, lang } from "#lib/i18n.svelte.ts";
   import { form1301, type IlTable } from "@openbooks/country-il";
   import { Badge, Button, Card, EmptyState, Icon, PageHeader, Select, Table } from "#lib/ui/index.ts";
   import FilePick from "./FilePick.svelte";
@@ -18,11 +18,15 @@
         { label: t("documents.articles"), why: t("documents.articlesWhy"), ok: has(/articles|formation|certificate/i) },
       ];
     const b = form1301({ y: S.year, txns: yearTxns(), type: bizType() ?? "", T: taxTable(S.year) as unknown as IlTable, form: d.form[S.year] ?? {}, profile: d.profile });
-    return [
-      b.soldier > 0 && { label: t("documents.f830"), why: t("documents.f830Why"), ok: has(/830/) },
-      b.cap > 0 && { label: t("documents.f867"), why: t("documents.f867Why"), ok: has(/867|אלטשולר|altshuler|גמל/i) },
-      b.withheld > 0 && { label: t("documents.withheld"), why: t("documents.withheldWhy"), ok: has(/867|אישור|ניכוי|אלטשולר/i) },
-    ].filter((x) => !!x);
+    // one line per box with a value that the 1301 guide says to back with documents (catalog: form/fields-2025.json)
+    return b.proofs.map((x) => {
+      const forms = x.proof.map((d) => d.match(/^\d{3,4}/)?.[0]).filter((d) => !!d);
+      return {
+        label: `${x.no} · ${lang() === "he" ? x.he : x.en}`,
+        why: x.proof.join(" · "),
+        ok: x.no === "224" ? has(/830|שחרור|discharge/i) : forms.length ? has(new RegExp(forms.join("|"))) : proofs.length > 0,
+      };
+    });
   });
   type Row = { name: string; bad?: boolean };
   const rows = $derived<Row[]>([...d.inbox.map((name) => ({ name })), ...(d.unreadable ?? []).map((name) => ({ name, bad: true }))]);

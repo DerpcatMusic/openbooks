@@ -32,7 +32,7 @@ export default {
   "taxReturn.calcSub": "באותה שיטה כמו החישוב של רשות המסים",
   "taxReturn.business": "הכנסה מעסק (150)",
   "taxReturn.bracket": "{rate} על {part}",
-  "taxReturn.fundProfit": "רווח מקופת גמל ({field}) × {rate}%",
+  "taxReturn.fundProfit": "הכנסה בשיעור מיוחד ({field}) × {rate}%",
   "taxReturn.gross": "מס לפני זיכויים",
   "taxReturn.resident": "תושב · {pts} נקודות",
   "taxReturn.soldier": "חייל משוחרר · {pts} נקודות",
