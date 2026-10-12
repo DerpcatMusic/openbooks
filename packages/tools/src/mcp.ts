@@ -194,7 +194,7 @@ const PROMPTS: Record<
           head +
           `Israeli annual return, form 1301, osek zair:\n1. Every ${y} transaction categorized (list_transactions uncategorized=true, from=${y}-01, to=${y}-12).\n` +
           "2. Turnover vs the osek zair ceiling (overCeiling in tax_summary).\n3. Taxable business income: 70% of turnover (30% deemed expenses), field 150.\n" +
-          "4. Credit points: resident, discharged soldier (discharge date in the profile).\n5. Capital income (field 060) and tax withheld (field 040) from the year's certificates.\n" +
+          "4. Credit points: resident, discharged soldier (discharge date in the profile).\n5. Provident-fund profit (field 157 at 25%; 060 at 15% only for 2003–2005 deposits) and tax withheld (field 040) from the year's certificates.\n" +
           "6. Tax due vs withheld: what to pay or get back. List anything missing."
         );
       if (e.meta.kind === "us-llc")

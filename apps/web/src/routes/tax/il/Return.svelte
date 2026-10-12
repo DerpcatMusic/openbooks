@@ -6,6 +6,7 @@
   import { Button, Checkbox, IconButton, Input } from "#lib/ui/index.ts";
   import { SECTIONS } from "./fields.ts";
   import { ilYear } from "./il.ts";
+  import { FUND_RATE_2006 } from "@openbooks/country-il";
   import { personNow, savePerson, withFact } from "#lib/person.ts";
 
   const b = $derived(ilYear(S.year));
@@ -107,7 +108,8 @@
     <div class="mt-4">
       {@render line(t("taxReturn.business"), fmt(b.taxable))}
       {#each b.rows as r (r.rate)}{@render line(t("taxReturn.bracket", { rate: pct(r.rate), part: fmt(r.part) }), fmt(r.tax), "ps-3 text-sub")}{/each}
-      {#if b.cap}{@render line(t("taxReturn.fundProfit", { rate: Math.round((b.T.capitalRate ?? 0.15) * 100) }), fmt(b.capTax), "text-sub")}{/if}
+      {#if b.cap15}{@render line(t("taxReturn.fundProfit", { field: "060", rate: Math.round((b.T.capitalRate ?? 0.15) * 100) }), fmt(b.cap15 * (b.T.capitalRate ?? 0.15)), "text-sub")}{/if}
+      {#if b.cap25}{@render line(t("taxReturn.fundProfit", { field: "157", rate: Math.round(FUND_RATE_2006 * 100) }), fmt(b.cap25 * FUND_RATE_2006), "text-sub")}{/if}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.gross"), fmt(b.gross))}
       {@render line(t("taxReturn.resident", { pts: b.resident }), "", "text-sub")}

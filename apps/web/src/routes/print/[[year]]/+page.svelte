@@ -94,12 +94,13 @@
         </div>
 
         {#if b.capital.length}
-          <h2>3. חיסכון לכל ילד — אלטשולר שחם (שדות 060, 040)</h2>
+          <h2>3. רווחים מקופות גמל (שדות {[b.cap25 && "157", b.cap15 && "060"].filter(Boolean).join(", ")}, 040)</h2>
           <table>
             <tbody>
               <tr><td>הופקד בחשבון {dmy(b.capital[0]!.date)} (נטו)</td><td class="n">{m(sum(b.capital))}</td></tr>
-              <tr><td>מס שנוכה במקור 15% — שדה 040</td><td class="n">{m(b.withheld)}</td></tr>
-              <tr><td>רווח ריאלי — שדה 060</td><td class="n">{m(b.cap)}</td></tr>
+              <tr><td>מס שנוכה במקור — שדה 040</td><td class="n">{m(b.withheld)}</td></tr>
+              {#if b.cap25}<tr><td>רווח ריאלי, הפקדות מ־2006 (25%) — שדה 157</td><td class="n">{m(b.cap25)}</td></tr>{/if}
+              {#if b.cap15}<tr><td>רווח ריאלי, הפקדות 2003–2005 (15%) — שדה 060</td><td class="n">{m(b.cap15)}</td></tr>{/if}
             </tbody>
           </table>
         {/if}

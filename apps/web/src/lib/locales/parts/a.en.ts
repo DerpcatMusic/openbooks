@@ -146,7 +146,7 @@ export default {
   "documents.f830": "Form 830 — military service certificate",
   "documents.f830Why": "fields 224 · 024",
   "documents.f867": "Fund tax certificate (867) or account statement",
-  "documents.f867Why": "fields 060 · 040",
+  "documents.f867Why": "fields 157 · 040",
   "documents.withheld": "Certificate for every withholding",
   "documents.withheldWhy": "field 040",
 };

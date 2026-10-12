@@ -152,7 +152,7 @@ export default {
   "documents.f830": "טופס 830 — אישור על שירות צבאי",
   "documents.f830Why": "שדות 224 · 024",
   "documents.f867": "אישור מס שנתי מהקופה (867) או דוח שנתי לחשבון",
-  "documents.f867Why": "שדות 060 · 040",
+  "documents.f867Why": "שדות 157 · 040",
   "documents.withheld": "אישור על כל ניכוי מס במקור",
   "documents.withheldWhy": "שדה 040",
 };
