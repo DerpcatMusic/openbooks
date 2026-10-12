@@ -1,6 +1,6 @@
 import { checkDictionaries } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import en from "../locales/parts/3-4.en.ts";
 import he from "../locales/parts/3-4.he.ts";
 import { inCat, parseArg, range, ruleHits, slug, toCsv } from "./txns.ts";

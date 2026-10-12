@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer, request, type Server } from "node:http";
 import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { foreign } from "./guard.ts";
 import { merge } from "./pack.ts";
 import { demoHome, http, type Running, startTs } from "./testing.ts";

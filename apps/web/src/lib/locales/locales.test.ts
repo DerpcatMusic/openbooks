@@ -1,7 +1,7 @@
 import { checkDictionaries } from "@openbooks/core";
 import { il } from "@openbooks/country-il";
 import { us } from "@openbooks/country-us";
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import en from "./en.ts";
 import he from "./he.ts";
 

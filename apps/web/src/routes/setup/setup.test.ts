@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { entityId } from "./setup.ts";
 
 test("entity id: slug, Hebrew falls back to the kind, free suffix, ≤ 32 chars", () => {

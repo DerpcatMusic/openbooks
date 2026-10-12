@@ -1,5 +1,5 @@
 import { checkDictionaries } from "@openbooks/core";
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import en from "../locales/parts/3-3.en.ts";
 import he from "../locales/parts/3-3.he.ts";
 import { activeMonths, bsStatement, cfStatement, ledgerGroups, plStatement, toCsv } from "./statements.ts";

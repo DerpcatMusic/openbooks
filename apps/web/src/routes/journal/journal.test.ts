@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { clean, off, problem, type Entry } from "./journal.ts";
 
 const e = (lines: Entry["lines"], date = "2026-01-15"): Entry => ({ id: "x", date, lines });

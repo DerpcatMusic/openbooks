@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test } from "vite-plus/test";
 import { answerOf, normalizeFacts, profileFromPerson, withFact } from "./facts.ts";
 
 test("legacy discharge/serviceMonths answer the playbook's dischargeDate/fullService; new answers win", () => {
