@@ -3,15 +3,15 @@
 // change, blur so the page's own validation runs), lists what it couldn't place, and never presses חישוב or שידור: the person
 // checks the site's calculation against OpenBooks and sends the report themselves.
 
-/** Site element ids: numeric boxes are txtNNN, check boxes chkNNN; a few have names instead of numbers. */
-const NAMED: Record<string, string> = { zair: "chkEsekZahirBZR" };
+/** Site element ids: numeric boxes are txtNNN, check boxes chkNNN, drop-downs ddlNNN; a few have names instead of numbers. */
+const NAMED: Record<string, string> = { zair: "chkEsekZahirBZR", "224m": "ddlHodeshRashum" };
 /** Profile / bookkeeping keys the site fills itself (name, id, file) or that aren't boxes. */
 const SKIP = new Set(["last", "first", "id", "file", "mine", "assessed", "inquiry"]);
 
-/** The fields to post: form numbers (and named check boxes) with a value, notes dropped. */
+/** The fields to post: form numbers and named boxes, notes dropped. Empty ones go too, to clear stale values in a saved draft. */
 export function posterFields(fields: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(fields).filter(([k, v]) => v !== "" && v != null && !k.startsWith("note:") && !SKIP.has(k) && (/^\d{3}$/.test(k) || k in NAMED)),
+    Object.entries(fields).filter(([k, v]) => v != null && !k.startsWith("note:") && !SKIP.has(k) && (/^\d{3}$/.test(k) || k in NAMED)),
   );
 }
 
@@ -21,10 +21,10 @@ export function posterScript(year: number, fields: Record<string, string>, expec
   return `(()=>{const D=${data};
 if(!/secapp\\.taxes\\.gov\\.il$/.test(location.hostname)||!location.pathname.includes("frmTofes1301_"+D.year)){alert("OpenBooks: open your "+D.year+" form 1301 on secapp.taxes.gov.il first");return}
 const set=[],miss=[];
-for(const[k,v]of Object.entries(D.f)){const e=document.getElementById(D.named[k]||"txt"+k)||document.getElementById("chk"+k);
-if(!e){miss.push(k);continue}
-if(e.type==="checkbox"){const on=!!v&&v!=="0";if(e.checked!==on)e.click()}else{e.focus();e.value=String(v).replace(/,/g,"");["input","change","blur"].forEach(t=>e.dispatchEvent(new Event(t,{bubbles:true})))}
-set.push(k)}
+for(const[k,v]of Object.entries(D.f)){const e=document.getElementById(D.named[k]||"txt"+k)||document.getElementById("chk"+k)||document.getElementById("ddl"+k);
+if(!e){if(v!=="")miss.push(k);continue}
+if(e.type==="checkbox"){const on=!!v&&v!=="0";if(e.checked!==on)e.click()}else if(e.tagName==="SELECT"){e.value=String(v);e.dispatchEvent(new Event("change",{bubbles:true}))}else{e.focus();e.value=String(v).replace(/,/g,"");["input","change","blur"].forEach(t=>e.dispatchEvent(new Event(t,{bubbles:true})))}
+if(v!=="")set.push(k)}
 alert("OpenBooks filled "+set.length+" fields: "+set.join(", ")+(miss.length?"\\nNot found on this page (enter by hand): "+miss.join(", "):"")+"\\n\\nOpenBooks expects "+(D.balance<0?"a refund of "+(-D.balance):D.balance>0?"tax to pay of "+D.balance:"nothing to pay")+" ₪ before the site adds indexation. Press חישוב and compare. Nothing was sent.")})()`;
 }
 
