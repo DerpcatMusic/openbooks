@@ -11,7 +11,10 @@ const SKIP = new Set(["last", "first", "id", "file", "mine", "assessed", "inquir
 /** The fields to post: form numbers and named boxes, notes dropped. Empty ones go too, to clear stale values in a saved draft. */
 export function posterFields(fields: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(fields).filter(([k, v]) => v != null && !k.startsWith("note:") && !SKIP.has(k) && (/^\d{3}$/.test(k) || k in NAMED)),
+    Object.entries(fields)
+      .filter(([k, v]) => v != null && !k.startsWith("note:") && !SKIP.has(k) && (/^\d{3}$/.test(k) || k in NAMED))
+      // the site takes whole shekels only (a decimal fails its numeric check): round amounts, keep flags as they are
+      .map(([k, v]) => [k, /^-?[\d,]*\.\d+$/.test(v) ? String(Math.round(+v.replace(/,/g, ""))) : v]),
   );
 }
 

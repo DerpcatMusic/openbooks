@@ -87,5 +87,8 @@ describe("tax poster", () => {
   it("refuses other pages and years", () => {
     expect(run(posterScript(2025, fields, { balance: 0 }), {}, "/shdochshana1301/frmTofes1301_2024.aspx").said[0]).toContain("open your 2025 form 1301");
   });
+  it("rounds to whole shekels (the site rejects agorot)", () => {
+    expect(posterFields({ "150": "18413.6", "157": "3,015.2", "040": "754" })).toEqual({ "150": "18414", "157": "3015", "040": "754" });
+  });
   it("bookmarklet", () => expect(posterBookmarklet(2025, fields, { balance: 0 })).toMatch(/^javascript:\(\(\)/));
 });
