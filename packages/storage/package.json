@@ -4,7 +4,9 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./taxtables": "./src/taxtables.ts",
+    "./parse": "./src/parse.ts"
   },
   "dependencies": {
     "@openbooks/core": "workspace:*",

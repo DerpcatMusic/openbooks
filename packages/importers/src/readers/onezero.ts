@@ -1,6 +1,5 @@
 // One Zero: the "פירוט תנועות שקליות" PDF (via pdftotext, = books.py onezero) and the live-sync JSON (= books.py onezero_json).
 // Also the small Python-compat helpers the Israeli readers share (bit.ts, scraper.ts).
-import { spawnSync } from "node:child_process";
 import type { EntityMeta, StatementCheck, StatementRow } from "@openbooks/schema";
 import { pyRound } from "@openbooks/core";
 import { intAmount, parseJson, pyFloatStr, uidAmount } from "../uid.ts";
@@ -60,7 +59,12 @@ export const pyS = (v: unknown, isInt = false): string =>
 // ---------- PDF ----------
 /** `pdftotext -layout <pdf> -` as books.py runs it (check=True, text=True: UTF-8, universal newlines). */
 export function pdftotext(bytes: Uint8Array): string {
-  const p = spawnSync("pdftotext", ["-layout", "-", "-"], { input: bytes, maxBuffer: 1 << 30 });
+  // looked up here, not imported: the browser build (apps/web/src/lib/local) bundles the readers and has no child processes
+  const cp = (globalThis as { process?: { getBuiltinModule?: (id: string) => typeof import("node:child_process") } }).process?.getBuiltinModule?.(
+    "node:child_process",
+  );
+  if (!cp) throw new Error("pdftotext isn't available here");
+  const p = cp.spawnSync("pdftotext", ["-layout", "-", "-"], { input: bytes, maxBuffer: 1 << 30 });
   if (p.error) throw p.error;
   if (p.status !== 0) throw new Error(`pdftotext exited ${p.status}: ${p.stderr.toString()}`);
   return utf8(p.stdout, true).replace(/\r\n?/g, "\n");
