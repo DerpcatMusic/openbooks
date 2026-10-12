@@ -19,6 +19,7 @@ import {
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
+import { form1301, type IlTable, type Profile } from "@openbooks/country-il";
 import type { EntityMeta, Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
@@ -704,88 +705,42 @@ const taxTable = (y: number, country = "il") =>
     const row = t[String(pick)]!;
     return { ...row, year: pick, brackets: row.brackets.map(([hi, r]) => [hi ?? Infinity, r] as const) };
   });
-function bracketTax(income: number, brackets: readonly (readonly [number, number])[]) {
-  let tax = 0,
-    lo = 0;
-  const rows: { rate: number; income: number; tax: number }[] = [];
-  for (const [hi, rate] of brackets) {
-    const part = Math.max(0, Math.min(income, hi) - lo);
-    if (part > 0) {
-      tax += part * rate;
-      rows.push({ rate, income: r2(part), tax: r2(part * rate) });
-    }
-    lo = hi;
-  }
-  return [tax, rows] as const;
-}
-/** Discharged soldier: 2 points/yr (1 if service < 23 months) for 36 months, from the month after discharge. */
-function soldierPoints(p: Record<string, unknown>, y: number) {
-  if (!p.discharge) return 0;
-  const [dy = 0, dm = 0] = String(p.discharge as string)
-    .split("-")
-    .slice(0, 2)
-    .map(Number);
-  const start = dy * 12 + dm,
-    s = y * 12 + 1;
-  let months = 0;
-  for (let m = s; m < s + 12; m++) if (start < m && m <= start + 36) months++;
-  return ((Number(p.serviceMonths || 0) >= 23 ? 2 : 1) * months) / 12;
-}
-/** float(str(v).replace(",", "") or 0), 0 when Python's float() would raise. */
-const pyFloat = (v: unknown) => {
-  const s = String(typeof v === "boolean" ? (v ? "True" : "False") : v).replaceAll(",", "");
-  if (!s) return 0;
-  const n = /^\s*[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?\s*$/i.test(s) ? Number(s) : NaN;
-  return Number.isNaN(n) ? 0 : n;
-};
 const ilTax = (e: Entity, y: number, txns: readonly Txn[]) =>
   Effect.gen(function* () {
-    // port of books(y): osek zair, 30% deemed expenses; form values (Tax page) override the automatic ones
+    // the same form1301 the Tax page uses; form values (Tax page) override the automatic ones
     const T = yield* taxTable(y);
     const f = (yield* docOf<Record<string, Record<string, unknown>>>(e, "form", {}))[String(y)] ?? {};
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
-    const turnover = sum(txns.filter((t) => plOf(t.category) === "revenue").map((t) => t.amount));
-    const auto: Record<string, unknown> = {
-      "150": String(pyRound(turnover * 0.7, 0)),
-      "020": "X",
-      "224": String((p.discharge as string | undefined) ?? "").slice(0, 4) || null,
-      "060": "",
-      "157": "",
-      "040": "",
-    };
-    const v = (k: string) => (f[k] !== undefined && f[k] !== null ? f[k] : auto[k] !== undefined && auto[k] !== null ? auto[k] : "");
-    const n = (k: string) => pyFloat(v(k));
-    const ord = n("150"),
-      cap15 = n("060"),
-      cap25 = n("157"),
-      cap = cap15 + cap25;
-    const resident = v("020") ? 2.25 : 0,
-      soldier = v("224") ? soldierPoints(p, y) : 0,
-      points = resident + soldier;
-    const [ordTax, rows] = bracketTax(ord, T.brackets);
-    const capTax = cap15 * (T.capitalRate ?? 0.15) + cap25 * 0.25, // 157: deposits from 2006
-      gross = ordTax + capTax;
-    const credits = Math.min(gross, points * T.point),
-      due = pyRound(gross - credits, 0) || 0,
-      withheld = n("040");
+    const form = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v == null ? v : String(v)])) as Record<string, string>;
+    const r = form1301({ y, txns, type: "osek-zair", T: T as unknown as IlTable, form, profile: p as Profile, today: new Date().toISOString().slice(0, 10) });
+    const used = Math.min(r.gross, r.credits);
     return {
       regime: "Israeli osek zair (30% deemed expenses), form 1301",
       taxTableYear: T.year,
-      turnover: r2(turnover),
+      turnover: r2(r.turnover),
       zairCeiling: T.zairCeiling ?? null,
-      overCeiling: !!T.zairCeiling && turnover > T.zairCeiling,
-      taxable: r2(ord),
-      capitalIncome: r2(cap),
-      brackets: rows,
-      ordinaryTax: r2(ordTax),
-      capitalTax: r2(capTax),
-      grossTax: r2(gross),
-      creditPoints: { resident, dischargedSoldier: pyRound(soldier, 4), total: pyRound(points, 4), pointValue: T.point },
-      credits: r2(credits),
-      due,
-      withheld: r2(withheld),
-      balance: r2(due - withheld),
+      overCeiling: !!T.zairCeiling && r.turnover > T.zairCeiling,
+      taxable: r2(r.taxable),
+      capitalIncome: r2(r.cap),
+      fundProfit: { "060 (15%, deposits 2003-2005)": r2(r.cap15), "157 (25%, deposits from 2006)": r2(r.cap25) },
+      brackets: r.rows.map((x) => ({ rate: x.rate, income: r2(x.part), tax: r2(x.tax) })),
+      ordinaryTax: r2(r.ordTax),
+      capitalTax: r2(r.capTax),
+      grossTax: r2(r.gross),
+      creditPoints: {
+        resident: r.resident,
+        dischargedSoldier: Math.round(r.soldier * 1e4) / 1e4,
+        total: Math.round(r.points * 1e4) / 1e4,
+        pointValue: T.point,
+      },
+      creditsAvailable: r2(r.credits),
+      credits: r2(used),
+      due: r.due,
+      withheld: r2(r.withheld),
+      balance: r2(r.balance),
       balanceMeaning: "positive = pay, negative = refund",
+      refundIndexation: r.indexation,
+      refundIndexationMeaning: "linkage + 4%/yr the Tax Authority adds to a refund as of today (s.159א)",
       overriddenByForm: Object.keys(f).sort(),
     };
   });

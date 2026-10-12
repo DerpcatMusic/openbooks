@@ -116,6 +116,7 @@
       "dependencies": {
         "@modelcontextprotocol/server": "2.3.1",
         "@openbooks/core": "workspace:*",
+        "@openbooks/country-il": "workspace:*",
         "@openbooks/importers": "workspace:*",
         "@openbooks/schema": "workspace:*",
         "@openbooks/storage": "workspace:*",

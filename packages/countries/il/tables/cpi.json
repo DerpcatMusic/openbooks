@@ -1,0 +1,5 @@
+{
+  "note": "Israeli CPI (base: average 2024 = 100), by month of the index. Each month is published on the 15th of the next. Sources: CBS via Calcalist (Dec 2025), Funder (Aug 2026). Add months as they're published.",
+  "base": "2024=100",
+  "index": { "2025-11": 103.6, "2025-12": 103.6, "2026-08": 105.8 }
+}

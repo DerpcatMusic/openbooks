@@ -131,7 +131,8 @@
     </div>
     <div class="mt-4 border-t border-line pt-4">
       <div class="text-[12px] font-medium text-sub">{t(b.balance > 0 ? "taxReturn.youPay" : b.balance < 0 ? "taxReturn.refund" : "taxReturn.nothing")}</div>
-      <div class="display mt-1 text-[30px] leading-none num {b.balance > 0 ? 'text-bad' : 'text-good'}">{fmt(Math.abs(b.balance))}</div>
+      <div class="display mt-1 text-[30px] leading-none num {b.balance > 0 ? 'text-bad' : 'text-good'}">{fmt(Math.abs(b.balance) + b.indexation)}</div>
+      {#if b.indexation}<div class="mt-1 text-[12px] text-sub">{t("taxReturn.indexation", { base: fmt(-b.balance), add: fmt(b.indexation) })}</div>{/if}
       {#if b.assessed}<div class="mt-2 text-[12px] text-sub">{t("taxReturn.assessed", { amount: fmt(b.assessed) })}</div>{/if}
       <p class="mt-3 text-[11px] leading-relaxed text-faint">{t("taxReturn.estimate", { y: b.T.year })}</p>
     </div>

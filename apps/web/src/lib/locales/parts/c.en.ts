@@ -20,6 +20,7 @@ export default {
   "taxReturn.intro": "Filled from your books. Type over any value to override it; ↺ puts the automatic value back.",
   "taxReturn.printForm": "Print filled 1301",
   "taxReturn.proofPack": "Proof pack",
+  "taxReturn.indexation": "{base} plus {add} linkage and interest to date (s.159א)",
   "taxReturn.poster": "Fill online 1301 {y}",
   "taxReturn.posterHint":
     "Drag to your bookmarks bar. On the Tax Authority site, with your 1301 open, click it: the boxes fill from your books. Press חישוב and compare. Sending stays with you.",
