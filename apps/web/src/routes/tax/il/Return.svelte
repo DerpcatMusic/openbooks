@@ -3,13 +3,19 @@
   // explanation, the automatic value (type over it to override; ↺ restores it) and the tax calculation beside it.
   import { S, fmt, knownYear, setForm, setProfile } from "#lib/stores/books.svelte.ts";
   import { t, lang, ltr } from "#lib/i18n.svelte.ts";
-  import { Button, Checkbox, IconButton, Input } from "#lib/ui/index.ts";
+  import { Button, Checkbox, IconButton, Input, toast } from "#lib/ui/index.ts";
   import { SECTIONS } from "./fields.ts";
   import { ilYear } from "./il.ts";
-  import { FUND_RATE_2006 } from "@openbooks/country-il";
+  import { posterBookmarklet, posterScript } from "@openbooks/country-il";
   import { personNow, savePerson, withFact } from "#lib/person.ts";
 
   const b = $derived(ilYear(S.year));
+  // tax poster: fills the online 1301 on secapp.taxes.gov.il; the person checks חישוב and sends it themselves
+  const poster = $derived(posterBookmarklet(b.y, b.fields, { balance: b.balance }));
+  async function copyPoster() {
+    await navigator.clipboard.writeText(posterScript(b.y, b.fields, { balance: b.balance }));
+    toast(t("taxReturn.posterCopied"));
+  }
   const PROFILE: [key: string, type?: string, numeric?: boolean][] = [["last"], ["first"], ["id", "text", true], ["phone", "tel", true], ["discharge", "date"], ["serviceMonths", "number", true]];
   const pct = (r: number) => ltr(`${Math.round(r * 100)}%`);
   const val = (e: Event) => (e.currentTarget as HTMLInputElement).value;
@@ -26,6 +32,10 @@
   <p class="min-w-0 flex-1 basis-64 text-[14px] text-sub">{t("taxReturn.intro")}</p>
   <div class="flex flex-wrap gap-2">
     <Button icon="printer" href="/print/{b.y}/1301?e={S.e}" target="_blank">{t("taxReturn.printForm")}</Button>
+    <!-- drag to the bookmarks bar, click it on the online 1301 -->
+    <a class="inline-flex items-center rounded-md border border-line-strong px-3 text-[13px] text-ink" href={poster} title={t("taxReturn.posterHint")} onclick={(e) => e.preventDefault()}
+      >{t("taxReturn.poster", { y: b.y })}</a>
+    <IconButton icon="copy" label={t("taxReturn.posterCopy")} onclick={copyPoster} />
     <Button variant="primary" iconEnd="arrow" href="/documents">{t("taxReturn.proofPack")}</Button>
   </div>
 </div>
@@ -108,20 +118,20 @@
     <div class="mt-4">
       {@render line(t("taxReturn.business"), fmt(b.taxable))}
       {#each b.rows as r (r.rate)}{@render line(t("taxReturn.bracket", { rate: pct(r.rate), part: fmt(r.part) }), fmt(r.tax), "ps-3 text-sub")}{/each}
-      {#if b.cap15}{@render line(t("taxReturn.fundProfit", { field: "060", rate: Math.round((b.T.capitalRate ?? 0.15) * 100) }), fmt(b.cap15 * (b.T.capitalRate ?? 0.15)), "text-sub")}{/if}
-      {#if b.cap25}{@render line(t("taxReturn.fundProfit", { field: "157", rate: Math.round(FUND_RATE_2006 * 100) }), fmt(b.cap25 * FUND_RATE_2006), "text-sub")}{/if}
+      {#each b.special as x (x.no)}{@render line(t("taxReturn.fundProfit", { field: x.no, rate: Math.round(x.rate * 100) }), fmt(x.tax), "text-sub")}{/each}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.gross"), fmt(b.gross))}
       {@render line(t("taxReturn.resident", { pts: b.resident }), "", "text-sub")}
       {#if b.soldier}{@render line(t("taxReturn.soldier", { pts: b.soldier.toFixed(2) }), "", "text-sub")}{/if}
-      {@render line(t("taxReturn.credits", { pts: b.points.toFixed(2), point: fmt(b.T.point) }), fmt(-b.credits), "text-good")}
+      {@render line(t("taxReturn.credits", { pts: (b.credits / b.T.point).toFixed(2), point: fmt(b.T.point) }), fmt(-b.credits), "text-good")}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.due"), fmt(b.due), "font-medium")}
       {#if b.withheld}{@render line(t("taxReturn.withheld"), fmt(-b.withheld), "text-sub")}{/if}
     </div>
     <div class="mt-4 border-t border-line pt-4">
       <div class="text-[12px] font-medium text-sub">{t(b.balance > 0 ? "taxReturn.youPay" : b.balance < 0 ? "taxReturn.refund" : "taxReturn.nothing")}</div>
-      <div class="display mt-1 text-[30px] leading-none num {b.balance > 0 ? 'text-bad' : 'text-good'}">{fmt(Math.abs(b.balance))}</div>
+      <div class="display mt-1 text-[30px] leading-none num {b.balance > 0 ? 'text-bad' : 'text-good'}">{fmt(Math.abs(b.balance) + b.indexation)}</div>
+      {#if b.indexation}<div class="mt-1 text-[12px] text-sub">{t("taxReturn.indexation", { base: fmt(-b.balance), add: fmt(b.indexation) })}</div>{/if}
       {#if b.assessed}<div class="mt-2 text-[12px] text-sub">{t("taxReturn.assessed", { amount: fmt(b.assessed) })}</div>{/if}
       <p class="mt-3 text-[11px] leading-relaxed text-faint">{t("taxReturn.estimate", { y: b.T.year })}</p>
     </div>

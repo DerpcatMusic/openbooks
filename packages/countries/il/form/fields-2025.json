@@ -1,0 +1,2282 @@
+{
+  "year": 2025,
+  "source": "Israel Tax Authority, \"דע זכויותיך וחובותיך 2025\" (מדריך למילוי טופס 1301, da_2025), chapter ד; field numbers verified against the blank form 1301 for 2025",
+  "sections": [
+    {
+      "id": "א",
+      "he": "פרטים כלליים",
+      "en": "General details (checkbox flags)",
+      "fields": [
+        {
+          "no": null,
+          "key": "report_scope",
+          "he": "הדוח הוא על: הכנסותי והכנסות בן/בת זוגי / הכנסותי בלבד",
+          "en": "Report covers both spouses / only my income",
+          "kind": "info",
+          "rule": "Registered spouse is the filer; incomes of both spouses go in one report (registered spouse right column, spouse left column, joint property income in 'both spouses' column).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "refund_request_not_obligated",
+          "he": "אני מגיש דוח למרות שאיני חייב - בקשה להחזר מס",
+          "en": "Filing although not obligated (refund request)",
+          "kind": "info",
+          "rule": "Mark when the report is a voluntary filing to claim a tax refund.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "spouse_files_separately",
+          "he": "בן/בת זוגי מגיש דוח נפרד - מצ\"ב הדוח/הצהרה של בן/בת זוגי",
+          "en": "Spouse files a separate report",
+          "kind": "info",
+          "rule": "Attach the spouse's report or declaration.",
+          "proof": ["spouse report/declaration"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "spouse_no_income",
+          "he": "אין הכנסה לבן/בת זוגי",
+          "en": "Spouse has no income",
+          "kind": "info",
+          "rule": "Spouse had no income in the tax year.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "spouse_helped_earn_income",
+          "he": "בן/בת זוגי עזר לי בהשגת ההכנסה",
+          "en": "Spouse helped me earn the income",
+          "kind": "info",
+          "rule": "Spouse assisted in producing the filer's income (relevant to joint income source / separate calculation).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "joint_income_source_66d",
+          "he": "מקור הכנסה משותף לבני הזוג: לא / כן: עמדתי / לא עמדתי בתנאי סעיף 66(ד)",
+          "en": "Joint income source of spouses; met / did not meet sec. 66(d) conditions",
+          "kind": "info",
+          "section": "66(ד)",
+          "rule": "Where one spouse's income source depends on the other's, separate calculation requires all of: each spouse's personal exertion is needed, each receives income proportional to contribution, and if produced at home the home regularly serves the source and most activity is there. Otherwise combined calculation.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "donations_view_spouse_consent",
+          "he": "קיבלתי אישור מבן זוגי לצפות בפירוט התרומות, מצ\"ב הצהרה של בן זוגי",
+          "en": "Spouse consent to view donation details",
+          "kind": "info",
+          "rule": "From 2024 some sec. 46 charities report donations digitally; reported donations need no receipts. Mark to view the spouse's digital donation data in the online report.",
+          "proof": ["spouse declaration"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "donations_view_rep_poa",
+          "he": "מייצג - בידי יפוי כוח משני בני הזוג לצפות בנתוני התרומות",
+          "en": "Representative holds POA from both spouses to view donation data",
+          "kind": "info",
+          "rule": "A transmitting representative must mark this to view the digital donation system data.",
+          "proof": ["power of attorney"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "micro_business_30pct",
+          "he": "הנני בעל עסק זעיר העומד בתנאים לקבלת ניכוי הוצאות בגובה 30% (בן הזוג הרשום / בן הזוג)",
+          "en": "Micro business claiming 30% normative expense deduction (registered / spouse)",
+          "kind": "info",
+          "rule": "Resident self-employed individual with annual turnover up to 120,000 NIS (2025) may deduct 30% of turnover instead of a P&L; turnover in 238/239 may not exceed 120,000; prior-year business losses only (field 279); no NI deduction 030/089. Reserve-duty and maternity pay go in 250/270, not turnover. Business code 441/442/443 in transmitter field 255.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "micro_business_opt_out",
+          "he": "למרות שנרשמתי כבעל עסק זעיר, אבקש בשנת מס זו שלא להחיל עליי את כללי בעל עסק זעיר",
+          "en": "Registered as micro business but opting out this year",
+          "kind": "info",
+          "rule": "File as a regular business (e.g. when actual expenses exceed 30% of turnover).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "new_immigrant_returning_resident",
+          "he": "אני/בן זוגי עולה חדש / תושב חוזר ותיק / תושב חוזר וחלות על הכנסותי מחו\"ל הקלות במס; תאריך הגעה",
+          "en": "New immigrant / veteran returning resident / returning resident with foreign-income relief; arrival date",
+          "kind": "info",
+          "rule": "Mark if entitled to relief on foreign income by that status and enter the arrival date (coded in transmitter fields 273/274).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "foreign_assets_over_2086000",
+          "he": "נכס/ים בחו\"ל בשווי 2,086,000 ש\"ח או יותר (לי, לבן/בת זוגי או לילדיי מתחת ל-18)",
+          "en": "Foreign assets worth 2,086,000 NIS or more (self, spouse, children under 18)",
+          "kind": "info",
+          "rule": "Mark if foreign assets of the filer, spouse or minor children were worth at least 2,086,000 NIS in the tax year (creates a reporting obligation).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "high_income_121b",
+          "he": "הכנסה חייבת כהגדרתה בסעיף 121ב(ה) העולה על 721,560 ש\"ח",
+          "en": "Taxable income per sec. 121B(e) over 721,560 NIS (surtax)",
+          "kind": "info",
+          "section": "121ב(ה)",
+          "rule": "Mark if the filer's or spouse's taxable income exceeded 721,560 NIS (surtax threshold).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "securities_turnover_over_2810000",
+          "he": "מחזור מכירות מניירות ערך סחירים שאינו פטור העולה על 2,810,000 ש\"ח",
+          "en": "Non-exempt listed securities sales turnover over 2,810,000 NIS",
+          "kind": "info",
+          "rule": "Mark if filer's or spouse's non-exempt sales turnover of exchange-traded securities exceeded 2,810,000 NIS.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "closely_held_company_62a",
+          "he": "הנני בעל מניות בחברת מעטים שחל עליה סעיף 62א (לא/כן)",
+          "en": "Shareholder in a closely-held company subject to sec. 62A",
+          "kind": "info",
+          "section": "62א",
+          "rule": "Undistributed-profits amendment (2025) expanded attribution (62A(a1) personal-exertion companies, (a2) partner companies, (a3) dividend income at 25%). If yes, report in sec. 47 part יא fields: 172/158 or 351, 084, 085, 087/158/172, 092.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "internet_activity_income",
+          "he": "בשנת המס היו לי הכנסות מפעילות באינטרנט (מסחר, שיווק, פרסום)",
+          "en": "Income from internet activity (trade, marketing, advertising)",
+          "kind": "info",
+          "rule": "Mark if any income came from online activity (transmitter field 307 code 2/4).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "renewable_energy_law",
+          "he": "בשנת המס היו לי הכנסות בהתאם לחוק אנרגיות מתחדשות",
+          "en": "Income under the Renewable Energy Investment Encouragement law (elected)",
+          "kind": "info",
+          "rule": "Individual who elected the 2016 renewable-energy (electricity generation) tax benefits law marks this (transmitter field 307 code 3/4).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "virtual_currency",
+          "he": "בשנת המס היו לי הכנסות ממימוש מטבע וירטואלי לרבות המרה למטבעות אחרים",
+          "en": "Disposal of virtual currency (incl. conversion)",
+          "kind": "info",
+          "rule": "Resident who realized virtual currency (e.g. Bitcoin) marks this and attaches a capital-gain annex.",
+          "proof": ["capital gain annex (1399)"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "blind_disabled_9_5",
+          "he": "אחד מבני הזוג עיוור או נכה לפי סעיף 9(5) בשנת המס",
+          "en": "A spouse is blind/disabled under sec. 9(5)",
+          "kind": "info",
+          "section": "9(5)",
+          "rule": "Mark if the filer or spouse is blind or disabled under sec. 9(5) and holds the assessing officer's approval.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "blind_disabled_9_5_mod_benefit",
+          "he": "אחד מבני הזוג עיוור או נכה לפי סעיף 9(5) ומקבל גמלה ממשרד הביטחון/פעולות איבה",
+          "en": "Blind/disabled under 9(5) and receiving Defense Ministry / hostile-action benefit",
+          "kind": "info",
+          "section": "9(5)",
+          "rule": "Mark if such a spouse receives a Ministry of Defense or hostile-action allowance.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "transfer_abroad_500000",
+          "he": "העברתי במשך 12 חודשים כספים אל מחוץ לישראל בסכום כולל של 500,000 ש\"ח או יותר",
+          "en": "Transferred 500,000 NIS or more abroad within 12 months",
+          "kind": "info",
+          "rule": "Creates a filing obligation for two tax years: the year of the (first) transfer and the following year.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "form_134_excess_employer_contributions",
+          "he": "מצ\"ב נספח לחישוב ההכנסה בגין תשלומים עודפים של מעביד לקרן השתלמות וקופ\"ג (טופס 134)",
+          "en": "Annex for excess employer contributions to study fund / provident fund (form 134)",
+          "kind": "info",
+          "rule": "Employee with several employers whose combined provident/study-fund contributions exceeded the caps, or claiming a disability-insurance deduction, attaches the excess computation on form 134.",
+          "proof": ["134"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "maternity_pay_spread",
+          "he": "מבקש/ת פריסת דמי לידה לשנה הבאה (לא/כן)",
+          "en": "Request to spread maternity pay to next year",
+          "kind": "info",
+          "rule": "Maternity pay received in one year that partly covers next year's entitlement period may be attributed to each year at the recipient's request.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "nonresident_days_presumption_1348",
+          "he": "אינני תושב ישראל אך מתקיימת לגבי \"חזקת ימי שהייה\" הנסתרת על-ידי וחייב בדוח לפי סעיף 131(ה)(5)",
+          "en": "Non-resident rebutting the days-of-stay residency presumption",
+          "kind": "info",
+          "section": "131(א)(5ה)",
+          "rule": "Self-declared non-resident present 183+ days, or 30+ days with 425+ days over 3 years, must file stating the facts; report includes only Israeli taxable income. Not for spouse/children of such person, those excluded by regulations, or foreign workers (48A). Filing form 1348 makes a return mandatory.",
+          "proof": ["1348"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "trust_settlor_or_beneficiary_taxable",
+          "he": "הנני יוצר/נהנה בנאמנות, בר-שומה ובר-חיוב; הדוח כולל את הכנסות הנאמנות",
+          "en": "Settlor/beneficiary who is the assessable person; report includes trust income",
+          "kind": "info",
+          "rule": "Instead of the trustee's form 1327, the assessable settlor/beneficiary includes trust income here (transmitter field 108 code 1). Attach form 148 in the first year trust income is reported.",
+          "proof": ["151ח", "148"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "trust_beneficiary_distributions_included",
+          "he": "הנני נהנה בנאמנות שההכנסות שחולקו לי מהנאמנות כלולות בדוח זה",
+          "en": "Trust beneficiary electing to include distributed trust income",
+          "kind": "info",
+          "rule": "Trustee still files the trust report (transmitter field 108 code 2).",
+          "proof": ["142"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "trust_beneficiary_reporting_131a5b7",
+          "he": "נהנה בנאמנות שחלה עליו חובת דיווח לפי סעיף 131(א)(5ב)(7) - תושב שמלאו לו 25 ושווי נכסי הנאמנות עולה על 500,000 ש\"ח",
+          "en": "Beneficiary (resident 25+) of a trust worth over 500,000 NIS",
+          "kind": "info",
+          "section": "131(א)(5ב)(7)",
+          "rule": "Israeli resident aged 25+ who knows he is a beneficiary of a trust whose assets at year-end are at least 500,000 NIS.",
+          "proof": ["148"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "trust_beneficiary_distributions_75c",
+          "he": "נהנה בנאמנות שממנה היו לי חלוקות (פטורות/חייבות) כהגדרתן בסעיף 75ג, הרשומות בשדה 271",
+          "en": "Beneficiary who received exempt/taxable trust distributions (sec. 75C)",
+          "kind": "info",
+          "section": "75ג",
+          "rule": "Mark and enter the distribution amount in field 271 (part יא).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "oil_partnership_units_sold",
+          "he": "בשנת המס מכרתי יחידות השתתפות בשותפות נפט",
+          "en": "Sold oil-partnership participation units",
+          "kind": "info",
+          "rule": "Fill part ב of form 858י, report gain in capital-gain annex 1399י sale code 54 with tax withheld in 040; move the units' turnover from 256 to 056; business-income sales go to 150/170. Holders at year-end of a 'partnership as company' attach the bank holding confirmation and certificate.",
+          "proof": ["858י", "1399י", "867א+ב", "broker sale confirmation"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "allotted_shares_exchange_hitech_sec3",
+          "he": "השקעה ב\"מניות מוקצות\" בדרך של חילוף מניות לפי סעיף 3 לחוק עידוד תעשייה עתירת ידע",
+          "en": "Investment in allotted shares via share exchange (High-Tech Encouragement law sec. 3)",
+          "kind": "info",
+          "rule": "Temporary law for 2023-2026: on a qualifying sale of a tech company the seller may deduct from proceeds an investment in an R&D company up to 5.5M NIS (made 4 months before to 12 months after the sale); attach capital-gain annex with sale code 27, deduction code 05. Cannot also claim the sec. 2 credit for the same investment.",
+          "proof": ["1399י"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "kibbutz_member",
+          "he": "הנני ו/או בן זוגי חבר קיבוץ ___ מס' תיק ___; הכנסה חייבת מועברת לקיבוץ (בן הזוג הרשום / בן הזוג)",
+          "en": "Kibbutz / cooperative moshav member: kibbutz file no. and taxable income transferred to the kibbutz",
+          "kind": "info",
+          "rule": "Mark only for members of a cooperative kibbutz/moshav not on leave, or a renewed kibbutz under sec. 60A; enter kibbutz name, file number (366) and income transferred (369/370; 0 if none). Calculation is separate; passive income from the kibbutz goes in the both-spouses column; transferred income is not reported again in 150/170.",
+          "proof": ["1443 (for refund / unused credit points)"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "temp_provision_sec6_asset_held",
+          "he": "הנני מחזיק בנכס שקבלתי בעקבות החלת סעיף 6 להוראת השעה רווחים לא מחולקים",
+          "en": "Holding an asset received under sec. 6 of the undistributed-profits temporary provision",
+          "kind": "info",
+          "rule": "Temporary provision (2025 budget law) allows liquidating a closely-held company or transferring its assets to individual shareholders with tax deferral; mark yes if holding such an asset.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "temp_provision_sec6_asset_disposed",
+          "he": "בשנת המס יצא מרשותי נכס שקבלתי בעקבות החלת סעיף 6 להוראת השעה",
+          "en": "Disposed of an asset received under the sec. 6 temporary provision",
+          "kind": "info",
+          "rule": "Mark yes and report the sale in capital-gain annex 1399י with sale code 77, code 09.",
+          "proof": ["1399י"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "turnover_over_256410_form_6111",
+          "he": "המחזור מכלל העסקים שלי או של בן/בת זוגי הוא מעל 256,410 ש\"ח (ללא מע\"מ): חייב בטופס 6111 / לא חייב",
+          "en": "Total business turnover over 256,410 NIS (excl. VAT): obligated / not obligated to file form 6111",
+          "kind": "info",
+          "rule": "Those obligated to file form 6111 (financial statements coding, see chapter ב) mark 'obligated'; if 6111 was transmitted although not obligated, mark 'not relevant' online.",
+          "proof": ["6111"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "construction_completion_702",
+          "he": "יש לי הכנסות מבנין לפי סעיף 8א(ג): הדוח כולל דיווח על סיום בניית פרויקט",
+          "en": "Building income under sec. 8A(c): report of project completion",
+          "kind": "info",
+          "section": "8א(ג)",
+          "rule": "Attach form 702 reporting project completion (online filers fill it online); number of 702 forms goes in transmitter field 259.",
+          "proof": ["702"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "foreign_entity_control_traded",
+          "he": "הנני בעל שליטה בחבר בני אדם תושב חוץ נסחר בחו\"ל",
+          "en": "Controlling holder of a foreign-resident entity traded abroad",
+          "kind": "info",
+          "rule": "Mandatory yes/no; if yes attach (online: transmit) form 150.",
+          "proof": ["150"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "foreign_entity_rights_nontraded",
+          "he": "הנני בעל זכויות בחבר בני אדם תושב חוץ שאינו נסחר",
+          "en": "Holder of rights in a non-traded foreign-resident entity",
+          "kind": "info",
+          "rule": "Mandatory yes/no; if yes attach (online: transmit) form 150.",
+          "proof": ["150"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "related_party_transactions_85a",
+          "he": "עסקאות עם צדדים קשורים בחו\"ל כמשמעותן בסעיף 85א",
+          "en": "International transactions with related parties (transfer pricing, sec. 85A)",
+          "kind": "info",
+          "section": "85א",
+          "rule": "If yes, attach form 1385 declaring the transactions were at market terms, one per contract/transaction (transmitter field 263 code 2/3).",
+          "proof": ["1385"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "reportable_transaction_131g",
+          "he": "קיימת פעולה החייבת בדיווח מכוח סעיף 131(ז)",
+          "en": "Reportable tax-planning transaction (sec. 131(g))",
+          "kind": "info",
+          "section": "131(ז)",
+          "rule": "13 reportable transactions are listed in the tax-planning regulations; if yes attach form 1213 (transmitter field 263 code 1/3).",
+          "proof": ["1213"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "reportable_opinion_131d",
+          "he": "קיבלתי \"חוות דעת\" חייבת בדיווח המאפשרת יתרון מס, כאמור בסעיף 131ד",
+          "en": "Received a reportable tax opinion (sec. 131D)",
+          "kind": "info",
+          "section": "131ד",
+          "rule": "Reportable when written, fee at least 100,000 NIS or an off-the-shelf plan, and the individual's turnover (excl. sec. 89 capital gain) exceeds 3M NIS or capital gain exceeds 1.5M NIS related to the opinion. Attach form 1345 (transmitter field 365 code 1/3).",
+          "proof": ["1345"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "reportable_position_131e",
+          "he": "נקטתי בעמדה חייבת בדיווח הכלולה ברשימה שפרסמה רשות המסים, כאמור בסעיף 131ה",
+          "en": "Took a reportable position contrary to a published ITA position (sec. 131E)",
+          "kind": "info",
+          "section": "131ה",
+          "rule": "Required when the tax advantage exceeds 5M NIS in a year or 10M NIS over 4 years; applies only to individuals with turnover over 3M NIS or capital gain over 1.5M NIS. Attach form 1346 and pick the position(s) from the online list (transmitter field 365 code 2/3).",
+          "proof": ["1346"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "partnership_partner",
+          "he": "אני או בן/בת זוגי שותפים בשותפות",
+          "en": "Filer or spouse is a partner in a partnership",
+          "kind": "info",
+          "rule": "Attach (online: transmit) form 1504 with partnership details.",
+          "proof": ["1504"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "agricultural_farm",
+          "he": "ניהלתי משק חקלאי/יש לי שטח אדמה מעובד",
+          "en": "Operated a farm / own cultivated land",
+          "kind": "info",
+          "rule": "Attach the annual farm report on form 1220.",
+          "proof": ["1220"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "bookkeeping",
+          "he": "הדוח מבוסס על פנקסי חשבונות שניהלתי עפ\"י תוספת__ סעיף__; חד-צידית/כפולה; עוסק פטור; קופה רושמת; הפקת חשבונית/קבלה ממוחשב/ידני",
+          "en": "Bookkeeping basis for main business: schedule/section, single/double entry, exempt dealer, cash register, invoices computerized/manual",
+          "kind": "info",
+          "rule": "Business owners must keep books per the bookkeeping regulations and state the schedule, method etc.; a VAT-exempt dealer just marks that status. Invoice method also coded in transmitter field 034.",
+          "proof": [],
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "ב",
+      "he": "פרטים אישיים",
+      "en": "Personal details",
+      "fields": [
+        {
+          "no": null,
+          "key": "identity_and_file",
+          "he": "מספר תיק, מספר זהות, שמות, תאריכי לידה של בן הזוג הרשום ובן/בת הזוג",
+          "en": "File number, IDs, names and birth dates of registered spouse and spouse",
+          "kind": "info",
+          "rule": "File number is the ID of one spouse (or a special number for non-residents) and does not determine who is the registered spouse; incomes must be entered in the column matching the registered spouse shown on the sticker. Paste the sticker if correct (not on online printouts).",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "marital_status",
+          "he": "מצב משפחתי בשנת המס: נשוי וחי ביחד / גרוש / רווק / אלמן / פרוד",
+          "en": "Marital status in the tax year",
+          "kind": "info",
+          "rule": "Married spouses not sharing a household are not spouses for filing; 'separated' is allowed only per the ITA register (update via form 4440).",
+          "proof": ["4440 (if separated)"],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "contact_and_business",
+          "he": "כתובת, טלפונים, דואר אלקטרוני/מסרון, העיסוק העיקרי, שם וכתובת העסק, מספרי תיק ניכויים/עוסק",
+          "en": "Address, phones, email/SMS consent, main occupation, business name/address, withholding and VAT file numbers",
+          "kind": "info",
+          "rule": "Mail goes to the Interior Ministry address (non-residents update theirs). Describe the occupation precisely; with two businesses give the main one. Mark X on any line that changed since the last report.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": null,
+          "key": "employers_names",
+          "he": "שמות המעבידים",
+          "en": "Employers' names",
+          "kind": "info",
+          "rule": "List employers.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": "277",
+          "he": "מספר חשבון (החזר המס יועבר לחשבוני בבנק)",
+          "en": "Refund bank account number",
+          "kind": "info",
+          "rule": "Refund account must be in the registered spouse's name (joint account allowed); fill only on first entry or change. Online, current details are pre-filled from the ITA collection system.",
+          "proof": [],
+          "page": 1
+        },
+        {
+          "no": "278",
+          "he": "סמל בנק + סמל סניף",
+          "en": "Refund bank code and branch code",
+          "kind": "info",
+          "rule": "Single box split into bank code (2 digits) and branch code (3 digits); with account holder name as in bank records. Non-resident bank updates: chapter ג sec. 37 / chapter ב sec. 15ה.",
+          "proof": [],
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "ג",
+      "he": "הכנסות מיגיעה אישית החייבות בשיעורי מס רגילים",
+      "en": "Personal-exertion income taxed at ordinary rates",
+      "fields": [
+        {
+          "no": "150",
+          "spouse": "170",
+          "row": "1",
+          "he": "הכנסה מעסק או ממשלח יד (כולל פיצוי בגין נזק עקיף חרבות ברזל)",
+          "en": "Business or profession income (incl. 'Swords of Iron' indirect-damage compensation)",
+          "kind": "income",
+          "rule": "Taxable income (after expenses, exemptions, loss offsets) from business/profession incl. abroad, interest/linkage/FX differences that are business income, and indirect-war-damage grants and IDF reserve-aid-fund grants to self-employed (reported in P&L and turnover 238/239). Enter before personal deductions of part יב; self-employed study-fund and disability-insurance amounts go in 136/137 and 112/113, not as P&L expenses. Personal-exertion income starts at a 10% bracket.",
+          "proof": ["1320", "annual certificate from IDF reserve-aid fund"],
+          "page": 2
+        },
+        {
+          "no": "250",
+          "spouse": "270",
+          "row": "2א",
+          "he": "תקבולים מביטוח לאומי כעצמאי",
+          "en": "Taxable National Insurance receipts relating to self-employment",
+          "kind": "income",
+          "rule": "Taxable NI payments received as self-employed: reserve duty, maternity pay (not birth grant), work-injury pay. Old-age/survivor/mobility allowances and one-off grants are exempt and go in part י. Maternity/reserve pay covering periods in adjacent years is reported when received, but may be apportioned to the entitlement years (separate returns then required).",
+          "proof": ["NI annual certificates"],
+          "page": 2
+        },
+        {
+          "no": "194",
+          "spouse": "196",
+          "row": "2ב",
+          "he": "תקבולים מביטוח לאומי כשכיר שלא נכללו בטופס 106",
+          "en": "Taxable National Insurance receipts as employee not included in form 106",
+          "kind": "income",
+          "rule": "Taxable NI payments as employee (reserve duty, maternity pay, unemployment, work injury) not included in the employer's 106; those included in a 106 go in 158/172. The preferred-work grant to discharged soldiers (NI law s.174) may be entered here or in row 3.",
+          "proof": ["NI annual certificates"],
+          "page": 2
+        },
+        {
+          "no": "158",
+          "spouse": "172",
+          "row": "3",
+          "he": "הכנסה ממשכורת או משכר עבודה",
+          "en": "Salary / wages",
+          "kind": "income",
+          "section": "2(2)",
+          "rule": "Employment income in cash or kind incl. abroad, NI receipts included in form 106, benefit imputations (car, phone, loan interest differences, sec.102 salary-track options), excess employer pension/study-fund contributions, and IDF reserve-aid-fund grants to employees (tax withheld on them in 042). Excludes pensions/retirement grants (row 5), qualifying shift work (row 4) and exempt amounts.",
+          "proof": [
+            "106",
+            "116ג (salary-arrears/vacation spreading request)",
+            "134 (excess pension/study-fund contributions)",
+            "annual certificate from IDF reserve-aid fund"
+          ],
+          "page": 2
+        },
+        {
+          "no": "068",
+          "spouse": "069",
+          "row": "4",
+          "he": "הכנסה מעבודה במשמרות",
+          "en": "Industrial shift-work income",
+          "kind": "income",
+          "rule": "Total income from 2nd/3rd-shift work in an industrial plant whose main activity is production. Gives a 15% tax credit on shift income; no benefit on income from that employer above NIS 143,040/yr; total credit capped at NIS 12,540 for 2025.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "258",
+          "spouse": "272",
+          "row": "5א",
+          "he": "קצבאות, מענקי פרישה חייבים והכנסות מעבודה לאחר פטירה",
+          "en": "Taxable part of pensions, retirement grants, and post-death work income",
+          "kind": "income",
+          "section": "9א",
+          "rule": "Taxable part of pensions from employer/provident fund/insurer (incl. disability-loss pensions and lump sums), taxable excess of retirement grants, and post-death work income / death grants. Exempt pension part (57% of qualifying pension, cap NIS 9,430/month = 113,160/yr) goes in row 44 (fields 101/102). Post-death income is capped at 40%: if total part ג+ד income exceeds NIS 560,280, the excess (up to the post-death amount) goes in 061/214/314 instead.",
+          "proof": ["assessing-officer approval of exemption/spreading", "grant receipt/withdrawal certificate", "161 (exemption calc)"],
+          "page": 2
+        },
+        {
+          "no": "358",
+          "spouse": "372",
+          "row": "5ב",
+          "he": "מענקי פרישה בפריסה לפי סעיף 8(ג) - חלק השנה",
+          "en": "Spread retirement grants under s.8(ג), current-year portion",
+          "kind": "income",
+          "section": "8(ג)",
+          "rule": "Proportional current-year share of a taxable retirement grant spread forward (up to 6 tax years ending in the receipt year, over the years worked) with assessing-officer approval; reported in each spread year, with the tax withheld recorded in row 87.",
+          "proof": ["assessing-officer spreading approval", "grant receipt/withdrawal certificate"],
+          "page": 2
+        },
+        {
+          "no": "120",
+          "spouse": "220",
+          "row": "6",
+          "he": "הכנסות מהשכרת נכס ששימש בעסקך מעל 10 שנים",
+          "en": "Rent from an asset used in your business for over 10 years",
+          "kind": "income",
+          "rule": "Rent from any asset (not only buildings, e.g. a taxi licence) that served at least 10 years before letting to produce personal-exertion business income; treated as personal-exertion income and must not also be reported in parts ד/ה.",
+          "proof": ["1321"],
+          "page": 2
+        },
+        {
+          "no": null,
+          "row": "7",
+          "he": "הכנסות אחרות מיגיעה אישית שלא פורטו לעיל",
+          "en": "Other personal-exertion income not listed above",
+          "kind": "income",
+          "rule": "Any other ordinary-rate personal-exertion income that does not fit rows 1-6; give details. Not included in the tax computation as entered: the assessing officer classifies it per your details.",
+          "proof": [],
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "ד",
+      "he": "הכנסות מרכוש החייבות בשיעורי מס רגילים",
+      "en": "Property (non-personal-exertion) income taxed at ordinary rates",
+      "fields": [
+        {
+          "no": "059",
+          "registered": "201",
+          "spouse": "301",
+          "row": "8",
+          "he": "הכנסה מנכס בית (שאינו חברת בית)",
+          "en": "House-property rental income",
+          "kind": "income",
+          "rule": "Net rent from buildings/apartments after expenses (municipal taxes, repairs, depreciation, legal fees), incl. key money unless tax was paid within 30 days; full multi-year rent received is reported in the year received. Excludes 10%-track rent (s.122, field 222/284/344) and exempt residential rent (row 42). Property income starts at 31%, but for a person 60+ it is taxed at personal-exertion rates. Column choice: both-spouses unless the asset was owned a year before marriage or inherited (separate computation).",
+          "proof": ["1321"],
+          "page": 2
+        },
+        {
+          "no": "159",
+          "registered": "202",
+          "spouse": "302",
+          "row": "9",
+          "he": "הכנסה מחברת בית",
+          "en": "House-company income",
+          "kind": "income",
+          "section": "64",
+          "rule": "Income attributed from a house company under s.64. Same column rules and 31% start / 60+ treatment as row 8.",
+          "proof": ["246א"],
+          "page": 2
+        },
+        {
+          "no": "367",
+          "registered": "204",
+          "spouse": "304",
+          "row": "10",
+          "he": "הכנסה כנישום מייצג בחברה משפחתית",
+          "en": "Family-company income (as representative assessee)",
+          "kind": "income",
+          "section": "64א",
+          "rule": "Family-company income attributed to you/spouse as representative assessee; not personal exertion, starting rate 31%. Part arising from your personal exertion goes in row 1 (150/170). Also enter total attributed family-company income in 064/080 (online). Spouse column only if you were the representative assessee before marriage or shares held a year before marriage/inherited.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "167",
+          "registered": "205",
+          "spouse": "305",
+          "row": "11",
+          "he": "הכנסות אחרות שאינן מיגיעה אישית",
+          "en": "Other non-personal-exertion income",
+          "kind": "income",
+          "rule": "Other property income: renting equipment/other non-building assets, passive business income (e.g. untended orchard, REIT income per 867ו), interest/linkage/FX differences with no special rate or exemption, incl. s.3(ט) interest benefit on loans from your controlled company and interest claimed as expense or from a company where you are a material shareholder. Report gross incl. tax withheld; FX differences are income in the year accrued.",
+          "proof": ["1321", "867ו"],
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "ה",
+      "he": "הכנסות חייבות בשיעורי מס מיוחדים",
+      "en": "Income taxable at special rates",
+      "fields": [
+        {
+          "no": "061",
+          "spouse": "314",
+          "registered": "214",
+          "row": "12",
+          "he": "פטנט או הכנסה לאחר פטירה - מס מוגבל ל-40%",
+          "en": "Patent/creative-work sale or post-death income, tax capped at 40%",
+          "kind": "income-rate",
+          "rate": 0.4,
+          "section": "125, 125א",
+          "rule": "Income of a non-professional author/inventor from selling a book, patent, design or invention they created, and post-death income received by survivors of a cash-basis individual (sec 3(ו)), are taxed at marginal rates capped at 40%. For post-death employment income and death-grant: if all ordinary-rate income (parts ג+ד incl. this income) <= 560,280 ILS, report it in 258/272 instead; if above, report here the excess over 560,280 (but not more than the post-death income) and the rest in 258/272.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "060",
+          "spouse": "311",
+          "registered": "211",
+          "row": "13",
+          "he": "ריבית על ני\"ע, ריבית ורווחים מקופות גמל ודיבידנד ממפעל מאושר/מוטב - 15%",
+          "en": "Interest on securities (unlinked), provident-fund interest/profits, dividend from approved/beneficiary enterprise - 15%",
+          "kind": "income-rate",
+          "rate": 0.15,
+          "section": "125ג(ג); חוק לעידוד השקעות הון 47(ב)",
+          "rule": "Dividend from an approved/beneficiary enterprise (Capital Investment Encouragement Law sec 47(ב)) taxed 15%. Interest on securities not linked (or partly linked, or not linked until redemption) to the CPI - 15%; includes unlinked TASE bonds issued after 8/5/00 for interest accrued from 1/1/2003, and foreign-security interest accrued 1/1/05-31/12/05. Excludes business interest, interest where interest expenses were claimed, interest received by a material shareholder (>=10%), employee/supplier/special-relations interest, and early keren-hishtalmut interest (all at ordinary rates in 150/170 or 167). Capital losses on securities may be offset first; report the net.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "067",
+          "spouse": "328",
+          "registered": "228",
+          "row": "14",
+          "he": "ריבית על ני\"ע, ריבית מקופות גמל - מס בשיעור שלא יעלה על 20%",
+          "en": "Interest on securities / provident funds - tax not exceeding 20%",
+          "kind": "income-rate",
+          "rate": 0.2,
+          "section": "125ג",
+          "rule": "Interest on (linked) securities taxable at a rate not exceeding 20%: interest accrued 1/1/2006-31/12/2011 (pre-'new start day' 1/1/2012) on CPI-linked assets, split pro rata by days of the accrual period; foreign-security interest accrued 1/1/06-1/1/2012. 'Not exceeding' = marginal rates apply first if lower, capped at 20%. Interest accrued before 1/1/2006 at 10% goes to wizard fields 074/208/308.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "157",
+          "spouse": "357",
+          "registered": "257",
+          "row": "15",
+          "he": "ריבית על ני\"ע, ריבית מקופות גמל - מס בשיעור שלא יעלה על 25%",
+          "en": "Interest on securities / provident funds - tax not exceeding 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "125ג(ב)",
+          "rule": "CPI-linked securities interest accrued from 1/1/2012 (real interest); real interest on linked TASE bonds issued after 8/5/00 accrued from 1/1/2003; foreign-security interest accrued from 1/1/2012 (foreign securities generally not exceeding 25%); keren-hishtalmut interest/profits accrued from 1/1/03 on deposits above the ceiling (based on 188,544 ILS annual salary). Marginal rates apply if lower, capped at 25%. Exempt lawful provident-fund withdrawals (deposits up to 1/1/2008, withdrawn from 1/7/09) go to row 45, not here.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "173",
+          "spouse": "325",
+          "registered": "275",
+          "row": "16",
+          "he": "דיבידנד ממפעל מועדף/מאושר/מוטב, \"מבניין מאושר\" - 20%",
+          "en": "Dividend from preferred/approved/beneficiary enterprise or 'approved building' - 20%",
+          "kind": "income-rate",
+          "rate": 0.2,
+          "section": "חוק לעידוד השקעות הון",
+          "rule": "Dividend distributed from a preferred/approved/beneficiary enterprise or from an 'approved building' taxed at 20%.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "141",
+          "spouse": "341",
+          "registered": "241",
+          "row": "17",
+          "he": "דיבידנד ורווח ממניות הניתנות לפדיון (החלק החייב בשיעור זה) - 25%",
+          "en": "Dividend and redeemable-share gain (portion at this rate) - 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "125ב(1)",
+          "rule": "Dividend from a company received by a non-material shareholder (25%), the portion of redeemable-share gain taxed at 25%, and taxable income of a foreign sportsman/foreign journalist (as defined in the 1996 regulations, after deducting lodging, rent and meals). Excludes notional chain dividend reported in row 32. Dividends at rates not covered by rows 13/16/17/18 go to row 30.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "055",
+          "spouse": "312",
+          "registered": "212",
+          "row": "18",
+          "he": "דיבידנד לבעל מניות מהותי והכנסות אחרות - 30%",
+          "en": "Dividend to material shareholder and other income - 30%",
+          "kind": "income-rate",
+          "rate": 0.3,
+          "section": "125ב(2)",
+          "rule": "Dividend received by a material shareholder - one holding directly or indirectly, alone or with a relative/other (sec 88), at least 10% of any means of control - taxed at 30%. Excludes notional chain dividend reported in row 32.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "174",
+          "spouse": "336",
+          "registered": "276",
+          "row": "19",
+          "he": "דיבידנד רעיוני לבעל שליטה בחמי\"ז - 23%",
+          "en": "Notional dividend to controlling holder of a foreign professional company (CFC-type) - 23%",
+          "kind": "income-rate",
+          "rate": 0.23,
+          "section": "75ב1; 126(א)",
+          "rule": "From 2014 an Israeli-resident controlling holder of a foreign professional company (non-resident body controlled mainly by Israeli residents engaged in a special profession that yields most of its income) is deemed to receive as dividend his share of its profits, taxed at the company tax rate of sec 126(א) (23%). Amount per appendix ד (נספח ד).",
+          "proof": ["נספח ד"],
+          "page": 2
+        },
+        {
+          "no": "050",
+          "spouse": "052",
+          "registered": "051",
+          "row": "20",
+          "he": "ריבית על ני\"ע ומניות הניתנות לפדיון (החלק החייב בשיעור זה) - 35%",
+          "en": "Interest on securities and redeemable shares (portion at this rate) - 35%",
+          "kind": "income-rate",
+          "rate": 0.35,
+          "rule": "Real interest on TASE bonds issued before 8/5/00; real interest on linked bonds issued after 8/5/00 accrued until 1/1/2003; foreign-security interest accrued until end of 2004; and the taxable portion of redeemable shares taxed at 35%. Note: field order on form is no=050, registered=051, spouse=052.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "078",
+          "spouse": "317",
+          "registered": "217",
+          "row": "21",
+          "he": "ריבית על פקדונות ותוכניות חיסכון - 15% (לפני פטורים מסעיפים 125ד, ה)",
+          "en": "Interest on bank deposits & savings plans (unlinked) - 15%, before 125ד/125ה exemptions",
+          "kind": "income-rate",
+          "rate": 0.15,
+          "section": "125ג",
+          "rule": "Interest/profits on bank deposits and savings plans not (fully) CPI-linked (FX-linked counts by currency rate; anything not fully linked = unlinked) taxed at 15% on withdrawal; includes children under 18. Report gross per form 867, before the automatic reliefs: 125ד(ב) low-income deduction 10,920 ILS (income <=69,840, reduced above), 125ד(ג) age-67 deduction 15,000/18,360, 125ה retirement-age 35% exemption on 'qualifying interest' (cap 113,160 less higher spouse income), 9(5)(ב) disabled/blind exemption on compensation funds up to 337,200. Tax withheld goes to row 85 field 043.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "126",
+          "spouse": "326",
+          "registered": "226",
+          "row": "22",
+          "he": "ריבית על פקדונות ותוכניות חיסכון - שלא יעלה על 20%",
+          "en": "Interest on deposits & savings plans - not exceeding 20%",
+          "kind": "income-rate",
+          "rate": 0.2,
+          "section": "125ג",
+          "rule": "Deposits/plans opened before 1/1/2012: CPI-linked interest accrued 1/1/2006-31/12/2011, split pro rata by days, taxed at the old rate capped at 20% (marginal if lower). Before 125ד/125ה exemptions. Pre-1/1/2006 accrual at 10% goes to wizard fields 076/216/316.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "142",
+          "spouse": "342",
+          "registered": "242",
+          "row": "23",
+          "he": "ריבית על פקדונות ותוכניות חיסכון - שלא יעלה על 25%",
+          "en": "Interest on deposits & savings plans (CPI-linked) - not exceeding 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "125ג(ב)",
+          "rule": "Profit above CPI increase on fully CPI-linked deposits/savings plans (accrued from 1/1/2012) taxed at marginal rates capped at 25%. Before 125ד/125ה exemptions; withholding to field 043.",
+          "proof": ["867"],
+          "page": 2
+        },
+        {
+          "no": "222",
+          "spouse": "344",
+          "registered": "284",
+          "row": "24",
+          "he": "הכנסה משכר דירה למגורים/חוק אנרגיות מתחדשות - 10%",
+          "en": "Residential rent (10% track) / renewable-energy law income - 10%",
+          "kind": "income-rate",
+          "rate": 0.1,
+          "section": "122; 122(ו)",
+          "rule": "Gross residential rent in Israel under the 10% track (no expenses, exemptions or credits; tax due within 30 days after year end, one-time request form 3302); from 2023 sec 122(ו) allows deducting 'benefit rent' paid for one's own residence/old-age home up to the lower of rental income or 90,000 ILS when renting out a sole apartment. Also electricity sales from home renewable installations: first 27,900 ILS exempt (row 45), 27,900-120,000 taxed 10% from first shekel here, excess above 120,000 at marginal rate in row 11; alternative 10% track for renewable land rent.",
+          "proof": ["3302", "1400", "אישור שנתי מספק שירות חיוני"],
+          "page": 2
+        },
+        {
+          "no": "225",
+          "spouse": "345",
+          "registered": "285",
+          "row": "25",
+          "he": "הכנסה משכר דירה בחו\"ל לפי סעיף 122א - 15%",
+          "en": "Foreign rental income under sec 122א - 15%",
+          "kind": "income-rate",
+          "rate": 0.15,
+          "section": "122א",
+          "rule": "Israeli resident's rent from real estate abroad, optionally taxed at 15% with no deductions except depreciation, no offset, credit (incl. foreign tax credit) or exemption. Report net of depreciation. Can be paid via short-report track if otherwise not obliged to file.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "227",
+          "spouse": "346",
+          "registered": "286",
+          "row": "26",
+          "he": "הכנסה מהימורים, הגרלות ופרסים - 35%",
+          "en": "Gambling, lottery and prize income - 35%",
+          "kind": "income-rate",
+          "rate": 0.35,
+          "section": "2א; 9(28)",
+          "rule": "Per single win: up to 33,840 ILS exempt; 33,840-67,680 exemption reduced by excess over 33,840; above 67,680 fully taxed at 35%, no exemption/deduction/offset. Report taxable amount (own share if shared win); withholding to row 87 field 040.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "335",
+          "spouse": "347",
+          "registered": "337",
+          "row": "27",
+          "he": "הכנסה מהשכרת מקרקעין בהתאם לחוק אנרגיות מתחדשות - 31%",
+          "en": "Land rent for renewable-energy installations - 31%",
+          "kind": "income-rate",
+          "rate": 0.31,
+          "rule": "Rent of land used to produce renewable electricity: up to 5,800 ILS/yr exempt (row 45); above that a phasing-out exemption (reduced by the excess) and the taxable part taxed at fixed 31%. Alternative: 10% from first shekel via row 24.",
+          "proof": ["1400"],
+          "page": 2
+        },
+        {
+          "no": "288",
+          "spouse": "338",
+          "row": "28",
+          "he": "הכנסה לפי חוק חלוקה לחיסכון פנסיוני - 20%",
+          "en": "Income under the Pension Savings Division Law - 20%",
+          "kind": "income-rate",
+          "rate": 0.2,
+          "section": "3(ה7); 9(17א)",
+          "rule": "Amounts transferred from a pension provident fund (or to a new fund) under the Pension Savings Division Law, in excess of the 9(17א) exemption; flat 20% with no exemption, discount, deduction, credit or offset. No both-spouses column (288 registered, 338 spouse).",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "213",
+          "spouse": "313",
+          "row": "29",
+          "he": "משיכות שלא כדין מקופות גמל - 35%",
+          "en": "Unlawful withdrawals from provident funds - 35%",
+          "kind": "income-rate",
+          "rate": 0.35,
+          "section": "87(ד)",
+          "rule": "Withdrawal from a pension fund or premature withdrawal is unlawful under sec 87(ד); taxed at the higher of fixed 35% (only basic credit points: 2.25 men / 2.75 women) or marginal rate (with full credit points/deductions as for 258/272). Personal: 213 if fund belongs to registered spouse, 313 if spouse's. Not taxed if: low family income (<= monthly minimum wage 6,248, double with child under 18; form 159א), medical expenses > half annual income, permanent disability >=75% (form 159), or member's death.",
+          "proof": ["159א", "159"],
+          "page": 2
+        },
+        {
+          "no": null,
+          "row": "30",
+          "he": "הכנסות אחרות: מקור ההכנסה, מס בשיעור %",
+          "en": "Other special-rate income (state source and rate)",
+          "kind": "income-rate",
+          "rule": "Any other income at a special rate not listed in rows 12-29, e.g. dividend at a rate not covered by rows 13/16/17/18. State the income source and the rate; no printed field number.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "077",
+          "row": "31",
+          "he": "הוראת שעה רווחים לא מחולקים (סעיף 6) - 47%",
+          "en": "Undistributed-profits temporary provision sec 6 - max marginal rate 47%",
+          "kind": "income-rate",
+          "rate": 0.47,
+          "section": "הוראת שעה סעיף 6; 121ב",
+          "rule": "Both spouses. Temporary provision: full liquidation of a closely-held (מעטים) company or transfer of its asset to a shareholder without liquidation (forms 171/172). Income at the maximum marginal rate 47% goes here. All row 31 income also bears surtax under 121ב(א),(א1) (additional 5% for 2025).",
+          "proof": ["171", "172"],
+          "page": 2
+        },
+        {
+          "no": "080",
+          "row": "31",
+          "he": "הוראת שעה רווחים לא מחולקים - דיבידנד בעל מניות מהותי 30%",
+          "en": "Undistributed-profits temp. provision - dividend, material shareholder 30%",
+          "kind": "income-rate",
+          "rate": 0.3,
+          "section": "הוראת שעה סעיף 6",
+          "rule": "Both spouses. Income taxed at dividend rate for a material shareholder under the sec 6 temporary provision.",
+          "proof": ["171", "172"],
+          "page": 2
+        },
+        {
+          "no": "165",
+          "row": "31",
+          "he": "הוראת שעה רווחים לא מחולקים - בעל מניות שאינו מהותי 25%",
+          "en": "Undistributed-profits temp. provision - non-material shareholder 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "הוראת שעה סעיף 6",
+          "rule": "Both spouses. Dividend-rate income of a non-material shareholder under the sec 6 temporary provision.",
+          "proof": ["171", "172"],
+          "page": 2
+        },
+        {
+          "no": "168",
+          "row": "31",
+          "he": "הוראת שעה רווחים לא מחולקים - רווחים עד 31/12/2002 10%",
+          "en": "Undistributed-profits temp. provision - profits up to 31/12/2002 at 10%",
+          "kind": "income-rate",
+          "rate": 0.1,
+          "section": "הוראת שעה סעיף 6",
+          "rule": "Both spouses. Share of distributable profits from company founding until 31/12/2002, taxed at 10%.",
+          "proof": ["171", "172"],
+          "page": 2
+        },
+        {
+          "no": "123",
+          "row": "32",
+          "he": "דיבידנד רעיוני מחברה ב\"שירשור\" - בעל מניות לא מהותי 25%",
+          "en": "Notional chain dividend (reg 3(א) under 81ב(ב)(3)(ג)) - non-material shareholder 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "81ב(ב)(3)(ג); תקנה 3(א)",
+          "rule": "Both spouses. Under Amendment 277 sec 81ב, a dividend taxed on distribution but not yet received and chained up a holding structure is attributed to the final shareholder as notional dividend; report in the year of distribution per the approval issued by the directly held company. Tax withheld (35%) to field 040. Also record in the online 'stack' wizard (with field 083 for actual dividends derived from it); on sale of shares, reduce proceeds via 1399י deal symbol 77 code 07.",
+          "proof": ["אישור החברה המוחזקת"],
+          "page": 2
+        },
+        {
+          "no": "127",
+          "row": "32",
+          "he": "דיבידנד רעיוני מחברה ב\"שירשור\" - בעל מניות מהותי 30%",
+          "en": "Notional chain dividend - material shareholder 30%",
+          "kind": "income-rate",
+          "rate": 0.3,
+          "section": "81ב(ב)(3)(ג); תקנה 3(א)",
+          "rule": "Both spouses. As field 123 but for a material shareholder, taxed at 30%. Withholding to field 040.",
+          "proof": ["אישור החברה המוחזקת"],
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "ו",
+      "he": "מוסד כספי",
+      "en": "Financial institution",
+      "fields": [
+        {
+          "no": "032",
+          "spouse": "163",
+          "row": "33",
+          "he": "רווח של מוסד כספי כמשמעותו בחוק מע\"מ",
+          "en": "Profit of a financial institution (VAT Law)",
+          "kind": "info",
+          "section": "חוק מע\"מ 4",
+          "rule": "If registered for VAT as a financial institution: profit tax 18% (plus 18% payroll tax). Profit = taxable income (sec 1) before carried-forward losses, plus special-rate income, capital gains/losses and dividends (excl. dividends from a financial institution), net of payroll and profit tax; extract profit tax as total x 18/118 and report total/1.18 here. Fields 150/170 then hold taxable income after deducting the profit tax.",
+          "proof": [],
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "ז",
+      "he": "נתונים נוספים",
+      "en": "Additional data",
+      "fields": [
+        {
+          "no": "184",
+          "spouse": "185",
+          "row": "34",
+          "he": "הכנסה פטורה לפי סעיף 9(5) שהופחתה מהכנסות מעסק או משלח יד",
+          "en": "Exempt income under 9(5) deducted from business income",
+          "kind": "info",
+          "section": "9(5)",
+          "rule": "Mandatory if there is business/professional income for which the 100%-disabled/blind 9(5) exemption is claimed: report the exempt amount (184 registered, 185 spouse).",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "186",
+          "spouse": "187",
+          "row": "35",
+          "he": "הפסדים שקוזזו כנגד הכנסות מעסק או משלח יד",
+          "en": "Losses offset against business income",
+          "kind": "info",
+          "rule": "Mandatory: business losses (incl. carried forward from prior years) offset this year against business/professional income.",
+          "proof": [],
+          "page": 2
+        },
+        {
+          "no": "238",
+          "spouse": "239",
+          "row": "36",
+          "he": "סך מחזור מעסק או משלח יד (ללא מע\"מ)",
+          "en": "Total business turnover (excl. VAT)",
+          "kind": "info",
+          "rule": "Business turnover excl. VAT (238 registered, 239 spouse). Turnover > 95,820 ILS in either field obliges an online report. Partners/house-company/closely-held (62א) members include their proportional share (also inventory and gross profit); a family company's representative assessee includes the company's turnover. Excludes salary, pensions and capital-gain/betterment sales.",
+          "proof": [],
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "ח",
+      "he": "הכנסות מרווח הון ומשבח מקרקעין",
+      "en": "Capital gains and real-estate betterment income",
+      "fields": [
+        {
+          "no": "054",
+          "row": "37",
+          "he": "מספר טופסי רווח הון ושבח שצורפו",
+          "en": "Number of capital-gain / betterment forms attached",
+          "kind": "info",
+          "rule": "Count of attached capital-gain forms (1399י, 1322) plus number of taxable betterment transactions reported. All traded-securities sales summarized on form 1322 count as one form; if more than one 1322 is attached, count each. Online filers mark the number of capital-gain/betterment appendices here and then transmit the appendices.",
+          "proof": ["1399י", "1322"],
+          "page": 3
+        },
+        {
+          "no": "056",
+          "row": "38",
+          "he": "סה\"כ סכום המכירות מרווח הון ושבח (לא כולל רווח הון מני\"ע סחירים)",
+          "en": "Total sales proceeds from capital gains and betterment (excluding traded securities)",
+          "kind": "info",
+          "rule": "Total sale consideration of capital-gain and betterment transactions, excluding traded securities. Exempt gains (e.g. exempt apartment sale) go to row 45; unused losses carried forward go to row 48ג/48ד.",
+          "proof": ["1399י"],
+          "page": 3
+        },
+        {
+          "no": "256",
+          "row": "39",
+          "he": "סה\"כ סכום המכירות מרווח הון מני\"ע סחירים (מנספח ג, ג1, ג2)",
+          "en": "Total sales turnover from traded-securities capital gains (from appendices ג, ג1, ג2)",
+          "kind": "info",
+          "rule": "Sales turnover of traded securities as shown on appendix ג (form 1322), per that form's instructions; appendix ג1 (1325) totals feed into 1322, appendix ג2 (1326) covers securities bought before 1.1.2006 under transition rules.",
+          "proof": ["1322", "1325", "1326"],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "ט",
+      "he": "הכנסות חו\"ל",
+      "en": "Foreign income",
+      "fields": [
+        {
+          "no": "290",
+          "row": "40",
+          "he": "סה\"כ הכנסות חו\"ל (מצורף נספח ד')",
+          "en": "Total foreign income (appendix ד attached)",
+          "kind": "info",
+          "rule": "Israeli residents are taxed on worldwide income; each foreign income is also entered in the matching income row by type, and the total goes here. Detail by income basket and country (up to 10 countries per type per spouse) and the foreign-tax-credit claim go on appendix ד (form 1324); foreign tax paid is not entered on the 1301 itself. Treaty rules prevail where they conflict with domestic law.",
+          "proof": ["1324", "foreign tax payment document"],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "י",
+      "he": "הכנסות/רווחים פטורים ובלתי חייבים במס",
+      "en": "Exempt and non-taxable income/gains",
+      "fields": [
+        {
+          "no": "109",
+          "spouse": "309",
+          "row": "41",
+          "he": "הכנסות פטורות ממס לפי סעיף 9(5) (נכה 100%/עיוור)",
+          "en": "Exempt income of 100% disabled or blind person",
+          "kind": "exempt",
+          "section": "9(5)",
+          "rule": "Personal-exertion income (rows 1-7) exempt up to 445,200 NIS in 2025 (684,000 NIS if receiving a Defense Ministry / hostile-actions allowance); if personal-exertion income is below 81,960 NIS or nil, income from all sources is exempt up to 81,960 NIS (337,200 NIS for certain interest from bodily-injury compensation). Caps are prorated by disability days for partial years; 185-364 day disabilities capped at 81,960 total, under 185 days no exemption; also 90% (and from 1.1.2022 certain 40%) multi-organ disabilities. Includes exempt capital-market income of a 100% disabled person; taxable rows show income after this exemption.",
+          "proof": ["disability approval for income-tax purposes"],
+          "page": 3
+        },
+        {
+          "no": "332",
+          "row": "42",
+          "he": "הכנסות פטורות משכ\"ד למגורים",
+          "en": "Exempt residential rental income",
+          "kind": "exempt",
+          "rule": "Under the 1990 residential-rent exemption law: rent from an Israeli dwelling let to an individual for residence (tenant-signed declaration), received in 2025, exempt up to the adjusted ceiling: 5,654 NIS/month (67,848/year) minus the amount by which total residential rent (incl. 10%-track rent) exceeds the ceiling, checked monthly. Spouse and children under 18 are aggregated; the taxable remainder goes to row 8, 10%-track rent to row 24.",
+          "proof": ["tenant's signed residence declaration"],
+          "page": 3
+        },
+        {
+          "no": "083",
+          "row": "43",
+          "he": "דיבידנד שהתקבל בפועל ומקורו בדיבידנד רעיוני שדווח כהכנסה לפי תקנה 3(א) ו-65% ממנו ייחשב כלא חולק לפי תקנה 3(ה)",
+          "en": "Dividend actually received that originates in a notional dividend previously reported (reg. 3(א)); 65% treated as undistributed (reg. 3(ה))",
+          "kind": "exempt",
+          "section": "81ב(ב)(3ג)",
+          "rule": "Dividend actually received out of a notional dividend already reported as income (see row 32). Online, entering an amount opens a balance 'stack' that must be updated; the amount cannot exceed the stack balance.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": null,
+          "row": "44",
+          "he": "קצבאות פטורות ממס",
+          "en": "Exempt pensions/allowances",
+          "kind": "exempt",
+          "section": "9(6)",
+          "rule": "Exempt allowances: state allowances for war/hostile-action injury or dependents of fallen soldiers, Mandate-government pensions, NII child allowances, NII disability/old-age/survivors pensions, foreign-state disability pensions, exempt portion of employer/provident-fund and statutory survivors' pensions, and capitalization of the exempt pension portion. No printed field number on the form; online filers use field 101 (registered) / 102 (spouse).",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": null,
+          "row": "45",
+          "he": "מקורות אחרים (פרט)",
+          "en": "Other exempt sources (specify)",
+          "kind": "exempt",
+          "rule": "Other exempt receipts, e.g.: 35% of 'beneficial rent' for retirees (asset used directly in own business, 2% per year up to 70%, cap 113,160 NIS; requires appendix ב form 1321); new immigrant / veteran returning resident 10-year foreign-income exemption (returning resident 5 years); exempt capital-market parts (linkage, FX-deposit interest); exempt winnings, gifts, inheritances; scholarships (researcher cap 109,000 NIS in 2025); disabled car-upkeep amounts; Nazi-persecution receipts; Prisoners of Zion benefits; exempt foreign social insurance; delayed-wage compensation; alimony; exempt severance part; exempt betterment/capital gains (e.g. exempt residential apartment sale). Special reserve-duty payments are not income and are not reported. No printed field number on the form.",
+          "proof": ["1321"],
+          "page": 3
+        },
+        {
+          "no": "209",
+          "row": "46",
+          "he": "סה\"כ הכנסות/רווחים פטורים ובלתי חייבים במס (סעיפים 41-45)",
+          "en": "Total exempt and non-taxable income (rows 41-45)",
+          "kind": "exempt",
+          "rule": "Sum of both spouses' exempt and non-taxable amounts entered in rows 41-45.",
+          "proof": [],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "יא",
+      "he": "פרטים נוספים ויתרות להעברה לשנת מס 2026",
+      "en": "Additional details and balances carried forward to tax year 2026",
+      "fields": [
+        {
+          "no": "097",
+          "row": "47א",
+          "he": "ערך המלאי בעסק העיקרי ב-31.12.2025",
+          "en": "Inventory value of main business at 31.12.2025",
+          "kind": "info",
+          "rule": "Closing inventory value of the main business (the one producing most of your income) on the last day of 2025; a partner enters his share.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "195",
+          "row": "47ב",
+          "he": "סך הרווח הגולמי בעסק העיקרי",
+          "en": "Gross profit of main business",
+          "kind": "info",
+          "rule": "Commercial business: sales minus cost of sales (opening inventory + purchases - closing inventory); manufacturing: sales minus production cost of goods sold. A partner enters his share.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "279",
+          "row": "47ג",
+          "he": "הפסד עסקי שקוזז מהכנסות השנה",
+          "en": "Business loss offset against this year's income",
+          "kind": "info",
+          "rule": "Business losses only that were offset this year. A current business loss offsets income from any source (you may elect not to offset it against capital gains/capital-market income taxed at up to 25%); carried-forward business losses offset only business income (incl. business capital gains/betterment), or employment income if there was no business income this year, the business ceased, the loss is not from a family/house company, and it arose in 2007 or later.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "271",
+          "row": "47ד",
+          "he": "חלוקות שקיבלתי מנאמנות (פטורות/חייבות)",
+          "en": "Distributions received from a trust (exempt/taxable)",
+          "kind": "info",
+          "section": "75ג",
+          "rule": "A trust beneficiary enters the exempt or taxable distributions received in the tax year as defined in section 75ג.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "319",
+          "row": "47ה",
+          "he": "הפסד הון שקוזז השנה מהשקעה מזכה במניות חברת מו\"פ",
+          "en": "Capital loss offset this year from qualifying investment in R&D company shares",
+          "kind": "info",
+          "section": "92א",
+          "rule": "A qualifying investment (up to 5 million NIS) in shares of an R&D company issued to the public on an Israeli exchange is recognized as a capital loss in the investment year or the next until the benefit period ends; enter the capital loss offset this year. See circular 21/2018.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "323",
+          "row": "47ו",
+          "he": "משיכה מחברה בהתאם לסעיף 3(ט1) כדיבידנד",
+          "en": "Withdrawal from company under 3(ט1) treated as dividend",
+          "kind": "info",
+          "section": "3(ט1)",
+          "rule": "Withdrawals by a substantial shareholder (or relative) treated as dividend; the income is also entered in field 312/212/055. Where cumulative withdrawals exceeded 100,000 NIS on any day of the year or prior year, attach form 1350 (circular 07/2017).",
+          "proof": ["1350"],
+          "page": 3
+        },
+        {
+          "no": "343",
+          "row": "47ז",
+          "he": "משיכה מחברה בהתאם לסעיף 3(ט1) כמשכורת",
+          "en": "Withdrawal from company under 3(ט1) treated as salary",
+          "kind": "info",
+          "section": "3(ט1)",
+          "rule": "Withdrawals by a substantial shareholder treated as salary; the income is also entered in field 158/172. Form 1350 required when the 100,000 NIS cumulative threshold is exceeded.",
+          "proof": ["1350"],
+          "page": 3
+        },
+        {
+          "no": "350",
+          "row": "47ח",
+          "he": "משיכה מחברה בהתאם לסעיף 3(ט1) כעסק/משלח יד",
+          "en": "Withdrawal from company under 3(ט1) treated as business income",
+          "kind": "info",
+          "section": "3(ט1)",
+          "rule": "Withdrawals by a substantial shareholder treated as business/profession income; the income is also entered in field 150/170 or 305/205/167. Form 1350 required when the 100,000 NIS cumulative threshold is exceeded.",
+          "proof": ["1350"],
+          "page": 3
+        },
+        {
+          "no": "351",
+          "row": "47ט",
+          "he": "הכנסה המועברת אליי לפי סעיף 62א(א)",
+          "en": "Income attributed to me under 62א(א)",
+          "kind": "info",
+          "section": "62א(א)",
+          "rule": "Income attributed from a closely held company due to the substantial shareholder's activity; also enter it in 158/172 (if salary) or 150/170 (if business). Tax withheld at the company on this income may be claimed in field 040 (and not again in the company's return).",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "084",
+          "row": "47י",
+          "he": "הכנסה המועברת אליי לפי סעיף 62א(א) \"חלופת דיבידנד\"",
+          "en": "Income attributed under 62א(א) via the 'dividend alternative'",
+          "kind": "info",
+          "section": "62א(ג)(2)(5)",
+          "rule": "Dividend distributed under the dividend alternative is taxed at marginal rates as personal-exertion income: enter the attributed income grossed up at corporate tax rate here and the same amount in 150/170; company tax paid goes as a credit in field 100 (limited to 23% of 084+092); dividend withholding goes in 040. Reported on appendix 1362.",
+          "proof": ["1362"],
+          "page": 3
+        },
+        {
+          "no": "085",
+          "row": "47יא",
+          "he": "הכנסה מועברת אליי לפי סעיף 62א(א3) מס בשיעור 25%",
+          "en": "Income attributed under 62א(א3), taxed at 25%",
+          "kind": "info",
+          "section": "62א(א3)",
+          "rule": "Income attributed from a closely held company under 62א(א3); also enter it in field 141/241/341.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "087",
+          "row": "47יב",
+          "he": "הכנסה מועברת אליי לפי סעיף 62א(א1)+(א2)",
+          "en": "Income attributed under 62א(א1)+(א2)",
+          "kind": "info",
+          "section": "62א(א1)",
+          "rule": "Income attributed from a closely held company under 62א(א1)+(א2); also enter it in 158/172 or 150/170. Company withholding on this income may be claimed in 040. Reported on appendix 1362.",
+          "proof": ["1362"],
+          "page": 3
+        },
+        {
+          "no": "092",
+          "row": "47יג",
+          "he": "הכנסה מועברת אליי לפי סעיף 62א(א1)+(א2) \"חלופת דיבידנד\"",
+          "en": "Income attributed under 62א(א1)+(א2) via the 'dividend alternative'",
+          "kind": "info",
+          "section": "62א(ג)(2)(5)",
+          "rule": "As 47י: grossed-up attributed income here and in 150/170; corporate tax credit in field 100 capped at 23% of 084+092; dividend withholding in 040. Guide example: 1,000,000 NIS company income, 75% attributed = 750,000 in 092 and 150/170, dividend 577,500, withholding 173,250 in 040, credit 172,500 in 100.",
+          "proof": ["1362"],
+          "page": 3
+        },
+        {
+          "no": "079",
+          "row": "48א",
+          "he": "הפסדים מעסק וממשלח יד (ללא חו\"ל)",
+          "en": "Business/profession losses carried forward (excl. foreign)",
+          "kind": "info",
+          "rule": "Unused business losses (excluding foreign) carried forward to 2026. Losses from 2007 onward may offset salary in later years if the business closed, under the 47ג conditions.",
+          "proof": ["1344"],
+          "page": 3
+        },
+        {
+          "no": "179",
+          "row": "48ב",
+          "he": "הפסדים מנכס בית (ללא חו\"ל)",
+          "en": "House-property (rental) losses carried forward (excl. foreign)",
+          "kind": "info",
+          "rule": "Loss where rental expenses incl. depreciation exceed rent from the same property; carried forward only against future house-property income from the same building.",
+          "proof": ["1344"],
+          "page": 3
+        },
+        {
+          "no": "166",
+          "row": "48ג",
+          "he": "הפסדי הון שלא קוזזו (ללא חו\"ל)",
+          "en": "Capital losses not offset (excl. foreign)",
+          "kind": "info",
+          "rule": "Capital losses from this or prior years not fully offset; offsettable against capital gains (incl. traded securities) or real-estate betterment.",
+          "proof": ["1344"],
+          "page": 3
+        },
+        {
+          "no": "160",
+          "row": "48ד",
+          "he": "הפסדי הון מניירות ערך שנוצרו עד 31.12.2005",
+          "en": "Capital losses from securities created up to 31.12.2005",
+          "kind": "info",
+          "rule": "Unused securities losses created up to 31.12.2005; offsettable against gains on any security and against interest/dividends from securities taxed at no more than 20%.",
+          "proof": ["1344"],
+          "page": 3
+        },
+        {
+          "no": "299",
+          "row": "48ה",
+          "he": "הפסד חו\"ל להעברה (מפורט בנספח ד')",
+          "en": "Foreign losses carried forward (detailed in appendix ד)",
+          "kind": "info",
+          "rule": "Remaining foreign losses from any source as detailed in appendix ד.",
+          "proof": ["1324"],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "יב",
+      "he": "ניכויים אישיים",
+      "en": "Personal deductions",
+      "fields": [
+        {
+          "no": "112",
+          "spouse": "113",
+          "row": "49",
+          "he": "לביטוח מפני אבדן כושר עבודה ששילם היחיד בשל הכנסה כעצמאי",
+          "en": "Loss-of-work-capacity insurance paid as self-employed",
+          "kind": "deduction",
+          "rule": "Enter premium paid for 'preferred' insurance (if bought before age 60: cover runs to age 60+). Deduction is up to 3.5% of business/profession income, capped at income of 399,480 (2.5x average wage); computed automatically. Do not include the premium in the P&L. Benefits later received are personal-exertion income.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "206",
+          "spouse": "207",
+          "row": "50",
+          "he": "לביטוח מפני אובדן כושר עבודה לשכיר לפי חישוב בטופס 134",
+          "en": "Loss-of-work-capacity insurance for employee per form 134",
+          "kind": "deduction",
+          "rule": "Enter the ALLOWED deduction computed on form 134 (not amount paid): 3.5% of work income up to 399,480, reduced by the excess of employer pension-fund contributions over 4% of salary; no deduction at all if employer contributions exceed 7.5%. Employer-paid premiums taxed to the employee are taken into account.",
+          "proof": ["134"],
+          "page": 3
+        },
+        {
+          "no": "136",
+          "spouse": "137",
+          "row": "51",
+          "he": "לקרן השתלמות לעצמאים",
+          "en": "Study fund (keren hishtalmut) for self-employed",
+          "kind": "deduction",
+          "section": "17(5א)",
+          "rule": "Enter full amount paid. Deduction = lower of amount paid and 4.5% of 'determining income' (taxable business/profession income, annual cap 293,397). If also an employee whose employer paid a study fund, ceiling = lower of business income and 293,397 minus that salary (salary counted up to 188,544).",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "218",
+          "spouse": "219",
+          "row": "52",
+          "he": "משכורת שבשלה שילם המעביד לקרן השתלמות",
+          "en": "Salary on which employer paid to study fund",
+          "kind": "info",
+          "rule": "For a self-employed person who is also an employee: salary on which the employer contributed to a study fund, as shown on form 106 codes 218/219; enter 0 if none. Reduces the row-51 ceiling (293,397 minus this salary, max 188,544).",
+          "proof": ["106"],
+          "page": 3
+        },
+        {
+          "no": "135",
+          "spouse": "180",
+          "row": "53",
+          "he": "לקופת גמל לקצבה \"כעמית עצמאי\"",
+          "en": "Pension provident fund deposits as 'self-employed member'",
+          "kind": "deduction",
+          "section": "47",
+          "rule": "Enter full amount paid; system computes deduction and moves the unused remainder to the 35% credit (sec 45א, row 76). Route A: non-work income 7% of qualifying income (+ up to 4% more for the part paid above 12%; max 11% = 18,084 on cap 164,400); work income 5% of non-insured qualifying income (max 5,820 on 116,400). Age 50+ by 1.1.2025: 10.5% / +6% / 16.5% and 7.5% (max 5,820). Route B ('beneficiary member', total pension deposits >= 24,069 = 16% of avg wage): tier 1 11% of income up to 116,400 less insured income; tier 2 7% (+4% above 12%) of 'additional income'. Mandatory self-employed pension 2025: 4.45% up to 75,216 and 12.55% from 75,216 to 150,432 (500 fine if not deposited).",
+          "proof": ["provident-fund annual certificate"],
+          "page": 3
+        },
+        {
+          "no": "030",
+          "spouse": "089",
+          "row": "54",
+          "he": "לדמי ביטוח לאומי ששולמו בגין הכנסה שאינה הכנסת עבודה",
+          "en": "National Insurance paid on non-salary income",
+          "kind": "deduction",
+          "rule": "Enter NI contributions paid in the year on non-salary income (incl. pension income), excluding health tax, fines and linkage. Deduction = 52% of amount paid, not exceeding taxable non-work income before the deduction (excess is not a loss). Refunds for prior years reduce payments; a refund exceeding payments -> 52% of difference is income in 150/170.",
+          "proof": ["NI annual payment confirmation"],
+          "page": 3
+        },
+        {
+          "no": "005",
+          "spouse": "006",
+          "row": "55",
+          "he": "למימון מחקר מדעי לפי ס' 20א (שלא בתחום מפעלך)",
+          "en": "Financing scientific research under sec 20א",
+          "kind": "deduction",
+          "section": "20א",
+          "rule": "Enter the deductible amount attributable to this year. Research in industry/agriculture/transport/energy approved by the chief scientist; capped at 40% of taxable income before the deduction; prorated by months remaining after payment month (excess carried to next year, max 40%). Together with sec 46 donations, max 50% of taxable income.",
+          "proof": ["calculation detail", "payment documents"],
+          "page": 3
+        },
+        {
+          "no": "116",
+          "spouse": "117",
+          "row": "56",
+          "he": "ניכוי מההכנסה בגין השקעה בחיפושי נפט (מצורף טופס 858י)",
+          "en": "Oil exploration investment deduction",
+          "kind": "deduction",
+          "rule": "Enter the computed deduction for an 'eligible holder' (held participation units on 31 Dec); sec 63 partnership attribution by units held. Deduction per unit limited to purchase cost less prior deductions plus prior attributed income less tax withheld. Granted only if form 858י is filed.",
+          "proof": ["858י", "partnership certificate", "bank confirmation of purchases/sales/units held"],
+          "page": 3
+        },
+        {
+          "no": "118",
+          "spouse": "119",
+          "row": "57",
+          "he": "ניכוי מההכנסה בגין השקעה בסרטים",
+          "en": "Israeli film investment deduction",
+          "kind": "deduction",
+          "rule": "Enter the computed deduction for investment in producing a recognised Israeli (non-TV) film under the 2009 temporary-order regulations; deductible against any income in the year incurred. Regulations apply to expenses incurred up to 31.12.2021.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "244",
+          "spouse": "245",
+          "row": "58",
+          "he": "הכנסה מבוטחת - הסכום מתוך השכר בגינו זכאי לקיצבה ו/או שלגביו הפריש המעביד \"הפרשות סוציאליות\"",
+          "en": "Insured income (salary with employer pension contributions / pension entitlement)",
+          "kind": "info",
+          "rule": "Work income on which the employer paid to a pension fund, or giving pension entitlement, as on form 106. Used to compute row-53 deduction and pension credits.",
+          "proof": ["106"],
+          "page": 3
+        },
+        {
+          "no": "248",
+          "spouse": "249",
+          "row": "59",
+          "he": "הפקדות המעביד לקופת גמל לקצבה",
+          "en": "Employer deposits to pension provident fund",
+          "kind": "info",
+          "rule": "Employer pension contributions incl. severance component (excluding work-capacity insurance) per form 106. Used to test 'beneficiary member' status (>= 24,069) for the enlarged row-53 deduction.",
+          "proof": ["106"],
+          "page": 3
+        },
+        {
+          "no": "011",
+          "spouse": "012",
+          "row": "60",
+          "he": "השתתפות זמנית הפחתת דמי הבראה",
+          "en": "Temporary participation - recuperation pay reduction",
+          "kind": "info",
+          "rule": "Amount of recuperation pay reduced, per form 106 codes 011/012; increases income for computing pension-deposit tax benefits.",
+          "proof": ["106"],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "יג",
+      "he": "נקודות זיכוי מהמס",
+      "en": "Tax credit points",
+      "fields": [
+        {
+          "no": "020",
+          "row": "61",
+          "he": "תושב",
+          "en": "Israeli resident",
+          "kind": "credit",
+          "section": "34, 36, 36א",
+          "rule": "Resident: 2 points + 0.25 point for travel to work; a woman gets +0.5 point. With separate calculation each spouse gets these. Point value 2025 = 2,904 ILS.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "021",
+          "row": "62",
+          "he": "בן/בת הזוג - זיכוי תושב לבן/בת הזוג בחישוב נפרד או נקודת זיכוי אם אחד מהם הגיע לגיל פרישה/עיוור/נכה לפי ס' 9(5)",
+          "en": "Spouse credits",
+          "kind": "credit",
+          "section": "37, 38",
+          "rule": "(a) joint calc, a spouse reached retirement age or is blind/disabled per 9(5): 1 point; (b) spouse with personal-exertion income not separately computed: 0.25 + 1.5 points (no children under 19) or 0.25 + 1.75 (children under 19), given only if spouse income <= 5x those points (25,410 / 29,040); (c) separate calc: gives spouse resident/travel/woman points. Separately assessed 'beneficiary' gets 0.5 point for a dependent spouse.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "025",
+          "row": "63",
+          "he": "בן/בת הזוג עוזר בהשגת הכנסה מעסק",
+          "en": "Spouse helps earn business income",
+          "kind": "credit",
+          "section": "39",
+          "rule": "Joint calc: 1.5 points (1.75 if receiving child allowance) if spouse worked in the business >= 24 h/week for >= 9 months. Cannot combine with row-62 working-spouse points; the better one is applied.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "260",
+          "spouse": "262",
+          "row": "64",
+          "he": "ילדים בחזקתי (1)",
+          "en": "Children in my custody (by age band)",
+          "kind": "credit",
+          "section": "40, 66(ג)",
+          "rule": "Count per age band (born, 1-2, 3, 4-5, 6-17, 18). Married: children in custody for each spouse; unmarried: children in custody for whom child allowance received. Column-1 points (married woman / unmarried with custody): born 2.5, 1-2 4.5, 3 3.5, 4-5 2.5, 6-17 2, 18 0.5. Married couples get child points only in separate calc against personal-exertion income.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "190",
+          "spouse": "291",
+          "row": "64",
+          "he": "ילדיי שאינם בחזקתי (2)",
+          "en": "My children not in my custody",
+          "kind": "credit",
+          "section": "40, 66(ג)",
+          "rule": "Count per age band. Married: child of one spouse in the other parent's custody (enter under the child's own parent); unmarried: children not in custody or in custody without child allowance. Column-2 points (married man / unmarried without custody): born 2.5, 1-2 4.5, 3 3.5, 4-5 2.5, 6-17 1, 18 0.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "022",
+          "row": "64",
+          "he": "הורה יחיד (3) - ילדים ללא הורה שני רשום או שנפטר",
+          "en": "Single parent: children with no second registered/living parent",
+          "kind": "credit",
+          "rule": "Unmarried only: number of children (already in 260) whose other parent is deceased or not registered ('child of one parent', under 19). Parent gets column-1 points plus column-2 points (double points up to age 17).",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "361",
+          "row": "64",
+          "he": "מבקשת דחייה עבור __ ילדים שנולדו בשנת המס",
+          "en": "Registered spouse: defer a point for children born this year",
+          "kind": "credit",
+          "rule": "Number of children born in the tax year for whom the mother defers 1 of the 2.5 birth-year points to the next year; also report children born last year whose point was deferred to this year (attach request and prior-year 106).",
+          "proof": ["116ד"],
+          "page": 3
+        },
+        {
+          "no": "362",
+          "row": "64",
+          "he": "בת זוג - מבקשת דחייה עבור __ ילדים שנולדו בשנת המס",
+          "en": "Spouse: defer a point for children born this year",
+          "kind": "credit",
+          "rule": "Same as 361 for the spouse (wife).",
+          "proof": ["116ד"],
+          "page": 3
+        },
+        {
+          "no": "026",
+          "row": "65",
+          "he": "הורה במשפחה חד-הורית שהילדים בחזקתו ומקבל בגינם קצבת ילדים",
+          "en": "Single-parent family",
+          "kind": "credit",
+          "rule": "1 point for a parent of a child under 19 receiving child allowance, if not running a joint household with another individual (yes/no checkbox on the form, no field number); in addition to row-64 child points.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "029",
+          "spouse": "129",
+          "row": "66",
+          "he": "השתתפות בכלכלת ילדי שטרם מלאו להם 19 שאינם סמוכים על שולחני",
+          "en": "Supporting children under 19 not in my household",
+          "kind": "credit",
+          "section": "40(ב)",
+          "rule": "1 point for a parent living separately who supports children under 19 not in their custody and does not receive child allowance.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "028",
+          "spouse": "153",
+          "row": "67",
+          "he": "תשלום דמי מזונות לבן זוג לשעבר (רק למי שנשוי בשנית)",
+          "en": "Alimony to former spouse (only if remarried)",
+          "kind": "credit",
+          "section": "40א",
+          "rule": "1 point for a divorcee paying alimony for a former spouse who has remarried to another spouse.",
+          "proof": [],
+          "page": 3
+        },
+        {
+          "no": "023",
+          "spouse": "131",
+          "row": "68",
+          "he": "מספר ילדים עם מוגבלות בגינם נדרשות נקודות זיכוי",
+          "en": "Number of children with disability claimed",
+          "kind": "credit",
+          "section": "45",
+          "rule": "2 points per paralysed, blind or developmentally disabled child (also severe ADHD/learning disability up to 18 with special-education placement), claimed by either spouse by choice; separated parents each get them. Guide conditions it on income not exceeding 188,000 (301,000 for both spouses) in 2025. Alternative per child to the institutional-care credit (row 77).",
+          "proof": ["116א", "127"],
+          "page": 3
+        },
+        {
+          "no": null,
+          "row": "69",
+          "he": "עולה חדש - תאריך העלייה",
+          "en": "New immigrant - immigration date",
+          "kind": "credit",
+          "section": "35",
+          "rule": "Immigrated from 1.1.2022: 54 months - 1/12 pt/month x12, 1/4 x18, 1/6 x12, 1/12 x12. Before 1.1.2022: 42 months - 1/4 x18, 1/6 x12, 1/12 x12. Abroad periods of 6 months-3 years, IDF service and post-secondary study can be excluded on request; minors returning after 5+ years count as immigrants; former citizens whose citizenship was revoked are excluded.",
+          "proof": ["immigrant certificate", "study/service/abroad confirmation if extending"],
+          "page": 3
+        },
+        {
+          "no": "295",
+          "spouse": "296",
+          "row": "70",
+          "he": "תושב חוזר \"מוטב\" - תאריך החזרה",
+          "en": "Returning resident 'beneficiary' - return date",
+          "kind": "credit",
+          "rule": "Returned between 16.5.2010 and 30.9.2012 after 6 consecutive years as non-resident (<=120 days/yr in Israel, not employed abroad by Israeli state bodies). Same points as a new immigrant.",
+          "proof": ["returning-resident certificate"],
+          "page": 3
+        },
+        {
+          "no": "224",
+          "spouse": "324",
+          "row": "71",
+          "he": "חייל משוחרר - תאריך שחרור",
+          "en": "Discharged soldier - release date (MMYYYY)",
+          "kind": "credit",
+          "section": "39א",
+          "rule": "Credit against personal-exertion income for 36 months after the release month from regular service (IDF/border police/police/national service; career service excluded). Prorated in release year. Example release 31.8.2022 -> 082022, 8 months in 2025.",
+          "proof": ["discharge certificate"],
+          "page": 3
+        },
+        {
+          "no": "024",
+          "spouse": "124",
+          "row": "71",
+          "he": "חייל משוחרר - מספר חודשי שירות מלאים",
+          "en": "Discharged soldier - full months of service",
+          "kind": "credit",
+          "section": "39א",
+          "rule": "Men >= 23 / women >= 22 full months: 1/6 point per month of entitlement; shorter service: 1/12 point per month.",
+          "proof": ["discharge certificate"],
+          "page": 3
+        },
+        {
+          "no": "181",
+          "spouse": "182",
+          "row": "72",
+          "he": "סיום לימודים לתואר אקדמאי / לימודי מקצוע - קוד מטופס 119, שנת סיום, שנת סיום התמחות",
+          "en": "Academic degree / vocational studies completion",
+          "kind": "credit",
+          "section": "40ג, 40ד",
+          "rule": "Code + completion year (+ internship year if deferring). Finished from 1.1.2023: code 1 BA 1 pt/yr up to 3 yrs; code 2 MA 0.5 pt/yr up to 2 yrs; code 3 medicine/dentistry 1 pt for 3 yrs then 0.5 for 2 yrs; code 4 direct PhD 0.5 for 2 yrs (plus code 1 for BA); code 12 BA+MA same year; code 5 vocational certificate 1 pt/yr up to 3 yrs. Finished 2014-2022: one-time 1 (BA) / 0.5 (MA) point in the following year or the one after.",
+          "proof": ["119", "degree/completion certificate"],
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "יד",
+      "he": "זיכויים אישיים בעד התשלומים שלהלן (זיכויים אחרים מהמס, סעיפים 73-82)",
+      "en": "Personal tax credits for the following payments (other tax credits, rows 73-82)",
+      "fields": [
+        {
+          "no": "036",
+          "spouse": "081",
+          "row": "73",
+          "he": "לביטוח חיים",
+          "en": "Life insurance premiums",
+          "kind": "credit",
+          "section": "45א",
+          "rule": "25% credit on life-insurance premiums (excluding savings component) paid by the individual or spouse to an insurer for own/spouse's life. Track A (not 'beneficiary member'): base capped at 7% of qualifying work income up to 116,400 and 5% of other income up to 164,400 (minus work income), survivors' part max 1.5%; minimum 2,268 creditable regardless of cap. Enter the full amount paid; the system computes the credit.",
+          "proof": ["insurer annual certificate", "158 (declaration, for payments for a child over 18 by a 'beneficiary member')"],
+          "page": 4
+        },
+        {
+          "no": "140",
+          "spouse": "240",
+          "row": "74",
+          "he": "לביטוח קצבת שאירים",
+          "en": "Survivors' pension insurance",
+          "kind": "credit",
+          "section": "45א",
+          "rule": "35% credit on payments for survivors' pension insurance, within the 45א caps; the amount creditable for survivors' insurance may not exceed 1.5% of qualifying income (and combined with life insurance not over 5%).",
+          "proof": ["insurer annual certificate"],
+          "page": 4
+        },
+        {
+          "no": "045",
+          "spouse": "086",
+          "row": "75",
+          "he": "לקצבה כ\"עמית שכיר\"",
+          "en": "Pension fund payments as 'employee member'",
+          "kind": "credit",
+          "section": "45א",
+          "rule": "35% credit on employee pension-fund contributions, base capped at 7% of insured work income up to 116,400 (2025). 'Beneficiary member' (Track B, ≥24,069 paid for him into a pension fund) has separate caps: 7% insured income to 116,400 plus 5% of non-insured income up to 232,800 minus insured income. No credit for employee-member deposits on non-insured income. Enter full amount; leftover from row 53 deduction is transferred automatically.",
+          "proof": ["106", "pension fund annual certificate"],
+          "page": 4
+        },
+        {
+          "no": "268",
+          "spouse": "269",
+          "row": "76",
+          "he": "לקצבה כ\"עמית עצמאי\"",
+          "en": "Pension fund payments as 'self-employed member'",
+          "kind": "credit",
+          "section": "45א",
+          "rule": "35% credit on self-employed pension contributions: 5% of qualifying income up to 164,400 (minimum 2,268 credited regardless). Since 2017 an extra credit (45א(ו)) of 35% x lower of {0.5% x lower of (232,800 minus insured income, business income)} and excess deposits not deducted/credited, if no disability-insurance deduction was taken. Enter here (not row 75); may be entered here instead of row 53 when marginal rate < 35%.",
+          "proof": ["pension fund annual certificate"],
+          "page": 4
+        },
+        {
+          "no": "132",
+          "spouse": "232",
+          "row": "77",
+          "he": "להחזקת בן משפחה במוסד",
+          "en": "Maintaining a family member in an institution",
+          "kind": "credit",
+          "section": "44",
+          "rule": "35% of institution-maintenance payments (incl. medical care by the institution) for a child, spouse or parent who is fully paralysed, permanently bedridden, blind or mentally ill, or a child with intellectual disability, on the part exceeding 12.5% of taxable income. Condition: disabled person's + spouse's taxable and exempt income ≤ 301,000 (≤ 188,000 if no spouse). Not allowed for a child for whom credit points under row 68 were claimed. Enter total expense.",
+          "proof": ["127 (medical certificate)", "institution receipts"],
+          "page": 4
+        },
+        {
+          "no": "037",
+          "spouse": "237",
+          "row": "78א",
+          "he": "תרומות בשנת המס למוסדות בישראל בלבד",
+          "en": "Donations in the tax year to Israeli approved public institutions / national funds",
+          "kind": "credit",
+          "section": "46",
+          "rule": "35% credit on donations above 207 to institutions approved under s.46, national funds (Jewish Agency, WZO, Keren Hayesod/UIA, KKL) or 'ללבי' (garbled in extraction); creditable amount capped at lower of 10,354,816 or 30% of taxable income. Excess may be claimed in the next 3 tax years (row 78ג). Combined donation credit + R&D-financing deduction ≤ 50% of taxable income. Online return: fill via the 'wizard' from the digital donations system and split between 037/237; donations reported there need no receipts.",
+          "proof": [
+            "original donation receipts (not needed for donations in the digital donations system)",
+            "donations summary from the personal area",
+            "106 (true copy, for donations credited via an authorized employer)"
+          ],
+          "page": 4
+        },
+        {
+          "no": "046",
+          "spouse": "048",
+          "row": "78ב",
+          "he": "תרומות למוסדות בארה\"ב, מוגבלים ל-25% מההכנסה מארה\"ב",
+          "en": "Donations to US institutions, limited to 25% of US-source taxable income",
+          "kind": "credit",
+          "rule": "Donations to US institutions, creditable up to 25% of income taxable in Israel from the US; online, the system checks against US income reported in appendix ד (נספח ד).",
+          "proof": ["original donation receipts"],
+          "page": 4
+        },
+        {
+          "no": "364",
+          "spouse": "292",
+          "row": "78ג",
+          "he": "תרומות שנדרשו בשלוש השנים הקודמות, עלו על התקרה ולא ניתן לגביהן זיכוי",
+          "en": "Carry-forward: donations from the 3 prior years that exceeded the cap and got no credit",
+          "kind": "credit",
+          "section": "46",
+          "rule": "Donation amounts claimed in the previous 3 tax years that exceeded the 30%/amount cap; credited in this year subject to this year's cap.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "143",
+          "spouse": "144",
+          "row": "79",
+          "he": "הוצאות להנצחת זכרו של מי שנספה במערכה/בפעולות איבה",
+          "en": "Commemoration expenses for a fallen soldier/police officer or terror victim",
+          "kind": "credit",
+          "section": "46א",
+          "rule": "30% credit on amounts spent commemorating a family member (spouse, child, sibling, parent, grandchild, brother/son-in-law) who was a soldier/police officer fallen in action or a victim of hostile/terror acts. Enter the expense.",
+          "proof": ["supporting documents"],
+          "page": 4
+        },
+        {
+          "no": "155",
+          "spouse": "199",
+          "row": "80",
+          "he": "סך ההשקעות בחברות מו\"פ בהתאם לטופס 991 המצורף",
+          "en": "Total investments in R&D companies per attached form 991",
+          "kind": "credit",
+          "rule": "Encouragement of Knowledge-Intensive Industry Law (temporary order) 2023, s.2, valid through tax year 2026: credit = investment x investor's capital-gains rate (25%, or 30% for a substantial shareholder, incl. surtax), investment up to 4M per R&D company. Online: entered only via the wizard (company ID, name, amount, substantial-shareholder flag; up to 5 investments). Reduces tax but creates no refund; unused credit is not carried forward automatically (claim by letter to the assessing office).",
+          "proof": ["991"],
+          "page": 4
+        },
+        {
+          "no": "139",
+          "spouse": "183",
+          "row": "81",
+          "he": "לתושב אילת הכנסה מיגיעה אישית שהופקה באילת",
+          "en": "Eilat resident: personal-exertion income produced in Eilat / Hevel Eilot",
+          "kind": "credit",
+          "section": "11 (Eilat Free Trade Zone Law 1985)",
+          "rule": "Permanent Eilat-area resident (12 consecutive months) gets a 10% reduction of taxable personal-exertion income produced in Eilat/Hevel Eilot up to 268,560 (2025); pension of an Eilat resident counts as produced there. Pro-rated in the first year and leaving year. Credit cannot exceed tax on personal-exertion income. Enter arrival/leaving dates in row 82.",
+          "proof": ["1312א (residency approval from Eilat municipality, requested on 1312)"],
+          "page": 4
+        },
+        {
+          "no": null,
+          "row": "82",
+          "he": "אני ובן/בת זוגי היינו תושבים ב- ... מתאריך/עד; עברתי ליישוב מזכה אחר; תוספת פעילות רמה א של כוחות הביטחון",
+          "en": "Residence in a qualifying settlement (name, from/to dates, move to another qualifying settlement) and security-forces level-A activity bonus income",
+          "kind": "credit",
+          "section": "11",
+          "rule": "Residents (centre of life, 12 consecutive months) of listed settlements (chapter ט) get a % reduction of taxable personal-exertion income up to a cap; pro-rated in first year (e.g. arrived 1.8.2025 -> 5/12), and in leaving year if resident ≥12 months. If moved between qualifying settlements, give both; system computes weighted credit. Soldiers/police/border police/ISA with level-A activity bonus: 5% credit on special salary up to 178,320 (enter salary per 106); entitled to the higher of this or the settlement reduction, not both concurrently (may combine across parts of year). No printed field number; settlement codes/percent are carried in transmitter-box fields 287/327 (and 096/111, 038/082, 015).",
+          "proof": ["1312א (approval from the local authority, requested on 1312)", "106 (for security-forces bonus)"],
+          "page": 4
+        }
+      ]
+    },
+    {
+      "id": "טו",
+      "he": "מחזור למקדמות, ניכויים במקור, מס שבח",
+      "en": "Turnover for advances, tax withheld at source, betterment tax",
+      "fields": [
+        {
+          "no": "294",
+          "row": "83",
+          "he": "סך המחזור ללא מע\"מ מעסק או משלח יד והכנסות אחרות בשיעורים רגילים, מכל העסקים, בארץ ובחו\"ל, 2025",
+          "en": "Total turnover excl. VAT from business/profession and other ordinary-rate income, all businesses, Israel+abroad",
+          "kind": "info",
+          "rule": "Combined turnover (receipts, excl. VAT) of you and spouse from all businesses, profession, rent, interest and other ordinary-rate income, Israel and abroad, excluding employment and REIT/oil-partnership income in 305/205/167. Family-company taxpayer adds the company's turnover; add your share of partnership, house company and 62א company turnover. Basis for next year's advance-payment percentage.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "042",
+          "row": "84",
+          "he": "מס הכנסה שנוכה במקור ממשכורת, משכר עבודה ומקצבאות",
+          "en": "Income tax withheld from salary, wages and pensions",
+          "kind": "withheld",
+          "rule": "Tax withheld from salary, wages, pensions and the taxable part of severance as shown on 106, plus the proportional part of tax withheld on taxable severance spread over years (per 161 or assessing-officer spread approval).",
+          "proof": ["106", "161"],
+          "page": 4
+        },
+        {
+          "no": "043",
+          "row": "85",
+          "he": "ניכוי במקור מריבית (מהכנסות בסעיפים 21, 22, 23) לפני החזרים",
+          "en": "Tax withheld from interest on deposits/savings plans (rows 21-23), before refunds",
+          "kind": "withheld",
+          "rule": "Tax withheld from interest on deposits and savings plans per 867 certificates. Enter the full amount withheld even if part was refunded to your account by the Tax Authority; the refund is accounted for in the computation.",
+          "proof": ["867"],
+          "page": 4
+        },
+        {
+          "no": "100",
+          "row": "86",
+          "he": "זיכוי מס חברות בהתאם לסעיף 62א(ג)(2)(5)",
+          "en": "Company-tax credit under s.62א(ג)(2)(5) ('dividend alternative')",
+          "kind": "withheld",
+          "section": "62א(ג)(2)(5)",
+          "rule": "Shareholder of a few-members company taxed via the 'dividend alternative': report attributed (grossed-up) income in 084/092 and 150/170, and enter here the company tax the company paid on that income, limited to 23% of the amounts in 084 and 092. Dividend withholding goes in 040.",
+          "proof": ["approval (אישור)"],
+          "page": 4
+        },
+        {
+          "no": "040",
+          "row": "87",
+          "he": "סה\"כ הסכומים שנוכו במקור מהכנסות אחרות (ללא מקדמות וללא מס ששולם בחו\"ל)",
+          "en": "Total tax withheld at source from other income in this return (no advances, no foreign tax)",
+          "kind": "withheld",
+          "rule": "Tax withheld from other sources: interest (other than deposits/savings plans), dividends, authors' fees, insurance commissions, artists, examiners, lecturers, office services, construction, transport, clothing/metal/electricity/electronics work, agricultural work/produce, work-injury pay, reserve-duty pay, indirect-damage compensation, capital gains incl. traded securities. Excludes deposit/savings-plan interest withholding (043), advances, and foreign tax (נספח ד only).",
+          "proof": ["857", "867"],
+          "page": 4
+        },
+        {
+          "no": "041",
+          "row": "88",
+          "he": "סה\"כ מס שבח שנקבע בשומת מס שבח (קרן בלבד)",
+          "en": "Total betterment tax set in betterment assessment (principal only)",
+          "kind": "withheld",
+          "rule": "Betterment (land appreciation) tax as determined by the director or per self-assessment if not yet determined, even if unpaid; principal only, without interest and linkage.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "115",
+          "row": "89",
+          "he": "מקדמות בשל הוצאות עודפות ששולמו בחברה משפחתית, חברת בית, חברת מעטים לפי 62א ובשותפות, הכלולים בשדה 040",
+          "en": "Advances for excess expenses paid in family/house/62א company or partnership (included in 040)",
+          "kind": "withheld",
+          "rule": "Your share of advances paid for excess expenses in a family company you are the taxpayer of, a house company, a 62א few-members company or partnership, up to the tax liability on the income transferred from the company. Only the amount included in field 040.",
+          "proof": ["working paper of the computation", "1227 (company declaration on advances for excess expenses)"],
+          "page": 4
+        }
+      ]
+    },
+    {
+      "id": "משדר",
+      "he": "לשימוש המשדר",
+      "en": "Transmitter coding box (bottom of page 4)",
+      "fields": [
+        {
+          "no": "014",
+          "he": "ניכויים במקור גבוהים מהכנסות",
+          "en": "Withholding exceeds income (reason code)",
+          "kind": "info",
+          "rule": "Code 01 = fields 040,043 exceed non-salary/pension income; 02 = field 042 exceeds salary and/or pension income; 12 = both.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "331",
+          "he": "חישוב נפרד - מקור הכנסה משותף (66(ד))",
+          "en": "Separate calculation: joint income source code",
+          "kind": "info",
+          "section": "66(ד)",
+          "rule": "1 = there is a joint income source (sec. 66(d) conditions met); 2 = no joint income source.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "273",
+          "spouse": "274",
+          "he": "תאריך הגעה (עולה חדש / חוזר ותיק / חוזר)",
+          "en": "Arrival date and status code (registered / spouse)",
+          "kind": "info",
+          "rule": "Status 1 = new immigrant, 2 = veteran returning resident, 3 = returning resident; date as day/month/year.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "108",
+          "he": "נאמנות",
+          "en": "Trust code",
+          "kind": "info",
+          "rule": "1 = settlor whose trust income is included in the report; 2 = beneficiary whose distributed income is included.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "044",
+          "spouse": "088",
+          "he": "עולה חדש - מספר חודשים",
+          "en": "New immigrant: number of months (registered / spouse)",
+          "kind": "info",
+          "rule": "Number of months, with 1/4, 1/6, 1/12 fraction sub-boxes (credit-point entitlement period).",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "235",
+          "spouse": "236",
+          "he": "תושב חוזר \"מוטב\" - מספר חודשים",
+          "en": "'Beneficiary' returning resident: number of months (registered / spouse)",
+          "kind": "info",
+          "rule": "Number of months, with 1/4, 1/6, 1/12 fraction sub-boxes.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "307",
+          "he": "הכנסות",
+          "en": "Income type code (internet / renewable energy)",
+          "kind": "info",
+          "rule": "2 = internet activity, 3 = renewable energy, 4 = both (mirrors part א flags).",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "255",
+          "he": "עסק זעיר",
+          "en": "Micro / small business report code",
+          "kind": "info",
+          "rule": "137 = short report for individual with small business; 441 = micro business registered spouse; 442 = micro business spouse; 443 = micro business both.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "287",
+          "spouse": "327",
+          "he": "הנחות יישובים מוטבים או זיכוי \"חייל\" - קוד, מספר חודשים, % הנחה, תקרה",
+          "en": "Qualifying-settlement relief or 'soldier' credit (1st row): code, months, discount %, ceiling (registered / spouse)",
+          "kind": "info",
+          "rule": "Coded data of the settlement credit (part יד); first settlement row.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "096",
+          "spouse": "111",
+          "he": "הנחות יישובים מוטבים או זיכוי \"חייל\" - שורה שנייה",
+          "en": "Qualifying-settlement relief or 'soldier' credit (2nd row) (registered / spouse)",
+          "kind": "info",
+          "rule": "Second settlement (e.g. moved between qualifying settlements during the year): code, months, %, ceiling.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "038",
+          "spouse": "082",
+          "he": "סכום לזיכוי",
+          "en": "Amount for credit (registered / spouse)",
+          "kind": "credit",
+          "rule": "Amount for credit printed under the settlement/'soldier' block; exact source field not stated in the guide.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "015",
+          "he": "לנישום בחברה משפחתית / חברת מעטים 62א",
+          "en": "Family company / sec. 62A closely-held company code",
+          "kind": "info",
+          "section": "62א",
+          "rule": "6 = income from family company included in additional fields 367, 204, 304; 9 = offset of business losses against family company / 62A company income.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "263",
+          "he": "פעולה חייבת בדיווח/מחירי העברה",
+          "en": "Reportable transaction / transfer pricing code",
+          "kind": "info",
+          "rule": "1 = reportable transaction (131(g), form 1213); 2 = sec. 85A transactions (form 1385); 3 = both; 9 = none.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "365",
+          "he": "חוות דעת/עמדה",
+          "en": "Reportable opinion / position code",
+          "kind": "info",
+          "rule": "1 = reportable opinion (1345); 2 = reportable position, with position number; 3 = both; 9 = none.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "107",
+          "he": "נכס בחו\"ל",
+          "en": "Foreign asset flag",
+          "kind": "info",
+          "rule": "1 = foreign asset (mirrors part א flag of foreign assets of 2,086,000 NIS or more).",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "259",
+          "he": "סיום בנייה - מספר טופסי 702",
+          "en": "Construction completion: number of 702 forms",
+          "kind": "info",
+          "rule": "Count of form 702 attached for sec. 8A(c) building income.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "369",
+          "spouse": "370",
+          "he": "חבר קיבוץ: הכנסה מועברת",
+          "en": "Kibbutz member: income transferred to the kibbutz (registered / spouse)",
+          "kind": "info",
+          "rule": "Taxable income transferred to the kibbutz; 0 if member transfers none; blank if not a member.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "366",
+          "he": "מספר תיק הקיבוץ",
+          "en": "Kibbutz tax file number",
+          "kind": "info",
+          "rule": "Kibbutz's income tax file number.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "352",
+          "he": "חלוקה מרווחים מכח סעיף 77 - בן זוג רשום - מס בשיעור 25%",
+          "en": "Sec. 77 profit distribution, registered spouse, taxed at 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "77",
+          "rule": "Row holds the year from which profits were distributed, the income, and tax at 25%. Not explained in the guide part read.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "363",
+          "he": "חלוקה מרווחים מכח סעיף 77 - בן זוג רשום - מס בשיעור 30%",
+          "en": "Sec. 77 profit distribution, registered spouse, taxed at 30%",
+          "kind": "income-rate",
+          "rate": 0.3,
+          "section": "77",
+          "rule": "Year of profits, income, tax at 30%.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "339",
+          "he": "חלוקה מרווחים מכח סעיף 77 - בן/בת זוג - מס בשיעור 25%",
+          "en": "Sec. 77 profit distribution, spouse, taxed at 25%",
+          "kind": "income-rate",
+          "rate": 0.25,
+          "section": "77",
+          "rule": "Year of profits, income, tax at 25%.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "340",
+          "he": "חלוקה מרווחים מכח סעיף 77 - בן/בת זוג - מס בשיעור 30%",
+          "en": "Sec. 77 profit distribution, spouse, taxed at 30%",
+          "kind": "income-rate",
+          "rate": 0.3,
+          "section": "77",
+          "rule": "Year of profits, income, tax at 30%.",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "034",
+          "he": "ניהול ספרים - תיעוד פנים",
+          "en": "Bookkeeping: internal documentation method",
+          "kind": "info",
+          "rule": "1 = computerized, 2 = manual (invoice/receipt production, mirrors part א bookkeeping line).",
+          "proof": [],
+          "page": 4
+        },
+        {
+          "no": "065",
+          "he": "מס מוגבל ל-35%",
+          "en": "Key money taxed at up to 35%",
+          "kind": "income-rate",
+          "rule": "Key money (דמי מפתח) received in a business reported on accrual basis, on which the full tax was paid within 30 days of receipt (or by the return due date, if earlier): taxed at a rate not exceeding 35% and entered here instead of row 8. If the tax was not paid in time, report it in row 8 (059/201/301).",
+          "proof": ["1321"],
+          "page": 4,
+          "rate": 0.35,
+          "section": "17(13)"
+        }
+      ]
+    }
+  ],
+  "unplaced": [
+    {
+      "no": "101/102",
+      "note": "Exempt pension part, row 44 (part י)."
+    },
+    {
+      "no": "064",
+      "note": "Online-only: total family-company income transferred to you as representative assessee (guide p.39, row 10). The same paragraph says the family company's transferred amount goes in field \"080\" (online), which clashes with printed field 080 = row 31 undistributed-profits income at 30%; treat 080 as row 31 on the paper form."
+    },
+    {
+      "no": "074/208/308",
+      "note": "Securities interest accrued before 1/1/2006 at 10% - online wizard 'additional fields', not on printed form (guide p.41)."
+    },
+    {
+      "no": "076/216/316",
+      "note": "Deposit/savings-plan interest accrued before 1/1/2006 at 10% - online wizard, not on printed form (guide p.42)."
+    },
+    {
+      "no": "253",
+      "note": "Capital-gain tax withheld at source (e.g. by the Israel Land Authority or a buyer) is entered online in field 253 and also added to field 040."
+    },
+    {
+      "no": "531",
+      "note": "Appears in the appendix 1362 flow table on guide p.59 ('יועבר לשדה 531'); extraction is garbled there, possibly a mis-read of another field. Unverified."
+    },
+    {
+      "no": "233",
+      "note": "with 234: online-only election to compute row-53 pension deduction as ordinary 'individual' instead of 'beneficiary member' (not on manual form)"
+    },
+    {
+      "no": "234",
+      "note": "spouse pair of 233"
+    },
+    {
+      "no": "130",
+      "note": "with 189: online-only field for NI paid this year as self-employed for prior years' income (registered/spouse by payer)"
+    },
+    {
+      "no": "189",
+      "note": "spouse pair of 130"
+    }
+  ],
+  "notes": {
+    "א, ב, משדר": "Section ב: 277 is the bank ACCOUNT NUMBER and 278 is one box holding bank code + branch code (verified on rendered page 1: '277' sits in the 'מספר חשבון' box, '278' in the box labelled 'סמל סניף'/'סמל בנק'), not bank/branch as the task guessed. Transmitter box: no number printed for the 'סוג החישוב' (calculation type: 1 separate, 2 combined, 3 non-resident, 6/7/8 = same for family-company representative assessee) box, so it is not listed; 331 is only the joint-income-source code. 307 is the internet/renewable-energy income code (not micro business); 015 is the family/62A company code (6/9). 038/082 'סכום לזיכוי', 065 'מס מוגבל ל-35%' and the sec. 77 rows (352/363/339/340) are not explained in guide pages 17-28; labels read from the rendered form. Part א checkboxes have no field numbers.",
+    "ג, ד": "Row 6 fields 120/220 and row 5ב 358/372 are not named numerically in the guide text; taken from skeleton. Guide only refers to row 5ב as 'סעיף 5ב'. Row 7 has no field number. Row 4 kind is income though it generates a 15% credit computed by the system. 'Proof' for 106/1320/1321 inferred from explicit 'צרף' instructions; 246א explicitly required for row 9.",
+    "ה, ו, ז": "Sections 125ב (dividend 25%/30%) and 125ג(ב)/(ג) (interest 25%/15%) and 75ב1 (CFC-type) are from general ordinance knowledge; the guide footnotes only 125 (patent), 3(ו), 125א (post-death), 47(ב) capital-investment law (approved-enterprise dividend), 125ג (deposits), 125ד(ב), 125ד(ג) (printed garbled as '12ד(ג)'), 125ה, 9(5)(ב), 122, 122א, 2א+9(28) (gambling), 3(ה7)+124ג (footnote 61, pension division / temp provision; parenthesization garbled), VAT law 4. Row 18 label says 'and other income' but guide explains only material-shareholder dividend. Row 20 printed column order is 050 both/051 registered/052 spouse. Proof '867' for rows 13-23 reflects the guide's 'annual approval from payer (bank, provident fund)' and explicit 867 for deposits; 867ג/856/806 are not mentioned in this part of the guide. Row 30 has no field number; row 31/32 fields are both-spouses only, so no/spouse split does not apply.",
+    "ח, ט, י, יא": "Section ח appendices and rates (guide pp.45-48 printed): capital gains other than traded securities are reported on form 1399י (notice within 30 days of sale with advance payment; virtual currency in transaction code 77 / code 71, wallet address required; ILA compensation via special 1399י, code 77/67). Traded securities: appendix ג form 1322 (summary form); appendix ג1 form 1325 for securities held in business books or where full tax was not withheld, totals carried to 1322; appendix ג2 form 1326 for securities bought before 1.1.2006 under the inflation-adjustment-law transition rules. Rates the guide mentions: inflationary amount accrued to 31.12.1993 taxed 10%, rest of inflationary amount exempt; real gain linearly split: pre-1.1.2003 part at marginal rates (starting 31%), 1.1.2003-31.12.2011 up to 20%, from 1.1.2012 up to 25%; substantial shareholder 25% instead of 20% and 30% instead of 25%; traded securities up to 25% (30% substantial shareholder); age 60+ lower starting rates per personal-exertion brackets; expropriation = half the tax; assets bought before 1.4.1961 have max-rate caps (e.g. 25%, 30% substantial); NFTs reported as capital gain. Betterment (real estate): pre-7.11.2001 part marginal (starting 31%), 7.11.2001-31.12.2011 up to 20%, from 1.1.2012 up to 25%; betterment tax assessed is an advance, entered in row 88 field 041. Losses: 1 NIS loss offsets 1 NIS real gain or 3.5 NIS taxable inflationary gain; current securities losses also offset interest/dividends taxed up to 25%. Spreading of real gain up to 4 years. Withholding on capital gains: field 253 + 040; traded-securities withholding from 867א/ב in 040. Row 44 and 45 confirmed on form-p3.txt to have no printed field number (no number on those lines); \"no\" left empty. Row 43 section cited as 81ב(ב)(3ג) per the form; guide prints 81ב(ב)(3ג) with mirrored parens. 47ה wording in guide: 'up to 5 million NIS' investment cap. Row 41 proof: approval of disability for tax purposes attached or on file.",
+    "יב, יג": "Credit point value 2025 = 2,904 ILS. Rows 52, 58, 59, 60 are info inputs, not deductions. Row-54 section number not given legibly (footnote 100 cites 47(א) near rows 54/55; left unset). Row-61 sections from footnotes 105-106 (34, 36, 36א); row-62 from 107/108 (38, 37) by position, low confidence. Row 65 yes/no 'joint household' checkbox has no field number; row 64 'deferred last year' checkboxes also have no number. Row 70 section not cited (likely 35 like immigrant). Row-68 income limit (188,000/301,000) phrasing in guide is ambiguous about whose income. Teen point (age 16-18, sec 40ב) needs no field - derived from birth date on page 1.",
+    "יד, טו": "Advances (מקדמות): the guide says NOT to include advances paid on account of the year's tax (incl. capital-gain advances) in part טו; the system has recorded advance payments and takes them into account when computing the balance. Only advances for excess expenses go in 115 (and only as included in 040). Part טו data sets next year's advance percentage. Foreign taxes are excluded here (נספח ד only). Ordinance sections from guide footnotes: 119=45א (rows 73-76), 120=44 (77), 121=46 (78), 122=Eilat Free Trade Zone Law 1985 s.11 (81), 123=ordinance s.11 (82). Row 79 section 46א is not cited by the guide (taken from the brief). 78ב (US donations) has no section cited by guide (US-Israel treaty basis implied). Credit rates: life insurance 25%; survivors' insurance and pension 35%; institution 35%; donations 35%; commemoration 30%; Eilat 10% up to 268,560; security forces 5% up to 178,320; R&D = CGT rate 25%/30%. A third donee type in 78א appears as 'ללבי' in the extraction; not resolved."
+  }
+}

@@ -15,7 +15,7 @@ export function ilYear(y = S.year) {
     type = bizType(y) ?? "",
     p = ilProfile(),
     f: Record<string, string> = S.data?.form?.[y] ?? {};
-  const r = form1301({ y, txns, type, T, form: f, profile: p });
+  const r = form1301({ y, txns, type, T, form: f, profile: p, today: new Date().toISOString().slice(0, 10) });
   const auto = form1301Auto({ txns, type, profile: p });
   const v = (k: string) => f[k] ?? auto[k] ?? "";
   const n = (k: string) => +String(v(k)).replace(/,/g, "") || 0;
