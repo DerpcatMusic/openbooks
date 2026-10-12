@@ -55,9 +55,13 @@ export function form1301Auto({ txns, type, profile: p = {} }: Pick<Form1301Input
     "224m": p.discharge ? String(+p.discharge.slice(5, 7)) : "",
     "024": String(p.serviceMonths ?? ""),
     "060": "",
+    "157": "",
     "040": "",
   };
 }
+
+/** Section 15 of the 1301 (field 157): real gain on provident-fund deposits from 2006 is taxed at 25%. */
+export const FUND_RATE_2006 = 0.25;
 
 /** Everything the return needs for a year (the Tax page and tax_summary). */
 export function form1301(i: Form1301Input) {
@@ -70,12 +74,14 @@ export function form1301(i: Form1301Input) {
   const turnover = i.txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const capital = i.txns.filter((t) => group(t.category) === "capital");
   const ord = n("150"),
-    cap = n("060");
+    cap15 = n("060"), // provident-fund gains on deposits from 2003–2005 (15%)
+    cap25 = n("157"), // provident-fund / child-savings gains on deposits from 2006 (25%), e.g. חיסכון לכל ילד
+    cap = cap15 + cap25;
   const resident = v("020") ? 2.25 : 0,
     soldier = v("224") ? soldierPoints(p.discharge, p.serviceMonths, i.y) : 0,
     points = resident + soldier;
   const ordTax = bands(ord, T.brackets),
-    capTax = cap * (T.capitalRate ?? 0.15),
+    capTax = cap15 * (T.capitalRate ?? 0.15) + cap25 * FUND_RATE_2006,
     gross = ordTax + capTax;
   const credits = Math.min(gross, points * T.point),
     due = Math.round(gross - credits),
@@ -87,6 +93,8 @@ export function form1301(i: Form1301Input) {
     taxable: ord,
     rows: bracketRows(ord, T.brackets),
     cap,
+    cap15,
+    cap25,
     ordTax,
     capTax,
     gross,

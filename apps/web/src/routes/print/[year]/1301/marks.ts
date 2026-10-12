@@ -21,7 +21,7 @@ export interface Mark {
   style: string;
 }
 
-const MONEY = new Set(["150", "186", "238", "060", "294", "040"]);
+const MONEY = new Set(["150", "186", "238", "060", "157", "294", "040"]);
 /** 18414 → 18,414 in the money boxes */
 const fmtv = (v: string, key: string) => (MONEY.has(key) && /^\d{4,}$/.test(v) ? (+v).toLocaleString("en-US") : v);
 

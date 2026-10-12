@@ -204,6 +204,13 @@ describe("form 1301 hook", () => {
     );
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "200,000" } }).taxable).toBe(200000);
   });
+  it("child savings: 157 at 25%, 060 at 15%, withheld tax in 040 comes back when credits cover the tax", () => {
+    const r = form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "18413", "157": "3015", "040": "754", "020": "X" } });
+    expect(r.capTax).toBeCloseTo(753.75, 2); // Altshuler withheld 753.83 on a 3,015 real gain
+    expect(r.due).toBe(0);
+    expect(r.balance).toBe(-754);
+    expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "060": "1000" } }).capTax).toBeCloseTo(150, 2);
+  });
 });
 
 describe("cross-border: IL resident + US disregarded LLC", () => {

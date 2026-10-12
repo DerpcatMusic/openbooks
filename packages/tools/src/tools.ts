@@ -750,17 +750,20 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[]) =>
       "020": "X",
       "224": String((p.discharge as string | undefined) ?? "").slice(0, 4) || null,
       "060": "",
+      "157": "",
       "040": "",
     };
     const v = (k: string) => (f[k] !== undefined && f[k] !== null ? f[k] : auto[k] !== undefined && auto[k] !== null ? auto[k] : "");
     const n = (k: string) => pyFloat(v(k));
     const ord = n("150"),
-      cap = n("060");
+      cap15 = n("060"),
+      cap25 = n("157"),
+      cap = cap15 + cap25;
     const resident = v("020") ? 2.25 : 0,
       soldier = v("224") ? soldierPoints(p, y) : 0,
       points = resident + soldier;
     const [ordTax, rows] = bracketTax(ord, T.brackets);
-    const capTax = cap * (T.capitalRate ?? 0.15),
+    const capTax = cap15 * (T.capitalRate ?? 0.15) + cap25 * 0.25, // 157: deposits from 2006
       gross = ordTax + capTax;
     const credits = Math.min(gross, points * T.point),
       due = pyRound(gross - credits, 0) || 0,
