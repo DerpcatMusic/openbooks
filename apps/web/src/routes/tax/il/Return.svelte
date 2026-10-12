@@ -3,13 +3,19 @@
   // explanation, the automatic value (type over it to override; ↺ restores it) and the tax calculation beside it.
   import { S, fmt, knownYear, setForm, setProfile } from "#lib/stores/books.svelte.ts";
   import { t, lang, ltr } from "#lib/i18n.svelte.ts";
-  import { Button, Checkbox, IconButton, Input } from "#lib/ui/index.ts";
+  import { Button, Checkbox, IconButton, Input, toast } from "#lib/ui/index.ts";
   import { SECTIONS } from "./fields.ts";
   import { ilYear } from "./il.ts";
-  import { FUND_RATE_2006 } from "@openbooks/country-il";
+  import { FUND_RATE_2006, posterBookmarklet, posterScript } from "@openbooks/country-il";
   import { personNow, savePerson, withFact } from "#lib/person.ts";
 
   const b = $derived(ilYear(S.year));
+  // tax poster: fills the online 1301 on secapp.taxes.gov.il; the person checks חישוב and sends it themselves
+  const poster = $derived(posterBookmarklet(b.y, b.fields, { balance: b.balance }));
+  async function copyPoster() {
+    await navigator.clipboard.writeText(posterScript(b.y, b.fields, { balance: b.balance }));
+    toast(t("taxReturn.posterCopied"));
+  }
   const PROFILE: [key: string, type?: string, numeric?: boolean][] = [["last"], ["first"], ["id", "text", true], ["phone", "tel", true], ["discharge", "date"], ["serviceMonths", "number", true]];
   const pct = (r: number) => ltr(`${Math.round(r * 100)}%`);
   const val = (e: Event) => (e.currentTarget as HTMLInputElement).value;
@@ -26,6 +32,10 @@
   <p class="min-w-0 flex-1 basis-64 text-[14px] text-sub">{t("taxReturn.intro")}</p>
   <div class="flex flex-wrap gap-2">
     <Button icon="printer" href="/print/{b.y}/1301?e={S.e}" target="_blank">{t("taxReturn.printForm")}</Button>
+    <!-- drag to the bookmarks bar, click it on the online 1301 -->
+    <a class="inline-flex items-center rounded-md border border-line-strong px-3 text-[13px] text-ink" href={poster} title={t("taxReturn.posterHint")} onclick={(e) => e.preventDefault()}
+      >{t("taxReturn.poster", { y: b.y })}</a>
+    <IconButton icon="copy" label={t("taxReturn.posterCopy")} onclick={copyPoster} />
     <Button variant="primary" iconEnd="arrow" href="/documents">{t("taxReturn.proofPack")}</Button>
   </div>
 </div>

@@ -20,6 +20,11 @@ export default {
   "taxReturn.intro": "Filled from your books. Type over any value to override it; ↺ puts the automatic value back.",
   "taxReturn.printForm": "Print filled 1301",
   "taxReturn.proofPack": "Proof pack",
+  "taxReturn.poster": "Fill online 1301 {y}",
+  "taxReturn.posterHint":
+    "Drag to your bookmarks bar. On the Tax Authority site, with your 1301 open, click it: the boxes fill from your books. Press חישוב and compare. Sending stays with you.",
+  "taxReturn.posterCopy": "Copy the fill script (paste into the browser console on the form page)",
+  "taxReturn.posterCopied": "Script copied. Paste it into the browser console on the 1301 page.",
   "taxReturn.noTable": "No {y} tax table yet — using {base}'s brackets and credit point. Add {y} in Settings → Tax years.",
   "taxReturn.backToAuto": "Back to automatic",
   "taxReturn.fieldValue": "Field {no}: {label}",
