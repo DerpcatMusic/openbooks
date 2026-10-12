@@ -12,6 +12,7 @@
   import TxnDrawer from "#lib/txns/TxnDrawer.svelte";
   import VaultPrompt from "#lib/vault/VaultPrompt.svelte";
   import { installAi } from "#lib/ai.ts";
+  import { toast } from "#lib/ui/toast.svelte.ts";
   import { vatRegistered } from "@openbooks/country-il";
 
   let { children }: { children: Snippet } = $props();
@@ -82,6 +83,7 @@
         ] as [string, Item[]][])),
   ]);
   const DEMO = !!import.meta.env.VITE_DEMO;
+  const LOCAL = !!import.meta.env.VITE_LOCAL;
   const BARE = /^\/(setup|print|dev)(\/|$)|\/doc$/;
   const path = $derived(appPath(page.url.pathname));
   const bare = $derived(BARE.test(path));
@@ -340,6 +342,16 @@
           <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-line bg-accent/8 px-4 py-2 text-center text-[13px] text-ink-2">
             <span>{t("demo.banner")}</span>
             <a class="whitespace-nowrap text-accent-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50" href="https://github.com/DerpcatMusic/openbooks">{t("demo.get")}</a>
+          </div>
+        {/if}
+        {#if LOCAL}
+          <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-line bg-accent/8 px-4 py-2 text-center text-[13px] text-ink-2">
+            <span>{t("local.banner")}</span>
+            <button type="button" class="whitespace-nowrap text-accent-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50" onclick={() => void import("#lib/local/index.ts").then((m) => m.exportBackup())}>{t("local.export")}</button>
+            <label class="cursor-pointer whitespace-nowrap text-accent-ink focus-within:ring-2 focus-within:ring-accent/50 hover:underline">
+              {t("local.import")}
+              <input type="file" accept=".json,application/json" class="sr-only" onchange={(e) => import("#lib/local/index.ts").then((m) => m.importBackup(e.currentTarget.files![0]!)).catch(() => toast(t("local.bad"), { tone: "bad" }))} />
+            </label>
           </div>
         {/if}
         {#if S.data}
