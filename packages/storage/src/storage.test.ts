@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { Effect, Layer } from "effect";
-import { afterAll, describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test } from "vite-plus/test";
 import { pyRound, pyStr } from "@openbooks/core";
 import type { StatementCheck, StatementRow } from "@openbooks/schema";
 import { Books, booksLayer, ChangesLive, openDb, type Read } from "./index.ts";

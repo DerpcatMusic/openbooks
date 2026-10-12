@@ -3,7 +3,7 @@ import { mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Fiber, type Scope, Stream } from "effect";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vite-plus/test";
 import { type Change, Changes, ChangesLive, pollExternal, watchInbox } from "./changes.ts";
 
 const dirs: string[] = [];
