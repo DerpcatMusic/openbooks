@@ -709,7 +709,7 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[]) =>
   Effect.gen(function* () {
     // the same form1301 the Tax page uses; form values (Tax page) override the automatic ones
     const T = yield* taxTable(y);
-    const f = (yield* docOf<Record<string, Record<string, unknown>>>(e, "form", {}))[String(y)] ?? {};
+    const f = (yield* docOf<Record<string, Record<string, string | number | null>>>(e, "form", {}))[String(y)] ?? {};
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
     const form = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v == null ? v : String(v)])) as Record<string, string>;
     const r = form1301({ y, txns, type: "osek-zair", T: T as unknown as IlTable, form, profile: p as Profile, today: new Date().toISOString().slice(0, 10) });
