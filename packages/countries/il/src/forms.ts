@@ -121,9 +121,12 @@ export function form1301(i: Form1301Input) {
     gross = ordTax + capTax,
     // ponytail: personal exertion's share of the bracket tax, pro rata; exact would tax it first (it sits at the bottom brackets)
     personalTax = ord ? (ordTax * personal) / ord : 0;
-  // resident points offset any tax; the discharged-soldier credit (s.39א) only tax on personal exertion
-  const credits = resident * T.point + Math.min(soldier * T.point, personalTax),
-    due = Math.max(0, Math.round(gross - credits)),
+  // the discharged-soldier credit (s.39א) only offsets tax on personal exertion. Credit points come off the bracket tax only:
+  // special-rate tax a fund withholds (a lump-sum חיסכון לכל ילד withdrawal, 25% of the real gain) is final, so the 040
+  // withholding pays it and is not refunded (Altshuler 14.10.2026; the 2025 assessment of 08.10.2026 left that balance at 0).
+  const creditsAvailable = resident * T.point + Math.min(soldier * T.point, personalTax),
+    credits = Math.min(creditsAvailable, ordTax),
+    due = Math.round(ordTax - credits) + Math.round(capTax),
     withheld = sum(WITHHELD);
   return {
     fields: { ...auto, ...Object.fromEntries(Object.entries(f).filter(([, x]) => x != null)) } as Record<string, string>,
@@ -143,7 +146,9 @@ export function form1301(i: Form1301Input) {
     resident,
     soldier,
     points,
+    /** Credits used (at most the bracket tax); creditsAvailable is what the points are worth. */
     credits,
+    creditsAvailable,
     due,
     withheld,
     balance: due - withheld, // > 0 pay, < 0 refund

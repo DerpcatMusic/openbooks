@@ -51,9 +51,17 @@ gross tax                                            = 2,595   ✓ (matches site
 resident credit      2.25    × 2,904 = 6,534.00
 soldier credit       1.6667  × 2,904 = 4,840.00  -> capped at tax on yegia ishit = 1,841.30
 credits shown        6,534 + 1,841.30 = 8,375.30 ≈ 8,375  ✓ (8,375/2,904 = 2.884 "points")
-tax due              max(0, 2,595 − credits) = 0
-refund               754 withheld + interest/linkage (~40) = 794 ✓
+tax due              max(0, 1,841 − credits) + 754 = 754
+balance              754 due − 754 withheld = 0   (assessment 08.10.2026: "יתרה אפס")
 ```
+
+**Correction (28.10.2026).** The online calculator offsets the credits against
+the whole gross tax and shows a 794 refund, but that refund never comes. The
+assessment credited nothing back, and Altshuler confirmed (14.10.2026) that a
+lump-sum חיסכון לכל ילד withdrawal is taxed 25% on the real gain as a final
+tax, with no withholding certificate and no refund. OpenBooks now offsets
+credit points against the bracket tax only and keeps special-rate fund tax as
+due, so the withholding in 040 pays it and the balance is 0.
 
 So 2.884 is not a points count. The site shows the resident credit in full
 plus the 39א credit **capped at the tax on personal-exertion income**. That cap
@@ -62,7 +70,7 @@ shekel. Confidence: high. The total and the gross tax both reproduce exactly.
 
 Implementation rule:
 `credits_display = resident_pts*CPV + min(soldier_pts*CPV, tax_on_personal_exertion)`
-Then `tax_due = max(0, gross_tax − credits)`. Allocation detail: the soldier
+Then `tax_due = max(0, bracket_tax − credits) + special_rate_tax` (see the correction above). Allocation detail: the soldier
 credit should only reduce tax on personal-exertion income, and the resident
 credit can absorb the 25% tax. The site's figure is consistent with that order.
 Other ordering choices give the same tax due here.
@@ -103,6 +111,8 @@ Sources:
 - Ratio 105.8 / 103.6 = 1.02124
 
 ### Worked example (754 ₪ withheld 13/05/2025, computed 12/10/2026)
+
+This only applies when there is a real refund; the 754 on the חיסכון לכל ילד withdrawal is not one (see the correction above).
 
 ```
 start = max(31/12/2025, 13/05/2025) = 31/12/2025
