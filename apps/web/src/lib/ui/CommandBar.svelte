@@ -71,6 +71,7 @@
       ["/reports", "nav.reports", "report"],
       ["/counterparties", "nav.counterparties", "users"],
       ["/rules", "nav.rules", "rules"],
+      ["/tags", "nav.tags", "tag"],
       ["/accounts", "nav.accounts", "bank"],
       ["/journal", "nav.journal", "file"],
       ["/documents", "nav.documents", "folder"],

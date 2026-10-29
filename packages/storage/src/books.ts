@@ -6,7 +6,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import { cleanRules, ledger } from "@openbooks/core";
-import type { CsvProfile, EntityMeta, JournalEntry, Rule, StatementCheck, StoredTxn, Txn } from "@openbooks/schema";
+import type { CsvProfile, EntityMeta, JournalEntry, RuleInput, StatementCheck, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
 import { Changes, type Topic } from "./changes.ts";
 import { isEntityId, ls, migrate, openDb, pySorted } from "./db.ts";
 import { ingest, type Read } from "./ingest.ts";
@@ -30,8 +30,9 @@ export interface BooksApi {
   /** e: an entity id or a pseudo-entity (`_app`, `_ai`, `_vault`). */
   doc: <A>(e: string, name: string, fallback: A) => Effect.Effect<A, UnknownEntity>;
   putDoc: (e: string, name: string, value: unknown) => Effect.Effect<void, UnknownEntity>;
-  rules: (e: string) => Effect.Effect<readonly Rule[], UnknownEntity>;
-  setRules: (e: string, rules: readonly Rule[]) => Effect.Effect<void, UnknownEntity>;
+  /** Legacy [match, account] tuples and rule objects, in order. */
+  rules: (e: string) => Effect.Effect<readonly RuleInput[], UnknownEntity>;
+  setRules: (e: string, rules: readonly RuleInput[]) => Effect.Effect<void, UnknownEntity>;
   state: (e: string) => Effect.Effect<State, UnknownEntity>;
 }
 
@@ -79,7 +80,9 @@ export const makeBooks = (opts: BooksOptions) =>
       const row = db.query<{ value: string }, [string, string]>("select value from doc where entity = ? and name = ?").get(e, name);
       return row ? (JSON.parse(row.value) as A) : fallback;
     };
-    const getRules = (e: string): Rule[] =>
+    /** Doc "rules" once rules were saved by this version; until then the `rule` table (books.py's), which is never rewritten. */
+    const getRules = (e: string): RuleInput[] =>
+      getDoc<RuleInput[] | null>(e, "rules", null) ??
       db
         .query<{ match: string; category: string }, [string]>("select match, category from rule where entity = ? order by pos")
         .all(e)
@@ -107,7 +110,7 @@ export const makeBooks = (opts: BooksOptions) =>
             .query<{ data: string }, [string]>("select data from txn where entity = ? order by date, rowid")
             .all(e)
             .map((r) => JSON.parse(r.data) as StoredTxn);
-          return ledger(stored, getDoc(e, "overrides", {}), getRules(e), journal(e));
+          return ledger(stored, getDoc(e, "overrides", {}), getRules(e), journal(e), getDoc<TagsDoc | null>(e, "tags", null) ?? undefined);
         }),
       );
 
@@ -151,14 +154,9 @@ export const makeBooks = (opts: BooksOptions) =>
         ).pipe(Effect.andThen(publish(e, name === "csv-profiles" ? ["docs", "statements"] : ["docs"], [name]))),
       rules: (e) => on(e, () => getRules(e)),
       setRules: (e, rs) =>
-        on(e, () => {
-          const rows = cleanRules(rs);
-          db.transaction(() => {
-            db.query("delete from rule where entity = ?").run(e);
-            const ins = db.query("insert into rule values (?, ?, ?, ?)");
-            rows.forEach(([m, c], i) => ins.run(e, i, m, c));
-          }).immediate();
-        }).pipe(Effect.andThen(publish(e, ["rules"]))),
+        on(e, () => db.query("insert or replace into doc values (?, ?, ?)").run(e, "rules", JSON.stringify(cleanRules(rs)))).pipe(
+          Effect.andThen(publish(e, ["rules"])),
+        ),
       state: (e) =>
         Effect.gen(function* () {
           const txns = yield* ledgerE(e);

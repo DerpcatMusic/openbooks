@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
 import { classify } from "@openbooks/core";
 import { csvPreview, handle, read } from "@openbooks/importers";
-import type { EntityMeta, Rule, StatementCheck } from "@openbooks/schema";
+import { type EntityMeta, RuleInput, Schema, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import { ask, configureAi, decide, langOf, loadAi, mcpHttpHandler, ollamaModels, paletteTools, publicAi, runTool, testAi } from "@openbooks/tools";
 import { foreign } from "./guard.ts";
@@ -26,7 +26,8 @@ export interface ServerOptions {
 }
 
 type R = Services;
-const RESERVED = new Set(["form", "profile", "overrides"]);
+const RESERVED = new Set(["form", "profile", "overrides", "rules"]);
+const isRuleInput = Schema.is(RuleInput);
 const KINDS = [".pdf", ".csv", ".json"];
 const ext = (f: string) => (f.includes(".") ? f.slice(f.lastIndexOf(".")).toLowerCase() : "");
 const json = (obj: unknown, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
@@ -382,13 +383,9 @@ export async function startServer(o: ServerOptions) {
         break;
       }
       case "/api/rules":
-        if (!Array.isArray(b.rules)) throw new Reply({ error: "bad request" }, 400);
-        await books((bs) =>
-          bs.setRules(
-            e,
-            (b.rules as [unknown, unknown][]).map(([m, c]) => [String(m), String(c)] as Rule),
-          ),
-        );
+        // [match, account] tuples and/or { when, then } rules; anything else is a bad request (cleanRules assumes the shapes)
+        if (!Array.isArray(b.rules) || !b.rules.every(isRuleInput)) throw new Reply({ error: "bad request" }, 400);
+        await books((bs) => bs.setRules(e, b.rules as RuleInput[]));
         break;
       case "/api/form": {
         // {year, values: {key: value|null}}

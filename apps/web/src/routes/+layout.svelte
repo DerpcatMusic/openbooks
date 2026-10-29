@@ -21,6 +21,7 @@
     list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
     users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
     rules: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+    tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
     report: "M3 3v18h18M7 16v-5M12 16V8M17 16v-8",
     form: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8M8 9h2",
     folder: "M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2",
@@ -61,6 +62,7 @@
       t("nav.section.books"),
       [
         { href: "/rules", label: t("nav.rules"), icon: "rules" },
+        { href: "/tags", label: t("nav.tags"), icon: "tag" },
         { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
         { href: "/journal", label: t("nav.journal"), icon: "file" },
         { href: "/documents", label: t("nav.documents"), icon: "folder" },

@@ -5,12 +5,15 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   balances as coreBalances,
+  cleanRule,
   cleanRules,
   classify as coreClassify,
   group,
   haystack,
   inRange,
   isCard,
+  isLegacy,
+  normalizeRule,
   payerOf,
   plOf,
   pyRound,
@@ -20,7 +23,7 @@ import {
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
 import { form1301, type IlTable, type Profile } from "@openbooks/country-il";
-import type { EntityMeta, Txn } from "@openbooks/schema";
+import { Rule, RuleInput, type EntityMeta, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
@@ -136,8 +139,7 @@ const ledgerOf = (e: Entity) => Books.use((b) => b.ledger(e.id)).pipe(Effect.map
 const docOf = <A>(e: Entity, name: string, fallback: A) => Books.use((b) => b.doc(e.id, name, fallback)).pipe(Effect.mapError(gone(e.id)));
 const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(gone(e.id)));
 const rulesOf = (e: Entity) => Books.use((b) => b.rules(e.id)).pipe(Effect.mapError(gone(e.id)));
-const setRules = (e: Entity, rs: readonly (readonly [string, string])[]) =>
-  Books.use((b) => b.setRules(e.id, rs as [string, string][])).pipe(Effect.mapError(gone(e.id)));
+const setRules = (e: Entity, rs: readonly RuleInput[]) => Books.use((b) => b.setRules(e.id, rs)).pipe(Effect.mapError(gone(e.id)));
 const checksOf = (e: Entity) => Books.use((b) => b.checks(e.id)).pipe(Effect.mapError(gone(e.id)));
 
 const slim = (t: Txn) => ({ ...t, amount: r2(t.amount), categoryLabel: label(t.category) });
@@ -215,7 +217,7 @@ const opt = <T extends Schema.Top>(s: T) => Schema.NullOr(s);
 const CUR = { currency: opt(S) };
 const TXN = Schema.Struct({ id: S, date: S, amount: N, desc: S, account: S, source: S, category: S, categoryLabel: S, why: S });
 const PLT = { revenue: N, cogs: N, gross: N, opex: N, operating: N, other: N, uncategorized: N, net: N };
-const RULES = Schema.Array(Schema.Tuple([S, S]));
+const RULES = Schema.Array(RuleInput);
 const CONN = Schema.Struct({
   provider: S,
   type: Schema.optionalKey(S),
@@ -400,7 +402,11 @@ const chart_of_accounts = defineTool({
       const e = yield* entityOf(a, ctx);
       const n = new Map<string, number>();
       for (const t of yield* ledgerOf(e)) n.set(t.category, (n.get(t.category) ?? 0) + 1);
-      const used = [...(BASE[e.meta.kind ?? ""] ?? []), ...n.keys(), ...(yield* rulesOf(e)).map((r) => r[1])];
+      const used = [
+        ...(BASE[e.meta.kind ?? ""] ?? []),
+        ...n.keys(),
+        ...(yield* rulesOf(e)).map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account] : [])),
+      ];
       const order = Object.keys(TYPE_LABELS);
       const rank = (c: string) => (order.includes(group(c)) ? order.indexOf(group(c)) : 99);
       const cats = [...new Set(used.filter((c) => c !== "ask"))].sort((x, y) => rank(x) - rank(y) || (label(x) < label(y) ? -1 : label(x) > label(y) ? 1 : 0));
@@ -447,29 +453,44 @@ const classify = defineTool({
     }),
 });
 
-const RULE_NOTE = 'First match wins. A rule matches if `match` appears in "<description> <memo> [<bank category>]".';
+const RULE_NOTE =
+  'A rule holds when all its conditions do. The first rule that holds and has an account sets the ledger account; tags of every rule that holds are added. A [match, account] tuple is one case-sensitive condition: `match` appears in "<description> <memo> [<bank category>]".';
 const list_rules = defineTool({
   name: "list_rules",
   title: { en: "List rules", he: "כללי סיווג" },
-  description: "The categorization rules, in order: [match text, ledger account]. First match wins.",
+  description:
+    "The categorization rules, in order. Each is either [match text, ledger account] (legacy) or { when: [conditions], then: { account?, tags? } }. First matching rule with an account sets the account.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({ rules: RULES, note: S }),
   run: (a, ctx) => Effect.map(Effect.flatMap(entityOf(a, ctx), rulesOf), (rules) => ({ rules, note: RULE_NOTE })),
 });
 
-const checkRules = (rules: readonly (readonly string[])[]) =>
-  Effect.forEach(rules, ([m = "", c = ""]) => (m.trim() ? checkCategory(c.trim()) : fail("every rule needs a non-empty match text")), { discard: true });
-const RULE_ITEM = Schema.Tuple([S.check(Schema.isMaxLength(200)), S.check(Schema.isMaxLength(200))]);
+const checkRules = (rules: readonly RuleInput[]) =>
+  Effect.forEach(
+    rules,
+    (r) => {
+      if (isLegacy(r)) return r[0].trim() ? checkCategory(r[1].trim()) : fail("every rule needs a non-empty match text");
+      if (!cleanRule(r)) return fail("every rule needs at least one condition (with text, where it takes text) and a ledger account or a tag");
+      return r.then.account ? checkCategory(r.then.account.trim()) : Effect.succeed("");
+    },
+    { discard: true },
+  );
+const RULE_ITEM = Schema.Union([Schema.Tuple([S.check(Schema.isMaxLength(200)), S.check(Schema.isMaxLength(200))]), Rule]);
 const set_rules = defineTool({
   name: "set_rules",
   title: { en: "Set rules", he: "החלפת כללי סיווג" },
   description:
-    "WRITES: replace ALL categorization rules with this ordered list (first match wins). Read list_rules first and send the full list back. Needs the user's confirmation (see `confirm`).",
+    "WRITES: replace ALL categorization rules with this ordered list (first match with an account wins). Read list_rules first and send the full list back; [match, account] tuples and { when, then } rules both work. Needs the user's confirmation (see `confirm`).",
   kind: "write",
   annotations: { destructive: true, idempotent: true },
   input: input({
-    rules: Schema.Array(RULE_ITEM).check(Schema.isMaxLength(2000)).annotate({ description: '[[match text, "type:name"], ...]' }),
+    rules: Schema.Array(RULE_ITEM)
+      .check(Schema.isMaxLength(2000))
+      .annotate({
+        description:
+          '[[match text, "type:name"], ...] or { when: [{ field, op, value }], then: { account?: "type:name", tags?: [tag ids] } }. Fields: text|description|counterparty (contains, description also equals|startsWith), account (is), direction (in|out), amount (eq|gte|lte|between with `to`).',
+      }),
     confirm: CONFIRM,
   }),
   output: Schema.Struct({ rules: RULES }),

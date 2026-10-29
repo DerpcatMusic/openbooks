@@ -3,7 +3,7 @@
   // Keys: 1–5 pick a suggestion · / search all accounts (or create one) · R toggles "remember as a rule" · → or S skips ·
   // ← goes back · Z undoes the last pick. ← / → follow the reading direction; letters use the physical key (e.code), so they
   // work with a Hebrew keyboard layout too.
-  import { payerOf, suggestRule, haystack, group } from "@openbooks/core";
+  import { payerOf, suggestRule, haystack, group, normalizeRule, textOf } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
   import { S, ent, suggest, catLabel, typeLabel, classify, saveRules, mdy } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
@@ -64,7 +64,13 @@
     last = null;
     // a rule came with the pick: dropping it puts the rows back in the queue (the server stores match text trimmed, commas as spaces)
     const m = l.r?.replaceAll(",", " ").trim();
-    if (m) await saveRules(S.data.rules.filter(([k, c]) => !(k === m && c.trim() === l.c)));
+    if (m)
+      await saveRules(
+        S.data.rules.filter((r) => {
+          const n = normalizeRule(r);
+          return !(textOf(n) === m && n.then.account === l.c && !n.then.tags);
+        }),
+      );
     else
       await classify(
         l.g.ts.map((x) => x.id),

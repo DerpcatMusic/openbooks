@@ -1,6 +1,6 @@
 // Typed client for the local server's HTTP API (identical in books.py and apps/server; docs/architecture.md § HTTP API).
 // Stateless: the books store (stores/books.svelte.ts) decides which entity and what to do with the State that comes back.
-import type { EntityMeta, Rule, StatementCheck, Txn } from "@openbooks/schema";
+import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 
 export type Entity = { id: string } & EntityMeta;
 export interface Connection {
@@ -21,7 +21,7 @@ export interface State {
   checks: StatementCheck[];
   form: Record<string, Record<string, string>>; // year → box → value
   profile: Record<string, any>;
-  rules: Rule[];
+  rules: RuleInput[]; // [match, account] tuples and/or { when, then } rules; run them through core normalizeRule
   years: number[];
   proofs: Record<string, string[]>; // year → PDF names
   unreadable: string[];

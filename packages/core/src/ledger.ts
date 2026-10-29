@@ -1,24 +1,27 @@
-// The ledger (books.py ledger()): every stored transaction gets a ledger account — manual override, else the first rule whose
-// text appears in "desc memo [mcat]", else "ask" — and journal entries become ledger rows on the "Journal" account.
-import type { JournalEntry, Rule, StoredTxn, Txn } from "@openbooks/schema";
+// The ledger (books.py ledger()): every stored transaction gets a ledger account — manual override, else the first matching rule
+// that sets one (rules.ts), else "ask" — plus its tags (by hand and from every matching rule); journal entries become ledger rows on the
+// "Journal" account.
+import type { JournalEntry, RuleInput, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
 import { pyRound } from "./py.ts";
-
-/** What a rule sees (same string in books.py, web and here). */
-export const haystack = (t: { desc: string; memo?: string; mcat?: string }) => `${t.desc} ${t.memo ?? ""} [${t.mcat ?? ""}]`;
+import { applyRules, cleanRules, normalizeRule } from "./rules.ts";
 
 /** stored: txn.data rows in `order by date, rowid` order. Returns rows sorted by date (stable), journal lines included. */
 export function ledger(
   stored: readonly StoredTxn[],
   overrides: Readonly<Record<string, string>>,
-  rules: readonly Rule[],
+  rules: readonly RuleInput[],
   journal: readonly JournalEntry[] = [],
+  tags?: TagsDoc,
 ): Txn[] {
+  const rs = rules.map(normalizeRule),
+    known = new Set(tags?.tags.map((g) => g.id)); // tag ids of deleted tags fall away here
   const out: Txn[] = stored.map((t) => {
+    const hit = applyRules(rs, t),
+      mine = [...new Set([...(tags?.on[t.id] ?? []), ...hit.tags])].filter((g) => known.has(g)),
+      row = mine.length ? { ...t, tags: mine } : t;
     const manual = overrides[t.id];
-    if (manual !== undefined) return { ...t, category: manual, why: "manual" };
-    const hay = haystack(t),
-      hit = rules.find(([k]) => hay.includes(k));
-    return hit ? { ...t, category: hit[1].trim(), why: hit[0] } : { ...t, category: "ask", why: "" };
+    if (manual !== undefined) return { ...row, category: manual, why: "manual" };
+    return hit.account ? { ...row, category: hit.account, why: hit.why } : { ...row, category: "ask", why: "" };
   });
   for (const je of journal)
     je.lines.forEach((l, i) =>
@@ -39,7 +42,7 @@ export function ledger(
 }
 
 /** classify(): with `rule`, prepend [rule, category] and drop these ids' overrides; else set manual overrides. Returns new state. */
-export function classify(ids: readonly string[], category: string, rules: readonly Rule[], overrides: Readonly<Record<string, string>>, rule?: string) {
+export function classify(ids: readonly string[], category: string, rules: readonly RuleInput[], overrides: Readonly<Record<string, string>>, rule?: string) {
   const ov = { ...overrides };
   if (rule) {
     for (const i of ids) delete ov[i];
@@ -48,7 +51,3 @@ export function classify(ids: readonly string[], category: string, rules: readon
   for (const i of ids) ov[i] = category;
   return { rules: [...rules], overrides: ov };
 }
-
-/** write_rules(): commas become spaces in the match text (rules.csv heritage), blanks dropped, both sides trimmed. */
-export const cleanRules = (rs: readonly Rule[]): Rule[] =>
-  rs.filter(([m, c]) => m.trim() && c.trim()).map(([m, c]) => [m.replaceAll(",", " ").trim(), c.trim()] as const);

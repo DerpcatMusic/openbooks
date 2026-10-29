@@ -7,13 +7,16 @@
 <script lang="ts">
   // Transaction drawer: open it from anywhere with S.drawer = txn.id (Esc, the backdrop or ✕ close it).
   // Amount, ledger account, statement details, "create a rule" (prefilled with the suggested match text and a live count of
-  // what it would match), receipts/attachments, links to the statement file, the journal or the counterparty.
+  // what it would match), tags, receipts/attachments, links to the statement file, the journal or the counterparty.
   import { goto } from "#lib/nav.ts";
-  import { payerOf, suggestRule, haystack } from "@openbooks/core";
-  import { S, ent, catLabel, mdy, classify, toast, fileUrl, attach, attachmentsOf, suggest } from "#lib/stores/books.svelte.ts";
+  import { payerOf, suggestRule, haystack, normalizeRule, setTag, textOf } from "@openbooks/core";
+  import type { TagsDoc } from "@openbooks/schema";
+  import { S, ent, catLabel, mdy, classify, toast, fileUrl, attach, attachmentsOf, suggest, tagsDoc, saveTags } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Drawer, Money, Button, Icon } from "#lib/ui/index.ts";
   import CategorySelect from "./CategorySelect.svelte";
+  import TagChip from "./TagChip.svelte";
+  import TagPill from "./TagPill.svelte";
 
   const me = $props.id();
   $effect(() => {
@@ -27,8 +30,9 @@
   const cur = $derived(ent().currency ?? "ILS");
   let rule = $state(""),
     picker = $state<HTMLInputElement>();
-  // a fresh suggestion whenever another transaction (or a new ledger account for it) comes up
-  const seed = $derived(x ? (x.why && x.why !== "manual" && x.why !== "journal" ? x.why : suggestRule([x])) : "");
+  // a fresh suggestion whenever another transaction (or a new ledger account for it) comes up; a quick "text" rule that caught it is shown as is
+  const textRules = $derived(new Set((S.data?.rules ?? []).map((r) => textOf(normalizeRule(r)))));
+  const seed = $derived(x ? (x.why && x.why !== "manual" && x.why !== "journal" && textRules.has(x.why) ? x.why : suggestRule([x])) : "");
   $effect(() => {
     rule = seed;
   });
@@ -36,6 +40,10 @@
   /** What the rule text would catch right now (rules match description, memo and [Mercury category]). */
   const catches = $derived(rule.trim() && S.data ? S.data.txns.filter((r) => r.source !== "journal" && haystack(r).includes(rule.trim())).length : 0);
   const files = $derived(x ? attachmentsOf(x.id) : []);
+  // tags: pills toggle the hand-made ones; tags that only a rule adds are listed beside them
+  const tg = $derived($state.snapshot(tagsDoc()) as TagsDoc);
+  const mine = $derived(x ? (tg.on[x.id] ?? []) : []);
+  const viaRules = $derived((x?.tags ?? []).filter((g) => !mine.includes(g)).map((g) => tg.tags.find((o) => o.id === g)));
   const journal = $derived(x?.source === "journal");
   const rows = $derived.by(() => {
     if (!x) return [];
@@ -120,6 +128,29 @@
         {#if rule.trim()}
           <p class="mt-2 text-[12px] text-sub" aria-live="polite">{x.category === "ask" ? t("txn34.pickFirst") : t("txn34.catches", { n: catches })}</p>
         {/if}
+      </div>
+    {/if}
+
+    {#if !journal}
+      <div class="border-t border-line px-4 py-4 sm:px-5">
+        <div class="text-[13px] text-sub">{t("txn.tags")}</div>
+        {#if tg.tags.length}
+          <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("txn.tags")}>
+            {#each tg.tags as g (g.id)}
+              {@const on = mine.includes(g.id)}
+              <TagPill name={g.name} color={g.color} {on} onclick={() => void saveTags(setTag(tg, [x.id], g.id, !on))} />
+            {/each}
+          </div>
+          {#if viaRules.length}
+            <p class="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-sub">
+              {t("txn.tagsRules")}
+              {#each viaRules as g (g?.id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}
+            </p>
+          {/if}
+        {:else}
+          <p class="mt-1 text-[13px] text-faint">{t("txn.tagsNone")}</p>
+        {/if}
+        <Button variant="ghost" size="sm" class="mt-2" onclick={() => leave("/tags")}>{t("txn.manageTags")}</Button>
       </div>
     {/if}
 

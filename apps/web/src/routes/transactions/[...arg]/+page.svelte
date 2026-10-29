@@ -1,27 +1,29 @@
 <script lang="ts">
   // Transactions of the selected period: tabs (all / in / out / needs review), month, bank account and ledger filters, search,
-  // per-row ledger account, bulk categorize (shift-click ranges, "select similar"), CSV export. A row opens the drawer.
-  // /transactions/<arg> or /transactions?q=<arg> seeds the filters: ask | month:2026-04 | cat:expense:software | type:own |
-  // account:Mercury Credit; any other ?q= text becomes the search.
+  // per-row ledger account, tags, bulk categorize and bulk add/remove tag (shift-click ranges, "select similar"), CSV export.
+  // A row opens the drawer. /transactions/<arg> or /transactions?q=<arg> seeds the filters: ask | month:2026-04 |
+  // cat:expense:software | type:own | account:Mercury Credit | tag:<id>; any other ?q= text becomes the search.
   // Long lists render 100 rows at a time and grow as you scroll, so thousands of rows stay fast.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
   import { tick } from "svelte";
-  import { TYPES, group, inPeriod, payerOf, suggestRule } from "@openbooks/core";
-  import type { Txn } from "@openbooks/schema";
-  import { S, ent, accounts, catLabel, catGroups, typeLabel, classify, toast, suggest, mdy, period, periodLabel } from "#lib/stores/books.svelte.ts";
+  import { TYPES, group, inPeriod, payerOf, setTag, suggestRule, tagName } from "@openbooks/core";
+  import type { TagsDoc, Txn } from "@openbooks/schema";
+  import { S, ent, accounts, catLabel, catGroups, typeLabel, classify, toast, suggest, mdy, period, periodLabel, tagsDoc, saveTags } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { PageHeader, Tabs, Select, Search, Button, Money, Icon, Table, EmptyState, type Column, type SelectGroup } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
   import TxnDrawer from "#lib/txns/TxnDrawer.svelte";
   import More from "#lib/txns/More.svelte";
-  import { parseArg, inTab, inCat, searchText, toCsv, range, type Tab } from "#lib/txns/txns.ts";
+  import TagChip from "#lib/txns/TagChip.svelte";
+  import { parseArg, inTab, inCat, inTag, searchText, toCsv, range, type Tab } from "#lib/txns/txns.ts";
 
   const PAGE = 100;
   let tab = $state<Tab>("all"),
     cat = $state(""),
     acct = $state(""),
     month = $state(""),
+    tagF = $state(""),
     q = $state(""),
     limit = $state(PAGE),
     sel = $state(new Set<string>()),
@@ -32,11 +34,12 @@
     const a = page.params.arg || page.url.searchParams.get("q") || "",
       f = parseArg(a);
     // anything that isn't a filter (?q=coffee) is a search
-    q = /^(ask|(month|cat|type|account):)/.test(a) ? "" : a;
+    q = /^(ask|(month|cat|type|account|tag):)/.test(a) ? "" : a;
     tab = f.tab;
     cat = f.cat;
     acct = f.acct;
     month = f.month;
+    tagF = f.tag;
   });
 
   const cur = $derived(ent().currency ?? "ILS");
@@ -67,7 +70,7 @@
   const hay = $derived(new Map(all.map((x) => [x.id, searchText(x, catLabel(x.category))])));
   const rows = $derived.by(() => {
     const s = q.trim().toLowerCase();
-    return scope.filter((x) => inTab(x, tab) && inCat(x, cat) && (!acct || x.account === acct) && (!s || hay.get(x.id)?.includes(s))).toReversed();
+    return scope.filter((x) => inTab(x, tab) && inCat(x, cat) && inTag(x, tagF) && (!acct || x.account === acct) && (!s || hay.get(x.id)?.includes(s))).toReversed();
   });
   const shown = $derived(rows.slice(0, limit));
   // nothing here: which other tax years have matches (Review's "table view" links here with every year's uncategorized rows)
@@ -75,7 +78,7 @@
     if (rows.length) return [];
     const s = q.trim().toLowerCase(),
       ys = new Set<number>();
-    for (const x of all) if (inTab(x, tab) && inCat(x, cat) && (!acct || x.account === acct) && (!s || hay.get(x.id)?.includes(s))) ys.add(+x.date.slice(0, 4));
+    for (const x of all) if (inTab(x, tab) && inCat(x, cat) && inTag(x, tagF) && (!acct || x.account === acct) && (!s || hay.get(x.id)?.includes(s))) ys.add(+x.date.slice(0, 4));
     ys.delete(S.year);
     return [...ys].sort((a, b) => b - a).slice(0, 3);
   });
@@ -89,7 +92,7 @@
   });
   // back to the first page whenever the filters change
   $effect(() => {
-    void [tab, cat, acct, month, q];
+    void [tab, cat, acct, month, q, tagF];
     limit = PAGE;
   });
 
@@ -102,6 +105,22 @@
     const ks = new Set(selected.map(payerOf));
     return rows.filter((x) => ks.has(payerOf(x)));
   });
+  // ---------- tags: filter, column, bulk add/remove ----------
+  const tg = $derived($state.snapshot(tagsDoc()) as TagsDoc);
+  const TAG_FILTER = $derived([{ value: "", label: t("tags.allTags") }, ...tg.tags.map((g) => ({ value: g.id, label: g.name }))]);
+  const tagOf = (id: string) => tg.tags.find((g) => g.id === id);
+  // "remove" offers the tags the selection carries by hand (a tag a rule adds can't be removed here)
+  const carried = $derived(new Set(selected.flatMap((x) => tg.on[x.id] ?? [])));
+  const ADD = $derived([{ value: "", label: t("tags.addTo") }, ...tg.tags.map((g) => ({ value: g.id, label: g.name }))]);
+  const REMOVE = $derived([{ value: "", label: t("tags.removeFrom") }, ...tg.tags.filter((g) => carried.has(g.id)).map((g) => ({ value: g.id, label: g.name }))]);
+  let addPick = $state(""),
+    removePick = $state("");
+  async function tagSelected(tag: string, on: boolean) {
+    if (!tag) return;
+    await saveTags(setTag(tg, selected.map((x) => x.id), tag, on));
+    addPick = removePick = "";
+    toast(t(on ? "tags.toast.added" : "tags.toast.removed", { n: selected.length, tag: bidi(tagName(tg, tag)) }));
+  }
   function toggle(x: Txn, e: MouseEvent) {
     const s = new Set(sel),
       on = !s.has(x.id),
@@ -181,6 +200,7 @@
     ...(multi ? [{ key: "account", label: t("common.account"), class: "text-sub max-sm:hidden" }] : []),
     { key: "cat", label: t("common.ledgerAccount") },
     { key: "desc", label: t("common.description"), wrap: true },
+    ...(tg.tags.length ? [{ key: "tags", label: t("tags.col"), class: "max-md:hidden" }] : []),
     { key: "amount", label: t("common.amount"), numeric: true },
   ]);
   const why = (x: Txn) => (x.why === "manual" ? t("txns.why.manual") : x.why ? t("txns.why.rule", { rule: bidi(x.why) }) : t("txns.why.none"));
@@ -196,6 +216,7 @@
     <Select variant="pill" icon="calendar" label={t("txns.filter.month")} value={periodValue} groups={PERIODS} onchange={setPeriod} />
     {#if multi}<Select variant="pill" icon="bank" label={t("txns.filter.account")} bind:value={acct} options={ACCTS} />{/if}
     <Select variant="pill" icon="filter" label={t("txns.filter.ledger")} bind:value={cat} groups={LEDGER} />
+    {#if tg.tags.length}<Select variant="pill" icon="tag" label={t("tags.filter")} bind:value={tagF} options={TAG_FILTER} />{/if}
     <Search bind:value={q} label={t("common.search")} class="ms-auto w-full sm:w-64" />
   </div>
 </PageHeader>
@@ -242,6 +263,10 @@
           </span>
         {:else if c.key === "desc"}
           <div class="ui-align text-ink [overflow-wrap:anywhere]" dir="auto">{x.who ?? x.desc}</div>
+        {:else if c.key === "tags"}
+          <span class="flex flex-wrap gap-1">
+            {#each x.tags ?? [] as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}
+          </span>
         {:else}
           <Money value={x.amount} currency={cur} plus class={x.amount > 0 ? "text-good" : "text-ink"} />
         {/if}
@@ -252,13 +277,13 @@
 {:else}
   <EmptyState icon="search" title={t("txns.empty")} text={t("txns.emptyText", { period: periodLabel(month ? { from: month, to: month } : period()) })}>
     {#each elsewhere as y (y)}<Button variant="primary" onclick={() => setPeriod(`y:${y}`)}>{t("txn34.showYear", { year: y })}</Button>{/each}
-    {#if tab !== "all" || cat || acct || month || q}
+    {#if tab !== "all" || cat || acct || month || q || tagF}
       <Button
         onclick={() => {
           q = "";
           void goto("/transactions");
           tab = "all";
-          cat = acct = month = "";
+          cat = acct = month = tagF = "";
         }}>{t("txn34.clearFilters")}</Button>
     {/if}
   </EmptyState>
@@ -273,6 +298,10 @@
     <span class="text-sub"><Money value={selected.reduce((a, x) => a + x.amount, 0)} currency={cur} /></span>
     <span class="h-5 w-px bg-line max-sm:hidden"></span>
     <CategorySelect value="" variant="pill" placeholder={t("txns.setLedger")} label={t("txns.setLedger")} onchange={(c) => apply(selected, c)} suggestions={() => suggest(selected)} />
+    {#if tg.tags.length}
+      <Select variant="pill" icon="tag" label={t("tags.addTo")} bind:value={addPick} options={ADD} onchange={(v) => tagSelected(v, true)} />
+      {#if carried.size}<Select variant="pill" icon="tag" label={t("tags.removeFrom")} bind:value={removePick} options={REMOVE} onchange={(v) => tagSelected(v, false)} />{/if}
+    {/if}
     {#if similar.length > selected.length}
       <Button size="sm" onclick={() => (sel = new Set(similar.map((x) => x.id)))}>{t("txns.selectSimilar", { n: similar.length })}</Button>
     {/if}
