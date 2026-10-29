@@ -3,20 +3,7 @@
 // of accounts, as before: tool results feed models and MCP clients, the UI translates on its own.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import {
-  balances as coreBalances,
-  cleanRules,
-  classify as coreClassify,
-  group,
-  haystack,
-  inRange,
-  isCard,
-  payerOf,
-  plOf,
-  pyRound,
-  pyStr,
-  TYPES,
-} from "@openbooks/core";
+import { balances as coreBalances, cleanRules, group, haystack, inRange, isCard, payerOf, plOf, pyRound, pyStr, TYPES } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
 import { form1301, type IlTable, type Profile } from "@openbooks/country-il";
@@ -134,10 +121,13 @@ const entityOf$ = ({ id, ...meta }: { id: string } & EntityMeta): Entity => ({ i
 const gone = (e: string) => () => new ToolError({ message: `Unknown entity ${repr(e)}; see list_entities` });
 const ledgerOf = (e: Entity) => Books.use((b) => b.ledger(e.id)).pipe(Effect.mapError(gone(e.id)));
 const docOf = <A>(e: Entity, name: string, fallback: A) => Books.use((b) => b.doc(e.id, name, fallback)).pipe(Effect.mapError(gone(e.id)));
-const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(gone(e.id)));
+/** A write's failure for the client: the close date's own message, else unknown entity. */
+const refused = (e: Entity) => (x: { readonly _tag: string; readonly message?: string }) =>
+  x._tag === "ClosedPeriod" ? new ToolError({ message: x.message! }) : gone(e.id)();
+const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(refused(e)));
 const rulesOf = (e: Entity) => Books.use((b) => b.rules(e.id)).pipe(Effect.mapError(gone(e.id)));
 const setRules = (e: Entity, rs: readonly (readonly [string, string])[]) =>
-  Books.use((b) => b.setRules(e.id, rs as [string, string][])).pipe(Effect.mapError(gone(e.id)));
+  Books.use((b) => b.setRules(e.id, rs as [string, string][])).pipe(Effect.mapError(refused(e)));
 const checksOf = (e: Entity) => Books.use((b) => b.checks(e.id)).pipe(Effect.mapError(gone(e.id)));
 
 const slim = (t: Txn) => ({ ...t, amount: r2(t.amount), categoryLabel: label(t.category) });
@@ -436,9 +426,7 @@ const classify = defineTool({
       for (const i of a.ids)
         if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: change the journal entry instead`);
       const rule = (a.rule ?? "").replaceAll(",", " ").trim() || undefined;
-      const r = coreClassify(a.ids, cat, yield* rulesOf(e), yield* docOf<Record<string, string>>(e, "overrides", {}), rule);
-      if (rule) yield* setRules(e, r.rules);
-      yield* putDoc(e, "overrides", r.overrides);
+      yield* Books.use((b) => b.classify(e.id, a.ids, cat, rule)).pipe(Effect.mapError(refused(e)));
       const after = yield* ledgerOf(e),
         ids = new Set(a.ids);
       const out: { transactions: ReturnType<typeof slim>[]; ruleMatches?: number } = { transactions: after.filter((t) => ids.has(t.id)).map(slim) };

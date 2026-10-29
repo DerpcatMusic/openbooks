@@ -5,7 +5,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-import { cleanRules, ledger } from "@openbooks/core";
+import { classify as classifyCore, cleanRules, ledger, movedBefore } from "@openbooks/core";
 import type { CsvProfile, EntityMeta, JournalEntry, Rule, StatementCheck, StoredTxn, Txn } from "@openbooks/schema";
 import { Changes, type Topic } from "./changes.ts";
 import { isEntityId, ls, migrate, openDb, pySorted } from "./db.ts";
@@ -15,6 +15,8 @@ import { assemble, RESERVED, statements, taxTables, type State } from "./state.t
 export class BadInput extends Data.TaggedError("BadInput")<{ message: string }> {}
 /** No such entity (books.py KeyError → HTTP 404). */
 export class UnknownEntity extends Data.TaggedError("UnknownEntity")<{ entity: string }> {}
+/** The write would change something dated on or before the books' close date (HTTP 409; the message says which date). */
+export class ClosedPeriod extends Data.TaggedError("ClosedPeriod")<{ message: string }> {}
 
 type Listed = { id: string } & EntityMeta;
 
@@ -29,9 +31,13 @@ export interface BooksApi {
   checks: (e: string) => Effect.Effect<{ checks: StatementCheck[]; unreadable: string[]; inbox: string[] }, UnknownEntity>;
   /** e: an entity id or a pseudo-entity (`_app`, `_ai`, `_vault`). */
   doc: <A>(e: string, name: string, fallback: A) => Effect.Effect<A, UnknownEntity>;
-  putDoc: (e: string, name: string, value: unknown) => Effect.Effect<void, UnknownEntity>;
+  /** Fails ClosedPeriod for the journal and reconciliations docs when the write changes an entry on or before the close date. */
+  putDoc: (e: string, name: string, value: unknown) => Effect.Effect<void, UnknownEntity | ClosedPeriod>;
   rules: (e: string) => Effect.Effect<readonly Rule[], UnknownEntity>;
-  setRules: (e: string, rules: readonly Rule[]) => Effect.Effect<void, UnknownEntity>;
+  /** Fails ClosedPeriod when the new rules would move the ledger account of a transaction on or before the close date. */
+  setRules: (e: string, rules: readonly Rule[]) => Effect.Effect<void, UnknownEntity | ClosedPeriod>;
+  /** core classify() and its writes in one step, checked against the close date as a whole (no half-saved rule). */
+  classify: (e: string, ids: readonly string[], category: string, rule?: string) => Effect.Effect<void, UnknownEntity | ClosedPeriod>;
   state: (e: string) => Effect.Effect<State, UnknownEntity>;
 }
 
@@ -86,6 +92,78 @@ export const makeBooks = (opts: BooksOptions) =>
         .map((r) => [r.match, r.category] as const);
     // books.py tolerates entries without lines or memo (je.get("lines", []))
     const journal = (e: string) => getDoc<JournalEntry[]>(e, "journal", []).map((je) => ({ ...je, lines: je.lines ?? [] }));
+    // ---------- close date: doc "books" = { closeDate }. Anything dated on or before it is refused (docs/architecture.md) ----------
+    const closeDate = (e: string) => getDoc<{ closeDate?: string | null }>(e, "books", {}).closeDate || null;
+    const refuse = (close: string, n: number) =>
+      Effect.fail(
+        new ClosedPeriod({
+          message: `The books are closed through ${close}: this would change ${n} ${n === 1 ? "entry" : "entries"} dated on or before it. Move the close date to change them.`,
+        }),
+      );
+    const storedTxns = (e: string) =>
+      db
+        .query<{ data: string }, [string]>("select data from txn where entity = ? order by date, rowid")
+        .all(e)
+        .map((r) => JSON.parse(r.data) as StoredTxn);
+    /** The ledger rows as the close check compares them: id, date and ledger account. */
+    const accountsOf = (ts: readonly Txn[]) => ts.map((t) => ({ id: t.id, date: t.date, category: t.category }));
+    /** Refuse new rules/overrides that would move a ledger row dated on or before the close date. */
+    const guardLedger = (e: string, rules: readonly Rule[], overrides: Record<string, string>) =>
+      Effect.suspend(() => {
+        const close = closeDate(e);
+        if (!close) return Effect.void;
+        const stored = storedTxns(e),
+          je = journal(e);
+        const moved = movedBefore(
+          accountsOf(ledger(stored, getDoc(e, "overrides", {}), getRules(e), je)),
+          accountsOf(ledger(stored, overrides, rules, je)),
+          close,
+        );
+        return moved.length ? refuse(close, moved.length) : Effect.void;
+      });
+    /** Refuse a journal or reconciliations write that changes an entry (or a reconciliation month: its first day) on or before the close date. */
+    const guardDoc = (e: string, name: string, value: unknown) =>
+      Effect.suspend(() => {
+        const close = closeDate(e);
+        if (!close || (name !== "journal" && name !== "reconciliations")) return Effect.void;
+        const months = (v: unknown) =>
+          Object.entries((v ?? {}) as Record<string, Record<string, unknown>>).flatMap(([acct, ms]) =>
+            Object.entries(ms ?? {}).map(([ym, rec]) => ({ id: `${acct}|${ym}`, date: `${ym}-01`, rec })),
+          );
+        const entries = (v: unknown) => (Array.isArray(v) ? (v as { id: string; date: string }[]) : []);
+        const moved =
+          name === "journal"
+            ? movedBefore(entries(getDoc(e, name, [])), entries(value), close)
+            : movedBefore(months(getDoc(e, name, {})), months(value), close);
+        return moved.length ? refuse(close, moved.length) : Effect.void;
+      });
+    /** The raw writes: no guard, no publish. */
+    const writeDoc = (e: string, name: string, value: unknown) =>
+      db
+        .transaction(() => {
+          if (value === null || value === undefined) db.query("delete from doc where entity = ? and name = ?").run(e, name);
+          else db.query("insert or replace into doc values (?, ?, ?)").run(e, name, JSON.stringify(value));
+          if (name === "csv-profiles") db.query("delete from statement where entity = ?").run(e); // CSVs read differently now: re-ingest
+        })
+        .immediate();
+    const writeRules = (e: string, rs: readonly Rule[]) =>
+      db
+        .transaction(() => {
+          db.query("delete from rule where entity = ?").run(e);
+          const ins = db.query("insert into rule values (?, ?, ?, ?)");
+          rs.forEach(([m, c], i) => ins.run(e, i, m, c));
+        })
+        .immediate();
+    const putDoc = (e: string, name: string, value: unknown) =>
+      guardDoc(e, name, value).pipe(
+        Effect.andThen(on(e, () => writeDoc(e, name, value), true)),
+        Effect.andThen(publish(e, name === "csv-profiles" ? ["docs", "statements"] : ["docs"], [name])),
+      );
+    const setRules = (e: string, rs: readonly Rule[]) => {
+      const rows = cleanRules(rs);
+      return guardLedger(e, rows, getDoc(e, "overrides", {})).pipe(Effect.andThen(on(e, () => writeRules(e, rows))), Effect.andThen(publish(e, ["rules"])));
+    };
+
     const listEntities = (): Listed[] => {
       for (const d of pySorted(ls(home))) if (existsSync(join(home, d, "entity.json"))) metaOf(d); // folders from before books.db
       return db
@@ -136,29 +214,20 @@ export const makeBooks = (opts: BooksOptions) =>
       ledger: ledgerE,
       checks: (e) => Effect.andThen(ingestE(e), () => on(e, () => statements(db, e))),
       doc: (e, name, fallback) => on(e, () => getDoc(e, name, fallback), true),
-      putDoc: (e, name, value) =>
-        on(
-          e,
-          () =>
-            db
-              .transaction(() => {
-                if (value === null || value === undefined) db.query("delete from doc where entity = ? and name = ?").run(e, name);
-                else db.query("insert or replace into doc values (?, ?, ?)").run(e, name, JSON.stringify(value));
-                if (name === "csv-profiles") db.query("delete from statement where entity = ?").run(e); // CSVs read differently now: re-ingest
-              })
-              .immediate(),
-          true,
-        ).pipe(Effect.andThen(publish(e, name === "csv-profiles" ? ["docs", "statements"] : ["docs"], [name]))),
+      putDoc,
       rules: (e) => on(e, () => getRules(e)),
-      setRules: (e, rs) =>
-        on(e, () => {
-          const rows = cleanRules(rs);
-          db.transaction(() => {
-            db.query("delete from rule where entity = ?").run(e);
-            const ins = db.query("insert into rule values (?, ?, ?, ?)");
-            rows.forEach(([m, c], i) => ins.run(e, i, m, c));
-          }).immediate();
-        }).pipe(Effect.andThen(publish(e, ["rules"]))),
+      setRules,
+      classify: (e, ids, category, rule) =>
+        on(e, () => classifyCore(ids, category, getRules(e), getDoc(e, "overrides", {}), rule)).pipe(
+          Effect.flatMap((r) =>
+            guardLedger(e, r.rules, r.overrides).pipe(
+              Effect.andThen(on(e, () => (rule ? writeRules(e, r.rules) : undefined))),
+              Effect.andThen(rule ? publish(e, ["rules"]) : Effect.void),
+              Effect.andThen(on(e, () => writeDoc(e, "overrides", r.overrides))),
+              Effect.andThen(publish(e, ["docs"], ["overrides"])),
+            ),
+          ),
+        ),
       state: (e) =>
         Effect.gen(function* () {
           const txns = yield* ledgerE(e);
