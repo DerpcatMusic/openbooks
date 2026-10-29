@@ -37,8 +37,11 @@
   );
   const P = $derived(pl(txns));
   // expenses the tax rules allow: the raw sum less what the deduction rules disallow (Taxximizer → Deductions)
-  const allowed = $derived(Math.round(P.cogs + P.opex - (us ? 0 : disallowed(y))));
-  const turnover = $derived(num("turnover", Math.round(b?.turnover ?? 0)));
+  // The Israeli calculators work in shekels; books kept in another currency (US dollars) are converted at the planner's USD/ILS rate.
+  // ponytail: only USD and ILS books are converted; another currency would need its own rate field.
+  const toIls = (n: number) => (cur === "ILS" ? n : n * fx);
+  const allowed = $derived(Math.round(toIls(P.cogs + P.opex - disallowed(y))));
+  const turnover = $derived(num("turnover", Math.round(toIls(b?.turnover ?? 0))));
   const days = $derived(num("reserveDays")),
     degree = $derived(num("degreeYear"));
   const degreePts = $derived(degree && y > degree && y <= degree + 3 ? 1 : 0);
@@ -53,7 +56,7 @@
     pension: num("pension", Math.round(mandatory)),
     donations: num("donations"),
     selfEmployed: !!saved.selfEmployed,
-    withheld: b?.withheld ?? 0,
+    withheld: toIls(b?.withheld ?? 0),
   });
   const zair = $derived(hasRates ? ilPlan({ ...input, zair: true }, R) : null),
     actual = $derived(hasRates ? ilPlan({ ...input, zair: false }, R) : null);
@@ -141,7 +144,7 @@
     { value: "royalty", label: t("planner.royalty") },
     { value: "business", label: t("planner.businessProfits") },
   ]);
-  const ilsNet = $derived(Math.round(P.net * fx));
+  const ilsNet = $derived(Math.round(toIls(P.net)));
 </script>
 
 <PageHeader title={t("planner.title")} badge={String(y)} sub={t("planner.sub", { flag: ent().flag ?? "", y })}>
@@ -181,7 +184,8 @@
       <div class="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card title={t("planner.yourYear", { y })}>
           <div class="space-y-4">
-            {@render field(t("planner.turnover"), "turnover", Math.round(b.turnover), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
+            {#if cur !== "ILS"}{@render field(t("planner.fx"), "usdIls", 3.06, t("planner.fxHint"))}{/if}
+            {@render field(t("planner.turnover"), "turnover", Math.round(toIls(b.turnover)), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
             {@render field(t("planner.expenses"), "expenses", allowed, t("planner.expensesHint"))}
             {@render field(t("planner.foreign"), "foreign", 0, t("planner.foreignHint"))}
             {@render field(t("planner.pension"), "pension", Math.round(mandatory), t("planner.pensionHint", { amount: fmt(mandatory) }))}
