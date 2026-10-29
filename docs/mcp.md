@@ -70,10 +70,11 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `deduction_summary` | What is deductible for a year: expense total vs deductible, full / partial / zero buckets, caps used, receipts missing, "left on the table", and the tax moves that fit the books. From tags and account defaults, using the country's sourced rule table; each rule says how firm it is |
 | `suggest_tax_tags` | Untagged expenses and uncategorized outflows whose text matches a deduction rule, grouped by rule with the money at stake. Keyword matches: read the rule's conditions first |
 | `apply_tax_tag` | **Writes.** Tag transactions with a tag whose tax meaning is a deduction rule (and optionally a business-use %). Creates the tag if new. Always needs the user's yes. Never changes ledger accounts |
+| `split_transaction` | **Writes.** Allocate one bank transaction to several ledger accounts (shares must add up to the amount to the cent); the transaction becomes one ledger row per line (`<id>~0`, `<id>~1`…). `lines: []` unsplits. Always needs the user's yes |
 | `tax_summary` | Israeli osek zair estimate, or US LLC Form 5472 / 1120 checklist |
 | `bank_status` / `bank_sync` | Bank connection status; `bank_sync` **writes** new statements from connected banks (the only tool that reaches the internet) |
 
-**Confirmation.** `set_rules`, `apply_tax_tag` (always), and `classify` on more than 20 transactions, need the user's yes. Clients that support
+**Confirmation.** `set_rules`, `apply_tax_tag` and `split_transaction` (always), and `classify` on more than 20 transactions, need the user's yes. Clients that support
 elicitation (2026-07-28, form mode) get a confirmation form from the server. Other clients must pass `confirm: true`
 after asking the user; without it the call fails and says so.
 

@@ -218,7 +218,8 @@ const pattern = (re: RegExp, description?: string) => {
 const ENTITY = { entity: Schema.optionalKey(pattern(/^[a-z0-9-]+$/u, "Entity id from list_entities. Default: the first entity.")) };
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
-const ID = pattern(/^[A-Za-z0-9-]{1,64}$/u);
+/** A ledger row id: a stored transaction's (letters, digits, dashes), or one line of a split (`<id>~1`). */
+const ID = pattern(/^[A-Za-z0-9-]{1,64}(~\d{1,3})?$/u);
 const CAT_DESC = 'Ledger account "type:name", e.g. expense:software (see chart_of_accounts).';
 const CONFIRM = Schema.optionalKey(
   Schema.Boolean.annotate({
@@ -1213,7 +1214,7 @@ const split_transaction = defineTool({
   kind: "write",
   annotations: { destructive: false, idempotent: true },
   input: input({
-    id: ID.annotate({ description: "The transaction's id (not a split line's `~` id) from list_transactions" }),
+    id: ID.annotate({ description: "The transaction's id from list_transactions; a split line's id (`<id>~1`) means its transaction" }),
     lines: Schema.Array(SPLIT_LINE).check(Schema.isMaxLength(50)),
     confirm: CONFIRM,
   }),

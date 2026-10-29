@@ -276,6 +276,15 @@ describe("openbooks mcp (stdio)", () => {
     expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Nope", confirm: true }, false)).toContain("pass `rule`");
     expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "X", rule: "il.gifts", confirm: true }, false)).toContain("does not exist or does not apply");
     expect((await s.tool("list_transactions", { search: "cloud" })).transactions.find((t: J) => t.id === dedTx).tags).toEqual(["cloud"]);
+    // split_transaction: always needs the user's yes; shares must add up to the cent; unsplitting puts the row back (Card Shop, -30)
+    const shop = (await s.tool("list_transactions", { search: "card shop" })).transactions[0].id as string;
+    expect(await s.tool("split_transaction", { id: shop, lines: [{ account: "expense:meals", amount: 10 }, { account: "expense:other", amount: 20 }] }, false)).toContain("confirm: true");
+    expect(await s.tool("split_transaction", { id: shop, lines: [{ account: "expense:meals", amount: 10 }, { account: "expense:other", amount: 19.99 }], confirm: true }, false)).toContain("0.01 left to allocate");
+    const sp = await s.tool("split_transaction", { id: shop, lines: [{ account: "expense:meals", amount: 10.01, memo: "lunch" }, { account: "expense:other", amount: 19.99 }], confirm: true });
+    expect(sp).toMatchObject({ id: shop, split: true, amount: -30 });
+    expect(sp.transactions.map((t: J) => [t.id, t.amount, t.category, t.why])).toEqual([[`${shop}~0`, -10.01, "expense:meals", "split"], [`${shop}~1`, -19.99, "expense:other", "split"]]);
+    expect(await s.tool("classify", { ids: [`${shop}~0`], category: "expense:meals" }, false)).toContain("split_transaction");
+    expect((await s.tool("split_transaction", { id: shop, lines: [], confirm: true })).transactions.map((t: J) => t.amount)).toEqual([-30]);
     const ded = await s.tool("deduction_summary", { year: 2026 });
     expect(ded).toMatchObject({ businessType: "llc-disregarded", taxEffect: false, totals: { gross: 60, deductible: 60, nonDeductible: 0 }, buckets: { full: { count: 1 } } }); // the tagged 20, a second Cloud Host and a journal line
     expect(ded.note).toContain("no US trade");

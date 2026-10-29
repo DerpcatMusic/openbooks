@@ -495,6 +495,7 @@ export async function startServer(o: ServerOptions) {
         if (tag === "AIError") return json({ error: (err as Error).message }, 400);
         if (tag === "UnknownEntity") return json({ error: "unknown entity" }, 404);
         if (tag === "ClosedPeriod") return json({ error: (err as Error).message }, 409); // the books' close date refuses the write
+        if (tag === "BadInput") return json({ error: (err as Error).message }, 400); // a doc that breaks its own rules (unbalanced journal entry, split that doesn't add up…)
         console.error(`${req.method} ${u.pathname}: ${(err as Error)?.name ?? "error"}`); // never the message: it could carry request data
         return json({ error: "internal error" }, 500);
       }
