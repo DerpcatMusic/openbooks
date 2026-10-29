@@ -22,6 +22,8 @@ export interface Form1301Input {
   T: IlTable;
   form?: Readonly<Record<string, string | null | undefined>>;
   profile?: Profile;
+  /** Expenses the deduction rules disallow (core deductions().totals.nonDeductible): taken off the raw expense sum on the actual-expenses track. */
+  disallowed?: number;
   /** ISO date to price the refund's linkage and interest at (the site uses the day it calculates). */
   today?: string;
 }
@@ -39,10 +41,10 @@ export function bracketRows(income: number, brackets: IlTable["brackets"]) {
 }
 
 /** The automatic 1301 field values (strings, as printed). */
-export function form1301Auto({ txns, type, profile: p = {} }: Pick<Form1301Input, "txns" | "type" | "profile">): Record<string, string> {
+export function form1301Auto({ txns, type, profile: p = {}, disallowed = 0 }: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed">): Record<string, string> {
   const turnover = txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const zair = type === "osek-zair",
-    expenses = -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0);
+    expenses = -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) - disallowed;
   return {
     last: p.last ?? "",
     first: p.first ?? "",

@@ -14,6 +14,7 @@ import bills from "./parts/bills.he.ts";
 import cfa from "./parts/cfa.he.ts";
 import recon from "./parts/recon.he.ts";
 import tags from "./parts/tags.he.ts";
+import taxtags from "./parts/taxtags.he.ts";
 export default {
   ...a,
   ...b,
@@ -30,6 +31,7 @@ export default {
   ...cfa,
   ...recon,
   ...tags,
+  ...taxtags,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

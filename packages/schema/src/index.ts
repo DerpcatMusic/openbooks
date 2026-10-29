@@ -72,10 +72,25 @@ export type Rule = typeof Rule.Type;
 export const RuleInput = Schema.Union([LegacyRule, Rule]);
 export type RuleInput = typeof RuleInput.Type;
 
+/** What a tag means for tax (Taxximizer): a deduction rule id from the country pack's tables/deductions.json, a business-use share (0-100) and a note. */
+export const TagTax = Schema.Struct({
+  rule: Schema.optionalKey(Schema.String),
+  pct: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))),
+  note: Schema.optionalKey(Schema.String),
+});
+export type TagTax = typeof TagTax.Type;
 /** doc "tags": tag groups, tags (optional group and colour token), and the tags each transaction id carries by hand (rules add more on read). */
 export const TagsDoc = Schema.Struct({
   groups: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
-  tags: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String, group: Schema.optionalKey(Schema.String), color: Schema.optionalKey(Schema.String) })),
+  tags: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      group: Schema.optionalKey(Schema.String),
+      color: Schema.optionalKey(Schema.String),
+      tax: Schema.optionalKey(TagTax),
+    }),
+  ),
   on: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 export type TagsDoc = typeof TagsDoc.Type;
@@ -127,6 +142,51 @@ export const TaxTableBase = Schema.Struct({
   /** dotted field path ("brackets", "ltd.corpRate") → source */
   sources: Schema.optionalKey(Schema.Record(Schema.String, Source)),
 });
+
+/** A pack's tables/deductions.json (research tables: docs/tax-research-*.md): per-expense rules and tax moves, each with sources and a confidence. */
+const Bilingual = Schema.Struct({ en: Schema.String, he: Schema.String });
+const Citation = Schema.Struct({ title: Schema.String, url: Schema.String, section: Schema.optionalKey(Schema.String) });
+export const DeductionRule = Schema.Struct({
+  id: Schema.String,
+  label: Bilingual,
+  match: Schema.Struct({ keywords: Schema.Array(Schema.String), mcc: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Finite]))) }), // IL lists them as numbers, US as strings
+  /** % of the expense that is deductible; null = depends on the business-use share. */
+  incomeTaxPct: Schema.NullOr(Schema.Finite),
+  /** % of the input VAT that is reclaimable; null = not determined (treat as not reclaimable). */
+  vatPct: Schema.NullOr(Schema.Finite),
+  cap: Schema.NullOr(
+    Schema.Struct({
+      amount: Schema.NullOr(Schema.Finite),
+      currency: Schema.String,
+      per: Schema.String, // year | day | recipient | trip | invoice | mile | once
+      year: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+      kind: Schema.optionalKey(Schema.String),
+      note: Schema.optionalKey(Schema.String),
+    }),
+  ),
+  appliesTo: Schema.Array(Schema.String),
+  conditions: Schema.Array(Schema.String),
+  evidence: Schema.Array(Schema.String),
+  confidence: Schema.String, // statute | regulation | circular | irs-guidance | practice
+  sources: Schema.Array(Citation),
+  notes: Schema.String,
+  unverified: Schema.optionalKey(Schema.Array(Schema.String)),
+  basis: Schema.optionalKey(Schema.String),
+  tags_default: Schema.optionalKey(Schema.String),
+  values: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+});
+export type DeductionRule = typeof DeductionRule.Type;
+export const DeductionMove = Schema.Struct({ id: Schema.String, title: Bilingual, when: Schema.String, effect: Schema.String, sources: Schema.Array(Citation) });
+export type DeductionMove = typeof DeductionMove.Type;
+export const DeductionTable = Schema.Struct({
+  country: Schema.String,
+  asOf: Schema.String,
+  years: Schema.Array(Schema.Int),
+  disclaimer: Schema.String,
+  rules: Schema.Array(DeductionRule),
+  moves: Schema.Array(DeductionMove),
+});
+export type DeductionTable = typeof DeductionTable.Type;
 
 // ---------- tool inputs (phase 4 adds the rest; these two are the pattern) ----------
 const Entity = { entity: Schema.optionalKey(Schema.String.annotate({ description: "Entity id; default: the first" })) };

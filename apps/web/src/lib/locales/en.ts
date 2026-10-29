@@ -15,6 +15,7 @@ import bills from "./parts/bills.en.ts";
 import cfa from "./parts/cfa.en.ts";
 import recon from "./parts/recon.en.ts";
 import tags from "./parts/tags.en.ts";
+import taxtags from "./parts/taxtags.en.ts";
 export default {
   ...a,
   ...b,
@@ -31,6 +32,7 @@ export default {
   ...cfa,
   ...recon,
   ...tags,
+  ...taxtags,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

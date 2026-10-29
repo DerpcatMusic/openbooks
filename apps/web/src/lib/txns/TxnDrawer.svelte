@@ -17,6 +17,7 @@
   import CategorySelect from "./CategorySelect.svelte";
   import TagChip from "./TagChip.svelte";
   import TagPill from "./TagPill.svelte";
+  import TxnDeduction from "./TxnDeduction.svelte";
 
   const me = $props.id();
   $effect(() => {
@@ -155,6 +156,8 @@
         <Button variant="ghost" size="sm" class="mt-2" onclick={() => leave("/tags")}>{t("txn.manageTags")}</Button>
       </div>
     {/if}
+
+    {#if !journal}<TxnDeduction {x} onmanage={() => leave("/tags")} />{/if}
 
     <div class="border-t border-line px-4 py-4 sm:px-5">
       <div class="flex flex-wrap items-center gap-2">

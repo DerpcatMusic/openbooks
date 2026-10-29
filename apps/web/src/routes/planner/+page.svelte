@@ -7,6 +7,7 @@
   import { corpTax, type UsTable } from "@openbooks/country-us";
   import { S, bizType, catLabel, doc, ent, fmt, isUS, mdy, saveDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
+  import { disallowed } from "#lib/taxtags.svelte.ts";
   import { Badge, Button, Card, Checkbox, Icon, Input, Money, PageHeader, Select, Table, type Column, type IconName } from "#lib/ui/index.ts";
   import { corpInput, isCorp } from "#lib/ustax/books.ts";
   import { ilProfile } from "../tax/il/il.ts";
@@ -32,9 +33,11 @@
   const R = $derived(T as IlRates);
   const txns = $derived(yearTxns(y));
   const b = $derived(
-    us || !S.data ? null : form1301({ y, txns, type: bizType(y) ?? "", T, form: S.data.form?.[y] ?? {}, profile: ilProfile() }),
+    us || !S.data ? null : form1301({ y, txns, type: bizType(y) ?? "", T, form: S.data.form?.[y] ?? {}, profile: ilProfile(), disallowed: disallowed(y) }),
   );
   const P = $derived(pl(txns));
+  // expenses the tax rules allow: the raw sum less what the deduction rules disallow (Taxximizer → Deductions)
+  const allowed = $derived(Math.round(P.cogs + P.opex - (us ? 0 : disallowed(y))));
   const turnover = $derived(num("turnover", Math.round(b?.turnover ?? 0)));
   const days = $derived(num("reserveDays")),
     degree = $derived(num("degreeYear"));
@@ -44,7 +47,7 @@
   const mandatory = $derived(hasRates ? mandatoryPension(turnover * 0.7, R) : 0);
   const input = $derived({
     turnover,
-    expenses: num("expenses", Math.round(P.cogs + P.opex)),
+    expenses: num("expenses", allowed),
     foreign: num("foreign"),
     points,
     pension: num("pension", Math.round(mandatory)),
@@ -179,7 +182,7 @@
         <Card title={t("planner.yourYear", { y })}>
           <div class="space-y-4">
             {@render field(t("planner.turnover"), "turnover", Math.round(b.turnover), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
-            {@render field(t("planner.expenses"), "expenses", Math.round(P.cogs + P.opex), t("planner.expensesHint"))}
+            {@render field(t("planner.expenses"), "expenses", allowed, t("planner.expensesHint"))}
             {@render field(t("planner.foreign"), "foreign", 0, t("planner.foreignHint"))}
             {@render field(t("planner.pension"), "pension", Math.round(mandatory), t("planner.pensionHint", { amount: fmt(mandatory) }))}
             {@render field(t("planner.donations"), "donations", 0, t("planner.donationsHint", { amount: fmt(R.donationMin) }))}

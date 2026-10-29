@@ -9,6 +9,8 @@ export interface CoaEntry {
   subtype?: string;
   /** Hidden from account pickers; transactions keep it and every report still shows it. */
   archived?: boolean;
+  /** Default deduction rule id (Taxximizer) for expenses on this account; a tag's rule wins. */
+  taxRule?: string;
 }
 export type Coa = Readonly<Record<string, CoaEntry>>;
 export type Klass = "asset" | "liability" | "equity" | "revenue" | "expense" | "other";

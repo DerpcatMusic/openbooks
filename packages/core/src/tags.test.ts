@@ -10,6 +10,7 @@ import {
   setTag,
   setTagColor,
   setTagGroup,
+  setTagTax,
   tagName,
   withTag,
 } from "./index.ts";
@@ -66,5 +67,13 @@ describe("tags", () => {
     const ts = [{ id: 1, tags: ["a", "b"] }, { id: 2 }, { id: 3, tags: ["b"] }];
     expect(withTag(ts, "b").map((t) => t.id)).toEqual([1, 3]);
     expect(withTag(ts, "zzz")).toEqual([]);
+  });
+  it("setTagTax: sets the tax meaning, drops empty fields, clears when nothing is left; createTag can start with one", () => {
+    let d = createTag(emptyTags(), "Office coffee", undefined, { rule: "il.refreshments" });
+    expect(d.tags[0]).toEqual({ id: "office-coffee", name: "Office coffee", tax: { rule: "il.refreshments" } });
+    d = setTagTax(d, "office-coffee", { rule: "il.refreshments", pct: 50, note: "" });
+    expect(d.tags[0]!.tax).toEqual({ rule: "il.refreshments", pct: 50 });
+    expect(setTagTax(d, "office-coffee", {}).tags[0]).toEqual({ id: "office-coffee", name: "Office coffee" });
+    expect(setTagTax(d, "office-coffee").tags[0]!.tax).toBeUndefined();
   });
 });

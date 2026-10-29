@@ -2,12 +2,14 @@
   // Tags: labels for transactions (set in the list, the drawer, in bulk, or by a rule's "Then add tag") that reports can filter by.
   // A tag may belong to a tag group (Projects, Clients…) and carry a colour. Everything is the doc "tags"; the edits are the pure
   // functions of @openbooks/core tags.ts, saved as a whole.
-  import { createGroup, createTag, deleteGroup, deleteTag, renameGroup, renameTag, setTagColor, setTagGroup } from "@openbooks/core";
+  import { createGroup, createTag, deleteGroup, deleteTag, renameGroup, renameTag, setTagColor, setTagGroup, setTagTax } from "@openbooks/core";
   import type { TagsDoc } from "@openbooks/schema";
   import { url } from "#lib/nav.ts";
-  import { S, tagsDoc, saveTags } from "#lib/stores/books.svelte.ts";
-  import { t } from "#lib/i18n.svelte.ts";
-  import { Button, Card, EmptyState, IconButton, PageHeader, Select, Table, type Column } from "#lib/ui/index.ts";
+  import { S, tagsDoc, saveTags, toast } from "#lib/stores/books.svelte.ts";
+  import { t, bidi } from "#lib/i18n.svelte.ts";
+  import { addPreset, hasRules, presets, ruleName, ruleOf } from "#lib/taxtags.svelte.ts";
+  import { Badge, Button, Card, EmptyState, IconButton, PageHeader, Select, Table, type Column } from "#lib/ui/index.ts";
+  import TaxPicker from "./TaxPicker.svelte";
 
   const d = $derived($state.snapshot(tagsDoc()) as TagsDoc);
   const save = (next: TagsDoc) => void saveTags(next);
@@ -29,12 +31,25 @@
     { key: "name", label: t("tags.tagName"), class: "min-w-40" },
     { key: "group", label: t("tags.group") },
     { key: "color", label: t("tags.color") },
+    ...(hasRules() ? [{ key: "tax", label: t("taxtags.col"), class: "min-w-48" }] : []),
     { key: "n", label: t("tags.used"), numeric: true },
     { key: "act", label: t("tags.actions"), hideLabel: true },
   ]);
   const input =
     "ui-align -mx-2 h-8 w-full min-w-32 rounded-md bg-transparent px-2 text-ink outline-none placeholder:text-faint hover:bg-fill focus:bg-fill focus:ring-2 focus:ring-accent/50";
   const field = "ui-align h-9 min-w-40 flex-1 rounded-lg border border-line-strong bg-panel px-3 text-[14px] text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/50";
+  // tax treatment: the picker edits one tag's tax = { rule, pct, note }
+  let picking = $state<TagsDoc["tags"][number] | null>(null),
+    pickerOpen = $state(false);
+  const effect = (tax: NonNullable<TagsDoc["tags"][number]["tax"]>) => {
+    const r = ruleOf(tax.rule),
+      p = r?.incomeTaxPct === null ? tax.pct : r ? (r.incomeTaxPct * (tax.pct ?? 100)) / 100 : tax.pct;
+    return p === undefined ? null : +p.toFixed(2);
+  };
+  function addPresetTag(p: ReturnType<typeof presets>[number]) {
+    const name = t(`taxtags.preset.${p.key}`);
+    if (addPreset(p, name)) toast(t("taxtags.presetAdded", { name: bidi(name) }));
+  }
   function addTag() {
     save(createTag(d, newTag, newTagGroup));
     newTag = "";
@@ -49,7 +64,7 @@
 
 <PageHeader title={t("tags.title")} sub={t("tags.sub")} />
 
-<div class="max-w-3xl space-y-8 px-4 pt-5 pb-16 sm:px-8">
+<div class="{hasRules() ? 'max-w-5xl' : 'max-w-3xl'} space-y-8 px-4 pt-5 pb-16 sm:px-8">
   <Card title={t("tags.tags")} flush>
     <div class="flex flex-wrap items-center gap-2 px-4 pb-4 sm:px-5">
       <input
@@ -79,6 +94,23 @@
               {#if g.color}<span class="size-2.5 rounded-full" style:background="var(--color-{g.color})"></span>{/if}
               <Select variant="pill" label={t("tags.color")} value={g.color ?? ""} options={COLORS} onchange={(v) => save(setTagColor(d, g.id, v))} />
             </span>
+          {:else if c.key === "tax"}
+            <button
+              type="button"
+              onclick={() => ((picking = g), (pickerOpen = true))}
+              class="-mx-2 flex w-full min-w-0 flex-col items-start gap-1 rounded-md px-2 py-1 text-start outline-none hover:bg-fill focus-visible:ring-2 focus-visible:ring-accent/50"
+              aria-label={t("taxtags.editFor", { tag: g.name })}>
+              {#if g.tax}
+                {@const e = effect(g.tax)}
+                <span class="text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="auto">{g.tax.rule ? ruleName(g.tax.rule) : t("taxtags.noRule")}</span>
+                <span class="flex flex-wrap items-center gap-1">
+                  {#if e !== null}<Badge size="sm" tone={e >= 100 ? "good" : e > 0 ? "accent" : "bad"}>{t("taxtags.effective", { pct: `${e}%` })}</Badge>{:else}<Badge size="sm" tone="warn">{t("taxtags.pctNeededShort")}</Badge>{/if}
+                  {#if g.tax.rule && g.tax.pct !== undefined}<Badge size="sm">{t("taxtags.useBadge", { pct: `${g.tax.pct}%` })}</Badge>{/if}
+                </span>
+              {:else}
+                <span class="text-[13px] text-faint">{t("taxtags.none")}</span>
+              {/if}
+            </button>
           {:else if c.key === "n"}
             {#if counts.get(g.id)}
               <a
@@ -97,6 +129,24 @@
       <EmptyState icon="tag" title={t("tags.empty")} text={t("tags.emptyText")} />
     {/if}
   </Card>
+
+  {#if hasRules() && presets().length}
+    <Card title={t("taxtags.presets")} description={t("taxtags.presetsHint")}>
+      <div class="flex flex-wrap gap-2">
+        {#each presets() as p (p.key)}
+          {@const name = t(`taxtags.preset.${p.key}`)}
+          <Button size="sm" icon="plus" onclick={() => addPresetTag(p)} disabled={taken(d.tags, name)} title={taken(d.tags, name) ? t("taxtags.presetHave") : (p.rule ? ruleName(p.rule) : "")}>
+            {name}
+            {#if p.rule}
+              {@const r = ruleOf(p.rule)}
+              {#if r && r.incomeTaxPct !== null}<span class="num text-sub">{r.incomeTaxPct}%</span>{/if}
+            {:else}<span class="num text-sub">0%</span>{/if}
+          </Button>
+        {/each}
+      </div>
+      <p class="mt-3 text-[12px] text-faint">{t("taxtags.presetsNote")}</p>
+    </Card>
+  {/if}
 
   <Card title={t("tags.groups")} description={t("tags.groupsHint")}>
     <div class="flex flex-wrap items-center gap-2">
@@ -125,3 +175,5 @@
     </ul>
   </Card>
 </div>
+
+<TaxPicker bind:open={pickerOpen} tag={picking} onsave={(tax) => picking && save(setTagTax(d, picking.id, tax))} />

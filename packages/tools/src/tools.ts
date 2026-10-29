@@ -1,4 +1,4 @@
-// The 16 tools of mcp_server.py (+ list_bills / draft_bill), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
+// The 16 tools of mcp_server.py (+ list_bills / draft_bill, + the deduction tools), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
 // against the Python server in apps/server/src/mcp.test.ts). Amounts round like Python (pyRound); labels are the English chart
 // of accounts, as before: tool results feed models and MCP clients, the UI translates on its own.
 import { readdirSync } from "node:fs";
@@ -9,6 +9,9 @@ import {
   type Coa,
   cleanRule,
   cleanRules,
+  createTag,
+  deductions,
+  emptyTags,
   group,
   haystack,
   inRange,
@@ -19,12 +22,21 @@ import {
   plOf,
   pyRound,
   pyStr,
+  relevantMoves,
+  setTag,
+  setTagTax,
+  suggestTags,
+  taggable,
   TYPES,
+  withOverrides,
+  type DeductionInput,
+  type RuleOverrides,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
-import { form1301, type IlTable, type Profile } from "@openbooks/country-il";
-import { Rule, RuleInput, type EntityMeta, type Txn } from "@openbooks/schema";
+import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
+import { us } from "@openbooks/country-us";
+import { Rule, RuleInput, type DeductionRule, type EntityMeta, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
@@ -955,6 +967,226 @@ const tax_summary = defineTool({
     }),
 });
 
+// ---------- deductions (smart tax tags: tag.tax = { rule, pct }, rules from the country pack's tables/deductions.json) ----------
+/** The business type in force in year y (latest `types` entry on or before it, else the legacy kind's default) and its pack. */
+function packFor(m: EntityMeta, y: number) {
+  const from = Object.keys(m.types ?? {})
+      .filter((k) => +k <= y)
+      .sort()
+      .at(-1),
+    packs = [il, us],
+    type = from ? m.types![from] : m.kind ? packs.find((p) => m.kind! in p.manifest.legacyKinds)?.manifest.legacyKinds[m.kind] : undefined;
+  const pack = type ? packs.find((p) => p.manifest.businessTypes.some((b) => b.key === type)) : undefined;
+  return type && pack?.deductions ? { type, pack, table: pack.deductions } : undefined;
+}
+/** Everything the engine needs for one entity-year, read from the books (tags, account defaults, per-books rule edits, receipts, facts). */
+const dedCtx = (e: Entity, y: number) =>
+  Effect.gen(function* () {
+    const p = packFor(e.meta, y);
+    if (!p) return yield* fail(`${e.id} has no deduction rules: its business type is not set or its country has no table. Set the business type in the app.`);
+    const [txns, tags, coa, edits, profile, person, home] = [
+      yield* ledgerOf(e),
+      yield* docOf<TagsDoc>(e, "tags", emptyTags()),
+      yield* docOf<Coa>(e, "coa", {}),
+      yield* docOf<RuleOverrides>(e, "taxrules", {}),
+      yield* docOf<Record<string, unknown>>(e, "profile", {}),
+      yield* Books.use((b) => b.doc<{ facts?: Record<string, unknown> } | null>("_app", "person", null)).pipe(Effect.orDie),
+      yield* Books.use((b) => Effect.succeed(b.home)),
+    ];
+    const attachments: Record<string, string[]> = {};
+    try {
+      for (const d of readdirSync(join(home, e.id, "attachments"))) attachments[d] = readdirSync(join(home, e.id, "attachments", d));
+    } catch {
+      /* none */
+    }
+    const vat = (p.pack.table(y) as { vatRate?: number }).vatRate;
+    const car = Number(person?.facts?.carPrice);
+    const inp: DeductionInput = {
+      txns,
+      tags,
+      rules: withOverrides(p.table.rules, edits),
+      accountRules: Object.fromEntries(Object.entries(coa).flatMap(([k, v]) => (v.taxRule ? [[k, v.taxRule]] : []))),
+      type: p.type,
+      year: y,
+      currency: e.meta.currency ?? (p.pack.manifest.currency as string),
+      attachments,
+      ...(p.pack.manifest.id === "il" ? { vatRate: vat ?? 0.18 } : {}),
+      facts: { ...(car > 0 ? { carPrice: car } : {}), usTrade: profile.usTrade === true },
+    };
+    return { inp, table: p.table, country: p.pack.manifest.id };
+  });
+const ruleLabel = (rules: readonly { id: string; label: { en: string } }[], id: string) => rules.find((r) => r.id === id)?.label.en ?? id;
+const YEAR = I.check(Schema.isBetween({ minimum: 1990, maximum: 2100 }));
+const BUCKET = Schema.Struct({ count: I, gross: N, deductible: N });
+
+const deduction_summary = defineTool({
+  name: "deduction_summary",
+  title: { en: "Deduction summary", he: "סיכום ניכויים" },
+  description:
+    "What is deductible for a year (Taxximizer): expenses by deduction rule from the transactions' tags and accounts, how much of each receipt is deductible (full / partial / none / untreated), the VAT that can be reclaimed, ceilings used, receipts missing for deductible money, and money left on the table (untagged expenses and uncategorized outflows that look deductible). Says when the deductions do not change tax (osek zair, foreign-owned US LLC without a US trade). Rules are sourced research tables; each rule's confidence is in the app. Not tax advice.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    businessType: S,
+    taxEffect: B,
+    note: opt(S),
+    totals: Schema.Struct({ gross: N, deductible: N, nonDeductible: N, vatReclaimable: N }),
+    buckets: Schema.Struct({ full: BUCKET, partial: BUCKET, none: BUCKET, untreated: BUCKET }),
+    byRule: Schema.Array(Schema.Struct({ rule: S, label: S, count: I, gross: N, deductible: N, vatReclaimable: N })),
+    ceilings: Schema.Array(Schema.Struct({ rule: S, label: S, per: S, amount: N, used: N, exhausted: I })),
+    biggestLosses: Schema.Array(Schema.Struct({ id: S, date: S, desc: S, gross: N, deductible: N, rule: opt(S) })),
+    missingReceipts: Schema.Struct({ count: I, deductible: N }),
+    leftOnTheTable: Schema.Struct({ suggestions: I, transactions: I, potentialDeduction: N }),
+    moves: Schema.Array(Schema.Struct({ id: S, title: S, effect: S })),
+    disclaimer: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, table } = yield* dedCtx(e, a.year);
+      const r = deductions(inp),
+        sg = suggestTags(inp),
+        lbl = (id: string) => ruleLabel(table.rules, id);
+      const uncl = sg.filter((x) => x.kind === "uncategorized");
+      const b = (k: keyof typeof r.byBucket) => ({ count: r.byBucket[k].n, gross: r2(r.byBucket[k].gross), deductible: r2(r.byBucket[k].deductible) });
+      const lost = r.rows.filter((x) => x.gross - x.deductible > 0.005).sort((x, y) => y.gross - y.deductible - (x.gross - x.deductible));
+      const miss = r.rows.filter((x) => x.receipt);
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        businessType: inp.type,
+        taxEffect: r.taxEffect,
+        note:
+          r.effect === "zair"
+            ? "Osek zair is taxed on 70% of turnover whatever the receipts say: these deductions do not change the tax, but keep the receipts if you may switch to actual expenses."
+            : r.effect === "noEci"
+              ? "Foreign-owned disregarded LLC with no US trade or business: US deductions have no US tax effect. Home-country (Israeli) rules decide what counts."
+              : null,
+        totals: { gross: r2(r.totals.gross), deductible: r2(r.totals.deductible), nonDeductible: r2(r.totals.nonDeductible), vatReclaimable: r2(r.totals.vatReclaimable) },
+        buckets: { full: b("full"), partial: b("partial"), none: b("none"), untreated: b("untreated") },
+        byRule: r.byRule.map((x) => ({ rule: x.rule, label: lbl(x.rule), count: x.n, gross: r2(x.gross), deductible: r2(x.deductible), vatReclaimable: r2(x.vatReclaimable) })),
+        ceilings: r.caps.map((c) => ({ rule: c.rule, label: lbl(c.rule), per: c.per, amount: c.amount, used: r2(c.used), exhausted: c.over })),
+        biggestLosses: lost.slice(0, 10).map((x) => ({ id: x.id, date: x.date, desc: x.desc, gross: r2(x.gross), deductible: r2(x.deductible), rule: x.rule ?? null })),
+        missingReceipts: { count: miss.length, deductible: r2(miss.reduce((s, x) => s + x.deductible, 0)) },
+        leftOnTheTable: { suggestions: sg.length, transactions: sg.reduce((s, x) => s + x.ids.length, 0), potentialDeduction: r2(uncl.reduce((s, x) => s + (x.deductible ?? 0), 0)) },
+        moves: relevantMoves(table.moves, inp.type, new Set([...r.byRule.map((x) => x.rule), ...sg.map((x) => x.rule)])).relevant.map((m) => ({ id: m.id, title: m.title.en, effect: m.effect })),
+        disclaimer: table.disclaimer,
+      };
+    }),
+});
+
+const suggest_tax_tags = defineTool({
+  name: "suggest_tax_tags",
+  title: { en: "Suggest tax tags", he: "הצעות לתיוג מס" },
+  description:
+    "Untagged transactions whose text matches a deduction rule, grouped by rule, with the money at stake: `expense` = already counted as an expense but with no tax meaning yet (tagging can lower an over-claim, e.g. café coffee is 0% in Israel); `uncategorized` = an outflow with no ledger account that looks deductible (money not claimed yet). Apply with apply_tax_tag using the ids and rule. Suggestions are keyword matches: read the rule's conditions before applying.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    suggestions: Schema.Array(
+      Schema.Struct({
+        rule: S,
+        label: S,
+        kind: S,
+        percent: opt(N),
+        count: I,
+        ids: Schema.Array(S),
+        gross: N,
+        deductible: opt(N),
+        confidence: S,
+        unverified: B,
+        existingTag: opt(S),
+      }),
+    ),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, table } = yield* dedCtx(e, a.year);
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        suggestions: suggestTags(inp).map((s) => {
+          const r = table.rules.find((x) => x.id === s.rule)!;
+          return {
+            rule: s.rule,
+            label: r.label.en,
+            kind: s.kind,
+            percent: r.incomeTaxPct,
+            count: s.ids.length,
+            ids: s.ids.slice(0, 100),
+            gross: r2(s.gross),
+            deductible: s.deductible === null ? null : r2(s.deductible),
+            confidence: r.confidence,
+            unverified: (r.unverified?.length ?? 0) > 0,
+            existingTag: inp.tags.tags.find((g) => g.tax?.rule === s.rule)?.id ?? null,
+          };
+        }),
+      };
+    }),
+});
+
+/** The tag a call names (id or name, any case) with the rule/pct the call gives it, else a new one when the call carries them. */
+const tagFor = (d: TagsDoc, name: string, rule: string | undefined, pct: number | undefined, rules: readonly DeductionRule[], type: string) => {
+  const key = name.trim().toLowerCase(),
+    found = d.tags.find((g) => g.id === name || g.name.trim().toLowerCase() === key),
+    r = rule ? rules.find((x) => x.id === rule) : undefined;
+  if (rule && (!r || !taggable(r, type))) return fail(`Rule ${repr(rule)} does not exist or does not apply to ${type}; see suggest_tax_tags / deduction_summary for rule ids`);
+  if (found) {
+    const was = found.tax;
+    if ((rule && was?.rule && was.rule !== rule) || (pct !== undefined && was?.pct !== undefined && was.pct !== pct))
+      return fail(`Tag ${repr(found.name)} already means ${was?.rule ?? "a business-use share"}${was?.pct !== undefined ? ` at ${was.pct}%` : ""}: change it in the app (Tags) or use another tag`);
+    const tax = { ...was, ...(rule ? { rule } : {}), ...(pct !== undefined ? { pct } : {}) };
+    return Effect.succeed({ doc: Object.keys(tax).length ? setTagTax(d, found.id, tax) : d, id: found.id, created: false });
+  }
+  if (!rule && pct === undefined) return fail(`No tag ${repr(name)}: pass \`rule\` (and optionally \`pct\`) to create it with a tax meaning`);
+  const made = createTag(d, name, undefined, { ...(rule ? { rule } : {}), ...(pct !== undefined ? { pct } : {}) });
+  return Effect.succeed({ doc: made, id: made.tags.at(-1)!.id, created: true });
+};
+const apply_tax_tag = defineTool({
+  name: "apply_tax_tag",
+  title: { en: "Apply tax tag", he: "החלת תג מס" },
+  description:
+    "WRITES: put a tag on transactions; the tag's tax meaning (a deduction rule id from suggest_tax_tags / deduction_summary, and optionally pct = business-use share 0-100) decides how much of each is deductible. `tag` is an existing tag's id or name, or a new name: a new tag is created with `rule`/`pct`. Does not change ledger accounts. Always needs the user's confirmation (see `confirm`).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: true },
+  input: input({
+    ids: Schema.Array(ID).check(Schema.isBetweenLength(1, 500)),
+    tag: S.check(Schema.isBetweenLength(1, 80)).annotate({ description: "Tag id or name (created when new and `rule` or `pct` is given)" }),
+    rule: Schema.optionalKey(S.check(Schema.isBetweenLength(1, 80)).annotate({ description: 'Deduction rule id, e.g. "il.refreshments" or "us.meals"' })),
+    pct: Schema.optionalKey(N.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({ description: "Business-use share in percent; multiplies the rule's own deductible share" })),
+    confirm: CONFIRM,
+  }),
+  output: Schema.Struct({ tag: Schema.Struct({ id: S, name: S, rule: opt(S), pct: opt(N) }), created: B, tagged: I }),
+  confirm: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        ts = yield* ledgerOf(e);
+      for (const i of a.ids) if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      return `Tag ${a.ids.length} transaction${a.ids.length === 1 ? "" : "s"} “${a.tag}”${a.rule ? ` (tax rule ${a.rule}${a.pct !== undefined ? `, ${a.pct}% business use` : ""})` : ""}?`;
+    }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        p = packFor(e.meta, new Date().getFullYear());
+      const ts = yield* ledgerOf(e);
+      for (const i of a.ids) if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      const d = yield* docOf<TagsDoc>(e, "tags", emptyTags());
+      const made = yield* tagFor(d, a.tag, a.rule, a.pct, p?.table.rules ?? [], p?.type ?? "");
+      yield* putDoc(e, "tags", setTag(made.doc, a.ids, made.id, true));
+      const g = made.doc.tags.find((x) => x.id === made.id)!;
+      return { tag: { id: g.id, name: g.name, rule: g.tax?.rule ?? null, pct: g.tax?.pct ?? null }, created: made.created, tagged: a.ids.length };
+    }),
+});
+
 // ---------- bank connections (status and sync only: credentials are entered in the app, never here) ----------
 const locked = () => new ToolError({ message: "unlock OpenBooks in the app first" });
 const statusOf = (e: Entity) => connectorStatus(e.id);
@@ -1012,6 +1244,9 @@ export const tools: readonly Tool[] = [
   list_bills,
   draft_bill,
   tax_summary,
+  deduction_summary,
+  suggest_tax_tags,
+  apply_tax_tag,
   bank_status,
   bank_sync,
 ];

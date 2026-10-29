@@ -129,7 +129,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(18);
+    expect(Object.keys(tools)).toHaveLength(21);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -264,6 +264,25 @@ describe("openbooks mcp (stdio)", () => {
     const il = await s.tool("tax_summary", { entity: "zz-il", year: 2026 });
     expect(il).toMatchObject({ turnover: 10000, taxable: 7000, grossTax: 700, credits: 700, due: 0 });
 
+    // deductions: a tag carries a tax rule; apply_tax_tag needs the user's yes; the summary counts the tagged expense by that rule
+    const dedTx = host[0]!.id;
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Cloud", rule: "us.software" }, false)).toContain("confirm: true");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Cloud", rule: "us.software", confirm: true })).toEqual({
+      tag: { id: "cloud", name: "Cloud", rule: "us.software", pct: null },
+      created: true,
+      tagged: 1,
+    });
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "cloud", rule: "us.meals", confirm: true }, false)).toContain("already means us.software");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Nope", confirm: true }, false)).toContain("pass `rule`");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "X", rule: "il.gifts", confirm: true }, false)).toContain("does not exist or does not apply");
+    expect((await s.tool("list_transactions", { search: "cloud" })).transactions.find((t: J) => t.id === dedTx).tags).toEqual(["cloud"]);
+    const ded = await s.tool("deduction_summary", { year: 2026 });
+    expect(ded).toMatchObject({ businessType: "llc-disregarded", taxEffect: false, totals: { gross: 60, deductible: 60, nonDeductible: 0 }, buckets: { full: { count: 1 } } }); // the tagged 20, a second Cloud Host and a journal line
+    expect(ded.note).toContain("no US trade");
+    expect(ded.byRule).toEqual([{ rule: "us.software", label: "Software subscriptions / SaaS / cloud hosting", count: 1, gross: 20, deductible: 20, vatReclaimable: 0 }]);
+    expect(ded.missingReceipts).toEqual({ count: 3, deductible: 60 });
+    expect((await s.tool("suggest_tax_tags", { year: 2026 })).suggestions).toBeInstanceOf(Array);
+
     expect((await s.tool("bank_status")).connections).toEqual([]);
     expect(await s.tool("bank_sync", {}, false)).toContain("No connected bank");
     expect(await s.tool("bank_sync", { provider: "hapoalim:2" }, false)).toContain("No connected bank");
@@ -357,7 +376,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(18);
+    expect(r!.result.tools).toHaveLength(21);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -394,7 +413,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(18);
+      expect((await c.listTools()).tools).toHaveLength(21);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };
