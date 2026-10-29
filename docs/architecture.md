@@ -177,7 +177,7 @@ One definition per tool drives MCP stdio, MCP HTTP (`/mcp`), the in-app AI and �
 ```ts
 // packages/tools/src/registry.ts
 export interface Tool<I extends Schema.Top, O extends Schema.Top> {
-  name: string; // snake_case, the MCP name (18 today: list_entities … bank_sync)
+  name: string; // snake_case, the MCP name (19 today: list_entities … bank_sync)
   title: { en: string; he: string };
   description: string; // for models; English
   input: I; // Effect Schema, the only definition of the arguments

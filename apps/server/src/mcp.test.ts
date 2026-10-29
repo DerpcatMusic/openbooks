@@ -129,7 +129,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(18);
+    expect(Object.keys(tools)).toHaveLength(19);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -257,6 +257,10 @@ describe("openbooks mcp (stdio)", () => {
     const bs = (await s.tool("list_bills")).bills;
     expect(bs).toHaveLength(2);
     expect(bs[0]).toMatchObject({ number: "BILL-0002", vendorName: "New Vendor", total: 5, state: "draft", amountDue: 0 }); // newest first
+    const ag = await s.tool("aging_report", { type: "payable", as_of: "2026-06-30" });
+    expect(ag.totals).toMatchObject({ total: 0, documents: 0, percents: null }); // drafts are not owed yet
+    expect(ag.buckets.map((b: J) => b.label)).toEqual(["current", "1-30", "31-60", "61-90", "91+"]);
+    expect(await s.tool("aging_report", { type: "receivable", as_of: "2026-02-30" }, false)).toContain("as_of");
 
     const us = await s.tool("tax_summary", { year: 2026 });
     expect(us.ownerContributions).toEqual({ count: 2, total: 510 }); // 500 wire + 10 journal
@@ -357,7 +361,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(18);
+    expect(r!.result.tools).toHaveLength(19);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -394,7 +398,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(18);
+      expect((await c.listTools()).tools).toHaveLength(19);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };

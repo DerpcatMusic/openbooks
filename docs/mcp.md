@@ -65,8 +65,9 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `list_rules` / `set_rules` | Categorization rules (`set_rules` **writes**, replacing all rules) |
 | `suggest_category` | Likely ledger accounts for a transaction |
 | `add_journal_entry` | **Writes.** A balanced manual journal entry |
-| `list_invoices` / `create_invoice` | Invoices; `create_invoice` **writes** a draft (never numbered or issued) |
-| `list_bills` / `draft_bill` | Bills payable (what you owe vendors); `draft_bill` **writes** a draft (never approved or paid) |
+| `list_invoices` / `create_invoice` | Invoices with total (VAT included), amount due and state (draft, unpaid, partial, overdue, paid); `create_invoice` **writes** a draft (never numbered or issued) |
+| `list_bills` / `draft_bill` | Bills payable (what you owe vendors) with amount paid and due; a bill can be paid in part by several payments. `draft_bill` **writes** a draft (never approved or paid) |
+| `aging_report` | Accounts receivable (issued invoices) or payable (approved bills) aged by due date as of a day: current, 1-30, 31-60, 61-90, 91+ days past due, per customer or vendor, with totals and shares |
 | `tax_summary` | Israeli osek zair estimate, or US LLC Form 5472 / 1120 checklist |
 | `bank_status` / `bank_sync` | Bank connection status; `bank_sync` **writes** new statements from connected banks (the only tool that reaches the internet) |
 
