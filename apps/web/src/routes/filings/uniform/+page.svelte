@@ -71,7 +71,7 @@
             <div><dt class="text-[12px] text-sub"><Badge size="sm">{k}</Badge> {t(`uniform.rec.${k}`)}</dt><dd class="num mt-1 text-[18px]">{n}</dd></div>
           {/each}
         </dl>
-        {#each out.notes.slice(0, 6) as n (n)}<p class="mt-2 text-[13px] text-warn" dir="auto">{n}</p>{/each}
+        {#each out.notes.slice(0, 6) as n, i (i)}<p class="mt-2 text-[13px] text-warn" dir="auto">{t(`uniform.note.${n.code}`, { n: n.n ?? 0, ref: n.ref ?? "" })}</p>{/each}
         {#if out.notes.length > 6}<p class="mt-2 text-[13px] text-sub">{t("uniform.moreNotes", { n: out.notes.length - 6 })}</p>{/if}
       </Card>
     {/if}

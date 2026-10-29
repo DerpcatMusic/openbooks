@@ -115,21 +115,27 @@ export function parsePcn874(text: string): Pcn874Parsed {
   return { header, records, closingId: x.slice(1) };
 }
 
+/** A consistency problem: a code (the UI translates `vat.check.<code>`) and the header figure `a` against what the records add up to, `b`. */
+export interface Pcn874Problem {
+  code: "vatSales" | "salesRecords" | "inputRecords" | "inputVat" | "payable" | "closingId";
+  a?: number;
+  b?: number;
+}
 /** Consistency the Tax Authority's simulator checks: header totals equal the records' sums, counts match. Returns problems (empty = consistent). */
-export function checkPcn874(text: string): string[] {
+export function checkPcn874(text: string): Pcn874Problem[] {
   const f = parsePcn874(text),
     h = f.header,
-    bad: string[] = [];
+    bad: Pcn874Problem[] = [];
   const sales = f.records.filter((r) => "SLMYI".includes(r.type)),
     ins = f.records.filter((r) => !"SLMYI".includes(r.type));
   const signedVat = (r: (typeof f.records)[number]) => (r.net < 0 ? -r.vat : r.vat);
   const vatSales = sales.reduce((a, r) => a + signedVat(r), 0);
-  if (vatSales !== h.outputVat) bad.push(`VAT on sales ${h.outputVat} != records ${vatSales}`);
-  if (sales.length !== h.salesRecords) bad.push(`sales records ${h.salesRecords} != ${sales.length}`);
-  if (ins.length !== h.inputRecords) bad.push(`input records ${h.inputRecords} != ${ins.length}`);
+  if (vatSales !== h.outputVat) bad.push({ code: "vatSales", a: h.outputVat, b: vatSales });
+  if (sales.length !== h.salesRecords) bad.push({ code: "salesRecords", a: h.salesRecords, b: sales.length });
+  if (ins.length !== h.inputRecords) bad.push({ code: "inputRecords", a: h.inputRecords, b: ins.length });
   const inVat = ins.reduce((a, r) => a + signedVat(r), 0);
-  if (inVat !== h.otherInputsVat + h.equipmentVat) bad.push(`input VAT ${h.otherInputsVat + h.equipmentVat} != records ${inVat}`);
-  if (h.payable !== h.outputVat - h.otherInputsVat - h.equipmentVat) bad.push("payable != output - inputs");
-  if (f.closingId !== h.vatId) bad.push("closing id differs from header id");
+  if (inVat !== h.otherInputsVat + h.equipmentVat) bad.push({ code: "inputVat", a: h.otherInputsVat + h.equipmentVat, b: inVat });
+  if (h.payable !== h.outputVat - h.otherInputsVat - h.equipmentVat) bad.push({ code: "payable", a: h.payable, b: h.outputVat - h.otherInputsVat - h.equipmentVat });
+  if (f.closingId !== h.vatId) bad.push({ code: "closingId" });
   return bad;
 }

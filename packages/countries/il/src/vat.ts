@@ -106,6 +106,9 @@ export interface VatLine {
   /** An input that is a fixed asset. */
   equipment: boolean;
   label: string;
+  /** The sale document's number (or id), and whether it is a receipt: what the UI needs to write the label in its language (`label` is English). */
+  doc?: string;
+  receipt?: boolean;
   /** Ids of the documents / transactions behind the line. */
   src: string[];
 }
@@ -113,7 +116,10 @@ export interface VatIssue {
   level: "error" | "warn";
   /** Translatable key vat.issue.<code>. */
   code: string;
+  /** The document's number (or id), the supplier's name: a value, never a sentence. */
   ref?: string;
+  /** `ref` is a receipt's number: the UI writes "receipt N" in its own language. */
+  receipt?: boolean;
   v?: number;
 }
 export interface VatTotals {
@@ -162,12 +168,14 @@ export function vatReport(inp: VatReportInput): VatReport {
     if (d.status === "draft" || !inPeriod(d.issued)) continue;
     const counts = d.kind === "tax" || (d.kind === "receipt" && d.refKind !== "tax");
     if (!counts) continue;
-    const label = `${d.kind === "tax" ? "" : "receipt "}${d.number ?? d.id}`;
+    const doc = d.number ?? d.id,
+      receipt = d.kind !== "tax",
+      label = `${receipt ? "receipt " : ""}${doc}`;
     let net = (d.items ?? []).reduce((a, i) => a + (+(i.qty as number) || 0) * (+(i.price as number) || 0), 0);
     if (d.currency && d.currency !== base) {
       const f = inp.fx?.(d.currency, d.issued);
       if (!f) {
-        issues.push({ level: "error", code: "noRate", ref: label });
+        issues.push({ level: "error", code: "noRate", ref: doc, receipt });
         continue;
       }
       net *= f;
@@ -179,11 +187,11 @@ export function vatReport(inp: VatReportInput): VatReport {
       id = digits(d.customerVatId),
       absNet = Math.abs(net);
     if (!d.number) issues.push({ level: "error", code: "noNumber", ref: d.id });
-    if (id && !validVatId(id)) issues.push({ level: "warn", code: "badCustomerId", ref: label });
-    if (!id && absNet > IDENTIFY_ABOVE && !d.noVat) issues.push({ level: "error", code: "customerIdNeeded", ref: label, v: IDENTIFY_ABOVE });
+    if (id && !validVatId(id)) issues.push({ level: "warn", code: "badCustomerId", ref: doc, receipt });
+    if (!id && absNet > IDENTIFY_ABOVE && !d.noVat) issues.push({ level: "error", code: "customerIdNeeded", ref: doc, receipt, v: IDENTIFY_ABOVE });
     if (taxable && absNet >= allocationThreshold(d.issued) && !digits(d.alloc))
-      issues.push({ level: "warn", code: "allocationNeeded", ref: label, v: allocationThreshold(d.issued) });
-    const common = { side: "sale" as const, group: "0000", alloc: digits(d.alloc).slice(-9), taxable, equipment: false, label, src: [d.id] };
+      issues.push({ level: "warn", code: "allocationNeeded", ref: doc, receipt, v: allocationThreshold(d.issued) });
+    const common = { side: "sale" as const, group: "0000", alloc: digits(d.alloc).slice(-9), taxable, equipment: false, label, doc, receipt, src: [d.id] };
     if (d.noVat && !id) {
       // Export of services / goods: counterparty 999999999 (spec note D), no VAT
       lines.push({ ...common, type: "Y", party: "999999999", date: d.issued, ref: refOf(d.number), vat: 0, net: nShekel });

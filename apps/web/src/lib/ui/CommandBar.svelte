@@ -27,6 +27,7 @@
   import Button from "./Button.svelte";
   import type { IconName } from "./icons.ts";
   import { navKey } from "../ustax/books.ts";
+  import { vatBooks } from "../filings.svelte.ts";
 
   const uid = $props.id();
   const L = (key: string, vars?: Record<string, string | number>): Label => ({ en: translate(DICTS, "en", key, vars), he: translate(DICTS, "he", key, vars) });
@@ -83,7 +84,9 @@
       ["/connections", "nav.connections", "wallet"],
       ...(tax
         ? ([
+            ["/filings", "nav.filings", "calendar"],
             us ? ["/tax/us", navKey(), "form"] : ["/tax/il", "nav.form1301", "form"],
+            ...(us ? [] : ([...(vatBooks() ? [["/filings/vat", "filings.open.vat", "file"]] : []), ["/filings/advances", "adv.title", "wallet"], ["/filings/uniform", "uniform.title", "download"]] as [string, string, IconName][])),
             ["/planner", "nav.planner", "sparkle"],
             ["/taxximizer", "nav.taxximizer", "shield"],
             ["/trips", "nav.trips", "calendar"],

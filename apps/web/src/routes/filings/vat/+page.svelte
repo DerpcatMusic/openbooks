@@ -6,7 +6,7 @@
   import { checkPcn874, inputRows, pcn874, vatPeriods, type VatLine } from "@openbooks/country-il";
   import { S, bizType, mdy, toast } from "#lib/stores/books.svelte.ts";
   import { goto } from "#lib/nav.ts";
-  import { t } from "#lib/i18n.svelte.ts";
+  import { bidi, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, EmptyState, Input, Money, PageHeader, Select, Table } from "#lib/ui/index.ts";
   import type { Column } from "#lib/ui/index.ts";
   import { download, il, patchIl, vatBooks, vatCtx, vatFor } from "#lib/filings.svelte.ts";
@@ -32,7 +32,7 @@
       const text = pcn874({ vatId: s.vatId, report: r, created: todayIso });
       return { text, problems: checkPcn874(text) };
     } catch (e) {
-      return { text: "", problems: [String((e as Error).message)] };
+      return { text: "", problems: [], error: String((e as Error).message) };
     }
   });
   function get() {
@@ -124,9 +124,10 @@
           {:else}
             <div class="flex flex-wrap items-center gap-2">
               <Button variant="primary" icon="download" onclick={get} disabled={!file?.text}>{t("vat.download")}</Button>
-              {#if file && !file.problems.length}<Badge tone="good" icon="check">{t("vat.fileOk")}</Badge>{/if}
+              {#if file && !file.problems.length && !file.error}<Badge tone="good" icon="check">{t("vat.fileOk")}</Badge>{/if}
             </div>
-            {#each file?.problems ?? [] as x (x)}<p class="mt-2 text-[12px] text-bad">{x}</p>{/each}
+            {#each file?.problems ?? [] as x (x.code)}<p class="mt-2 text-[12px] text-bad">{t(`vat.check.${x.code}`, { a: x.a ?? 0, b: x.b ?? 0 })}</p>{/each}
+            {#if file?.error}<p class="mt-2 text-[12px] text-bad" dir="auto">{t("vat.check.build", { msg: bidi(file.error) })}</p>{/if}
             <p class="mt-3 text-[12px] text-faint">{t("vat.fileNote")}</p>
           {/if}
         </Card>
@@ -139,7 +140,7 @@
           {#each r.issues as i, n (n)}
             <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 text-[13px] sm:px-5">
               <Badge size="sm" tone={ISSUE_LEVEL[i.level]}>{t(`vat.level.${i.level}`)}</Badge>
-              <span class="min-w-0 flex-1" dir="auto">{t(`vat.issue.${i.code}`, { ref: i.ref ?? "", v: i.v ?? 0 })}</span>
+              <span class="min-w-0 flex-1" dir="auto">{t(`vat.issue.${i.code}`, { ref: i.receipt ? t("vat.receiptRef", { n: i.ref ?? "" }) : (i.ref ?? ""), v: i.v ?? 0 })}</span>
             </li>
           {/each}
         </ul>
@@ -160,7 +161,7 @@
       <Table columns={cols} rows={r.lines} key={(l, i) => `${l.src[0]}-${i}`} caption={t("vat.detail", { n: r.lines.length })} stack>
         {#snippet cell(l, c)}
           {#if c.key === "type"}<Badge size="sm" tone={l.side === "sale" ? "accent" : "neutral"}>{l.type}</Badge>
-          {:else if c.key === "label"}<span class="block truncate" dir="auto">{l.type === "L" ? t("vat.unidentified", { n: l.src.length }) : l.label}</span>
+          {:else if c.key === "label"}<span class="block truncate" dir="auto">{l.type === "L" ? t("vat.unidentified", { n: l.src.length }) : l.doc ? (l.receipt ? t("vat.receiptRef", { n: l.doc }) : l.doc) : l.label}</span>
           {:else if c.key === "party"}<span class="num">{+l.party ? l.party : "—"}</span>
           {:else if c.key === "date"}{l.date}
           {:else}<Money value={l[c.key as "net" | "vat"]} cents={false} />{/if}

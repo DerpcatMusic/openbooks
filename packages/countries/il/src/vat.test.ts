@@ -107,3 +107,19 @@ describe("PCN874 file", () => {
     expect(() => pcn874({ vatId: "x", report: report(), created: "2026-02-03" })).toThrow();
   });
 });
+
+describe("vat issues carry values, not English sentences", () => {
+  it("a receipt's issue names its number and flags the kind; the UI writes 'receipt N' itself", () => {
+    const r = vatReport({
+      period: jan,
+      docs: [doc({ id: "0009", kind: "receipt", customerVatId: "123456783" }), doc({ id: "0010", customerVatId: "123456783" })],
+      inputs: [],
+      rate: 0.18,
+    });
+    expect(r.issues.filter((i) => i.code === "badCustomerId")).toEqual([
+      { level: "warn", code: "badCustomerId", ref: "0009", receipt: true },
+      { level: "warn", code: "badCustomerId", ref: "0010", receipt: false },
+    ]);
+    expect(r.lines.map((l) => [l.doc, l.receipt])).toEqual([["0009", true], ["0010", false]]);
+  });
+});

@@ -77,3 +77,14 @@ describe("uniform structure", () => {
     expect(z.length).toBeGreaterThan(f.data.length);
   });
 });
+
+describe("notes and README", () => {
+  it("README is Hebrew and English; notes are codes with the value for the sentence", async () => {
+    const { noteText } = await import("./openfrmt.ts");
+    const f = uniformFiles(inp);
+    expect(f.readme).toContain("ייצוא מבנה אחיד");
+    expect(f.readme).toContain("uniform-structure export");
+    expect(noteText({ code: "noCustomerName", ref: "0042" })).toBe("document 0042 has no customer name");
+    expect(noteText({ code: "unbalanced", n: 2 })).toBe("2 journal entries do not balance");
+  });
+});

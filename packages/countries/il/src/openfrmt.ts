@@ -143,16 +143,24 @@ export interface UniformFiles {
   data: string;
   readme: string;
   counts: Record<string, number>;
-  /** Problems the exporter noticed (missing customer numbers...). */
-  notes: string[];
+  /** Problems the exporter noticed, as a code plus the value that goes in the sentence (the UI writes it in its language; see noteText for English). */
+  notes: UniformNote[];
 }
+export interface UniformNote {
+  code: "unbalanced" | "noCustomerName";
+  /** unbalanced: how many entries; noCustomerName: the document's number. */
+  n?: number;
+  ref?: string;
+}
+/** A note in English (the MCP tools and logs; the app translates `vat`-style from the code). */
+export const noteText = (n: UniformNote) => (n.code === "unbalanced" ? `${n.n} journal entries do not balance` : `document ${n.ref} has no customer name`);
 
 /** Builds INI.TXT (A000 + one A001 line per record type) and BKMVDATA.TXT (A100, B100, B110, C100, D110, D120, Z900). */
 export function uniformFiles(inp: UniformInput): UniformFiles {
   const b = inp.business,
     biz = digits(b.vatId),
     cur = inp.currency ?? "ILS",
-    notes: string[] = [],
+    notes: UniformNote[] = [],
     lines: { code: string; text: string }[] = [];
   let n = 0;
   /** Appends a record; its own sequence number ("record number in file", always at 4..13) is filled in here. */
@@ -201,7 +209,7 @@ export function uniformFiles(inp: UniformInput): UniformFiles {
   const unbalanced = new Map<number, number>();
   for (const m of movements) unbalanced.set(m.no, r2((unbalanced.get(m.no) ?? 0) + (m.debit ? m.amount : -m.amount)));
   const bad = [...unbalanced].filter(([, v]) => v !== 0).length;
-  if (bad) notes.push(`${bad} journal entries do not balance`);
+  if (bad) notes.push({ code: "unbalanced", n: bad });
 
   const lineNo = new Map<number, number>();
   add("A100", { 1102: biz, 1103: inp.primaryId, 1104: "&OF1.31&" });
@@ -251,7 +259,7 @@ export function uniformFiles(inp: UniformInput): UniformFiles {
       const k = ++link,
         net = r2(d.lines.reduce((a, x) => a + x.qty * x.price, 0)),
         vat = r2(net * d.vat);
-      if (!d.customerName) notes.push(`document ${d.number} has no customer name`);
+      if (!d.customerName) notes.push({ code: "noCustomerName", ref: d.number });
       add("C100", {
         1202: biz,
         1203: d.type,
@@ -356,15 +364,17 @@ export function uniformFiles(inp: UniformInput): UniformFiles {
   const ini = [a000, ...order.map((c) => record("A001", { 1050: c, 1051: counts[c] }))];
   const g = inp.generated.date.replaceAll("-", "");
   const dir = `OPENFRMT/${String(biz).padStart(9, "0").slice(0, 8)}.${g.slice(2, 4)}/${g.slice(4, 8)}${inp.generated.time.replace(":", "")}`;
+  // README.TXT travels with the files to an accountant or the Authority: Hebrew and English side by side (ISO-8859-8 holds both)
   const readme = [
-    `OpenBooks uniform-structure export (OPENFRMT 1.31)`,
-    `${b.name}  VAT/company no. ${b.vatId}`,
-    `Data range ${inp.from} to ${inp.to}, tax year ${inp.taxYear}`,
-    `Produced ${inp.generated.date} ${inp.generated.time}`,
+    `OpenBooks uniform-structure export (OPENFRMT 1.31)  |  ייצוא מבנה אחיד של OpenBooks (OPENFRMT 1.31)`,
+    `${b.name}  VAT/company no. ${b.vatId}  |  מספר עוסק/חברה ${b.vatId}`,
+    `Data range ${inp.from} to ${inp.to}, tax year ${inp.taxYear}  |  טווח נתונים ${inp.from} עד ${inp.to}, שנת מס ${inp.taxYear}`,
+    `Produced ${inp.generated.date} ${inp.generated.time}  |  הופק ${inp.generated.date} ${inp.generated.time}`,
     ``,
     ...order.map((c) => `${c}  ${counts[c]}`),
     ``,
     `OpenBooks is not a registered program of the Israel Tax Authority (software registration number 0).`,
+    `OpenBooks אינה תוכנה רשומה ברשות המסים (מספר רישום תוכנה 0).`,
   ];
   return { dir, ini: ini.join("\r\n") + "\r\n", data: data.join("\r\n") + "\r\n", readme: readme.join("\r\n") + "\r\n", counts: { ...counts, A100: 1 }, notes };
 }

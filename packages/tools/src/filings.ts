@@ -6,6 +6,7 @@ import { deductions, dueInYear, filingRows, readFilings, zip, type CountryPack, 
 import {
   ilSettings,
   iso88598,
+  noteText,
   periodOf,
   periodReport,
   uniformDocs,
@@ -226,7 +227,7 @@ export function filingTools(h: Helpers): Tool[] {
           bytes: bytes.length,
           folder: f.dir,
           counts: f.counts,
-          notes: f.notes,
+          notes: f.notes.map(noteText),
           registered: false,
           warning: "Not a registered program: software registration number 0. Validate with the Tax Authority's simulator.",
         };
