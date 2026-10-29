@@ -99,7 +99,11 @@ export async function startServer(o: ServerOptions) {
     if (p.endsWith("/")) p += "index.html";
     // SPA: unknown non-API paths get index.html (books.py answered 404; the SvelteKit fallback page needs this)
     const blob = file(p) ?? (p.startsWith("/api/") || p.startsWith("/files/") ? null : file("/index.html"));
-    return blob ? new Response(blob) : new Response("not found", { status: 404 });
+    if (!blob) return new Response("not found", { status: 404 });
+    // only the content-hashed files under _app/immutable may be cached: the page itself is always revalidated, so a rebuild shows on reload
+    return p.startsWith("/_app/immutable/")
+      ? new Response(blob, { headers: { "Cache-Control": "public, max-age=31536000, immutable" } })
+      : new Response(blob, { headers: { "Cache-Control": "no-cache" } });
   };
 
   const sendFile = (path: string, ctype = "application/pdf") =>
