@@ -2,7 +2,7 @@ import { checkDictionaries } from "@openbooks/core";
 import { expect, test } from "vite-plus/test";
 import en from "../locales/parts/3-3.en.ts";
 import he from "../locales/parts/3-3.he.ts";
-import { accrualRows, agingReport, billSources, invoiceSources, openAt, pl } from "@openbooks/core";
+import { accrualRows, agingReport, billSources, invoiceSources, openAt, payrollSources, pl, type PayrollRun } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { activeMonths, agingCsv, bsStatement, cfIndirect, cfStatement, ledgerGroups, plStatement, toCsv } from "./statements.ts";
 
@@ -228,4 +228,27 @@ test("P&L on accrual rows: the invoice is Jan revenue, the paying row leaves the
     expect(lines.find((l) => l.label === "reports.currentYear")!.v[0], iso).toBeCloseTo(pl(acc.filter((x) => x.date <= iso)).net, 2);
     expect(totals[0]!.assets).toBeCloseTo(totals[0]!.liab + totals[0]!.equity, 2);
   }
+});
+
+// ---------- payroll through the statements ----------
+const payRun: PayrollRun = { id: "r1", period: "2026-03", payDate: "2026-03-31", gross: 1000, employerTaxes: 100, employeeWithholding: 200, benefits: 50, net: 750, provider: "Gusto", payments: [{ id: "m1", txn: "netpay", amount: 750, date: "2026-03-31" }] };
+const payCash: Txn[] = [row("own2", "2026-01-02", 5000, "equity:contribution"), row("sale", "2026-02-01", 3000, "revenue:sales"), row("netpay", "2026-03-31", -750, "expense:payroll-wages")];
+const pr = payrollSources([payRun]);
+const payAcc = accrualRows(payCash, [], pr, { revenue: "revenue:sales", expense: "expense:other" });
+
+test("payroll on the accrual statements: a payroll liabilities line on the balance sheet, a line in the indirect cash flow, and the sheet balances", () => {
+  for (const iso of ["2026-02-28", "2026-03-31", "2026-04-30"]) {
+    const upto = payCash.filter((x) => x.date <= iso);
+    const bal = { "Mercury Checking": upto.reduce((a, x) => a + x.amount, 0) };
+    const { lines, totals } = bsStatement([{ iso, balances: bal, upto, open: { ar: openAt([], iso), ap: openAt([], iso), pr: openAt(pr, iso) } }], t, true);
+    expect(totals[0]!.assets).toBeCloseTo(totals[0]!.liab + totals[0]!.equity, 2);
+    expect(lines.find((l) => l.label === "gaps3.payroll.liabilities")?.v[0] ?? 0).toBe(iso === "2026-02-28" ? 0 : 350); // 1,100 cost - 750 net pay paid
+    expect(lines.find((l) => l.label === "reports.currentYear")!.v[0], iso).toBeCloseTo(pl(payAcc.filter((x) => x.date <= iso)).net, 2);
+  }
+  const cf = cfIndirect([payAcc.filter((x) => x.date >= "2026-03-01" && x.date <= "2026-03-31")], t, cat);
+  expect(cf.find((r) => r.label === "reports.netIncome")!.v).toEqual([-1100]); // wages and employer taxes on the pay date
+  expect(cf.find((r) => r.label === "gaps3.cf.dPr")!.v).toEqual([350]);
+  expect(cf.find((r) => r.label === "reports.cfNet.operating")!.v).toEqual([-750]); // only the net pay left the bank
+  expect(cf.at(-1)!.v).toEqual([-750]);
+  expect(cf.find((r) => r.label === "reports.cf.dAp")!.v).toEqual([0]);
 });
