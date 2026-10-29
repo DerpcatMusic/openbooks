@@ -15,11 +15,14 @@ import {
   ledger,
   movedBefore,
   splitProblem,
+  tripProblem,
   type BooksDoc,
   type Coa,
   type JournalProblem,
   type LedgerExtras,
   type SplitProblem,
+  type Trip,
+  type TripProblem,
 } from "@openbooks/core";
 import type { CsvProfile, EntityMeta, JournalEntry, RuleInput, SplitsDoc, StatementCheck, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
 import { Changes, type Topic } from "./changes.ts";
@@ -48,6 +51,15 @@ const SPLIT: Record<SplitProblem, string> = {
   amount: "has a line without an amount",
   account: "has a line without a usable ledger account (missing or archived)",
   sum: "lines do not add up to the transaction amount to the cent",
+};
+const TRIP: Record<TripProblem, string> = {
+  name: "needs a name",
+  dates: "needs real dates with the last day on or after the first",
+  country: "needs a destination country (two capital letters, e.g. DE)",
+  nights: "has more nights than days",
+  businessDays: "has more business days than days",
+  fx: "needs an exchange rate above zero",
+  carDays: "has more car days than days",
 };
 const BOOKS = {
   date: "The close date and the entries start date must be real dates (YYYY-MM-DD).",
@@ -225,6 +237,17 @@ export const makeBooks = (opts: BooksOptions) =>
             const next = (value ?? {}) as BooksDoc,
               p = checkBooks(getDoc<BooksDoc>(e, name, {}), next, localToday());
             return p ? bad(BOOKS[p]) : guardLedger(e, { from: next.startDate });
+          }
+          case "trips": {
+            // a trip changes what the Taxximizer counts, not the ledger: only its own shape is checked, and only for the trips that changed
+            const before = new Map(((getDoc<Trip[] | null>(e, name, []) ?? []) as Trip[]).map((x) => [x.id, x])),
+              list = Array.isArray(value) ? (value as Trip[]) : [];
+            for (const x of list)
+              if (canon(before.get(x.id)) !== canon(x)) {
+                const p = tripProblem(x);
+                if (p) return bad(`Trip ${x.name ? `“${x.name}” ` : ""}${TRIP[p]}.`);
+              }
+            return Effect.void;
           }
           case "reviewed": {
             if (!close) return Effect.void;

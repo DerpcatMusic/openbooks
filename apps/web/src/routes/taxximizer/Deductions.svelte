@@ -6,6 +6,7 @@
   import type { TxnDeduction } from "@openbooks/core";
   import { Badge, BarList, Button, Card, Checkbox, Icon, Table, type Column } from "#lib/ui/index.ts";
   import { t, bidi, lang } from "#lib/i18n.svelte.ts";
+  import { url } from "#lib/nav.ts";
   import { S, bizType, ent, family, fmt, mdy, setProfile, toast } from "#lib/stores/books.svelte.ts";
   import { applySuggestion, hasRules, movesFor, result, ruleName, ruleOf, suggestions, table } from "#lib/taxtags.svelte.ts";
   import { shaky } from "#lib/taxtags/shaky.ts";
@@ -148,9 +149,9 @@
                   <div class="text-[12px] text-sub [overflow-wrap:anywhere]" dir="auto">{sample(s)}</div>
                   <div class="text-[12px] text-sub">
                     {#if s.kind === "uncategorized"}
-                      {s.deductible === null ? t("taxtags.tx.needsShare") : t("taxtags.tx.upTo", { amount: fmt(s.deductible) })}
+                      {s.deductible === null ? t("taxtags.tx.needsShare") : t("taxtags.tx.upTo", { amount: fmt(s.deductible) })}{#if s.capped} <span class="text-warn">{t("trips.tx.capped")}</span>{/if}
                     {:else}
-                      {s.deductible === null ? t("taxtags.tx.needsShare") : t("taxtags.tx.counts", { deductible: fmt(s.deductible), gross: fmt(s.gross) })}
+                      {s.deductible === null ? t("taxtags.tx.needsShare") : t("taxtags.tx.counts", { deductible: fmt(s.deductible), gross: fmt(s.gross) })}{#if s.capped} <span class="text-warn">{t("trips.tx.capped")}</span>{/if}
                     {/if}
                   </div>
                 </div>
@@ -189,6 +190,27 @@
           <BarList items={res.byRule.map((x) => ({ key: x.rule, label: ruleName(x.rule), value: x.deductible }))} currency={cur} />
         </section>
       {/if}
+
+      <section aria-labelledby="ded-trips">
+        <div class="flex flex-wrap items-baseline gap-x-3">
+          <h3 id="ded-trips" class="text-[14px] text-ink">{t("trips.tx.title")}</h3>
+          <a class="text-[13px] text-accent-ink hover:underline" href={url("/trips")}>{res.trips.length ? t("trips.tx.manage") : t("trips.tx.add")}</a>
+        </div>
+        {#if res.trips.length}
+          <p class="text-[13px] text-sub">{t("trips.tx.sub")}</p>
+          <ul class="mt-2 divide-y divide-line">
+            {#each res.trips as r (r.trip.id)}
+              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5 text-[13px]">
+                <a class="min-w-0 flex-1 basis-44 text-ink [overflow-wrap:anywhere] hover:underline" href={url("/trips")} dir="auto">{r.trip.name}</a>
+                {#if r.fxMissing}<Badge size="sm" tone="warn">{t("trips.fxMissingShort")}</Badge>{/if}
+                {#if r.mixed}<Badge size="sm">{t("trips.mixed", { b: r.trip.businessDays, d: r.days })}</Badge>{/if}
+                <span class="num text-sub">{fmt(r.gross)}</span>
+                <span class="num text-ink">{fmt(r.deductible)}</span>
+              </li>
+            {/each}
+          </ul>
+        {:else}<p class="text-[13px] text-sub">{t("trips.tx.none")}</p>{/if}
+      </section>
 
       {#if res.caps.length}
         <section aria-labelledby="ded-caps">

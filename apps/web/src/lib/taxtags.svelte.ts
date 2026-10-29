@@ -14,12 +14,15 @@ import {
   type DeductionResult,
   type RuleOverrides,
   type TagSuggestion,
+  type Trip,
 } from "@openbooks/core";
 import type { DeductionRule, TagsDoc, TagTax } from "@openbooks/schema";
 import { lang, t } from "./i18n.svelte.ts";
 import { personNow } from "./person.ts";
 import { S, bizType, coa, doc, ent, family, pack, saveTags, tagsDoc, taxTable } from "./stores/books.svelte.ts";
 
+/** The business trips (doc "trips"). */
+export const trips = () => doc<Trip[]>("trips", []);
 /** The pack's table, when the open business has a type and its country ships rules. */
 export const table = () => (bizType() ? (pack()?.deductions ?? null) : null);
 export const hasRules = () => !!table();
@@ -52,6 +55,7 @@ function inputFor(y: number): DeductionInput | null {
     attachments: d.attachments,
     ...(vat ? { vatRate: vat } : {}),
     facts: { ...(car > 0 ? { carPrice: car } : {}), usTrade: d.profile.usTrade === true },
+    trips: $state.snapshot(doc<Trip[]>("trips", [])) as Trip[],
   };
 }
 

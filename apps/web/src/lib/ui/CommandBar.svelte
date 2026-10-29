@@ -77,6 +77,7 @@
       ["/accounts", "nav.accounts", "bank"],
       ["/reconciliation", "nav.reconciliation", "check"],
       ["/journal", "nav.journal", "file"],
+      ["/payroll", "nav.payroll", "users"],
       ["/documents", "nav.documents", "folder"],
       ["/connections", "nav.connections", "wallet"],
       ...(tax
@@ -84,6 +85,7 @@
             us ? ["/tax/us", "nav.form5472", "form"] : ["/tax/il", "nav.form1301", "form"],
             ["/planner", "nav.planner", "sparkle"],
             ["/taxximizer", "nav.taxximizer", "shield"],
+            ["/trips", "nav.trips", "calendar"],
             ["/you", "nav.you", "user"],
           ] as [string, string, IconName][])
         : []),

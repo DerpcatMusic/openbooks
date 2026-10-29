@@ -307,4 +307,23 @@ describe("Books", () => {
     expect(by("OpenAI")).toMatchObject({ category: "cogs:ai-models", why: "OpenAI", tags: ["big"] }); // "deleted" is not a tag any more
     expect(by("Stripe")).not.toHaveProperty("tags");
   });
+
+  test('doc "trips": a trip with impossible dates or counts is refused, a good one is kept; unchanged old trips never block a save', async () => {
+    const home = books();
+    const trip = { id: "t1", name: "Berlin", start: "2026-03-01", end: "2026-03-10", country: "DE", nights: 9, businessDays: 10, purpose: "Conference" };
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const bad = yield* Effect.flip(b.putDoc("acme", "trips", [{ ...trip, end: "2026-02-01" }]));
+        const nights = yield* Effect.flip(b.putDoc("acme", "trips", [{ ...trip, nights: 11 }]));
+        yield* b.putDoc("acme", "trips", [trip]);
+        yield* b.putDoc("acme", "trips", [trip, { ...trip, id: "t2", name: "Paris", country: "FR" }]);
+        return { bad, nights, saved: (yield* b.state("acme")).docs.trips };
+      }),
+    );
+    expect(r.bad).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("real dates") });
+    expect(r.nights).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("more nights than days") });
+    expect(r.saved).toHaveLength(2);
+  });
 });

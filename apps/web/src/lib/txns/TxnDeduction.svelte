@@ -4,10 +4,12 @@
   // uncategorised outflow that matches a rule offers "tag as this".
   import type { Txn } from "@openbooks/schema";
   import { Badge, Button } from "#lib/ui/index.ts";
+  import { url } from "#lib/nav.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { fmt, tagsDoc, toast } from "#lib/stores/books.svelte.ts";
   import { applySuggestion, hasRules, result, ruleName, ruleOf, suggestions } from "#lib/taxtags.svelte.ts";
   import { shaky } from "#lib/taxtags/shaky.ts";
+  import { whyText } from "#lib/taxtags/tripWhy.ts";
 
   let { x, onmanage }: { x: Txn; onmanage: () => void } = $props();
   const year = $derived(+x.date.slice(0, 4));
@@ -16,10 +18,7 @@
   const rule = $derived(ruleOf(d?.rule));
   const tagName = $derived(d?.tag ? (tagsDoc().tags.find((g) => g.id === d.tag)?.name ?? d.tag) : "");
   const hint = $derived(hasRules() ? suggestions(year).find((s) => s.ids.includes(x.id)) : undefined);
-  const MONEY = new Set(["capHit", "mobileLower", "carFormula"]),
-    PER = new Set(["capHit", "capUnchecked"]);
-  const why = (w: { k: string; v?: number; w?: string }) =>
-    t(`taxtags.why.${w.k}`, { v: w.v === undefined ? "" : MONEY.has(w.k) ? fmt(w.v) : String(w.v), w: PER.has(w.k) && w.w ? t(`taxtags.per.${w.w}`) : bidi(w.w ?? "") });
+  const why = (w: { k: string; v?: number; w?: string }) => whyText(w, fmt);
   const pctText = (n: number) => `${+n.toFixed(2)}%`;
 </script>
 
@@ -39,7 +38,8 @@
         {#if rule}<Badge><span dir="auto">{ruleName(rule)}</span></Badge>{/if}
         {#if rule && shaky(rule)}<Badge tone="warn" icon="alert">{t("taxtags.verify")}</Badge>{/if}
         {#if d.from === "tag"}<span class="text-[12px] text-sub">{t("taxtags.drawer.via.tag", { tag: bidi(tagName) })}</span>
-        {:else if d.from === "account"}<span class="text-[12px] text-sub">{t("taxtags.drawer.via.account")}</span>{/if}
+        {:else if d.from === "account"}<span class="text-[12px] text-sub">{t("taxtags.drawer.via.account")}</span>
+        {:else if d.from === "trip"}<a class="text-[12px] text-accent-ink hover:underline" href={url("/trips")}>{t("trips.drawer.via")}</a>{/if}
       </div>
       {#if !res?.taxEffect}
         <p class="mt-2 rounded-lg bg-fill px-3 py-2 text-[13px] text-sub">{t(`taxtags.noEffect.${res?.effect}`)}</p>
