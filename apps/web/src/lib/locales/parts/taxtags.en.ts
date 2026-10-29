@@ -111,6 +111,7 @@ export default {
   "taxtags.tx.noEciNote": "This LLC is treated as foreign-owned. Unless the owner is a US person or the LLC has a US trade or business, there is no US income tax to deduct against, so the numbers below are bookkeeping with $0 US effect.",
   "taxtags.tx.attest": "US-owned, or I have a US trade or business",
   "taxtags.tx.attestHint": "Tick this if the owner is a US citizen or resident (a sole proprietor reporting on Schedule C) or the income is effectively connected with the US (a US office, employees or agent). Then these deductions lower US tax.",
+  "taxtags.rule.enOnly": "Notes, conditions and proof lists are in English, as in the sources.",
   "taxtags.tx.usNotModeled": "Not modelled: self-employment tax, the QBI deduction, the standard or itemized deduction, state tax, and depreciation schedules (Section 179, bonus). The rules above decide each expense, not where it lands on Schedule C or the 1120.",
   "taxtags.tx.stat.gross": "Expenses",
   "taxtags.tx.stat.deductible": "Deductible",

@@ -31,19 +31,20 @@
     <p class="rounded-lg bg-warn/10 px-3 py-2 text-warn">{t("taxtags.unverified", { fields: rule.unverified.join(", ") })}</p>
   {/if}
   {#if rule.notes}<p class="text-ink-2" dir="auto" lang="en">{rule.notes}</p>{/if}
+  {#if lang() === "he" && (rule.notes || rule.conditions.length || rule.evidence.length)}<p class="text-[12px] text-faint">{t("taxtags.rule.enOnly")}</p>{/if}
   <details {open} class="group">
     <summary class="cursor-pointer text-sub hover:text-ink">{t("taxtags.rule.details")}</summary>
     <div class="mt-2 space-y-3">
       {#if rule.conditions.length}
         <div>
           <div class="text-sub">{t("taxtags.rule.conditions")}</div>
-          <ul class="mt-1 list-disc space-y-1 ps-5 text-ink-2" dir="auto">{#each rule.conditions as c (c)}<li>{c}</li>{/each}</ul>
+          <ul class="mt-1 list-disc space-y-1 ps-5 text-ink-2" dir="auto" lang="en">{#each rule.conditions as c (c)}<li>{c}</li>{/each}</ul>
         </div>
       {/if}
       {#if rule.evidence.length}
         <div>
           <div class="text-sub">{t("taxtags.rule.evidence")}</div>
-          <ul class="mt-1 list-disc space-y-1 ps-5 text-ink-2" dir="auto">{#each rule.evidence as c (c)}<li>{c}</li>{/each}</ul>
+          <ul class="mt-1 list-disc space-y-1 ps-5 text-ink-2" dir="auto" lang="en">{#each rule.evidence as c (c)}<li>{c}</li>{/each}</ul>
         </div>
       {/if}
     </div>
