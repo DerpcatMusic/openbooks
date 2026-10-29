@@ -12,6 +12,7 @@ import p38 from "./parts/3-8.he.ts";
 import p310 from "./parts/3-10.he.ts";
 import bills from "./parts/bills.he.ts";
 import cfa from "./parts/cfa.he.ts";
+import gaps from "./parts/gaps.he.ts";
 import recon from "./parts/recon.he.ts";
 import tags from "./parts/tags.he.ts";
 import taxtags from "./parts/taxtags.he.ts";
@@ -30,6 +31,7 @@ export default {
   ...p310,
   ...bills,
   ...cfa,
+  ...gaps,
   ...recon,
   ...tags,
   ...taxtags,

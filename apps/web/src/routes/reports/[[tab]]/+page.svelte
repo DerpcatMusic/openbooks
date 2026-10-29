@@ -1,22 +1,25 @@
 <script lang="ts">
-  // Reports (port of web/src/views/Reports.svelte): profit and loss, balance sheet (US-style books), cash flow, cash flow analysis, general ledger.
-  // /reports/<tab>. Every statement shows monthly columns, the period total, or this period against the prior one of the same
-  // length; lines drill into the transactions; CSV export and print.
+  // Reports (port of web/src/views/Reports.svelte): profit and loss, balance sheet (US-style books), cash flow, cash flow analysis, general ledger,
+  // and AR / AP aging. /reports/<tab>. Every statement shows monthly columns, the period total, or this period against the prior one of the same
+  // length (at most 5 years); lines drill into the transactions; CSV export and print. The aging tabs have their own as-of date and no period.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
-  import { pl, priorPeriod, withTag } from "@openbooks/core";
-  import { S, ent, isUS, period, periodLabel, periodTxns, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
+  import { agingReport, billSources, invoiceSources, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
+  import { S, doc, ent, isUS, period, periodLabel, periodTxns, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
-  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
+  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Switch, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
   import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
+  import Aging from "#lib/reports/Aging.svelte";
+  import type { Invoice } from "../../invoices/invoices.ts";
+  import type { Bill } from "../../bills/bills.ts";
   import { go } from "#lib/reports/go.ts";
-  import { activeMonths, bsStatement, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
+  import { activeMonths, agingCsv, bsStatement, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
-  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "cfa", "gl"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
+  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "cfa", "gl", "ar", "ap"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
   const tab = $derived(TABS.some((x) => x.key === page.params.tab) ? page.params.tab! : "pl");
   const pickTab = (k: string) => goto(`/reports/${k}`, { replace: true, reset: false });
 
@@ -31,6 +34,9 @@
 
   const p = $derived(period()),
     prior = $derived(priorPeriod(p));
+  const aging = $derived(tab === "ar" || tab === "ap");
+  // a range over 5 years isn't reported (the monthly columns alone would be 60+): say so instead
+  const tooLong = $derived(!aging && tab !== "cfa" && monthsIn(p).length > 60);
   // report on the activity of one tag: P&L, cash flow and the ledger use only its transactions (the balance sheet is of the whole books)
   let tagPick = $state("");
   const tags = $derived(tagsDoc().tags);
@@ -72,7 +78,35 @@
   // Balance sheet at the end of the period (and of the prior one)
   const endOf = (ym: string) => `${ym}-${String(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).padStart(2, "0")}`;
   const asOf = $derived(v === "compare" ? [endOf(p.to), endOf(prior.to)] : [endOf(p.to)]);
-  const bs = $derived(us ? bsStatement(asOf.map((iso) => ({ balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso) })), t) : null);
+  // open invoices (AR) and bills (AP): a memo under the cash-basis sheet, or part of it with the accrual switch
+  let accrual = $state(false);
+  const name = (docName: string) => (id: string | null) => (id ? (doc<{ id: string; name?: string }[]>(docName).find((x) => x.id === id)?.name ?? "") : "");
+  const arSrc = $derived(invoiceSources(doc<Invoice[]>("invoices"), name("customers"))),
+    apSrc = $derived(billSources(doc<Bill[]>("bills"), name("vendors")));
+  const bs = $derived(
+    us && tab === "bs" && !tooLong
+      ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso) } })), t, accrual)
+      : null,
+  );
+
+  // AR / AP aging: own as-of date (default today), periods, view, party filter
+  const todayIso = new Date().toLocaleDateString("sv");
+  let agAsOf = $state(todayIso),
+    agPeriods = $state<number | string>(3),
+    agView = $state("party"),
+    agParty = $state("");
+  const kind = $derived(tab === "ap" ? "ap" : "ar");
+  const agSrc = $derived(kind === "ap" ? apSrc : arSrc);
+  const agDate = $derived(/^\d{4}-\d{2}-\d{2}$/.test(agAsOf) ? agAsOf : todayIso);
+  const agFull = $derived(aging ? agingReport(agSrc, agDate, { periods: +agPeriods }) : null);
+  const ag = $derived(aging ? agingReport(agSrc, agDate, { periods: +agPeriods, ...(agParty ? { parties: [agParty === "~" ? null : agParty] } : {}) }) : null);
+  const agOptions = $derived([
+    { value: "", label: t(`aging.all.${kind}`) },
+    ...(agFull?.parties ?? []).map((x) => ({ value: x.party ?? "~", label: x.name || t(`aging.noParty.${kind}`) })),
+  ]);
+  $effect(() => {
+    if (agParty && !agOptions.some((o) => o.value === agParty)) agParty = ""; // the party no longer has anything open on this date
+  });
 
   // General ledger
   let open = $state<Record<string, boolean>>({});
@@ -82,8 +116,13 @@
   const drill = (l: Line) => l.key && go("transactions", l.key === "ask" ? "ask" : l.key.startsWith("type:") ? l.key : `cat:${l.key}`);
 
   function exportCsv() {
-    const name = (tabLabel: string) => `${ent().short ?? "books"} ${tabLabel} ${periodLabel(p)}`.replace(/[\\/:*?"<>|]+/g, "-");
+    const file = (tabLabel: string) => `${ent().short ?? "books"} ${tabLabel} ${periodLabel(p)}`;
     let csv: string;
+    if (aging && ag) {
+      const bucket = (i: number) => (i === 0 ? t("aging.current") : t("aging.days", { range: ag.buckets[i]!.label }));
+      csv = agingCsv(ag, agView === "source" ? "source" : "party", t, bucket, { party: t(`aging.party.${kind}`), ref: t(`aging.ref.${kind}`), none: t(`aging.noParty.${kind}`) });
+      return download(`${ent().short ?? "books"} ${t(`reports.tab.${kind}`)} ${agDate}`, csv);
+    }
     if (tab === "gl")
       csv = toCsvRows([
         [t("common.date"), t("common.description"), t("common.account"), t("common.ledgerAccount"), t("common.amount"), t("reports.balance")],
@@ -94,24 +133,27 @@
         tab === "bs" ? [t("common.account"), bs!.lines, asOf.map(mdy)] : tab === "cf" ? [t("reports.activity"), cfLines, cols.head] : [t("common.ledgerAccount"), plLines, cols.head];
       csv = toCsv([first, ...head], lines);
     }
+    download(file(TABS.find((x) => x.key === tab)!.label), csv);
+  }
+  function download(base: string, csv: string) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    a.download = `${name(TABS.find((x) => x.key === tab)!.label)}.csv`;
+    a.download = `${base.replace(/[\\/:*?"<>|]+/g, "-")}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   const pad = "px-3 first:ps-4 last:pe-4 sm:first:ps-5 sm:last:pe-5";
 </script>
 
-<PageHeader title={t("reports.title")} sub={t("reports.sub", { entity: bidi(ent().short ?? ""), period: periodLabel(p) })}>
+<PageHeader title={t("reports.title")} sub={aging ? t(`aging.title.${kind}`) : t("reports.sub", { entity: bidi(ent().short ?? ""), period: periodLabel(p) })}>
   {#snippet actions()}
     <div class="contents print:hidden">
       {#if tab !== "cfa"}
-        <PeriodPicker />
-        {#if tags.length && tab !== "bs"}
+        {#if !aging}<PeriodPicker />{/if}
+        {#if tags.length && tab !== "bs" && !aging}
           <Select variant="pill" icon="tag" label={t("tags.filter")} value={tag} onchange={(v) => (tagPick = v)} options={[{ value: "", label: t("tags.allTags") }, ...tags.map((g) => ({ value: g.id, label: g.name }))]} />
         {/if}
-        <Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>
+        {#if !tooLong}<Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>{/if}
       {/if}
       <Button icon="printer" onclick={() => print()}>{t("common.print")}</Button>
     </div>
@@ -120,7 +162,11 @@
 </PageHeader>
 
 <div class="px-4 pt-5 sm:px-8">
-  {#if tab === "cfa"}
+  {#if aging && ag}
+    <Aging {kind} report={ag} currency={cur} bind:asOf={agAsOf} bind:periods={agPeriods} bind:view={agView} bind:party={agParty} partyOptions={agOptions} />
+  {:else if tooLong}
+    <div class="panel"><EmptyState icon="calendar" title={t("reports.tooLong")} text={t("reports.tooLongHint")} /></div>
+  {:else if tab === "cfa"}
     <CashFlowAnalysis />
   {:else if tab !== "bs" && !ts.length && !priorTs.length}
     <div class="panel"><EmptyState icon="report" title={t("reports.empty")} text={t("reports.emptyHint")} /></div>
@@ -160,6 +206,7 @@
         <Stat {label} value={bs.totals[0]![k]} delta={v === "compare" ? change(bs.totals[0]![k], bs.totals[1]![k]) : null} invert={k === "liab"} currency={cur} size="md" />
       {/each}
       <span class="flex-1"></span>
+      <Switch label={t("reports.accrual")} description={t("reports.accrualHint")} bind:checked={accrual} class="max-w-xs print:hidden" />
       <Segmented value={v} onchange={(k) => (view = k as View)} items={VIEWS} label={t("reports.tab.bs")} class="print:hidden" />
     </section>
     <div class="panel mt-5 overflow-hidden">

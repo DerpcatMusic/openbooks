@@ -71,7 +71,7 @@ export default {
   "invoices.openTxn": "פתיחת התנועה",
   "invoices.receiptFromBill": "הפקת קבלה",
   "invoices.markUnpaid": "סימון כלא שולם",
-  "invoices.candHint": "תקבולים מאז {date}: קודם לפי סכום (עד 1% הפרש), אחר כך לפי שם המשלם.",
+  "invoices.candHint": "תקבולים מאז {date}: התאמה מדויקת קודם, אחר כך סכום (עד 1% הפרש), אחר כך שם המשלם.",
   "invoices.match.amount": "סכום",
   "invoices.match.payer": "משלם",
   "invoices.noCands": "אין תקבולים אחרי תאריך ההנפקה.",

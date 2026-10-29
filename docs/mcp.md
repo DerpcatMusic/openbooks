@@ -65,8 +65,9 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `list_rules` / `set_rules` | Categorization rules (`set_rules` **writes**, replacing all rules) |
 | `suggest_category` | Likely ledger accounts for a transaction |
 | `add_journal_entry` | **Writes.** A balanced manual journal entry |
-| `list_invoices` / `create_invoice` | Invoices; `create_invoice` **writes** a draft (never numbered or issued) |
-| `list_bills` / `draft_bill` | Bills payable (what you owe vendors); `draft_bill` **writes** a draft (never approved or paid) |
+| `list_invoices` / `create_invoice` | Invoices with total (VAT included), amount due and state (draft, unpaid, partial, overdue, paid); `create_invoice` **writes** a draft (never numbered or issued) |
+| `list_bills` / `draft_bill` | Bills payable (what you owe vendors) with amount paid and due; a bill can be paid in part by several payments. `draft_bill` **writes** a draft (never approved or paid) |
+| `aging_report` | Accounts receivable (issued invoices) or payable (approved bills) aged by due date as of a day: current, 1-30, 31-60, 61-90, 91+ days past due, per customer or vendor, with totals and shares |
 | `deduction_summary` | What is deductible for a year: expense total vs deductible, full / partial / zero buckets, caps used, receipts missing, "left on the table", and the tax moves that fit the books. From tags and account defaults, using the country's sourced rule table; each rule says how firm it is |
 | `suggest_tax_tags` | Untagged expenses and uncategorized outflows whose text matches a deduction rule, grouped by rule with the money at stake. Keyword matches: read the rule's conditions first |
 | `apply_tax_tag` | **Writes.** Tag transactions with a tag whose tax meaning is a deduction rule (and optionally a business-use %). Creates the tag if new. Always needs the user's yes. Never changes ledger accounts |

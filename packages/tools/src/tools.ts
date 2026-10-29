@@ -1,12 +1,15 @@
-// The 16 tools of mcp_server.py (+ list_bills / draft_bill, + the deduction tools), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
+// The 16 tools of mcp_server.py (+ list_bills / draft_bill / aging_report, + the deduction and split tools), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
 // against the Python server in apps/server/src/mcp.test.ts). Amounts round like Python (pyRound); labels are the English chart
 // of accounts, as before: tool results feed models and MCP clients, the UI translates on its own.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  agingReport,
   balances as coreBalances,
   accountProblem,
   baseId,
+  billSources,
+  billTotal as coreBillTotal,
   chartOfAccounts,
   type Coa,
   cleanRule,
@@ -14,13 +17,18 @@ import {
   createTag,
   deductions,
   emptyTags,
+  displayStatus,
   group,
   haystack,
   inRange,
   cleanSplit,
+  invoiceSources,
+  invoiceTotal,
   isCard,
   isLegacy,
+  migrateBill,
   normalizeRule,
+  paidOf,
   payerOf,
   plOf,
   pyRound,
@@ -640,29 +648,41 @@ const add_journal_entry = defineTool({
 
 type Invoice = {
   id: string;
+  number?: string | null;
   customer?: string;
   items?: { qty?: unknown; price?: unknown }[];
+  vat?: number;
   status?: string;
   kind?: string;
   due?: string;
   issued?: string;
   created?: string;
+  payments?: { id: string; txn: string | null; amount: number; date: string }[];
+  paidDate?: string | null;
 };
 const num = (v: unknown) => {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
 };
-const invTotal = (inv: Invoice) => r2(sum((inv.items ?? []).map((i) => num(i.qty || 0) * num(i.price || 0))));
-const invStatus = (inv: Invoice, now: string) =>
-  inv.status === "draft" ? "draft" : inv.status === "paid" || inv.kind === "receipt" ? "paid" : inv.due && inv.due < now ? "overdue" : "unpaid";
+const invTotal = (inv: Invoice) => invoiceTotal(inv);
+/** Paid so far: the payments applied, else the whole total when it was marked paid the old way. */
+const invPaid = (inv: Invoice) => (inv.payments?.length ? paidOf(inv.payments) : inv.status === "paid" ? invTotal(inv) : 0);
+/** draft | unpaid | partial | overdue | paid: the Invoices page's status (partly paid wins over overdue). A receipt documents a payment. */
+const invStatus = (inv: Invoice, now: string) => {
+  if (inv.status === "draft") return "draft";
+  if (inv.kind === "receipt") return "paid";
+  const s = displayStatus(inv.status ?? "open", invTotal(inv), invPaid(inv), inv.due ?? null, now);
+  return s === "open" ? "unpaid" : s;
+};
 
 const list_invoices = defineTool({
   name: "list_invoices",
   title: { en: "List invoices", he: "רשימת חשבוניות" },
-  description: "Invoices (US) or bills/receipts (Israel) with customer name, total and state (draft, unpaid, overdue, paid).",
+  description:
+    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid). Payments can be applied in part: partial = some paid, some owed.",
   kind: "read",
   input: input({}),
-  output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, state: S })) }),
+  output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, amountDue: N, state: S })) }),
   run: (a, ctx) =>
     Effect.gen(function* () {
       const e = yield* entityOf(a, ctx);
@@ -676,7 +696,17 @@ const list_invoices = defineTool({
       });
       return {
         currency: e.meta.currency ?? null,
-        invoices: invs.map((i) => ({ ...i, customerName: cust.get(i.customer ?? "") ?? null, total: invTotal(i), state: invStatus(i, now) })),
+        invoices: invs.map((i) => {
+          const state = invStatus(i, now),
+            total = invTotal(i);
+          return {
+            ...i,
+            customerName: cust.get(i.customer ?? "") ?? null,
+            total,
+            amountDue: state === "draft" || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
+            state,
+          };
+        }),
       };
     }),
 });
@@ -743,6 +773,8 @@ const create_invoice = defineTool({
 });
 
 // ---------- bills payable (docs "bills" + "vendors"; apps/web/src/routes/bills/bills.ts is the UI's copy of this logic) ----------
+// Stored status is draft | open | cancelled and payments are applications ({ id, txn, amount, date }); paid, partial and overdue are derived.
+// Bills saved the old way (status paid | void, one paidTxn) are migrated on read by core's migrateBill.
 type Bill = {
   id: string;
   number?: string;
@@ -751,20 +783,26 @@ type Bill = {
   due?: string | null;
   lines?: { amount?: unknown }[];
   status?: string;
+  payments?: { id: string; txn: string | null; amount: number; date: string }[];
+  paidTxn?: string | null;
+  paidDate?: string | null;
   created?: string;
 };
-const billTotal = (b: Bill) => r2(sum((b.lines ?? []).map((l) => num(l.amount))));
-const billState = (b: Bill, now: string) => (b.status === "open" && b.due && b.due < now ? "overdue" : (b.status ?? "draft"));
+const billTotal = (b: Bill) => coreBillTotal({ lines: b.lines ?? [] });
+const readBill = (b: Bill) => migrateBill({ ...b, date: b.date ?? "" });
+const billPaid = (b: Bill) => paidOf(readBill(b).payments);
+const billState = (b: Bill, now: string) => displayStatus(readBill(b).status, billTotal(b), billPaid(b), b.due ?? null, now);
 
 const list_bills = defineTool({
   name: "list_bills",
   title: { en: "List bills", he: "רשימת חשבונות ספקים" },
-  description: "Bills you owe vendors (accounts payable) with vendor name, total, amount due and state (draft, open, overdue, paid, void).",
+  description:
+    "Bills you owe vendors (accounts payable) with vendor name, total, amount paid and due, and state (draft, open, partial, overdue, paid, cancelled). A bill can be paid by several payments; partial = some paid, some owed.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({
     ...CUR,
-    bills: Schema.Array(Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountDue: N, state: S })),
+    bills: Schema.Array(Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountPaid: N, amountDue: N, state: S })),
   }),
   run: (a, ctx) =>
     Effect.gen(function* () {
@@ -777,16 +815,19 @@ const list_bills = defineTool({
       return {
         currency: e.meta.currency ?? null,
         bills: bills.map((b) => {
-          const state = billState(b, now),
-            total = billTotal(b);
+          const m = readBill(b),
+            state = billState(b, now),
+            total = billTotal(b),
+            paid = billPaid(b);
           return {
-            ...b,
+            ...m,
             number: b.number ?? null,
             vendorName: vend.get(b.vendor ?? "") ?? null,
             date: b.date ?? null,
             due: b.due ?? null,
             total,
-            amountDue: state === "open" || state === "overdue" ? total : 0,
+            amountPaid: paid,
+            amountDue: m.status === "open" ? Math.max(0, r2(total - paid)) : 0,
             state,
           };
         }),
@@ -840,13 +881,81 @@ const draft_bill = defineTool({
         due,
         lines: lines.map((l) => ({ ...l, account: v.account ?? "" })),
         status: "draft",
-        paidTxn: null,
-        paidDate: null,
+        payments: [],
         memo: (a.memo ?? "").trim(),
         created: new Date().toISOString(),
       };
       yield* putDoc(e, "bills", [...bills, bill]);
       return { bill: { ...bill, vendorName: v.name ?? name, total: billTotal(bill) }, note: "Saved as a draft. Review and approve it in the app (Bills)." };
+    }),
+});
+
+const aging_report = defineTool({
+  name: "aging_report",
+  title: { en: "Aging report", he: "דוח גיול" },
+  description:
+    "Accounts receivable (issued invoices not yet paid) or accounts payable (approved bills not yet paid) aged by due date as of a day: current (not yet due), then 30-day buckets past due (1-30, 31-60, 61-90 by default) and an open-ended last one, per customer or vendor, with totals, the overdue sum and each bucket's share. A document without a due date ages from its issue date; payments made after the as-of day do not count.",
+  kind: "read",
+  input: input({
+    type: Schema.Literals(["receivable", "payable"]).annotate({ description: "receivable = invoices customers owe you; payable = bills you owe vendors" }),
+    as_of: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    periods: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 12 })).annotate({ default: 3, description: "Number of past-due buckets before the open-ended last one" })),
+    days: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 365 })).annotate({ default: 30, description: "Days per bucket" })),
+  }),
+  output: Schema.Struct({
+    ...CUR,
+    type: S,
+    asOf: S,
+    buckets: Schema.Array(Schema.Struct({ label: S, min: opt(N), max: opt(N) })),
+    parties: Schema.Array(Schema.Struct({ id: opt(S), name: opt(S), buckets: Schema.Array(N), overdue: N, total: N, documents: I, oldestDaysPastDue: I })),
+    documents: Schema.Array(
+      Schema.Struct({ id: S, party: opt(S), partyName: opt(S), number: opt(S), date: S, due: opt(S), total: N, outstanding: N, daysPastDue: I, bucket: S }),
+    ),
+    totals: Schema.Struct({ buckets: Schema.Array(N), percents: Schema.NullOr(Schema.Array(N)), overdue: N, total: N, documents: I, parties: I }),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const asOf = a.as_of ? yield* isoDate(a.as_of, "as_of") : today();
+      const receivable = a.type === "receivable";
+      const names = new Map(
+        (yield* docOf<{ id: string; name?: string }[]>(e, receivable ? "customers" : "vendors", [])).map((x) => [x.id, x.name ?? ""] as const),
+      );
+      const who = (id: string | null) => (id ? (names.get(id) ?? "") : "");
+      const sources = receivable
+        ? invoiceSources(yield* docOf<Invoice[]>(e, "invoices", []), who)
+        : billSources(yield* docOf<Bill[]>(e, "bills", []).pipe(Effect.map((bs) => bs.map((b) => ({ ...b, date: b.date ?? "" })))), who);
+      const r = agingReport(sources, asOf, { ...(a.periods ? { periods: a.periods } : {}), ...(a.days ? { days: a.days } : {}) });
+      const label = (i: number) => (i === 0 ? "current" : r.buckets[i]!.label);
+      const fin = (n: number) => (Number.isFinite(n) ? n : null);
+      return {
+        currency: e.meta.currency ?? null,
+        type: a.type,
+        asOf,
+        buckets: r.buckets.map((b) => ({ label: b.key === "current" ? "current" : b.label, min: fin(b.min), max: b.max })),
+        parties: r.parties.map((p) => ({
+          id: p.party,
+          name: p.name || null,
+          buckets: p.buckets,
+          overdue: p.overdue,
+          total: p.total,
+          documents: p.count,
+          oldestDaysPastDue: p.oldest,
+        })),
+        documents: r.sources.map((s) => ({
+          id: s.id,
+          party: s.party,
+          partyName: s.name || null,
+          number: s.ref || null,
+          date: s.date,
+          due: s.due,
+          total: s.gross,
+          outstanding: s.outstanding,
+          daysPastDue: Math.max(0, s.days),
+          bucket: label(s.bucket),
+        })),
+        totals: { buckets: r.totals.buckets, percents: r.totals.percents, overdue: r.totals.overdue, total: r.totals.total, documents: r.totals.count, parties: r.totals.parties },
+      };
     }),
 });
 
@@ -1318,6 +1427,7 @@ export const tools: readonly Tool[] = [
   create_invoice,
   list_bills,
   draft_bill,
+  aging_report,
   tax_summary,
   deduction_summary,
   suggest_tax_tags,

@@ -13,6 +13,7 @@ import p38 from "./parts/3-8.en.ts";
 import p310 from "./parts/3-10.en.ts";
 import bills from "./parts/bills.en.ts";
 import cfa from "./parts/cfa.en.ts";
+import gaps from "./parts/gaps.en.ts";
 import recon from "./parts/recon.en.ts";
 import tags from "./parts/tags.en.ts";
 import taxtags from "./parts/taxtags.en.ts";
@@ -31,6 +32,7 @@ export default {
   ...p310,
   ...bills,
   ...cfa,
+  ...gaps,
   ...recon,
   ...tags,
   ...taxtags,
