@@ -8,6 +8,7 @@ export interface Connection {
   type: string;
   connected: boolean;
   pending: boolean;
+  linkToken?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: unknown[];

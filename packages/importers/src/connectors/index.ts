@@ -20,15 +20,21 @@ export class ConnectorError extends Data.TaggedError("ConnectorError")<{ readonl
 const fail = (message: string) => new ConnectorError({ message });
 
 // ---------- where connections live: `secret` rows (storage) opened/sealed by the vault ----------
+/** A connect step 1 waiting for step 2: One Zero's login and SMS context, or Plaid's keys until the public token comes back. */
 export interface Pending {
-  email: string;
-  password: string;
-  otpContext: string;
+  email?: string;
+  password?: string;
+  otpContext?: string;
+  clientId?: string;
+  secret?: string;
+  env?: string;
 }
 /** One `secret` row as stored: {secret, pending, lastSync, lastError, accounts} in plaintext mode, or with `sealed` instead of secret/pending. */
 export interface Conn {
   secret?: Record<string, string>;
   pending?: Pending;
+  /** Plaid Link's token: short-lived and only useful in the local browser, so it stays unsealed. */
+  linkToken?: string;
   sealed?: unknown;
   lastSync?: string | null;
   lastError?: string | null;
@@ -294,7 +300,12 @@ export const plaid = (s: Record<string, string>, p: string, body: Json = {}) =>
       if (!r.ok) throw new HttpStatus(r.status, str(d.error_message || d.error_code));
       return d;
     },
-    catch: (x) => fail(x instanceof HttpStatus ? `Plaid ${x.code} on ${p}${x.detail ? `: ${x.detail.slice(0, 200)}` : ""}` : `Can't reach Plaid: ${(x as Error)?.message ?? "network error"}`),
+    catch: (x) =>
+      fail(
+        x instanceof HttpStatus
+          ? `Plaid ${x.code} on ${p}${x.detail ? `: ${x.detail.slice(0, 200)}` : ""}`
+          : `Can't reach Plaid: ${(x as Error)?.message ?? "network error"}`,
+      ),
   });
 
 export const plaidSync = (dir: string, s: Record<string, string>, file = "plaid-sync.json") =>
@@ -399,6 +410,7 @@ export interface Status {
   type: string;
   connected: boolean;
   pending: boolean;
+  linkToken?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: string[];
@@ -418,8 +430,9 @@ export const status = (e: string) =>
       out.push({
         provider: k,
         type: kind(k),
-        connected: !!c.secret,
-        pending: !!c.pending,
+        connected: !!c.secret && !c.linkToken,
+        pending: !!c.pending || !!c.linkToken, // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
+        linkToken: c.linkToken,
         lastSync: c.lastSync ?? null,
         lastError: c.lastError ?? null,
         accounts: c.accounts ?? [],
@@ -492,7 +505,7 @@ export const connect = (e: string, body: Body) =>
       const r = yield* scrape({ action: "verify", companyId: "oneZero", otpContext: pend.otpContext, otpCode: str(body.otpCode).trim() });
       const c = conns[p]!;
       delete c.pending;
-      Object.assign(c, { secret: { email: pend.email, password: pend.password, otpLongTermToken: r.otpLongTermToken ?? "" }, lastError: null });
+      Object.assign(c, { secret: { email: pend.email!, password: pend.password!, otpLongTermToken: r.otpLongTermToken ?? "" }, lastError: null });
     } else if (t === "onezero") {
       // One Zero step 1: sends the SMS
       const f = { email: field("email"), password: field("password"), phoneNumber: field("phoneNumber") };
@@ -500,6 +513,31 @@ export const connect = (e: string, body: Body) =>
       if (f.phoneNumber.startsWith("0")) f.phoneNumber = "+972" + f.phoneNumber.slice(1).replaceAll("-", ""); // 050-... -> +97250...
       const r = yield* scrape({ action: "trigger", companyId: "oneZero", phoneNumber: f.phoneNumber });
       conns[p] = { ...conns[p], pending: { email: f.email, password: f.password, otpContext: r.otpContext ?? "" } };
+      yield* save(e, conns);
+      return {} as Result;
+    } else if (t === "plaid" && body.publicToken) {
+      // Plaid step 2: the public token from Link becomes the access token; the keys leave pending for the secret
+      const k = conns[p]?.pending;
+      if (!k?.clientId || !k.secret || !k.env) return err("Start again: enter the Plaid keys first");
+      const d = yield* plaid({ clientId: k.clientId, secret: k.secret, env: k.env }, "/item/public_token/exchange", { public_token: str(body.publicToken) });
+      const c = conns[p]!;
+      delete c.pending;
+      delete c.linkToken;
+      Object.assign(c, { secret: { clientId: k.clientId, secret: k.secret, env: k.env, accessToken: str(d.access_token) }, lastError: null });
+    } else if (t === "plaid") {
+      // Plaid step 1: the keys buy a Link token the browser opens Plaid Link with; the keys wait as pending
+      const f = { clientId: field("clientId"), secret: field("secret"), env: field("env") };
+      if (!f.clientId || !f.secret) return err("Client ID and secret are required");
+      if (!PLAID_ENVS.has(f.env)) return err("Environment must be sandbox or production");
+      const d = yield* plaid(f, "/link/token/create", {
+        user: { client_user_id: "openbooks" },
+        client_name: "OpenBooks",
+        products: ["transactions"],
+        country_codes: ["US", "CA", "GB", "IE", "FR", "ES", "NL", "DE"],
+        language: "en",
+        transactions: { days_requested: 730 },
+      });
+      conns[p] = { ...conns[p], pending: f, linkToken: str(d.link_token) };
       yield* save(e, conns);
       return {} as Result;
     } else {
