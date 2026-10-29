@@ -160,7 +160,7 @@
       <Table columns={cols} rows={r.lines} key={(l, i) => `${l.src[0]}-${i}`} caption={t("vat.detail", { n: r.lines.length })} stack>
         {#snippet cell(l, c)}
           {#if c.key === "type"}<Badge size="sm" tone={l.side === "sale" ? "accent" : "neutral"}>{l.type}</Badge>
-          {:else if c.key === "label"}<span class="block truncate" dir="auto">{l.label}</span>
+          {:else if c.key === "label"}<span class="block truncate" dir="auto">{l.type === "L" ? t("vat.unidentified", { n: l.src.length }) : l.label}</span>
           {:else if c.key === "party"}<span class="num">{+l.party ? l.party : "—"}</span>
           {:else if c.key === "date"}{l.date}
           {:else}<Money value={l[c.key as "net" | "vat"]} cents={false} />{/if}
