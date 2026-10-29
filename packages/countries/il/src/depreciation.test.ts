@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { depreciation, guessClass } from "./depreciation.ts";
 import ded from "../tables/deductions.json";
 
-const rates = (ded.rules.find((r) => r.id === "il.depreciation")!.values as Record<string, number>) ?? {};
+const rates = (ded.rules.find((r) => r.id === "il.depreciation")!.values as unknown as Record<string, number>) ?? {};
 describe("depreciation (1342)", () => {
   it("guesses the class from the description", () => {
     expect(guessClass("MacBook Pro 14")).toBe("computersPersonal");
