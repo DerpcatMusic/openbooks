@@ -42,9 +42,10 @@
   const fx = $derived(saved.fx ?? 3.6);
   const P = $derived(pl(yearTxns(y)));
   const toIls = (v: number) => Math.round(isUS() ? v * fx : v);
-  // Israeli books: expenses are what the deduction rules allow (core deductions.ts), not the raw sum. ponytail: a US LLC's books stay raw here: its
-  // profit reaches the Israeli return as attributed income, taxed under Israeli rules, which the US rule table doesn't describe.
-  const cut = $derived(isUS() ? 0 : disallowed(y));
+  // Expenses are what the country pack's deduction rules allow (core deductions.ts), not the raw sum: the Israeli rules for Israeli books, the US
+  // rules for a US entity's books, the same as its 1120 uses. ponytail: a foreign owner's share is really taxed under Israeli rules; the US table
+  // is the closest sourced reading of what an authority lets through (meals 50%, entertainment 0%), not an Israeli ruling.
+  const cut = $derived(disallowed(y));
   // two modes: "books" = this year's real numbers (read-only), "whatif" = type any numbers and play
   const mode = $derived(saved.mode ?? "books"),
     whatif = $derived(mode === "whatif");

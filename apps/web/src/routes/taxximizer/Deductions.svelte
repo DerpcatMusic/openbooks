@@ -100,6 +100,8 @@
         </div>
       {/if}
 
+      {#if family() === "us"}<p class="text-[12px] text-faint">{t("taxtags.tx.usNotModeled")}</p>{/if}
+
       <dl class="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         {#each [["gross", res.totals.gross, ""], ["deductible", res.totals.deductible, "text-good"], ["nonDeductible", res.totals.nonDeductible, res.totals.nonDeductible ? "text-warn" : ""], ["vat", res.totals.vatReclaimable, ""]] as [k, v, tone] (k)}
           <div class="min-w-0">

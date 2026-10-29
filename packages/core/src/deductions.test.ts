@@ -149,6 +149,15 @@ describe("totals, buckets, tax effect, evidence", () => {
     expect(deductions(us([], tags(), { type: "llc-disregarded", facts: { usTrade: true } })).taxEffect).toBe(true);
     expect(deductions(us([], tags(), { type: "llc-ccorp" })).taxEffect).toBe(true);
   });
+  it("every US business type gets the US rules: the same meals cut, whatever the entity", () => {
+    const meal = [tx(100, { desc: "Client dinner", category: "expense:meals", tags: ["m"] })];
+    for (const type of ["llc-disregarded", "llc-ccorp", "llc-partnership"]) {
+      expect(taggableRules(US.rules, type).length, type).toBeGreaterThan(20);
+      const r = deductions(us(meal, tags({ id: "m", rule: "us.meals" }), { type, facts: { usTrade: true } }));
+      expect(r.totals.deductible, type).toBe(50);
+      expect(r.totals.nonDeductible, type).toBe(50);
+    }
+  });
   it("receipt needed: deductible money with no attachment; the rule's evidence travels with the row", () => {
     const x = tx(100, { tags: ["sw"] }),
       y = tx(100, { tags: ["sw"] });

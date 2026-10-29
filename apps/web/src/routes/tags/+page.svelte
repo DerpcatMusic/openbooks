@@ -81,6 +81,57 @@
   }
 </script>
 
+{#snippet cellOf(g: TagsDoc["tags"][number], k: string)}
+  {#if k === "name"}
+    <input
+      dir="auto"
+      value={g.name}
+      aria-label={t("tags.tagName")}
+      onchange={(e) => (e.currentTarget.value.trim() ? save(renameTag(d, g.id, e.currentTarget.value)) : (e.currentTarget.value = g.name))}
+      class="{input} {g.inactive ? 'text-sub' : ''}" />
+  {:else if k === "group"}
+    <Select variant="pill" label={t("tags.group")} value={g.group ?? ""} options={GROUPS} onchange={(v) => save(setTagGroup(d, g.id, v))} />
+  {:else if k === "color"}
+    <span class="inline-flex items-center gap-2">
+      {#if g.color}<span class="size-2.5 rounded-full" style:background="var(--color-{g.color})"></span>{/if}
+      <Select variant="pill" label={t("tags.color")} value={g.color ?? ""} options={COLORS} onchange={(v) => save(setTagColor(d, g.id, v))} />
+    </span>
+  {:else if k === "tax"}
+    <button
+      type="button"
+      onclick={() => ((picking = g), (pickerOpen = true))}
+      class="-mx-2 flex w-full min-w-0 flex-col items-start gap-1 rounded-md px-2 py-1 text-start outline-none hover:bg-fill focus-visible:ring-2 focus-visible:ring-accent/50"
+      aria-label={t("taxtags.editFor", { tag: g.name })}>
+      {#if g.tax}
+        {@const e = effect(g.tax)}
+        <span class="text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="auto">{g.tax.rule ? ruleName(g.tax.rule) : t("taxtags.noRule")}</span>
+        <span class="flex flex-wrap items-center gap-1">
+          {#if e !== null}<Badge size="sm" tone={e >= 100 ? "good" : e > 0 ? "accent" : "bad"}>{t("taxtags.effective", { pct: `${e}%` })}</Badge>{:else}<Badge size="sm" tone="warn">{t("taxtags.pctNeededShort")}</Badge>{/if}
+          {#if g.tax.rule && g.tax.pct !== undefined}<Badge size="sm">{t("taxtags.useBadge", { pct: `${g.tax.pct}%` })}</Badge>{/if}
+        </span>
+      {:else}
+        <span class="text-[13px] text-faint">{t("taxtags.none")}</span>
+      {/if}
+    </button>
+  {:else if k === "status"}
+    <Badge size="sm" tone={g.inactive ? "neutral" : "good"}>{g.inactive ? t("gaps2.tag.inactive") : t("gaps2.tag.active")}</Badge>
+  {:else if k === "n"}
+    {#if counts.get(g.id)}
+      <a
+        href={url(`/transactions/tag:${encodeURIComponent(g.id)}`)}
+        class="num rounded px-1 text-ink-2 underline decoration-line-strong underline-offset-2 outline-none hover:text-ink hover:decoration-current focus-visible:ring-2 focus-visible:ring-accent/50"
+        >{counts.get(g.id)}</a>
+    {:else}
+      <span class="text-faint">0</span>
+    {/if}
+  {:else}
+    <span class="inline-flex items-center gap-1">
+      <Button size="sm" variant="ghost" onclick={() => toggleActive(g)} title={t(g.inactive ? "gaps2.tag.reactivateHint" : "gaps2.tag.deactivateHint")}>{g.inactive ? t("gaps2.tag.reactivate") : t("gaps2.tag.deactivate")}</Button>
+      <IconButton icon="x" size="sm" label={t("tags.delete")} onclick={() => (counts.get(g.id) ? ((dropTag = g), (tagOpen = true)) : save(deleteTag(d, g.id)))} />
+    </span>
+  {/if}
+{/snippet}
+
 <PageHeader title={t("tags.title")} sub={t("tags.sub")} />
 
 <div class="{hasRules() ? 'max-w-5xl' : 'max-w-3xl'} space-y-8 px-4 pt-5 pb-16 sm:px-8">
@@ -97,58 +148,26 @@
       <Button variant="primary" icon="plus" onclick={addTag} disabled={!newTag.trim() || tagTaken}>{t("tags.add")}</Button>
     </div>
     {#if d.tags.length}
-      <Table {columns} rows={d.tags} key={(g) => g.id} caption={t("tags.tags")} class="border-t border-line">
-        {#snippet cell(g, c)}
-          {#if c.key === "name"}
-            <input
-              dir="auto"
-              value={g.name}
-              aria-label={t("tags.tagName")}
-              onchange={(e) => (e.currentTarget.value.trim() ? save(renameTag(d, g.id, e.currentTarget.value)) : (e.currentTarget.value = g.name))}
-              class="{input} {g.inactive ? 'text-sub' : ''}" />
-          {:else if c.key === "group"}
-            <Select variant="pill" label={t("tags.group")} value={g.group ?? ""} options={GROUPS} onchange={(v) => save(setTagGroup(d, g.id, v))} />
-          {:else if c.key === "color"}
-            <span class="inline-flex items-center gap-2">
-              {#if g.color}<span class="size-2.5 rounded-full" style:background="var(--color-{g.color})"></span>{/if}
-              <Select variant="pill" label={t("tags.color")} value={g.color ?? ""} options={COLORS} onchange={(v) => save(setTagColor(d, g.id, v))} />
-            </span>
-          {:else if c.key === "tax"}
-            <button
-              type="button"
-              onclick={() => ((picking = g), (pickerOpen = true))}
-              class="-mx-2 flex w-full min-w-0 flex-col items-start gap-1 rounded-md px-2 py-1 text-start outline-none hover:bg-fill focus-visible:ring-2 focus-visible:ring-accent/50"
-              aria-label={t("taxtags.editFor", { tag: g.name })}>
-              {#if g.tax}
-                {@const e = effect(g.tax)}
-                <span class="text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="auto">{g.tax.rule ? ruleName(g.tax.rule) : t("taxtags.noRule")}</span>
-                <span class="flex flex-wrap items-center gap-1">
-                  {#if e !== null}<Badge size="sm" tone={e >= 100 ? "good" : e > 0 ? "accent" : "bad"}>{t("taxtags.effective", { pct: `${e}%` })}</Badge>{:else}<Badge size="sm" tone="warn">{t("taxtags.pctNeededShort")}</Badge>{/if}
-                  {#if g.tax.rule && g.tax.pct !== undefined}<Badge size="sm">{t("taxtags.useBadge", { pct: `${g.tax.pct}%` })}</Badge>{/if}
-                </span>
-              {:else}
-                <span class="text-[13px] text-faint">{t("taxtags.none")}</span>
-              {/if}
-            </button>
-          {:else if c.key === "status"}
-            <Badge size="sm" tone={g.inactive ? "neutral" : "good"}>{g.inactive ? t("gaps2.tag.inactive") : t("gaps2.tag.active")}</Badge>
-          {:else if c.key === "n"}
-            {#if counts.get(g.id)}
-              <a
-                href={url(`/transactions/tag:${encodeURIComponent(g.id)}`)}
-                class="num rounded px-1 text-ink-2 underline decoration-line-strong underline-offset-2 outline-none hover:text-ink hover:decoration-current focus-visible:ring-2 focus-visible:ring-accent/50"
-                >{counts.get(g.id)}</a>
-            {:else}
-              <span class="text-faint">0</span>
-            {/if}
-          {:else}
-            <span class="inline-flex items-center gap-1">
-              <Button size="sm" variant="ghost" onclick={() => toggleActive(g)} title={t(g.inactive ? "gaps2.tag.reactivateHint" : "gaps2.tag.deactivateHint")}>{g.inactive ? t("gaps2.tag.reactivate") : t("gaps2.tag.deactivate")}</Button>
-              <IconButton icon="x" size="sm" label={t("tags.delete")} onclick={() => (counts.get(g.id) ? ((dropTag = g), (tagOpen = true)) : save(deleteTag(d, g.id)))} />
-            </span>
-          {/if}
-        {/snippet}
+      <Table {columns} rows={d.tags} key={(g) => g.id} caption={t("tags.tags")} class="border-t border-line max-sm:hidden">
+        {#snippet cell(g, c)}{@render cellOf(g, c.key)}{/snippet}
       </Table>
+      <!-- phones: one card per tag (a 7-column table would scroll sideways and hide Status and Deactivate) -->
+      <ul class="divide-y divide-line border-t border-line sm:hidden" aria-label={t("tags.tags")}>
+        {#each d.tags as g (g.id)}
+          <li class="space-y-2 px-4 py-3">
+            <div class="flex items-center gap-2">
+              <div class="min-w-0 flex-1">{@render cellOf(g, "name")}</div>
+              {@render cellOf(g, "status")}
+            </div>
+            <div class="flex flex-wrap items-center gap-2">{@render cellOf(g, "group")}{@render cellOf(g, "color")}</div>
+            {#if hasRules()}{@render cellOf(g, "tax")}{/if}
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[13px] text-sub">{t("tags.used")} {@render cellOf(g, "n")}</span>
+              {@render cellOf(g, "act")}
+            </div>
+          </li>
+        {/each}
+      </ul>
     {:else}
       <EmptyState icon="tag" title={t("tags.empty")} text={t("tags.emptyText")} />
     {/if}
