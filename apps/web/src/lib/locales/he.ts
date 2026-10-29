@@ -18,6 +18,7 @@ import tags from "./parts/tags.he.ts";
 import taxtags from "./parts/taxtags.he.ts";
 import gaps2 from "./parts/gaps2.he.ts";
 import gaps3 from "./parts/gaps3.he.ts";
+import filingsIl from "./parts/filings-il.he.ts";
 export default {
   ...a,
   ...b,
@@ -38,6 +39,7 @@ export default {
   ...taxtags,
   ...gaps2,
   ...gaps3,
+  ...filingsIl,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

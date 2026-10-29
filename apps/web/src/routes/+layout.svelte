@@ -79,6 +79,7 @@
           [
             t("nav.section.tax"),
             [
+              { href: "/filings", label: t("nav.filings"), icon: "calendar" },
               isUS() ? { href: "/tax/us", label: t("nav.form5472"), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
               { href: "/planner", label: t("nav.planner"), icon: "sparkle" },
               { href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" },

@@ -127,7 +127,10 @@
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.due"), fmt(b.due), "font-medium")}
       {#if b.withheld}{@render line(t("taxReturn.withheld"), fmt(-b.withheld), "text-sub")}{/if}
+      {#if b.advances}{@render line(t("taxReturn.advances"), fmt(-b.advances), "text-sub")}{/if}
     </div>
+    {#if b.vat}<p class="mt-3 text-[12px] text-sub">{t(b.vat.estimated ? "taxReturn.vatEstimated" : "taxReturn.vatNote", { vat: fmt(b.vat.reclaimed) })}</p>{/if}
+    {#if b.dep?.rows.length}<p class="mt-2 text-[12px] text-sub">{t("taxReturn.depNote", { dep: fmt(b.dep.totals.amount), bought: fmt(b.dep.totals.bought) })} <a class="underline" href="/tax/il/depreciation">{t("taxReturn.depLink")}</a></p>{/if}
     <div class="mt-4 border-t border-line pt-4">
       <div class="text-[12px] font-medium text-sub">{t(b.balance > 0 ? "taxReturn.youPay" : b.balance < 0 ? "taxReturn.refund" : "taxReturn.nothing")}</div>
       <div class="display mt-1 text-[30px] leading-none num {b.balance > 0 ? 'text-bad' : 'text-good'}">{fmt(Math.abs(b.balance) + b.indexation)}</div>

@@ -10,6 +10,7 @@ import t2024 from "../tables/2024.json";
 import t2025 from "../tables/2025.json";
 import t2026 from "../tables/2026.json";
 import { ilCrossBorder } from "./crossborder.ts";
+import { ilDeadlines, type IlFacts } from "./deadlines.ts";
 import { manifest, vatRegistered } from "./manifest.ts";
 import { IlTable, isComplete } from "./schema.ts";
 
@@ -23,6 +24,7 @@ export const il: CountryPack<IlTable> = {
   playbook: playbook as PlaybookItem[],
   deductions: Schema.decodeUnknownSync(DeductionTable)(deductions),
   strings: { en, he },
+  deadlines: (y, facts) => ilDeadlines(y, facts as IlFacts),
   crossBorder(person, y, home, foreign, fx) {
     const T = pickTable(tables, y);
     if (!isComplete(T)) throw new Error(`il ${T.year}: tax table lacks BL/pension rates`);
@@ -38,3 +40,11 @@ export * from "./forms.ts";
 export * from "./schema.ts";
 export * from "./poster.ts";
 export * from "./catalog.ts";
+export * from "./calendar.ts";
+export * from "./deadlines.ts";
+export * from "./vat.ts";
+export * from "./pcn874.ts";
+export * from "./openfrmt.ts";
+export * from "./advances.ts";
+export * from "./depreciation.ts";
+export * from "./filings.ts";

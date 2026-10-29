@@ -263,7 +263,7 @@ test("the in-app AI end to end", { timeout: 60_000 }, async () => {
 
 test("⌘K: /api/tools lists the registry, /api/tools/run runs one on the current business", async () => {
   const tools = JSON.parse((await req("/api/tools"))[1]).tools as J[];
-  expect(tools).toHaveLength(23);
+  expect(tools).toHaveLength(26);
   expect(tools.find((t) => t.name === "bank_sync")).toMatchObject({
     kind: "write",
     palette: { label: { en: "Sync banks", he: "סנכרון בנקים" }, icon: "refresh" },

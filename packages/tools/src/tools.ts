@@ -51,6 +51,7 @@ import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il"
 import { us } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
+import { filingTools } from "./filings.ts";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
 const fail = (message: string) => Effect.fail(new ToolError({ message }));
@@ -237,7 +238,7 @@ const CONFIRM = Schema.optionalKey(
 );
 const FROM = Schema.optionalKey(pattern(PERIOD_RE, "Start, inclusive: YYYY-MM or YYYY-MM-DD"));
 const TO = Schema.optionalKey(pattern(PERIOD_RE, "End, inclusive: YYYY-MM or YYYY-MM-DD"));
-const input = <F extends Schema.Struct.Fields>(fields: F) => Schema.Struct({ ...fields, ...ENTITY });
+export const input = <F extends Schema.Struct.Fields>(fields: F) => Schema.Struct({ ...fields, ...ENTITY });
 
 // outputs (mcp_server.py OUT): every listed property required unless noted; nullable = Python opt()
 const S = Schema.String,
@@ -1482,6 +1483,16 @@ export const tools: readonly Tool[] = [
   split_transaction,
   bank_status,
   bank_sync,
+  ...filingTools({
+    entityOf,
+    ledgerOf,
+    docOf,
+    dedCtx,
+    packFor,
+    home: Books.use((b) => Effect.succeed(b.home)).pipe(Effect.orDie),
+    input,
+    label,
+  } as never),
 ];
 export { UI_URI };
 

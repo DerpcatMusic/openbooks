@@ -81,7 +81,7 @@ OPENBOOKS_HOME=examples/showcase bun apps/server/src/main.ts   # with the demo's
 claude mcp add openbooks -- /path/to/openbooks mcp
 ```
 
-Reads run on their own; anything that changes the books waits for your approval. 23 tools, among them:
+Reads run on their own; anything that changes the books waits for your approval. 26 tools, among them:
 
 - **Read:** `list_transactions`, `profit_and_loss`, `balances`, `list_invoices`, `list_bills`, `aging_report` (AR or AP by due date), `deduction_summary` (what the rules let you deduct, receipts missing, money left on the table), `suggest_tax_tags`, `tax_summary`
 - **Propose (approved by you):** `classify`, `set_rules`, `split_transaction`, `apply_tax_tag`, `add_journal_entry`, `create_invoice`, `draft_bill`

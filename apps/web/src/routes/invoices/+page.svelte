@@ -78,6 +78,7 @@
     custName = $state(""),
     custEmail = $state(""),
     custAddress = $state(""),
+    custVatId = $state(""),
     paying = $state(false),
     paidOn = $state(today()),
     applyAmt = $state<string | number>("");
@@ -110,6 +111,7 @@
     custName = c?.name ?? "";
     custEmail = c?.email ?? "";
     custAddress = c?.address ?? "";
+    custVatId = c?.vatId ?? "";
     paying = false;
     paidOn = today();
     applyAmt = "";
@@ -139,6 +141,7 @@
     if (c) {
       custEmail = c.email ?? "";
       custAddress = c.address ?? "";
+      custVatId = c.vatId ?? "";
     }
   }
   function setKind(k: string) {
@@ -152,8 +155,9 @@
     const name = custName.trim();
     if (name) {
       const c = customers.find((c) => c.name.toLowerCase() === name.toLowerCase());
-      const rec = { ...(c ?? { id: uid() }), name, email: custEmail.trim(), address: custAddress.trim() };
-      if (!c || c.name !== rec.name || (c.email ?? "") !== rec.email || (c.address ?? "") !== rec.address)
+      const rec = { ...(c ?? { id: uid() }), name, email: custEmail.trim(), address: custAddress.trim(), ...(custVatId.trim() ? { vatId: custVatId.trim() } : {}) };
+      if (!custVatId.trim()) delete (rec as Customer).vatId;
+      if (!c || c.name !== rec.name || (c.email ?? "") !== rec.email || (c.address ?? "") !== rec.address || (c.vatId ?? "") !== (rec.vatId ?? ""))
         await saveDoc("customers", c ? customers.map((x) => (x.id === c.id ? rec : x)) : [...customers, rec]);
       next.customer = rec.id;
     }
@@ -229,6 +233,7 @@
     });
     custEmail = c?.email ?? "";
     custAddress = c?.address ?? "";
+    custVatId = c?.vatId ?? "";
   }
   function openTxn(id: string) {
     drawer = false;
@@ -371,6 +376,12 @@
         <Input label={t("invoices.email")} bind:value={custEmail} disabled={locked} type="email" dir="ltr" />
         <Input label={us ? t("invoices.address") : t("invoices.addressId")} bind:value={custAddress} disabled={locked} />
       </div>
+      {#if !us && registeredIn(draft.issued)}
+        <div class="grid gap-3 sm:grid-cols-2">
+          <Input label={t("invoices.vatId")} bind:value={custVatId} disabled={locked} dir="ltr" inputmode="numeric" placeholder="514290543" />
+          {#if draft.kind === "tax"}<Input label={t("invoices.alloc")} bind:value={() => draft!.alloc ?? "", (v) => (draft!.alloc = String(v).trim() || undefined)} disabled={locked} dir="ltr" inputmode="numeric" />{/if}
+        </div>
+      {/if}
     </div>
 
     <div class="border-t border-line px-4 py-4 sm:px-5">

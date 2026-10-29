@@ -89,6 +89,18 @@ export interface CrossBorder {
 /** A form hook: form id → field values computed from the books (strings, as printed on the form). Overrides are applied by the caller. */
 export type FormHook<Ctx> = (ctx: Ctx) => Readonly<Record<string, string>>;
 
+/** One date the books owner has to file or pay by (the Filings hub lists these; id is stable per year so a "filed" mark sticks to it). */
+export interface FilingDeadline {
+  date: string; // YYYY-MM-DD
+  id: string;
+  title: Bilingual;
+  form?: string;
+  url?: string;
+  source?: string;
+  /** The date or rule is not confirmed from a primary source (the hub flags it). */
+  unverified?: boolean;
+}
+
 export interface CountryPack<Table = unknown> {
   readonly manifest: Manifest;
   /** tables/<year>.json, parsed and validated by the pack's schema. */
@@ -99,6 +111,11 @@ export interface CountryPack<Table = unknown> {
   /** tables/deductions.json: per-expense deduction rules and tax moves (the Taxximizer's smart tags run on these). */
   readonly deductions?: DeductionTable;
   readonly strings: { readonly en: Dict; readonly he: Dict };
+  /**
+   * Filing and payment dates for tax year `year` (periods inside it, and the returns that follow it), for a business of this type.
+   * `facts` carries at least what the signature names; the hub passes the rest of the entity's saved filing settings too.
+   */
+  deadlines?: (year: number, facts: { businessType: string; vatFrequency?: "monthly" | "bimonthly" }) => FilingDeadline[];
   /**
    * Residence pack only: fold foreign entities' results into the person's home tax. `home`: the person's entities in this country;
    * `fx`: residence-currency units per one unit of each foreign currency for year y. Called by the server/UI once per person-year.

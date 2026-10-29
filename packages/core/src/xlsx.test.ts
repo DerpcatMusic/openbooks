@@ -76,21 +76,6 @@ const sheet: Sheet = {
   ],
 };
 
-describe("zip", () => {
-  it("crc32 of a known string", () => expect(crc32(new TextEncoder().encode("123456789"))).toBe(0xcbf43926));
-  it("stored and deflated archives both read back byte for byte", async () => {
-    const files = [
-      { name: "a.txt", data: new TextEncoder().encode("hello ".repeat(500)) },
-      { name: "dir/שלום.txt", data: new TextEncoder().encode("x") },
-    ];
-    for (const deflate of [true, false]) {
-      const z = await zip(files, { deflate });
-      expect(unzip(z)).toEqual({ "a.txt": "hello ".repeat(500), "dir/שלום.txt": "x" });
-      if (deflate) expect(z.length).toBeLessThan(500);
-    }
-  });
-});
-
 describe("xlsx", () => {
   it("is a zip with the parts of a workbook, all well-formed XML", async () => {
     const parts = unzip(await xlsx([sheet, { name: "GL", rows: [["a"]] }], { title: "Acme" }));

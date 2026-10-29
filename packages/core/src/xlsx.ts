@@ -1,9 +1,10 @@
 // A minimal XLSX writer (OOXML SpreadsheetML in a zip), no dependency: sheets of text, numbers and dates with number formats, bold, indent,
-// borders and fills, column widths, frozen header rows and right-to-left sheets. Strings are inline (no shared-string table). The zip uses
-// deflate through the platform's CompressionStream (browser, Bun, Node) and stores the files uncompressed where it is missing.
+// borders and fills, column widths, frozen header rows and right-to-left sheets. Strings are inline (no shared-string table). The zip is the
+// shared stored (uncompressed) writer in zip.ts.
 // Statements, ledgers and aging reports are built by the app into `Sheet`s (apps/web lib/reports/xlsx.ts); this file knows nothing of them.
 
 import { isIsoDate } from "./journal.ts";
+import { zip } from "./zip.ts";
 
 export type NumFmt = "money" | "int" | "pct" | "date";
 /** What a cell looks like. Every field is optional; identical combinations share one style. */
@@ -152,99 +153,9 @@ export function sheetNames(names: readonly string[]): string[] {
   });
 }
 
-// ---------- zip ----------
-const TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-export function crc32(b: Uint8Array): number {
-  let c = 0xffffffff;
-  for (let i = 0; i < b.length; i++) c = TABLE[(c ^ b[i]!) & 0xff]! ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-async function deflate(b: Uint8Array): Promise<Uint8Array | null> {
-  if (typeof CompressionStream === "undefined") return null;
-  try {
-    const out = new Blob([b as BlobPart]).stream().pipeThrough(new CompressionStream("deflate-raw"));
-    return new Uint8Array(await new Response(out).arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
-/** A zip archive of the files, deflated when the platform can, else stored. Names are UTF-8; the timestamp is fixed so equal input gives equal bytes. */
-export async function zip(files: readonly { name: string; data: Uint8Array }[], opts: { deflate?: boolean } = {}): Promise<Uint8Array> {
-  const enc = new TextEncoder();
-  const parts: Uint8Array[] = [],
-    central: Uint8Array[] = [];
-  let offset = 0;
-  const u16 = (v: DataView, o: number, n: number) => v.setUint16(o, n, true);
-  const u32 = (v: DataView, o: number, n: number) => v.setUint32(o, n >>> 0, true);
-  const DOS_TIME = 0,
-    DOS_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1; // 2026-01-01 00:00
-  for (const f of files) {
-    const name = enc.encode(f.name),
-      crc = crc32(f.data),
-      packed = opts.deflate === false ? null : await deflate(f.data),
-      method = packed && packed.length < f.data.length ? 8 : 0,
-      body = method === 8 ? packed! : f.data;
-    const local = new Uint8Array(30 + name.length);
-    const lv = new DataView(local.buffer);
-    u32(lv, 0, 0x04034b50);
-    u16(lv, 4, 20);
-    u16(lv, 6, 0x0800); // UTF-8 names
-    u16(lv, 8, method);
-    u16(lv, 10, DOS_TIME);
-    u16(lv, 12, DOS_DATE);
-    u32(lv, 14, crc);
-    u32(lv, 18, body.length);
-    u32(lv, 22, f.data.length);
-    u16(lv, 26, name.length);
-    local.set(name, 30);
-    const cen = new Uint8Array(46 + name.length);
-    const cv = new DataView(cen.buffer);
-    u32(cv, 0, 0x02014b50);
-    u16(cv, 4, 20);
-    u16(cv, 6, 20);
-    u16(cv, 8, 0x0800);
-    u16(cv, 10, method);
-    u16(cv, 12, DOS_TIME);
-    u16(cv, 14, DOS_DATE);
-    u32(cv, 16, crc);
-    u32(cv, 20, body.length);
-    u32(cv, 24, f.data.length);
-    u16(cv, 28, name.length);
-    u32(cv, 42, offset);
-    cen.set(name, 46);
-    parts.push(local, body);
-    central.push(cen);
-    offset += local.length + body.length;
-  }
-  const size = central.reduce((a, c) => a + c.length, 0);
-  const end = new Uint8Array(22);
-  const ev = new DataView(end.buffer);
-  u32(ev, 0, 0x06054b50);
-  u16(ev, 8, files.length);
-  u16(ev, 10, files.length);
-  u32(ev, 12, size);
-  u32(ev, 16, offset);
-  const all = [...parts, ...central, end];
-  const out = new Uint8Array(all.reduce((a, p) => a + p.length, 0));
-  let o = 0;
-  for (const p of all) {
-    out.set(p, o);
-    o += p.length;
-  }
-  return out;
-}
 
 /** The workbook as .xlsx bytes. */
-export async function xlsx(sheets: readonly Sheet[], opts: { title?: string; deflate?: boolean } = {}): Promise<Uint8Array> {
+export async function xlsx(sheets: readonly Sheet[], opts: { title?: string } = {}): Promise<Uint8Array> {
   const enc = new TextEncoder();
   const names = sheetNames(sheets.map((s) => s.name));
   const st = new Styles();
@@ -285,7 +196,7 @@ export async function xlsx(sheets: readonly Sheet[], opts: { title?: string; def
     ...sheetFiles,
     { name: "xl/styles.xml", data: enc.encode(st.xml()) }, // last: the sheets above registered their styles
   ];
-  return zip(files, opts);
+  return zip(files);
 }
 
 export const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

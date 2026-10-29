@@ -19,6 +19,7 @@ import tags from "./parts/tags.en.ts";
 import taxtags from "./parts/taxtags.en.ts";
 import gaps2 from "./parts/gaps2.en.ts";
 import gaps3 from "./parts/gaps3.en.ts";
+import filingsIl from "./parts/filings-il.en.ts";
 export default {
   ...a,
   ...b,
@@ -39,6 +40,7 @@ export default {
   ...taxtags,
   ...gaps2,
   ...gaps3,
+  ...filingsIl,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",
