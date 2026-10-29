@@ -4,7 +4,7 @@
   // Port of web/src/views/Planner.svelte. Maths: @openbooks/country-il (ilPlan, …) and @openbooks/country-us (corpTax).
   import { pl } from "@openbooks/core";
   import { form1301, ilPlan, isComplete, mandatoryPension, reservistPoints, type IlRates, type IlTable } from "@openbooks/country-il";
-  import { corpTax, usDeadlines, type UsTable } from "@openbooks/country-us";
+  import { corpTax, dueOn, usDeadlines, type UsTable } from "@openbooks/country-us";
   import { S, bizType, catLabel, doc, ent, fmt, isUS, mdy, saveDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
   import { bidi, lang, t } from "#lib/i18n.svelte.ts";
   import { disallowed } from "#lib/taxtags.svelte.ts";
@@ -122,23 +122,25 @@
       }) as Record<string, () => string>
     )[(p.state ?? "").toUpperCase().slice(0, 2)]?.() ?? null,
   );
+  /** A "MM-DD" due date of a year, moved to the next business day as the IRS does (a weekend or a federal holiday). */
+  const dueDay = (yy: number, md: string) => dueOn(yy, +md.slice(0, 2), +md.slice(3, 5));
   const fx = $derived(num("usdIls", 3.06));
   type Duty = { title: string; when: string | null; text: string; link?: [string, string] };
   const duties: Duty[] = $derived([
     corp
       ? {
           title: t("planner.cc.1120"),
-          when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`,
+          when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"),
           text: t("planner.cc.1120Text", { tax: fmt(ctax!.tax), rate: Math.round((UT.corpRate ?? 0.21) * 100), taxable: fmt(ctax!.taxable), amount: fmt(UT.form5472Penalty ?? 25000) }),
           link: ["/tax/us", t("common.open")],
         }
       : {
           title: t("planner.duty.5472"),
-          when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`,
+          when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"),
           text: t("planner.duty.5472Text", { amount: fmt(UT.form5472Penalty ?? 25000) }),
           link: ["/tax/us", t("common.open")],
         },
-    { title: t("planner.duty.7004"), when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`, text: t("planner.duty.7004Text", { date: mdy(`${y + 1}-${UT.extendedMonthDay ?? "10-15"}`) }) },
+    { title: t("planner.duty.7004"), when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"), text: t("planner.duty.7004Text", { date: mdy(dueDay(y + 1, UT.extendedMonthDay ?? "10-15")) }) },
     stateFee
       ? { title: t("planner.duty.state"), when: null, text: stateFee }
       : { title: t("planner.duty.stateUnset"), when: null, text: t("planner.duty.stateUnsetText"), link: ["/tax/us", t("planner.duty.addState")] },
@@ -148,7 +150,7 @@
       text: t("planner.duty.w8Text", { def: Math.round((UT.defaultWithholding ?? 0.3) * 100), treaty: Math.round(treaty * 100) }),
     },
     { title: t("planner.duty.boi"), when: null, text: t("planner.duty.boiText") },
-    { title: t("planner.duty.1099"), when: `${y + 1}-01-31`, text: t("planner.duty.1099Text", { amount: fmt(UT.nec1099 ?? 2000), y }) },
+    { title: t("planner.duty.1099"), when: dueOn(y + 1, 1, 31), text: t("planner.duty.1099Text", { amount: fmt(UT.nec1099 ?? 2000), y }) },
   ]);
   const incomeCols: Column<Line>[] = $derived([
     { key: "label", label: t("common.ledgerAccount") },
