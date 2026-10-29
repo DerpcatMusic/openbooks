@@ -20,6 +20,7 @@
     payrollStatus,
     payrollTotals,
     REGISTER_FIELDS,
+    REGISTER_SUMMED,
     TAXES_ACCOUNT,
     WAGES_ACCOUNT,
     type PayrollRun,
@@ -62,7 +63,6 @@
   const columns = $derived<Column<Row>[]>([
     { key: "payDate", label: t("payroll.col.payDate") },
     { key: "period", label: t("payroll.col.period"), class: "w-full max-w-0 min-w-32" },
-    { key: "provider", label: t("payroll.col.provider") },
     { key: "gross", label: t("payroll.col.gross"), numeric: true },
     { key: "net", label: t("payroll.col.net"), numeric: true },
     { key: "cost", label: t("payroll.col.cost"), numeric: true },
@@ -185,7 +185,7 @@
   }
   const header = $derived(file ? (file.rows[m.headerRow] ?? []) : []);
   const colOpts = $derived([{ value: "", label: t("payroll.imp.none") }, ...header.map((c, i) => ({ value: String(i), label: c || t("payroll.imp.column", { n: i + 1 }) }))]);
-  const FIELD_LABEL: Record<(typeof REGISTER_FIELDS)[number], string> = {
+  const FIELD_LABEL: Record<(typeof REGISTER_FIELDS)[number] | (typeof REGISTER_SUMMED)[number], string> = {
     payDate: "payroll.payDate",
     period: "payroll.period",
     gross: "payroll.gross",
@@ -198,8 +198,10 @@
   const fresh = $derived(result ? result.runs.filter((r) => !runs.some((x) => x.id === r.id)) : []);
   async function doImport() {
     if (!result || !fresh.length) return;
+    const n = fresh.length, // the saved runs are in the state at once, so count before the save
+      skipped = result.runs.length - n;
     await saveDoc("payroll", [...runs, ...fresh]);
-    toast(t("payroll.imp.done", { n: fresh.length, skipped: result.runs.length - fresh.length }));
+    toast(t("payroll.imp.done", { n, skipped }));
     imp = false;
   }
 </script>
@@ -232,8 +234,7 @@
       <Table {columns} {rows} key={(r: Row) => r.run.id} caption={t("payroll.title")} onrowclick={(r: Row) => edit(r.run)} stack>
         {#snippet cell(r: Row, c)}
           {#if c.key === "payDate"}<span class="text-sub">{mdy(r.run.payDate)}</span>
-          {:else if c.key === "period"}<span class="block truncate text-ink" dir="auto">{r.run.period}</span>
-          {:else if c.key === "provider"}<span class="text-ink-2" dir="auto">{r.run.provider}</span>
+          {:else if c.key === "period"}<span class="block truncate text-ink" dir="auto">{r.run.period}</span><span class="block truncate text-[12px] text-sub" dir="auto">{r.run.provider}</span>
           {:else if c.key === "gross"}<Money value={r.run.gross} currency={cur} />
           {:else if c.key === "net"}<Money value={r.run.net} currency={cur} />
           {:else if c.key === "cost"}<Money value={r.cost} currency={cur} class="text-ink" />
@@ -392,6 +393,32 @@
           <Select label={t(FIELD_LABEL[k])} value={m[k] == null ? "" : String(m[k])} onchange={(v) => (m[k] = v === "" ? null : +v)} options={colOpts} />
         {/each}
         <Select label={t("payroll.imp.dateFormat")} bind:value={m.dateFormat} options={FORMATS} />
+      </div>
+      <div class="space-y-3">
+        <p class="text-[12px] text-sub">{t("payroll.imp.sumHint")}</p>
+        {#each REGISTER_SUMMED as k (k)}
+          <div>
+            <div class="text-[13px] text-ink-2">{t(FIELD_LABEL[k])}</div>
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+              {#each m[k] as c (c)}
+                <Badge
+                  >{header[c] || t("payroll.imp.column", { n: c + 1 })}<button
+                    type="button"
+                    class="ms-1.5 text-faint hover:text-ink"
+                    aria-label={t("payroll.imp.removeColumn", { name: header[c] || t("payroll.imp.column", { n: c + 1 }) })}
+                    onclick={() => (m[k] = m[k].filter((x) => x !== c))}>×</button
+                  ></Badge>
+              {/each}
+              <Select
+                variant="pill"
+                icon="plus"
+                label={t("payroll.imp.addColumn")}
+                value=""
+                options={[{ value: "", label: t("payroll.imp.addColumn") }, ...colOpts.slice(1).filter((o) => !m[k].includes(+o.value))]}
+                onchange={(v) => v && (m[k] = [...m[k], +v])} />
+            </div>
+          </div>
+        {/each}
       </div>
       {#if m.net == null}<p class="text-[12px] text-sub">{t("payroll.imp.netMissing")}</p>{/if}
 

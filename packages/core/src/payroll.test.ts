@@ -224,11 +224,23 @@ describe("the provider's register", () => {
   });
   it("guesses the columns from the header names", () => {
     const m = guessRegister(parseRegister(csv));
-    expect(m).toMatchObject({ payDate: 0, period: 1, gross: 3, employeeWithholding: 4, employerTaxes: 5, benefits: 6, net: 7, dateFormat: "YYYY-MM-DD" });
+    expect(m).toMatchObject({ payDate: 0, period: 1, gross: 3, employeeWithholding: [4], employerTaxes: [5], benefits: [6], net: 7, dateFormat: "YYYY-MM-DD" });
   });
   it("guesses a Hebrew payroll summary", () => {
     const m = guessRegister(parseRegister("תאריך תשלום,חודש,ברוטו,מס הכנסה,הפרשות מעסיק,פנסיה עובד,נטו\n31/03/2026,03/2026,10000,1500,900,600,7900\n"));
-    expect(m).toMatchObject({ payDate: 0, period: 1, gross: 2, employeeWithholding: 3, employerTaxes: 4, benefits: 5, net: 6, dateFormat: "DD/MM/YYYY" });
+    expect(m).toMatchObject({ payDate: 0, period: 1, gross: 2, employeeWithholding: [3], employerTaxes: [4], benefits: [5], net: 6, dateFormat: "DD/MM/YYYY" });
+  });
+  it("sums the columns a register splits taxes over (federal, state, social security; income tax, national insurance, health tax)", () => {
+    const us = parseRegister(
+      'Pay Date,Gross Pay,Federal Income Tax,State Income Tax,Social Security,Medicare,Employer Social Security,Employer Medicare,Health Insurance,Net Pay\n2026-03-31,"5,000.00",600,150,310,72.50,310,72.50,200,3667.50\n',
+    );
+    const m = guessRegister(us);
+    expect(m).toMatchObject({ payDate: 0, gross: 1, employeeWithholding: [2, 3, 4, 5], employerTaxes: [6, 7], benefits: [8], net: 9 });
+    expect(importRegister(us, m, "ADP").runs[0]).toMatchObject({ gross: 5000, employeeWithholding: 1132.5, employerTaxes: 382.5, benefits: 200, net: 3667.5 });
+    const il = parseRegister("תאריך תשלום,ברוטו,מס הכנסה,ביטוח לאומי עובד,מס בריאות,נטו\n31/03/2026,10000,1500,400,310,7790\n");
+    const mi = guessRegister(il);
+    expect(mi.employeeWithholding).toEqual([2, 3, 4]);
+    expect(importRegister(il, mi, "Bureau").runs[0]).toMatchObject({ employeeWithholding: 2210, net: 7790 });
   });
   it("adds per-employee rows into one run per pay date and period; ids repeat on re-import", () => {
     const rows = parseRegister(csv);

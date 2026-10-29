@@ -68,11 +68,14 @@
   let draft = $state<Trip | null>(null),
     open = $state(false),
     isNew = $state(false),
+    addOpen = $state(false),
     showAll = $state(false);
   const edit = (x?: Trip) => {
     isNew = !x;
     showAll = false;
-    draft = x ? (structuredClone($state.snapshot(x)) as Trip) : { id: uid(), name: "", purpose: "", country: "", ...defaultsFor(new Date().toLocaleDateString("sv"), new Date().toLocaleDateString("sv")) };
+    addOpen = !x?.txns?.length && !x?.tags?.length; // open the list of costs to add while nothing is linked; after that it stays as the user left it
+    const d = x ? (structuredClone($state.snapshot(x)) as Trip) : { id: uid(), name: "", purpose: "", country: "", ...defaultsFor(new Date().toLocaleDateString("sv"), new Date().toLocaleDateString("sv")) };
+    draft = { ...d, companion: !!d.companion, perDiem: !!d.perDiem }; // bind:checked needs a value, not undefined (clean() drops the false ones)
     open = true;
   };
   const days = $derived(draft ? daysOf(draft.start, draft.end) : 0);
@@ -260,7 +263,7 @@
           </ul>
         {:else}<p class="mt-3 text-[13px] text-faint">{t("trips.noneLinked")}</p>{/if}
 
-        <details class="mt-3" open={!linked.length}>
+        <details class="mt-3" bind:open={addOpen}>
           <summary class="cursor-pointer text-[13px] text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-accent/50">{t("trips.addCosts")}</summary>
           <label class="mt-2 flex items-center gap-2 text-[13px] text-ink-2"><input type="checkbox" bind:checked={showAll} />{t("trips.showAll")}</label>
           {#if candidates.length}
@@ -282,7 +285,7 @@
         <section>
           <h3 class="text-[14px] text-ink">{t("trips.breakdown")}</h3>
           <div class="mt-1 flex flex-wrap gap-1.5">
-            <Badge tone={r.mixed ? "warn" : "good"}>{r.mixed ? t("trips.mixed", { b: draft.businessDays, d: r.days }) : t("trips.allBusiness", { d: r.days })}</Badge>
+            <Badge tone={r.mixed ? "warn" : "good"}>{r.mixed ? t("trips.mixed", { b: draft.businessDays, d: r.days }) : t("trips.allBusiness", { n: r.days })}</Badge>
             {#if r.uplift}<Badge tone="accent">{t("trips.uplift")}</Badge>{/if}
             {#if r.fxMissing}<Badge tone="warn" icon="alert">{t("trips.fxMissing")}</Badge>{/if}
           </div>

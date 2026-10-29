@@ -262,7 +262,7 @@ Doc `payroll` (`packages/core/src/payroll.ts`, page `/payroll`): a list of runs 
 
 - Ledger lines on the accrual basis (above); on the cash basis nothing is posted: wages count when the net-pay and deposit rows are filed to an expense account, and the runs show what is still to be paid.
 - **Matching**: outgoing bank rows within a few days of the pay date that equal net pay, the remittance (withholding + benefits + employer taxes) or the whole run are suggested; a part payment is suggested only when the provider is named in the description. "Match bank rows" applies the exact ones, each row once and never more than the money left on it (bills count as taken too).
-- **Register import**: a CSV with a header row; the user maps the columns (guessed from English and Hebrew header names, date format DD/MM, MM/DD or ISO). Rows with the same pay date and period add up to one run (one row per employee works); a run whose figures do not tie is reported by line instead of imported; run ids come from provider, pay date and period, so importing a file twice adds nothing.
+- **Register import**: a CSV with a header row; the user maps the columns (guessed from English and Hebrew header names, date format DD/MM, MM/DD or ISO); withholding, benefits and employer taxes take several columns that are added up (federal, state and social security; income tax, national insurance and health tax). Rows with the same pay date and period add up to one run (one row per employee works); a run whose figures do not tie is reported by line instead of imported; run ids come from provider, pay date and period, so importing a file twice adds nothing.
 
 ## i18n and RTL
 

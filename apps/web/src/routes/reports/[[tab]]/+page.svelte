@@ -236,6 +236,7 @@
           {/each}
           <div class="flex flex-wrap justify-between gap-x-3 border-t border-line pt-2"><dt class="text-ink">{t("reports.bridge.accrual")}</dt><dd><Money value={bridge.accrualNet} currency={cur} class="text-ink" /></dd></div>
         </dl>
+        {#if Math.abs(bridge.outside) > 0.004}<p class="mt-3 text-[12px] text-sub">{t("reports.bridge.outsideHint")}</p>{/if}
       </div>
     {/if}
   {:else if tab === "bs" && bs}

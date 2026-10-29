@@ -208,34 +208,51 @@ export function parseRegister(text: string): string[][] {
   return rows.map((r) => r.map((x) => x.trim()));
 }
 
-/** Which column holds what (0-based; null = none). `net` may be null: it is then gross less withholding and benefits. */
+/**
+ * Which column holds what (0-based; null = none). `net` may be null: it is then gross less withholding and benefits. Registers often split
+ * taxes over several columns (federal, state, social security; income tax, national insurance, health tax): the three summed fields take a
+ * list of columns and add them up.
+ */
 export interface RegisterMapping {
   headerRow: number;
   payDate: number | null;
   period: number | null;
   gross: number | null;
-  employerTaxes: number | null;
-  employeeWithholding: number | null;
-  benefits: number | null;
   net: number | null;
+  employerTaxes: number[];
+  employeeWithholding: number[];
+  benefits: number[];
   dateFormat: "YYYY-MM-DD" | "DD/MM/YYYY" | "MM/DD/YYYY";
 }
-export const REGISTER_FIELDS = ["payDate", "period", "gross", "employerTaxes", "employeeWithholding", "benefits", "net"] as const;
+export const REGISTER_FIELDS = ["payDate", "period", "gross", "net"] as const;
+/** The fields that take several columns, added up. */
+export const REGISTER_SUMMED = ["employerTaxes", "employeeWithholding", "benefits"] as const;
+type Field = (typeof REGISTER_FIELDS)[number] | (typeof REGISTER_SUMMED)[number];
 // header words of the common providers and of an Israeli payroll slip summary (English and Hebrew)
-const HEADERS: Record<(typeof REGISTER_FIELDS)[number], RegExp[]> = {
+const HEADERS: Record<Field, RegExp[]> = {
   payDate: [/pay\s*date|check\s*date|paid\s*on|payment\s*date|תאריך\s*(תשלום|משכורת)/i, /date|תאריך/i],
   period: [/period|pay\s*cycle|תקופה|חודש/i],
   gross: [/gross|total\s*(pay|earnings|wages)|ברוטו|שכר\s*כולל/i],
   employerTaxes: [/employer|company\s*(tax|contrib)|\ber\b|מעסיק|מעביד/i],
-  employeeWithholding: [/withh|employee.*tax|ee\s*tax|income\s*tax|fica|national\s*insurance|ניכוי|מס\s*הכנסה|ביטוח\s*לאומי/i],
+  employeeWithholding: [
+    /withh|employee.*tax|ee\s*tax|income\s*tax|fica|national\s*insurance|social\s*security|medicare|federal|state\s*(income\s*)?tax|local\s*tax|health\s*tax|ניכוי|מס\s*הכנסה|ביטוח\s*לאומי|מס\s*בריאות/i,
+  ],
   benefits: [/benefit|pension|401|health|insurance|deduction|פנסי|בריאות|הפרשות|קרן/i],
   net: [/\bnet\b|take.?home|נטו|לתשלום/i],
 };
-/** A first guess at the mapping from a header row: the first column whose title fits, a column used once. Employer-side words beat the generic ones. */
+/** A first guess at the mapping from a header row: a column is used once; the summed fields take every column whose title fits. Employer-side words beat the generic ones. */
 export function guessRegister(rows: readonly (readonly string[])[], headerRow = 0): RegisterMapping {
   const head = rows[headerRow] ?? [];
   const taken = new Set<number>();
-  const pick = (k: (typeof REGISTER_FIELDS)[number]) => {
+  const all = (k: Field) => {
+    const out: number[] = [];
+    for (const re of HEADERS[k])
+      head.forEach((h, j) => {
+        if (!taken.has(j) && re.test(h)) (out.push(j), taken.add(j));
+      });
+    return out;
+  };
+  const one = (k: Field) => {
     for (const re of HEADERS[k]) {
       const i = head.findIndex((h, j) => !taken.has(j) && re.test(h));
       if (i >= 0) return (taken.add(i), i);
@@ -243,12 +260,23 @@ export function guessRegister(rows: readonly (readonly string[])[], headerRow = 
     return null;
   };
   // order matters: the specific words claim their columns before the general ones (employer tax before withholding, net before gross)
-  const m = {} as Record<(typeof REGISTER_FIELDS)[number], number | null>;
-  for (const k of ["employerTaxes", "net", "gross", "period", "employeeWithholding", "benefits", "payDate"] as const) m[k] = pick(k);
-  const sample = rows[headerRow + 1]?.[m.payDate ?? -1] ?? "";
+  const employerTaxes = all("employerTaxes"),
+    net = one("net"),
+    gross = one("gross"),
+    period = one("period"),
+    employeeWithholding = all("employeeWithholding"),
+    benefits = all("benefits"),
+    payDate = one("payDate");
+  const sample = rows[headerRow + 1]?.[payDate ?? -1] ?? "";
   return {
     headerRow,
-    ...m,
+    payDate,
+    period,
+    gross,
+    net,
+    employerTaxes,
+    employeeWithholding,
+    benefits,
     dateFormat: /^\d{4}-/.test(sample) ? "YYYY-MM-DD" : /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(sample) && +sample.split("/")[0]! > 12 ? "DD/MM/YYYY" : "MM/DD/YYYY",
   };
 }
@@ -294,10 +322,11 @@ export function importRegister(rows: readonly (readonly string[])[], m: Register
     const payDate = isoOf(col(r, m.payDate), m.dateFormat);
     if (!payDate) return void errors.push({ line, reason: "date" });
     const f = (i: number | null) => (i == null || !col(r, i).trim() ? 0 : registerMoney(col(r, i)));
+    const fs = (is: readonly number[]) => is.reduce((a, i) => a + f(i), 0);
     const gross = f(m.gross),
-      employerTaxes = f(m.employerTaxes),
-      employeeWithholding = f(m.employeeWithholding),
-      benefits = f(m.benefits);
+      employerTaxes = fs(m.employerTaxes),
+      employeeWithholding = fs(m.employeeWithholding),
+      benefits = fs(m.benefits);
     const net = m.net == null ? gross - employeeWithholding - benefits : f(m.net);
     if (!(gross > 0)) return void errors.push({ line, reason: "gross" });
     if ([employerTaxes, employeeWithholding, benefits, net].some((x) => !Number.isFinite(x) || x < 0)) return void errors.push({ line, reason: "amount" });
