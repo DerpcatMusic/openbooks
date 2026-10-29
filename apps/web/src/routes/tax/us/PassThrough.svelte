@@ -124,13 +124,13 @@
     <Deadlines {y} />
   </div>
 
-  <Card title={t("taxUS.companyOwner")} description={t("taxUS.savedWith")} class="xl:sticky xl:top-4">
+  <Card title={t("taxUS.companyOwner")} description={t("fus.you.saved")} class="xl:sticky xl:top-4">
     <div class="profile space-y-3">
       {#each FIELDS as [k, ty, dir] (k)}
         <Input label={t(`taxUS.f.${k}`)} type={ty} {dir} value={p[k] ?? ""} onchange={(e: Event) => setProfile({ [k]: textOf(e) })} />
       {/each}
     </div>
-    <p class="mt-5 text-[12px] leading-relaxed text-faint">{t("taxUS.disclaimer")}</p>
+    <p class="mt-5 text-[12px] leading-relaxed text-faint">{t("fus.disclaimer")}</p>
   </Card>
 </div>
 

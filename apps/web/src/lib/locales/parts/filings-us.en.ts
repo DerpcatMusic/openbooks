@@ -21,6 +21,8 @@ export default {
   "fus.f.phone": "Phone (printed on 1099-NECs)",
   "fus.f.state": "State",
   "fus.you.title": "You and the business",
+  "fus.you.saved": "Saved with these books and printed on your forms.",
+  "fus.disclaimer": "A worksheet, not tax advice. Have a CPA or enrolled agent review your first return.",
   "fus.you.fbar": "Foreign bank accounts over $10,000",
   "fus.you.fbarSub": "Adds the FBAR deadline (FinCEN 114) to your calendar.",
   "fus.in.title": "Your {y} return",
@@ -134,6 +136,8 @@ export default {
   "fus.est.past": "past",
   "fus.est.exempt": "No payments needed: you expect to owe under $1,000 after withholding, or you owed no tax last year.",
   "fus.est.basis.current": "Pay {required} in total: 90% of this year's expected tax. (Last year's tax would be {prior}.)",
+  "fus.est.basis.currentNoPrior":
+    "Pay {required} in total: 90% of this year's expected tax. Enter last year's total tax to see whether the prior-year rule is lower.",
   "fus.est.basis.prior": "Pay {required} in total: last year's tax, which is lower than 90% of this year's ({current}).",
   "fus.est.basis.none": "No estimated payments needed.",
   "fus.est.high": "Last year's AGI was over $150,000, so the prior-year safe harbor is 110% of last year's tax.",
@@ -147,7 +151,7 @@ export default {
 
   // 1099-NEC
   "fus.nec.title": "Contractors and Form 1099-NEC for {y}",
-  "fus.nec.sub": "Payments of ${n} or more for services, by bank, check or cash. File by {date}.",
+  "fus.nec.sub": "Payments of {n} or more for services, by bank, check or cash. File by {date}.",
   "fus.nec.payee": "Payee",
   "fus.nec.box1": "Box 1 compensation",
   "fus.nec.excluded": "Card / PayPal",
@@ -228,7 +232,7 @@ export default {
   // deadlines
   "fus.dl.title": "Deadlines",
   "fus.dl.sub": "Moved to the next business day when they fall on a weekend or holiday.",
-  "fus.dl.source": "IRS source",
+  "fus.dl.source": "Source",
   "fus.dl.none": "Nothing ahead.",
   "fus.dl.all": "Show all {n}",
   "fus.dl.less": "Show upcoming only",

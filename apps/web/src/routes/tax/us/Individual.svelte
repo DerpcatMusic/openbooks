@@ -74,7 +74,7 @@
       else if (kind === "packet") irs.download(await irs.individualPacket(ctx, pt.se, pt.qbi, hasQbi), `${nm}-${y}-schedule-c-se${hasQbi ? "-8995" : ""}.pdf`);
       else {
         const e = (esYear === y ? ret.estimates : ret.nextEstimates)!;
-        irs.download(await irs.fill1040ES({ ...prof, installments: e.installments, worksheet: esWorksheet(pt, e, inp.credits), from: today }), `${nm}-${esYear}-1040-ES.pdf`);
+        irs.download(await irs.fill1040ES({ ...prof, installments: e.installments, worksheet: esWorksheet(pt, e, inp.credits) }), `${nm}-${esYear}-1040-ES.pdf`);
       }
     } catch (e) {
       toast(t("taxUS.fillError", { msg: bidi((e as Error).message) }));
@@ -122,7 +122,7 @@
 </script>
 
 {#snippet estimates(yr: number, e: EstimateResult, next: boolean)}
-  <Card title={t(next ? "fus.est.nextTitle" : "fus.est.title", { y: yr })} description={e.exempt ? t("fus.est.exempt") : t(`fus.est.basis.${e.basis}`, { required: fmt(e.required), current: fmt(e.currentSafeHarbor), prior: e.priorSafeHarbor === null ? "" : fmt(e.priorSafeHarbor) })} flush>
+  <Card title={t(next ? "fus.est.nextTitle" : "fus.est.title", { y: yr })} description={e.exempt ? t("fus.est.exempt") : t(e.basis === "current" && e.priorSafeHarbor === null ? "fus.est.basis.currentNoPrior" : `fus.est.basis.${e.basis}`, { required: fmt(e.required), current: fmt(e.currentSafeHarbor), prior: e.priorSafeHarbor === null ? "" : fmt(e.priorSafeHarbor) })} flush>
     <Table columns={ecols} rows={e.installments} key={(r) => r.n} caption={t("fus.est.title", { y: yr })} stack>
       {#snippet cell(r, c)}
         {#if c.key === "n"}<span class="text-sub">{t("fus.est.n", { n: r.n })}</span>{#if r.due < today}<Badge size="sm" class="ms-2">{t("fus.est.past")}</Badge>{/if}
@@ -151,7 +151,7 @@
       <Button size="sm" onclick={() => make("se")} disabled={!avail.c || !!filling}>SE</Button>
       <Button size="sm" onclick={() => make("q")} disabled={!avail.c || !!filling || !hasQbi}>8995</Button>
       {#each esYears as [yr] (yr)}
-        <Button size="sm" onclick={() => make("es", yr)} disabled={!!filling}>1040-ES {yr}</Button>
+        <Button size="sm" onclick={() => make("es", yr)} disabled={!!filling}><bdi>1040-ES {yr}</bdi></Button>
       {/each}
       <Button size="sm" variant="primary" icon="download" loading={filling.startsWith("packet")} onclick={() => make("packet")} disabled={!avail.c || !!filling}>{filling.startsWith("packet") ? t("taxUS.filling") : t("fus.ind.packet")}</Button>
     </div>
@@ -162,7 +162,7 @@
       {#if sc.warnings.length || pt.qbi.above || missing.length}
         <ul class="space-y-1 rounded-2xl border border-warn/30 bg-warn/6 px-4 py-3 text-[13px] text-ink sm:px-5">
           {#if missing.length}<li>{t("taxUS.missing", { list: missing.join(", ") })}</li>{/if}
-          {#each sc.warnings as w (w.k)}<li>{t(`fus.warn.${w.k}`, { v: fmt(w.v ?? 0) })}</li>{/each}
+          {#each sc.warnings as w (w.k)}<li>{t(`fus.warn.${w.k}`, { v: w.k === "uncategorized" || w.k === "homeOver300" ? (w.v ?? 0) : fmt(w.v ?? 0) })}</li>{/each}
           {#if pt.qbi.above}<li>{t("fus.warn.qbiAbove")}</li>{/if}
         </ul>
       {/if}
@@ -207,7 +207,7 @@
     </div>
 
     <div class="min-w-0 space-y-4 xl:sticky xl:top-4">
-      <Card title={t("fus.you.title")} description={t("taxUS.savedWith")}>
+      <Card title={t("fus.you.title")} description={t("fus.you.saved")}>
         <div class="profile space-y-3">
           {#each FIELDS as [k, type, dir] (k)}
             <Input label={t(`fus.f.${k}`)} {type} {dir} value={String(p[k] ?? "")} required={REQUIRED.has(k) && !p[k]} onchange={(e: Event) => setProfile({ [k]: textOf(e) })} />
@@ -288,7 +288,7 @@
           <Input label={t("fus.veh.placed")} type="date" dir="ltr" value={veh.placedInService ?? ""} onchange={(e: Event) => setV({ placedInService: textOf(e) || undefined })} />
         </div>
       </Card>
-      <p class="text-[12px] leading-relaxed text-faint">{t("taxUS.disclaimer")}</p>
+      <p class="text-[12px] leading-relaxed text-faint">{t("fus.disclaimer")}</p>
     </div>
   </div>
 </div>

@@ -31,7 +31,7 @@
 
 <Card title={t("fus.dl.title")} description={t("fus.dl.sub")} flush>
   <ul class="divide-y divide-line">
-    {#each shown as d (d.id)}
+    {#each shown as d (d.date + d.id)}
       <li class="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3 sm:px-5">
         <span class="w-28 shrink-0 text-[13px] text-sub num">{mdy(d.date)}</span>
         <span class="min-w-0 flex-1 basis-48 text-[14px] text-ink" dir="auto">{d.title[lang()]}</span>

@@ -285,7 +285,7 @@ export default {
   "setup.kind.il": "עוסק זעיר / פטור בישראל",
   "setup.kind.ilSub": "שקלים · טופס 1301, ביטוח לאומי, קבלות",
   "setup.kind.us": "LLC אמריקאית עם בעלים יחיד",
-  "setup.kind.usSub": "דולרים · טופס 5472 + 1120 לבעלים זרים, חשבוניות",
+  "setup.kind.usSub": "דולרים · Schedule C, 1065, 1120, 1120-S, 5472, 1099-NEC, חשבוניות",
   "setup.kind.other": "משהו אחר",
   "setup.kind.otherSub": "הנהלת חשבונות בסיסית: רווח והפסד, מאזן, חשבוניות",
   "setup.titleAdd": "הוספת עסק",
