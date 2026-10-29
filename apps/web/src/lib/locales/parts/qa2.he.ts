@@ -15,4 +15,7 @@ export default {
   "filings.us.corporation": "תאגיד (Corporation)",
   "filings.us.foreignOwned": "הבעלים זר",
   "filings.us.foreignOwnedHint": "חברת C-corp עם בעלים זר מצרפת טופס 5472 לטופס 1120.",
+  "planner.own.sub": "הדוחות והתשלומים של שנת המס הזו, לפי סוג העסק והנתונים השמורים בהגשות. אגרות מדינה הן של השנה הבאה.",
+  "planner.own.estimate": "כמה זה יעלה",
+  "planner.own.estimateSub": "הערכה פדרלית ל-{y} מהספרים ומהנתונים שהזנת; נתון המדינה הוא השיעור הקבוע שלך.",
 };

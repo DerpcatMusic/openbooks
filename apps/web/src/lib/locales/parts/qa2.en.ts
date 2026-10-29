@@ -15,4 +15,7 @@ export default {
   "filings.us.corporation": "Corporation",
   "filings.us.foreignOwned": "The owner is foreign",
   "filings.us.foreignOwnedHint": "A C-corporation with a foreign owner attaches Form 5472 to its Form 1120.",
+  "planner.own.sub": "The returns and payments for this tax year, from your business type and the facts saved in Filings. State fees are the next year's.",
+  "planner.own.estimate": "What it will cost",
+  "planner.own.estimateSub": "A federal estimate for {y} from your books and inputs; the state figure is your own flat rate.",
 };
