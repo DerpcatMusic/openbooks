@@ -1,11 +1,14 @@
 <script lang="ts">
   // Manual journal entries: double-entry adjustments with no bank movement (owner-paid expenses, depreciation, reclasses,
-  // accruals). Port of web/src/views/Journal.svelte. Edits stay local until Save; an entry saves only when its debits equal its
-  // credits and every line with an amount has a ledger account (./journal.ts).
-  import { doc, saveDoc, catLabel, catGroups, closed, closeDate, mdy, fmt, toast, ent } from "#lib/stores/books.svelte.ts";
+  // accruals). Port of web/src/views/Journal.svelte. Edits stay local until Save; an entry saves only when it has a debit and a credit
+  // line, its debits equal its credits to the cent, every line with an amount has a ledger account that isn't archived, and it isn't
+  // dated before the books' start date (./journal.ts, core journal.ts). "Paste from a spreadsheet" turns rows (date, account, debit,
+  // credit, memo) into draft entries after a preview with errors; "Duplicate" copies an entry as a new draft.
+  import { pasteEntries } from "@openbooks/core";
+  import { doc, saveDoc, catLabel, catGroups, allCats, chart, coa, closed, closeDate, startDate, family, mdy, fmt, toast, ent, isArchived } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Badge, Button, EmptyState, Icon, IconButton, Input, Money, PageHeader, Select } from "#lib/ui/index.ts";
-  import { totals, off, problem, clean, blankLine, type Entry } from "./journal.ts";
+  import { Badge, Button, Dialog, EmptyState, Icon, IconButton, Input, Money, PageHeader, Select } from "#lib/ui/index.ts";
+  import { totals, off, problem, clean, blankLine, duplicate, type Entry } from "./journal.ts";
 
   let entries = $state<Entry[]>([]),
     dirty = $state(false),
@@ -19,14 +22,50 @@
   const locked = (e: Entry) => closed(savedDate.get(e.id) ?? "");
   const SIDES = ["debit", "credit"] as const;
   const today = () => new Date().toLocaleDateString("sv");
-  const bad = $derived(entries.find((e) => problem(e)));
+  // the books' rules for an entry: archived accounts out, nothing before the entries start date
+  const ctx = $derived({ coa: $state.snapshot(coa()), from: startDate() });
+  const bad = $derived(entries.find((e) => problem(e, ctx)));
   const edit = (fn: () => void) => {
     fn();
     dirty = true;
   };
   const groups = $derived([{ label: t("journal.pickAccount"), options: [{ value: "ask", label: t("journal.pickAccount") }] }, ...catGroups()]);
   /** catGroups lists every known account; keep an entry's own (maybe since-removed) account selectable too. */
-  const groupsFor = (v: string) => (v === "ask" || groups.some((g) => g.options.some((o) => o.value === v)) ? groups : [...groups, { label: catLabel(v), options: [{ value: v, label: catLabel(v) }] }]);
+  const groupsFor = (v: string) =>
+    v === "ask" || groups.some((g) => g.options.some((o) => o.value === v))
+      ? groups
+      : [...groups, { label: isArchived(v) ? t("gaps2.journal.archivedGroup") : catLabel(v), options: [{ value: v, label: isArchived(v) ? `${catLabel(v)} ${t("gaps2.journal.archivedMark")}` : catLabel(v) }] }];
+
+  function copy(e: Entry) {
+    const id = `je${Date.now().toString(36)}`;
+    edit(() => entries.unshift(duplicate($state.snapshot(e) as Entry, id)));
+    open = id;
+    toast(t("gaps2.journal.duplicated"));
+  }
+
+  // ---------- paste from a spreadsheet ----------
+  let pasting = $state(false),
+    pasted = $state("");
+  /** a cell names a ledger account by id ("expense:software"), by its name in the chart, or by its account code */
+  const known = $derived.by(() => {
+    const m = new Map<string, string>();
+    for (const c of allCats()) {
+      m.set(c.toLowerCase(), c);
+      m.set(catLabel(c).trim().toLowerCase(), c);
+    }
+    for (const r of chart()) if (!(r.type === "bank" || r.type === "card")) m.set(String(r.code), r.id);
+    return m;
+  });
+  const draft = $derived(pasteEntries(pasted, (cell) => known.get(cell.trim().toLowerCase()) ?? "", { ...ctx, dayFirst: family() === "il" }));
+  const draftTotal = $derived(draft.entries.reduce((a, e) => a + e.lines.reduce((x, l) => x + l.debit, 0), 0));
+  const skipped = $derived(draft.errors.length + draft.rejected.reduce((a, r) => a + r.rows.length, 0));
+  function importPasted() {
+    const stamp = Date.now().toString(36);
+    edit(() => entries.unshift(...draft.entries.map((e, i): Entry => ({ id: `je${stamp}${i}`, date: e.date, memo: e.memo, lines: e.lines.map((l) => ({ account: l.account, debit: l.debit || "", credit: l.credit || "" })) }))));
+    toast(t("gaps2.journal.imported", { n: draft.entries.length }));
+    pasting = false;
+    pasted = "";
+  }
 
   function add() {
     const id = `je${Date.now().toString(36)}`;
@@ -36,7 +75,7 @@
   async function save() {
     if (bad) {
       open = bad.id;
-      return toast(problem(bad) === "empty" ? t("journal.needLines") : t("journal.unbalanced"));
+      return toast(t(`gaps2.journal.problem.${problem(bad, ctx)}`, { date: startDate() ? mdy(startDate()!) : "" }));
     }
     await saveDoc("journal", clean($state.snapshot(entries) as Entry[]));
     dirty = false;
@@ -63,6 +102,7 @@
 <PageHeader title={t("journal.title")} sub={t("journal.sub")}>
   {#snippet actions()}
     {#if dirty}<Button variant="ghost" onclick={() => (dirty = false)}>{t("journal.discard")}</Button>{/if}
+    <Button icon="upload" onclick={() => (pasting = true)}>{t("gaps2.journal.paste")}</Button>
     <Button icon="plus" onclick={add}>{t("journal.new")}</Button>
     <Button variant="primary" onclick={save} disabled={!dirty}>{t("common.save")}</Button>
   {/snippet}
@@ -82,6 +122,7 @@
       {@const [d, c] = totals(e)}
       {@const diff = off(e)}
       {@const lk = locked(e)}
+      {@const why = problem(e, ctx)}
       <section class="panel overflow-hidden">
         <button
           class="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5 text-start outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-inset sm:px-5"
@@ -94,7 +135,7 @@
           <span class="min-w-0 flex-1 basis-40 truncate text-[14px] text-ink">
             <bdi>{e.memo || t("journal.untitled")}</bdi>{#if accountsOf(e)}<span class="ms-2 text-sub">{accountsOf(e)}</span>{/if}
           </span>
-          {#if diff}<Badge tone="bad">{t("journal.offBy", { amount: fmt(Math.abs(diff), 2) })}</Badge>{/if}
+          {#if diff}<Badge tone="bad">{t("journal.offBy", { amount: fmt(Math.abs(diff), 2) })}</Badge>{:else if why === "archived" || why === "beforeStart" || why === "noDebit" || why === "noCredit"}<Badge tone="warn">{t(`gaps2.journal.badge.${why}`)}</Badge>{/if}
           <Money value={d} currency={cur} class="text-ink" />
         </button>
         {#if open === e.id}
@@ -137,10 +178,11 @@
               </div>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-3 text-[13px]">
-              <span class="flex min-w-0 flex-1 items-center gap-1.5 {diff ? 'text-bad' : 'text-good'}" role="status">
-                <Icon name={diff ? "alert" : "check"} size={14} class="shrink-0" />
-                {diff ? t("journal.differ", { amount: fmt(Math.abs(diff), 2) }) : t("journal.balanced")}
+              <span class="flex min-w-0 flex-1 items-center gap-1.5 {diff || (why && why !== 'empty') ? 'text-bad' : 'text-good'}" role="status">
+                <Icon name={diff || (why && why !== "empty") ? "alert" : "check"} size={14} class="shrink-0" />
+                {#if diff}{t("journal.differ", { amount: fmt(Math.abs(diff), 2) })}{:else if why && why !== "empty"}{t(`gaps2.journal.problem.${why}`, { date: startDate() ? mdy(startDate()!) : "" })}{:else}{t("journal.balanced")}{/if}
               </span>
+              <Button variant="ghost" size="sm" icon="copy" onclick={() => copy(e)}>{t("gaps2.journal.duplicate")}</Button>
               <Button variant="ghost" size="sm" icon="trash" class="hover:text-bad" disabled={lk} onclick={() => edit(() => { entries.splice(i, 1); open = null; })}>{t("journal.deleteEntry")}</Button>
             </div>
           </div>
@@ -150,3 +192,58 @@
   </div>
   <p class="mt-6 text-[13px] text-sub">{t("journal.howto")}</p>
 </div>
+
+<Dialog bind:open={pasting} title={t("gaps2.journal.pasteTitle")} description={t("gaps2.journal.pasteHelp")} size="lg">
+  <label class="block">
+    <span class="sr-only">{t("gaps2.journal.pasteTitle")}</span>
+    <textarea
+      bind:value={pasted}
+      rows="7"
+      dir="ltr"
+      spellcheck="false"
+      placeholder={t("gaps2.journal.pastePlaceholder")}
+      class="num w-full resize-y rounded-lg border border-line-strong bg-panel px-3 py-2 text-[13px] text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/50"></textarea>
+  </label>
+  <p class="mt-1 text-[12px] text-faint">{t("gaps2.journal.pasteGroups")}</p>
+  {#if pasted.trim()}
+    <div class="mt-3 space-y-3" aria-live="polite">
+      {#if draft.entries.length}
+        <div>
+          <div class="text-[13px] text-good">{t("gaps2.journal.ready", { n: draft.entries.length })} · <Money value={draftTotal} currency={cur} /></div>
+          <ul class="mt-1 divide-y divide-line rounded-lg border border-line text-[13px]">
+            {#each draft.entries as e, i (i)}
+              <li class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5">
+                <span class="num text-sub">{mdy(e.date)}</span>
+                <span class="min-w-0 flex-1 basis-32 truncate text-ink" dir="auto">{e.memo || t("journal.untitled")}</span>
+                <span class="text-sub">{t("gaps2.journal.lines", { n: e.lines.length })}</span>
+                <Money value={e.lines.reduce((a, l) => a + l.debit, 0)} currency={cur} class="text-ink" />
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+      {#if draft.rejected.length}
+        <div>
+          <div class="text-[13px] text-bad">{t("gaps2.journal.rejected", { n: draft.rejected.length })}</div>
+          <ul class="mt-1 space-y-0.5 text-[13px] text-ink-2">
+            {#each draft.rejected as r (r.rows.join())}
+              <li>{t("gaps2.journal.rows", { rows: r.rows.join(", ") })}: {t(`gaps2.journal.problem.${r.problem}`, { date: startDate() ? mdy(startDate()!) : "" })} <span class="text-sub" dir="auto">({r.memo || r.date})</span></li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+      {#if draft.errors.length}
+        <div>
+          <div class="text-[13px] text-bad">{t("gaps2.journal.errors", { n: draft.errors.length })}</div>
+          <ul class="mt-1 space-y-0.5 text-[13px] text-ink-2">
+            {#each draft.errors as r (r.row)}<li>{t("gaps2.journal.row", { row: r.row })}: {t(`gaps2.journal.err.${r.problem}`)}</li>{/each}
+          </ul>
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (pasting = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" icon="plus" onclick={importPasted} disabled={!draft.entries.length}>{skipped ? t("gaps2.journal.importSome", { n: draft.entries.length, skipped }) : t("gaps2.journal.importN", { n: draft.entries.length })}</Button>
+  {/snippet}
+</Dialog>

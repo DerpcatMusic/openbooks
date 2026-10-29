@@ -7,17 +7,19 @@
 <script lang="ts">
   // Transaction drawer: open it from anywhere with S.drawer = txn.id (Esc, the backdrop or ✕ close it).
   // Amount, ledger account, statement details, "create a rule" (prefilled with the suggested match text and a live count of
-  // what it would match), tags, receipts/attachments, links to the statement file, the journal or the counterparty.
+  // what it would match), tags (one per tag group), split into several ledger accounts, reviewed mark, receipts/attachments, links to
+  // the statement file, the journal or the counterparty. A split transaction opens on any of its lines.
   import { goto } from "#lib/nav.ts";
-  import { payerOf, suggestRule, haystack, normalizeRule, setTag, textOf } from "@openbooks/core";
+  import { activeTags, baseId, payerOf, suggestRule, haystack, normalizeRule, setTag, textOf } from "@openbooks/core";
   import type { TagsDoc } from "@openbooks/schema";
-  import { S, ent, catLabel, mdy, classify, closed, closeDate, toast, fileUrl, attach, attachmentsOf, suggest, tagsDoc, saveTags } from "#lib/stores/books.svelte.ts";
+  import { S, ent, catLabel, mdy, classify, closed, closeDate, toast, fileUrl, attach, attachmentsOf, suggest, tagsDoc, saveTags, splitsDoc, isReviewed, setReviewed } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Drawer, Money, Button, Icon } from "#lib/ui/index.ts";
   import CategorySelect from "./CategorySelect.svelte";
   import TagChip from "./TagChip.svelte";
   import TagPill from "./TagPill.svelte";
   import TxnDeduction from "./TxnDeduction.svelte";
+  import SplitEditor from "./SplitEditor.svelte";
 
   const me = $props.id();
   $effect(() => {
@@ -43,9 +45,15 @@
   const files = $derived(x ? attachmentsOf(x.id) : []);
   // tags: pills toggle the hand-made ones; tags that only a rule adds are listed beside them
   const tg = $derived($state.snapshot(tagsDoc()) as TagsDoc);
-  const mine = $derived(x ? (tg.on[x.id] ?? []) : []);
-  const viaRules = $derived((x?.tags ?? []).filter((g) => !mine.includes(g)).map((g) => tg.tags.find((o) => o.id === g)));
+  const mine = $derived(x ? (tg.on[baseId(x.id)] ?? []) : []);
+  const isSplit = $derived(x?.why === "split");
+  /** tags only a split line itself carries (picked in the split editor) */
+  const ownTags = $derived(x && isSplit ? (splitsDoc()[baseId(x.id)]?.[+x.id.split("~")[1]!]?.tags ?? []) : []);
+  const viaRules = $derived((x?.tags ?? []).filter((g) => !mine.includes(g) && !ownTags.includes(g)).map((g) => tg.tags.find((o) => o.id === g)));
+  /** the pickers offer active tags; one the transaction already carries stays visible (dimmed) so it can be removed */
+  const offered = $derived([...activeTags(tg), ...tg.tags.filter((g) => g.inactive && mine.includes(g.id))]);
   const journal = $derived(x?.source === "journal");
+  const reviewed = $derived(x ? isReviewed(x.id) : false);
   const rows = $derived.by(() => {
     if (!x) return [];
     const ref = journal
@@ -55,7 +63,7 @@
         : x.source === "bit" || x.who
           ? t("txn.src.bit", { row: x.page })
           : x.file;
-    const by = x.why === "manual" ? t("txn.by.you") : journal ? t("txn.src.journal") : x.why ? t("txn.by.rule", { rule: bidi(x.why) }) : t("txn.by.none");
+    const by = isSplit ? t("gaps2.why.split") : x.why === "manual" ? t("txn.by.you") : journal ? t("txn.src.journal") : x.why ? t("txn.by.rule", { rule: bidi(x.why) }) : t("txn.by.none");
     return [
       [t("common.date"), mdy(x.date), false],
       [t("common.account"), x.account, true],
@@ -69,7 +77,7 @@
 
   async function saveRule() {
     const r = rule.trim();
-    if (!x || !r || x.category === "ask") return;
+    if (!x || !r || x.category === "ask" || isSplit) return;
     const cat = x.category;
     await classify(
       same.map((s) => s.id),
@@ -96,6 +104,8 @@
       <div class="text-[13px] text-sub">{t("common.ledgerAccount")}</div>
       {#if journal}
         <div class="mt-2 text-[15px] text-ink">{catLabel(x.category)} <span class="text-[13px] text-sub">· {t("txn.editInJournal")}</span></div>
+      {:else if isSplit}
+        <div class="mt-2 text-[15px] text-ink">{catLabel(x.category)} <span class="text-[13px] text-sub">· {t("gaps2.split.line", { i: +x.id.split("~")[1]! + 1 })}</span></div>
       {:else if closed(x.date)}
         <div class="mt-2 flex items-center gap-1.5 text-[15px] text-ink"><Icon name="lock" size={14} class="text-faint" />{catLabel(x.category)} <span class="text-[13px] text-sub">· {t("close.locked", { date: mdy(closeDate() ?? "") })}</span></div>
       {:else}
@@ -113,6 +123,14 @@
     </dl>
 
     {#if !journal}
+      <div class="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3 sm:px-5">
+        <span class="flex min-w-0 flex-1 items-center gap-1.5 text-[14px] {reviewed ? 'text-good' : 'text-sub'}"><Icon name="check" size={14} />{reviewed ? t("gaps2.reviewed") : t("gaps2.notReviewed")}</span>
+        <Button size="sm" onclick={() => void setReviewed([x.id], !reviewed)}>{reviewed ? t("gaps2.markUnreviewed") : t("gaps2.markReviewed")}</Button>
+      </div>
+      <SplitEditor {x} currency={cur} />
+    {/if}
+
+    {#if !journal && !isSplit}
       <div class="border-t border-line px-4 py-4 sm:px-5">
         <label for="{me}-rule" class="text-[13px] text-sub">{t("txn.rule")}</label>
         <p class="mt-1 text-[13px] text-sub">
@@ -139,11 +157,12 @@
         <div class="text-[13px] text-sub">{t("txn.tags")}</div>
         {#if tg.tags.length}
           <div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("txn.tags")}>
-            {#each tg.tags as g (g.id)}
+            {#each offered as g (g.id)}
               {@const on = mine.includes(g.id)}
-              <TagPill name={g.name} color={g.color} {on} onclick={() => void saveTags(setTag(tg, [x.id], g.id, !on))} />
+              <TagPill name={g.inactive ? `${g.name} ${t("gaps2.tag.inactiveMark")}` : g.name} color={g.color} {on} onclick={() => void saveTags(setTag(tg, [x.id], g.id, !on))} />
             {/each}
           </div>
+          {#if tg.groups.length}<p class="mt-2 text-[12px] text-faint">{t("gaps2.tag.onePerGroup")}</p>{/if}
           {#if viaRules.length}
             <p class="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-sub">
               {t("txn.tagsRules")}
@@ -179,7 +198,7 @@
         }} />
       {#each files as f (f)}
         <a
-          href={fileUrl(f, `attachments/${x.id}`)}
+          href={fileUrl(f, `attachments/${baseId(x.id)}`)}
           target="_blank"
           rel="noopener"
           class="mt-2 flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[14px] text-ink-2 outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/50">

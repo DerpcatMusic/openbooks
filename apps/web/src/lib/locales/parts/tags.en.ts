@@ -18,7 +18,7 @@ export default {
   "tags.empty": "No tags yet",
   "tags.emptyText": "Add one above, then use it in the transaction list, the transaction drawer, or a rule.",
   "tags.groups": "Tag groups",
-  "tags.groupsHint": "Group related tags, like Clients or Projects. Deleting a group keeps its tags.",
+  "tags.groupsHint": "Group related tags, like Clients or Projects. Deleting a group deletes its tags.",
   "tags.newGroup": "New group name",
   "tags.addGroup": "Add group",
   "tags.groupName": "Group name",

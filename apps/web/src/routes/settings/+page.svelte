@@ -1,10 +1,11 @@
 <script lang="ts">
   // Settings: appearance (language, theme, font), security (vault), business (names, structure per tax year), tax years,
   // tax tables (edits are overrides: POST /api/taxtables → doc(_app, "taxtables")), AI, and a summary of these books.
+  // "Books details" holds the business name, the accounting basis (cash only), the entries start date and the close date.
   import { goto } from "#lib/nav.ts";
-  import { S, ent, family, isUS, bizType, bizTypes, bizLabel, setBizType, setMeta, setTheme, addYear, removeYear, saveTaxTable, closeDate, setCloseDate, mdy, fmt, toast, type Theme } from "#lib/stores/books.svelte.ts";
+  import { S, ent, family, isUS, bizType, bizTypes, bizLabel, setBizType, setMeta, setTheme, addYear, removeYear, saveTaxTable, closeDate, setCloseDate, startDate, setStartDate, mdy, fmt, toast, type Theme } from "#lib/stores/books.svelte.ts";
   import { t, I, setLang, type Lang } from "#lib/i18n.svelte.ts";
-  import { Button, Card, IconButton, Input, PageHeader, Segmented, Select, Table } from "#lib/ui/index.ts";
+  import { Badge, Button, Card, Dialog, IconButton, Input, PageHeader, Segmented, Select, Table } from "#lib/ui/index.ts";
   import VaultPanel from "#lib/vault/VaultPanel.svelte";
   import AiSetup from "./AiSetup.svelte";
   import { bracketsText, parseBrackets, FIELDS } from "./tables.ts";
@@ -30,16 +31,46 @@
     } catch {}
   }
 
-  // close date: everything dated on or before it is locked (screens, API and MCP tools)
+  // close date: everything dated on or before it is locked (screens, API and MCP tools). Not in the future, not before the start date.
+  const today = new Date().toLocaleDateString("sv");
   const closing = $derived(closeDate());
+  const starting = $derived(startDate());
   let closeInput = $state("");
   $effect(() => {
     closeInput = closing ?? "";
   });
-  const closeOk = $derived(/^\d{4}-\d{2}-\d{2}$/.test(closeInput) && closeInput !== closing);
+  const closeBad = $derived.by(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(closeInput) || closeInput === closing) return "";
+    if (closeInput > today) return t("gaps2.books.closeFuture");
+    if (starting && closeInput < starting) return t("gaps2.books.closeBeforeStart", { date: mdy(starting) });
+    return "";
+  });
+  const closeOk = $derived(/^\d{4}-\d{2}-\d{2}$/.test(closeInput) && closeInput !== closing && !closeBad);
   async function saveClose(date: string | null) {
     await setCloseDate(date);
     toast(date ? t("close.saved", { date: mdy(date) }) : t("close.cleared"));
+  }
+
+  // entries start date: transactions and journal entries before it are left out of the books. Once set it only moves earlier.
+  let startInput = $state(""),
+    startOpen = $state(false);
+  $effect(() => {
+    startInput = starting ?? "";
+  });
+  const startFmt = $derived(/^\d{4}-\d{2}-\d{2}$/.test(startInput));
+  const startBad = $derived.by(() => {
+    if (!startFmt || startInput === starting) return "";
+    if (starting && startInput > starting) return t("gaps2.books.startLater", { date: mdy(starting) });
+    if (closing && startInput > closing) return t("gaps2.books.startAfterClose", { date: mdy(closing) });
+    return "";
+  });
+  const startOk = $derived(startFmt && startInput !== starting && !startBad);
+  /** stored transactions the start date would leave out (only a first date can drop any: later moves are refused) */
+  const leftOut = $derived(!starting && startFmt ? d.txns.filter((x) => x.date < startInput).length : 0);
+  async function saveStart(date: string | null) {
+    await setStartDate(date);
+    startOpen = false;
+    toast(date ? t("gaps2.books.startSaved", { date: mdy(date) }) : t("gaps2.books.startCleared"));
   }
 
   // tax years of these books
@@ -137,7 +168,6 @@
 
   <Card title={t("settings.business")} description={t("settings.businessHint")}>
     <div class="grid gap-3 sm:grid-cols-2">
-      <Input label={t("common.name")} value={ent().name ?? ""} onchange={(e) => setMeta({ name: e.currentTarget.value.trim() || ent().name })} />
       <Input label={t("settings.shortName")} value={ent().short ?? ""} onchange={(e) => setMeta({ short: e.currentTarget.value.trim() })} />
     </div>
     {#if fam && types.length}
@@ -158,12 +188,39 @@
     {/if}
   </Card>
 
-  <Card title={t("close.title")} description={t("close.hint")}>
-    <p class="mb-3 text-[14px] text-ink">{closing ? t("close.through", { date: mdy(closing) }) : t("close.notYet")}</p>
-    <div class="flex flex-wrap items-end gap-2">
-      <Input label={t("close.date")} type="date" bind:value={closeInput} class="w-44" />
-      <Button variant="primary" disabled={!closeOk} onclick={() => saveClose(closeInput)}>{t("close.set")}</Button>
-      {#if closing}<Button variant="ghost" onclick={() => saveClose(null)}>{t("close.clear")}</Button>{/if}
+  <Card title={t("gaps2.books.title")} description={t("gaps2.books.hint")}>
+    <div class="space-y-6">
+      <Input label={t("gaps2.books.name")} value={ent().name ?? ""} onchange={(e) => setMeta({ name: e.currentTarget.value.trim() || ent().name })} class="max-w-md" />
+
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[14px] text-ink">{t("gaps2.books.basis")}</span>
+          <Badge tone="accent">{t("gaps2.books.cash")}</Badge>
+        </div>
+        <p class="mt-1 text-[13px] text-sub">{t("gaps2.books.basisHelp")}</p>
+      </div>
+
+      <div id="start-date" class="scroll-mt-4">
+        <div class="text-[14px] text-ink">{t("gaps2.books.start")}</div>
+        <p class="mt-0.5 mb-2 text-[13px] text-sub">{starting ? t("gaps2.books.startThrough", { date: mdy(starting) }) : t("gaps2.books.startNone")} {t("gaps2.books.startHelp")}</p>
+        <div class="flex flex-wrap items-end gap-2">
+          <Input label={t("gaps2.books.startDate")} type="date" bind:value={startInput} max={starting ?? undefined} error={startBad || null} class="w-44" />
+          <Button variant="primary" disabled={!startOk} onclick={() => (leftOut ? (startOpen = true) : saveStart(startInput))}>{starting ? t("gaps2.books.startMove") : t("gaps2.books.startSet")}</Button>
+          {#if starting}<Button variant="ghost" onclick={() => saveStart(null)}>{t("gaps2.books.startClear")}</Button>{/if}
+        </div>
+        {#if leftOut && !startBad}<p class="mt-2 text-[13px] text-warn" role="status">{t("gaps2.books.startDrops", { n: leftOut })}</p>{/if}
+      </div>
+
+      <div id="close-date" class="scroll-mt-4">
+        <div class="text-[14px] text-ink">{t("close.title")}</div>
+        <p class="mt-0.5 mb-2 text-[13px] text-sub">{t("close.hint")}</p>
+        <p class="mb-3 text-[14px] text-ink">{closing ? t("close.through", { date: mdy(closing) }) : t("close.notYet")}</p>
+        <div class="flex flex-wrap items-end gap-2">
+          <Input label={t("close.date")} type="date" bind:value={closeInput} max={today} min={starting ?? undefined} error={closeBad || null} class="w-44" />
+          <Button variant="primary" disabled={!closeOk} onclick={() => saveClose(closeInput)}>{t("close.set")}</Button>
+          {#if closing}<Button variant="ghost" onclick={() => saveClose(null)}>{t("close.clear")}</Button>{/if}
+        </div>
+      </div>
     </div>
   </Card>
 
@@ -236,3 +293,11 @@
     </p>
   </section>
 </div>
+
+<Dialog bind:open={startOpen} title={t("gaps2.books.startConfirmTitle", { date: startFmt ? mdy(startInput) : "" })} description={t("gaps2.books.startConfirm", { n: leftOut })} size="sm">
+  <p>{t("gaps2.books.startConfirmMore")}</p>
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (startOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" onclick={() => saveStart(startInput)}>{t("gaps2.books.startSet")}</Button>
+  {/snippet}
+</Dialog>

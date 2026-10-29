@@ -30,7 +30,7 @@ export interface JournalCtx {
  * amount but no usable account ("account") or an archived one ("archived"), no debit line, no credit line, debits != credits in cents.
  * Lines without an amount are ignored (blank rows of the editor).
  */
-export function journalProblem(e: Pick<JournalEntry, "date" | "lines">, ctx: JournalCtx = {}): JournalProblem | null {
+export function journalProblem(e: { date: string; lines: readonly Line[] }, ctx: JournalCtx = {}): JournalProblem | null {
   if (!isIsoDate(e.date)) return "date";
   if (ctx.from && e.date < ctx.from) return "beforeStart";
   const used = e.lines.filter((l) => cents(l.debit) || cents(l.credit));

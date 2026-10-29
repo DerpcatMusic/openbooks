@@ -15,6 +15,7 @@ import cfa from "./parts/cfa.he.ts";
 import recon from "./parts/recon.he.ts";
 import tags from "./parts/tags.he.ts";
 import taxtags from "./parts/taxtags.he.ts";
+import gaps2 from "./parts/gaps2.he.ts";
 export default {
   ...a,
   ...b,
@@ -32,6 +33,7 @@ export default {
   ...recon,
   ...tags,
   ...taxtags,
+  ...gaps2,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

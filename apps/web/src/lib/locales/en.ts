@@ -16,6 +16,7 @@ import cfa from "./parts/cfa.en.ts";
 import recon from "./parts/recon.en.ts";
 import tags from "./parts/tags.en.ts";
 import taxtags from "./parts/taxtags.en.ts";
+import gaps2 from "./parts/gaps2.en.ts";
 export default {
   ...a,
   ...b,
@@ -33,6 +34,7 @@ export default {
   ...recon,
   ...tags,
   ...taxtags,
+  ...gaps2,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

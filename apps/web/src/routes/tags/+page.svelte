@@ -1,14 +1,15 @@
 <script lang="ts">
   // Tags: labels for transactions (set in the list, the drawer, in bulk, or by a rule's "Then add tag") that reports can filter by.
   // A tag may belong to a tag group (Projects, Clients…) and carry a colour. Everything is the doc "tags"; the edits are the pure
-  // functions of @openbooks/core tags.ts, saved as a whole.
-  import { createGroup, createTag, deleteGroup, deleteTag, renameGroup, renameTag, setTagColor, setTagGroup, setTagTax } from "@openbooks/core";
+  // functions of @openbooks/core tags.ts, saved as a whole. A transaction holds one tag per group; a tag can be deactivated (kept on
+  // what already carries it, hidden from pickers) and reactivated; deleting a group deletes its tags, after a confirmation.
+  import { createGroup, createTag, deleteGroup, deleteTag, renameGroup, renameTag, setTagActive, setTagColor, setTagGroup, setTagTax } from "@openbooks/core";
   import type { TagsDoc } from "@openbooks/schema";
   import { url } from "#lib/nav.ts";
   import { S, tagsDoc, saveTags, toast } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { addPreset, hasRules, presets, ruleName, ruleOf } from "#lib/taxtags.svelte.ts";
-  import { Badge, Button, Card, EmptyState, IconButton, PageHeader, Select, Table, type Column } from "#lib/ui/index.ts";
+  import { Badge, Button, Card, Dialog, EmptyState, IconButton, PageHeader, Select, Table, type Column } from "#lib/ui/index.ts";
   import TaxPicker from "./TaxPicker.svelte";
 
   const d = $derived($state.snapshot(tagsDoc()) as TagsDoc);
@@ -32,9 +33,29 @@
     { key: "group", label: t("tags.group") },
     { key: "color", label: t("tags.color") },
     ...(hasRules() ? [{ key: "tax", label: t("taxtags.col"), class: "min-w-48" }] : []),
+    { key: "status", label: t("gaps2.tag.status") },
     { key: "n", label: t("tags.used"), numeric: true },
     { key: "act", label: t("tags.actions"), hideLabel: true },
   ]);
+  // confirmations: deleting a group takes its tags with it, deleting a tag takes it off every transaction
+  let dropGroup = $state<TagsDoc["groups"][number] | null>(null),
+    dropTag = $state<TagsDoc["tags"][number] | null>(null),
+    groupOpen = $state(false),
+    tagOpen = $state(false);
+  const inGroup = (id: string) => d.tags.filter((o) => o.group === id);
+  const usedBy = (ids: readonly string[]) => (S.data?.txns ?? []).filter((x) => x.tags?.some((g) => ids.includes(g))).length;
+  function confirmGroup() {
+    if (dropGroup) save(deleteGroup(d, dropGroup.id));
+    groupOpen = false;
+  }
+  function confirmTag() {
+    if (dropTag) save(deleteTag(d, dropTag.id));
+    tagOpen = false;
+  }
+  function toggleActive(g: TagsDoc["tags"][number]) {
+    save(setTagActive(d, g.id, !!g.inactive));
+    toast(t(g.inactive ? "gaps2.tag.reactivated" : "gaps2.tag.deactivated", { tag: bidi(g.name) }));
+  }
   const input =
     "ui-align -mx-2 h-8 w-full min-w-32 rounded-md bg-transparent px-2 text-ink outline-none placeholder:text-faint hover:bg-fill focus:bg-fill focus:ring-2 focus:ring-accent/50";
   const field = "ui-align h-9 min-w-40 flex-1 rounded-lg border border-line-strong bg-panel px-3 text-[14px] text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/50";
@@ -86,7 +107,7 @@
               value={g.name}
               aria-label={t("tags.tagName")}
               onchange={(e) => (e.currentTarget.value.trim() ? save(renameTag(d, g.id, e.currentTarget.value)) : (e.currentTarget.value = g.name))}
-              class={input} />
+              class="{input} {g.inactive ? 'text-sub' : ''}" />
           {:else if c.key === "group"}
             <Select variant="pill" label={t("tags.group")} value={g.group ?? ""} options={GROUPS} onchange={(v) => save(setTagGroup(d, g.id, v))} />
           {:else if c.key === "color"}
@@ -111,6 +132,8 @@
                 <span class="text-[13px] text-faint">{t("taxtags.none")}</span>
               {/if}
             </button>
+          {:else if c.key === "status"}
+            <Badge size="sm" tone={g.inactive ? "neutral" : "good"}>{g.inactive ? t("gaps2.tag.inactive") : t("gaps2.tag.active")}</Badge>
           {:else if c.key === "n"}
             {#if counts.get(g.id)}
               <a
@@ -121,7 +144,10 @@
               <span class="text-faint">0</span>
             {/if}
           {:else}
-            <IconButton icon="x" size="sm" label={t("tags.delete")} onclick={() => save(deleteTag(d, g.id))} />
+            <span class="inline-flex items-center gap-1">
+              <Button size="sm" variant="ghost" onclick={() => toggleActive(g)} title={t(g.inactive ? "gaps2.tag.reactivateHint" : "gaps2.tag.deactivateHint")}>{g.inactive ? t("gaps2.tag.reactivate") : t("gaps2.tag.deactivate")}</Button>
+              <IconButton icon="x" size="sm" label={t("tags.delete")} onclick={() => (counts.get(g.id) ? ((dropTag = g), (tagOpen = true)) : save(deleteTag(d, g.id)))} />
+            </span>
           {/if}
         {/snippet}
       </Table>
@@ -148,7 +174,7 @@
     </Card>
   {/if}
 
-  <Card title={t("tags.groups")} description={t("tags.groupsHint")}>
+  <Card title={t("tags.groups")} description={`${t("tags.groupsHint")} ${t("gaps2.tag.onePerGroup")}`}>
     <div class="flex flex-wrap items-center gap-2">
       <input
         bind:value={newGroup}
@@ -169,11 +195,30 @@
             onchange={(e) => (e.currentTarget.value.trim() ? save(renameGroup(d, g.id, e.currentTarget.value)) : (e.currentTarget.value = g.name))}
             class="{input} flex-1" />
           <span class="text-[13px] text-sub">{t("tags.inGroup", { n: d.tags.filter((o) => o.group === g.id).length })}</span>
-          <IconButton icon="x" size="sm" label={t("tags.deleteGroup")} onclick={() => save(deleteGroup(d, g.id))} />
+          <IconButton icon="x" size="sm" label={t("tags.deleteGroup")} onclick={() => ((dropGroup = g), (groupOpen = true))} />
         </li>
       {/each}
     </ul>
   </Card>
 </div>
+
+<Dialog bind:open={groupOpen} title={t("gaps2.group.deleteTitle", { name: dropGroup?.name ?? "" })} description={t("gaps2.group.deleteHelp")} size="sm">
+  {#if dropGroup}
+    {@const ts = inGroup(dropGroup.id)}
+    <p>{ts.length ? t("gaps2.group.deleteTags", { n: ts.length, uses: usedBy(ts.map((o) => o.id)) }) : t("gaps2.group.deleteEmpty")}</p>
+    {#if ts.length}<p class="mt-2 flex flex-wrap gap-1.5">{#each ts as o (o.id)}<Badge>{o.name}</Badge>{/each}</p>{/if}
+  {/if}
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (groupOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" class="!bg-bad" onclick={confirmGroup}>{t("gaps2.group.deleteConfirm")}</Button>
+  {/snippet}
+</Dialog>
+
+<Dialog bind:open={tagOpen} title={t("gaps2.tag.deleteTitle", { name: dropTag?.name ?? "" })} description={t("gaps2.tag.deleteHelp")} size="sm">
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (tagOpen = false)}>{t("common.cancel")}</Button>
+    <Button variant="primary" class="!bg-bad" onclick={confirmTag}>{t("gaps2.tag.deleteConfirm")}</Button>
+  {/snippet}
+</Dialog>
 
 <TaxPicker bind:open={pickerOpen} tag={picking} onsave={(tax) => picking && save(setTagTax(d, picking.id, tax))} />

@@ -2,8 +2,8 @@
 // theme, toasts, and the formatters every screen uses. Pure ledger math lives in @openbooks/core; this file only binds it to S.
 // Live updates: one EventSource on /api/events; a change for the open entity (or entity: null) re-fetches the whole state.
 import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest, emptyTags, normalizeRule } from "@openbooks/core";
-import { bankAccounts, chartOfAccounts, closedOn, group, inPeriod, monthsIn, nextCode, type Coa, type CoaEntry, type Period } from "@openbooks/core";
-import type { RuleInput, TagsDoc, Txn } from "@openbooks/schema";
+import { bankAccounts, baseId, chartOfAccounts, closedOn, group, inPeriod, monthsIn, nextCode, type BooksDoc, type Coa, type CoaEntry, type Period } from "@openbooks/core";
+import type { RuleInput, SplitsDoc, TagsDoc, Txn } from "@openbooks/schema";
 import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
@@ -302,17 +302,39 @@ export function setAccount(id: string, patch: Partial<CoaEntry>) {
   else delete next[id];
   return saveDoc("coa", next);
 }
-/** The books' close date (doc "books" = { closeDate }): everything dated on or before it is locked, here and on the server. */
-export const closeDate = (): string | null => doc<{ closeDate?: string | null }>("books", {}).closeDate || null;
-export const setCloseDate = (date: string | null) => saveDoc("books", date ? { closeDate: date } : null);
+/** doc "books" = { closeDate?, startDate? }: the close date locks everything on or before it; transactions before the start date are left out. */
+export const booksDoc = () => doc<BooksDoc>("books", {});
+/** Write the books doc with these fields changed (null clears one); the server checks the dates (checkBooks in core). */
+export function saveBooks(patch: BooksDoc) {
+  const next = Object.fromEntries(Object.entries({ ...booksDoc(), ...patch }).filter(([, v]) => v)) as BooksDoc;
+  return saveDoc("books", Object.keys(next).length ? next : null);
+}
+/** The books' close date: everything dated on or before it is locked, here and on the server. */
+export const closeDate = (): string | null => booksDoc().closeDate || null;
+export const setCloseDate = (date: string | null) => saveBooks({ closeDate: date });
+/** The books' entries start date: earlier transactions and journal entries are left out. Once set it can only move earlier. */
+export const startDate = (): string | null => booksDoc().startDate || null;
+export const setStartDate = (date: string | null) => saveBooks({ startDate: date });
 /** True for a date on or before the close date. */
 export const closed = (date: string) => closedOn(date, closeDate());
 /** Tags (doc "tags": tags, tag groups, hand-made assignments; pure edits in @openbooks/core tags.ts). Txn.tags has hand-made + rule tags. */
 export const tagsDoc = () => doc<TagsDoc>("tags", emptyTags());
 export const saveTags = (next: TagsDoc) => saveDoc("tags", next);
-export const attachmentsOf = (id: string) => S.data?.attachments?.[id] ?? [];
+/** Split transactions (doc "splits"): stored transaction id → its lines; the ledger has one row per line, id `${id}~${i}`. */
+export const splitsDoc = () => doc<SplitsDoc>("splits", {});
+export const saveSplits = (next: SplitsDoc) => saveDoc("splits", Object.keys(next).length ? next : null);
+/** Review marks (doc "reviewed" = { txnId: true }), independent of categorizing. A split's lines share their transaction's mark. */
+export const reviewedDoc = () => doc<Record<string, boolean>>("reviewed", {});
+export const isReviewed = (id: string) => !!reviewedDoc()[baseId(id)];
+export function setReviewed(ids: readonly string[], on: boolean) {
+  const next = { ...reviewedDoc() };
+  for (const id of ids) if (on) next[baseId(id)] = true;
+  else delete next[baseId(id)];
+  return saveDoc("reviewed", Object.keys(next).length ? next : null);
+}
+export const attachmentsOf = (id: string) => S.data?.attachments?.[baseId(id)] ?? [];
 export async function attach(id: string, files: File[]) {
-  for (const f of files) await run((e) => api.attach(e, id, f));
+  for (const f of files) await run((e) => api.attach(e, baseId(id), f));
 }
 
 // ---------- live updates ----------

@@ -4,11 +4,13 @@
   // rule with an account sets it; tags of every matching rule are added; a manual choice beats rules. Rules apply to every
   // transaction (past ones too). The draft is saved explicitly; match counts and totals are live against it, and a count opens a
   // preview of exactly which transactions that rule catches ("match nothing" lists the rest), each one opening the transaction drawer.
-  import { cleanRule, isLegacy, normalizeRule, plOf, ruleLabel, textOf } from "@openbooks/core";
+  // A rule whose ledger account is archived or gone is marked Invalid: it stays in the list but the engine skips it. New rules go last.
+  import { activeTags, cleanRule, isLegacy, normalizeRule, plOf, ruleLabel, ruleProblem, textOf } from "@openbooks/core";
+  import { tick } from "svelte";
   import type { Rule, RuleCondition, RuleInput, TagsDoc, Txn } from "@openbooks/schema";
-  import { S, ent, catLabel, saveRules, mdy, accounts, tagsDoc } from "#lib/stores/books.svelte.ts";
+  import { S, ent, catLabel, saveRules, mdy, accounts, tagsDoc, coa } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { PageHeader, Button, IconButton, Money, Search, Select, Drawer, EmptyState } from "#lib/ui/index.ts";
+  import { PageHeader, Button, Badge, IconButton, Money, Search, Select, Drawer, EmptyState } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
   import TagPill from "#lib/txns/TagPill.svelte";
   import TxnDrawer from "#lib/txns/TxnDrawer.svelte";
@@ -49,14 +51,19 @@
     return text !== undefined && r.then.account && !r.then.tags ? [text, r.then.account] : r;
   };
   const invalid = (d: D) => stored(d) === undefined;
+  /** the rule is complete but its ledger account is archived or gone: kept, shown "Invalid", skipped by the engine */
+  const broken = (d: D) => ruleProblem(toRule(d), $state.snapshot(coa()));
+  const brokenCount = $derived(rules.filter((r) => broken(r)).length);
   const canSave = $derived(dirty && rules.length > 0 && !rules.some(invalid));
 
   // a plain copy of the rows (not the store's deep proxies): the counts re-run on every keystroke in a rule
   const txns = $derived($state.snapshot(S.data?.txns ?? []) as Txn[]);
-  const hits = $derived(ruleHits(rules.map(toRule), txns));
+  const hits = $derived(ruleHits(rules.map(toRule), txns, $state.snapshot(coa())));
   const cur = $derived(ent().currency ?? "ILS");
   const tg = $derived($state.snapshot(tagsDoc()) as TagsDoc);
   const tagOf = (id: string) => tg.tags.find((g) => g.id === id);
+  /** deactivated tags can't be added to a rule, but one a rule already has stays so it can be taken off */
+  const offeredTags = (r: D) => [...activeTags(tg), ...tg.tags.filter((g) => g.inactive && r.tags.includes(g.id))];
   const shown = $derived.by(() => {
     const s = q.trim().toLowerCase();
     return s ? rules.filter((r) => `${ruleLabel(toRule(r))} ${r.account ? catLabel(r.account) : ""}`.toLowerCase().includes(s)) : rules;
@@ -65,6 +72,14 @@
     fn();
     dirty = true;
   };
+  /** A new rule goes last (lowest priority), like Mercury; scroll to it. (The transaction toast's "create rule" still files its rule first.) */
+  async function addRule() {
+    const k = seq++;
+    edit(() => rules.push({ k, when: [fresh("description")], account: "", tags: [] }));
+    q = "";
+    await tick();
+    document.getElementById(`rule-${k}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
   const move = (i: number, d: number) =>
     edit(() => {
       const [r] = rules.splice(i, 1);
@@ -117,7 +132,7 @@
 <PageHeader title={t("rules.title")} sub={t("rules.sub")}>
   {#snippet actions()}
     {#if dirty}<Button variant="ghost" onclick={() => (dirty = false)}>{t("rules.discard")}</Button>{/if}
-    <Button icon="plus" onclick={() => edit(() => rules.unshift({ k: seq++, when: [fresh("description")], account: "", tags: [] }))}>{t("rules.new")}</Button>
+    <Button icon="plus" onclick={addRule}>{t("rules.new")}</Button>
     <Button variant="primary" onclick={save} disabled={!canSave}>{t("rules.save")}</Button>
   {/snippet}
   <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-line py-3">
@@ -130,6 +145,7 @@
         class="rounded underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50 disabled:no-underline {hits.none.length ? 'text-warn' : ''}"
         >{t(dirty ? "rules.unmatchedDirty" : "rules.unmatched", { n: hits.none.length })}</button>
       {#if dirty && rules.some(invalid)}<span class="text-bad" role="status">· {t("rules2.fix")}</span>{/if}
+      {#if brokenCount}<span class="text-warn" role="status">· {t("gaps2.rule.count", { n: brokenCount })}</span>{/if}
     </span>
     <Search bind:value={q} label={t("rules.search")} class="w-full sm:w-64" />
   </div>
@@ -141,7 +157,8 @@
       {#each shown as r (r.k)}
         {@const i = rules.indexOf(r)}
         {@const h = hits.h[i]}
-        <li class="panel p-4 sm:p-5 {dirty && invalid(r) ? 'ring-1 ring-bad/60' : ''}">
+        {@const bad = broken(r)}
+        <li id="rule-{r.k}" class="panel p-4 sm:p-5 {dirty && invalid(r) ? 'ring-1 ring-bad/60' : bad ? 'ring-1 ring-warn/60' : ''}">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="num w-6 text-faint">{i + 1}</span>
             <span class="flex min-w-0 flex-1 basis-40 items-center gap-2 text-[14px] text-sub">
@@ -158,6 +175,7 @@
                 <span class="text-faint">0</span>
               {/if}
             </span>
+            {#if bad}<Badge tone="warn" icon="alert">{t("gaps2.rule.invalid")}</Badge>{/if}
             <span class="inline-flex">
               <IconButton icon="chevron-up" size="sm" label={t("rules.moveUp")} disabled={i === 0} onclick={() => move(i, -1)} />
               <IconButton icon="chevron-down" size="sm" label={t("rules.moveDown")} disabled={i === rules.length - 1} onclick={() => move(i, 1)} />
@@ -192,6 +210,7 @@
 
             <span class="pt-1.5 text-[13px] text-sub">{t("rules2.then")}</span>
             <div class="space-y-2">
+              {#if bad}<p class="text-[13px] text-warn" role="status">{t(`gaps2.rule.${bad}`, { account: r.account ? catLabel(r.account) : "" })}</p>{/if}
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-[13px] text-sub">{t("rules2.setAccount")}</span>
                 <CategorySelect value={r.account} placeholder={t("rules2.noAccount")} label={t("common.ledgerAccount")} onchange={(v) => edit(() => (r.account = v))} />
@@ -199,8 +218,8 @@
               </div>
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="text-[13px] text-sub">{t("rules2.addTags")}</span>
-                {#each tg.tags as g (g.id)}
-                  <TagPill name={g.name} color={g.color} on={r.tags.includes(g.id)} onclick={() => toggleTag(r, g.id)} />
+                {#each offeredTags(r) as g (g.id)}
+                  <TagPill name={g.inactive ? `${g.name} ${t("gaps2.tag.inactiveMark")}` : g.name} color={g.color} on={r.tags.includes(g.id)} onclick={() => toggleTag(r, g.id)} />
                 {:else}
                   <span class="text-[13px] text-faint">{t("rules2.noTags")}</span>
                 {/each}

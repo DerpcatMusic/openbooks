@@ -19,7 +19,7 @@ const post = (path: string, body: unknown) => http(s.port, "POST", `${path}?e=ac
 const state = async () => (await http(s.port, "GET", "/api/state?e=acme")).json() as J;
 const doc = (name: string, value: unknown) => post("/api/doc", { name, value });
 const rowsOf = async (id: string) => ((await state()).txns as J[]).filter((t) => t.id === id || t.id.startsWith(`${id}~`));
-const idOn = async (date: string) => ((await state()).txns as J[]).find((t) => t.date === date).id.split("~")[0] as string;
+const idOn = async (date: string) => ((await state()).txns as J[]).find((t) => t.date === date)?.id?.split("~")[0] as string;
 const tool = (name: string, args: J) => post("/api/tools/run", { name, args, entity: "acme" });
 const L = (account: string, amount: number, extra: J = {}) => ({ account, amount, ...extra });
 
@@ -155,12 +155,12 @@ test("journal entries: must balance in cents, have a debit and a credit, use no 
 
 test("archiving the account a rule files into skips that rule; unarchiving brings the rows back; the close date protects closed rows", async () => {
   const jan = await idOn("2026-01-10"); // Example Customer -> revenue:services by rule
-  expect(((await state()).txns as J[]).find((t) => t.id === jan).category).toBe("revenue:services");
+  expect(((await state()).txns as J[]).find((t) => t.id === jan)?.category).toBe("revenue:services");
   await doc("books", { closeDate: "2026-02-15" });
   expect((await doc("coa", { "revenue:services": { archived: true } })).status).toBe(409); // Jan 10 would fall back to ask
   await doc("books", null);
   expect((await doc("coa", { "revenue:services": { archived: true } })).status).toBe(200);
   expect(((await state()).txns as J[]).find((t) => t.id === jan)).toMatchObject({ category: "ask", why: "" });
   expect((await doc("coa", {})).status).toBe(200);
-  expect(((await state()).txns as J[]).find((t) => t.id === jan).category).toBe("revenue:services");
+  expect(((await state()).txns as J[]).find((t) => t.id === jan)?.category).toBe("revenue:services");
 });
