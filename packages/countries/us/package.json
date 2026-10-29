@@ -10,5 +10,8 @@
     "@openbooks/core": "workspace:*",
     "@openbooks/schema": "workspace:*",
     "effect": "4.0.1"
+  },
+  "devDependencies": {
+    "pdf-lib": "1.17.1"
   }
 }

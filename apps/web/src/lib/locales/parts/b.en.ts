@@ -288,7 +288,7 @@ export default {
   "setup.kind.il": "Israeli osek zair / patur",
   "setup.kind.ilSub": "Shekels · Form 1301, Bituach Leumi, receipts",
   "setup.kind.us": "US single-member LLC",
-  "setup.kind.usSub": "Dollars · Form 5472 + 1120 for foreign owners, invoices",
+  "setup.kind.usSub": "Dollars · Schedule C, 1065, 1120, 1120-S, 5472, 1099-NEC, invoices",
   "setup.kind.other": "Something else",
   "setup.kind.otherSub": "Plain books: P&L, balance sheet, invoices",
   "setup.titleAdd": "Add a business",

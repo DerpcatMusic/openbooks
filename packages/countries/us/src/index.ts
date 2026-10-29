@@ -7,17 +7,21 @@ import playbook from "../playbook.json";
 import deductions from "../tables/deductions.json";
 import en from "../strings/en.json";
 import he from "../strings/he.json";
+import t2025 from "../tables/2025.json";
 import t2026 from "../tables/2026.json";
+import { usDeadlines } from "./deadlines.ts";
 import { manifest } from "./manifest.ts";
 import { UsTable } from "./schema.ts";
 
-const tables: Record<number, UsTable> = { 2026: Schema.decodeUnknownSync(UsTable)(t2026) };
+const decode = Schema.decodeUnknownSync(UsTable);
+const tables: Record<number, UsTable> = { 2025: decode(t2025), 2026: decode(t2026) };
 
 export const us: CountryPack<UsTable> = {
   manifest,
   tables,
   table: (y) => pickTable(tables, y),
   playbook: playbook as PlaybookItem[],
+  deadlines: usDeadlines,
   deductions: Schema.decodeUnknownSync(DeductionTable)(deductions),
   strings: { en, he },
 };
@@ -26,3 +30,13 @@ export { manifest };
 export * from "./forms.ts";
 export * from "./schema.ts";
 export * from "./irs.ts";
+export * from "./pdfs.ts";
+export * from "./dates.ts";
+export * from "./deadlines.ts";
+export * from "./entity.ts";
+export * from "./tax.ts";
+export * from "./schedc.ts";
+export * from "./contractors.ts";
+export * from "./passthrough.ts";
+export * from "./irs-forms.ts";
+export * from "./return.ts";

@@ -113,7 +113,9 @@ export interface CountryPack<Table = unknown> {
   readonly strings: { readonly en: Dict; readonly he: Dict };
   /**
    * Filing and payment dates for tax year `year` (periods inside it, and the returns that follow it), for a business of this type.
-   * `facts` carries at least what the signature names; the hub passes the rest of the entity's saved filing settings too.
+   * `facts` carries at least what the signature names; the hub passes the rest of the entity's saved filing settings too (the US pack reads
+   * `state`, `formed`, `entityForm`, `foreignAccountsOver10k`). A pack may instead return the dates falling in calendar `year` (the US pack
+   * does): dueInYear asks for `year - 1` and `year`, keeps dates in `year` and dedupes by id, so either reading lists the same calendar.
    */
   deadlines?: (year: number, facts: { businessType: string; vatFrequency?: "monthly" | "bimonthly" }) => FilingDeadline[];
   /**

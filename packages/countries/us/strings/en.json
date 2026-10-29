@@ -1,8 +1,14 @@
 {
-  "biz.llc-disregarded": "Single-member LLC",
+  "biz.sole-prop": "Sole proprietor",
+  "biz.sole-prop.sub": "Schedule C + SE · QBI deduction · quarterly 1040-ES",
+  "biz.llc-us-owner": "Single-member LLC, US owner",
+  "biz.llc-us-owner.sub": "Disregarded · Schedule C + SE like a sole proprietor",
+  "biz.llc-disregarded": "Single-member LLC, foreign owner",
   "biz.llc-disregarded.sub": "Disregarded · 5472 + pro forma 1120 for foreign owners",
-  "biz.llc-ccorp": "LLC taxed as C-corp",
-  "biz.llc-ccorp.sub": "21% federal · Form 1120 · dividends withheld",
-  "biz.llc-partnership": "Multi-member LLC",
+  "biz.llc-ccorp": "C-corporation (or LLC taxed as one)",
+  "biz.llc-ccorp.sub": "21% federal · Form 1120 · 1120-W estimates",
+  "biz.s-corp": "S corporation (or LLC taxed as one)",
+  "biz.s-corp.sub": "Pass-through · Form 1120-S + K-1s",
+  "biz.llc-partnership": "Partnership / multi-member LLC",
   "biz.llc-partnership.sub": "Partnership · Form 1065 + K-1s"
 }

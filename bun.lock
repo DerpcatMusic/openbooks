@@ -83,6 +83,9 @@
         "@openbooks/schema": "workspace:*",
         "effect": "4.0.1",
       },
+      "devDependencies": {
+        "pdf-lib": "1.17.1",
+      },
     },
     "packages/importers": {
       "name": "@openbooks/importers",

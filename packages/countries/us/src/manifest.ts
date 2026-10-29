@@ -13,8 +13,11 @@ export const manifest: Manifest = {
   currency: "USD",
   businessTypes: (
     [
-      ["llc-disregarded", "transparent"],
+      ["sole-prop", "sole-proprietor"],
+      ["llc-us-owner", "transparent"],
+      ["llc-disregarded", "transparent"], // owned by a foreign person: Form 5472 + pro forma 1120
       ["llc-ccorp", "company"],
+      ["s-corp", "company"],
       ["llc-partnership", "partnership"],
     ] as const
   ).map(([key, treatment]) => ({ key, treatment, label: label(`biz.${key}`), sub: label(`biz.${key}.sub`) })),

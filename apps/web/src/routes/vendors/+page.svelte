@@ -4,17 +4,20 @@
   // Data: docs "vendors" + "bills". Logic: ../bills/bills.ts.
   import { group, payers } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
-  import { S, doc, saveDoc, ent, isUS, allCats, catLabel, toast } from "#lib/stores/books.svelte.ts";
+  import { S, doc, saveDoc, ent, isUS, family, allCats, catLabel, toast } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Button, Drawer, EmptyState, Icon, Input, Money, PageHeader, Search, Table } from "#lib/ui/index.ts";
+  import { Button, Drawer, EmptyState, Icon, Input, Money, PageHeader, Search, Segmented, Select, Switch, Table } from "#lib/ui/index.ts";
   import type { Column } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
+  import { track } from "#lib/ustax/books.ts";
   import { byVendor, uid } from "../bills/bills.ts";
   import type { Bill, Vendor } from "../bills/bills.ts";
 
   const cur = $derived(ent().currency ?? (isUS() ? "USD" : "ILS"));
   const vendors = $derived(doc<Vendor[]>("vendors"));
   const bills = $derived(doc<Bill[]>("bills"));
+  // a US business that files 1099-NECs (not the foreign-owned LLC) keeps the payee's tax details on the vendor
+  const tax1099 = $derived(family() === "us" && track() !== "foreign-owned");
   const termsLabel = (n = 30) => (n ? t("invoices.term.net", { n }) : t("invoices.term.now"));
   const EXPENSE = () => allCats().filter((c) => ["expense", "cogs"].includes(group(c)));
 
@@ -162,6 +165,41 @@
           {/each}
         </div>
       </div>
+      {#if tax1099}
+        <div class="space-y-3 border-t border-line pt-4">
+          <div>
+            <div class="text-[14px] text-ink">{t("fus.vendor.title")}</div>
+            <p class="text-[12px] text-sub">{t("fus.vendor.sub")}</p>
+          </div>
+          <Select
+            label={t("fus.vendor.payee")}
+            value={draft.payee ?? "individual"}
+            options={[
+              { value: "individual", label: t("fus.vendor.individual") },
+              { value: "corporation", label: t("fus.vendor.corporation") },
+              { value: "foreign", label: t("fus.vendor.foreign") },
+            ]}
+            onchange={(v) => (draft!.payee = v as "individual" | "corporation" | "foreign")} />
+          {#if draft.payee !== "foreign"}
+            <Segmented
+              label={t("fus.vendor.tinType")}
+              value={draft.tinType ?? "ssn"}
+              items={[
+                { key: "ssn", label: t("fus.vendor.ssn") },
+                { key: "ein", label: t("fus.vendor.ein") },
+              ]}
+              onchange={(k) => (draft!.tinType = k as "ssn" | "ein")} />
+            <Input label={t("fus.vendor.tin")} bind:value={draft.tin} dir="ltr" autocomplete="off" />
+            <div class="grid grid-cols-[1fr_5rem_6rem] gap-3">
+              <Input label={t("fus.vendor.city")} bind:value={draft.city} />
+              <Input label={t("fus.vendor.state")} bind:value={draft.state} dir="ltr" maxlength={2} />
+              <Input label={t("fus.vendor.zip")} bind:value={draft.zip} dir="ltr" />
+            </div>
+            <Switch label={t("fus.vendor.w9")} checked={!!draft.w9} onchange={(v) => (draft!.w9 = v)} />
+          {/if}
+          <Switch label={t("fus.vendor.exempt")} description={t("fus.vendor.exemptSub")} checked={!!draft.exempt} onchange={(v) => (draft!.exempt = v)} />
+        </div>
+      {/if}
       {#if hasBills}<p class="text-[12px] text-sub">{t("vendors.hasBills")}</p>{/if}
     </div>
   {/if}

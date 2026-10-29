@@ -16,9 +16,13 @@ export interface UsProfile {
   ownerCountry?: string;
   ownerTin?: string;
   business?: string;
+  /** Individual track (Schedule C / SE / 1040-ES): the taxpayer as on the 1040, their SSN or ITIN, phone for the 1099-NEC payer box. */
+  taxpayerName?: string;
+  ssn?: string;
+  phone?: string;
 }
 
-export const PROFILE_FIELDS: Readonly<Record<keyof UsProfile, string>> = {
+export const PROFILE_FIELDS: Readonly<Record<Exclude<keyof UsProfile, "taxpayerName" | "ssn" | "phone">, string>> = {
   legalName: "Legal name",
   ein: "EIN",
   state: "State of formation",
@@ -32,6 +36,9 @@ export const PROFILE_FIELDS: Readonly<Record<keyof UsProfile, string>> = {
   ownerTin: "Owner foreign TIN",
   business: "Principal business activity",
 };
+/** What an individual's return and 1099-NEC payer box need beyond PROFILE_FIELDS (the owner is a US person: no foreign-owner fields). */
+export const INDIVIDUAL_FIELDS = ["taxpayerName", "ssn", "address", "cityStateZip", "business", "naics"] as const;
+export const missingIndividual = (p: UsProfile) => INDIVIDUAL_FIELDS.filter((k) => !p[k]);
 
 export function llcObligations(y: number, T: UsTable, p: UsProfile = {}): (Obligation & { extendedDue?: string })[] {
   return [
@@ -52,4 +59,5 @@ export function llcObligations(y: number, T: UsTable, p: UsProfile = {}): (Oblig
     { form: "State annual report", country: "us", why: `depends on the state of formation (${p.state || "not set"})` },
   ];
 }
-export const missingProfile = (p: UsProfile) => (Object.keys(PROFILE_FIELDS) as (keyof UsProfile)[]).filter((k) => !p[k]).map((k) => PROFILE_FIELDS[k]);
+export const missingProfile = (p: UsProfile) =>
+  (Object.keys(PROFILE_FIELDS) as (keyof typeof PROFILE_FIELDS)[]).filter((k) => !p[k]).map((k) => PROFILE_FIELDS[k]);
