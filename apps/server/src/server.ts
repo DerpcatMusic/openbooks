@@ -354,7 +354,9 @@ export async function startServer(o: ServerOptions) {
       mkdirSync(dest, { recursive: true });
       writeFileSync(join(dest, name), raw);
       if (to !== "inbox") await publish({ entity: e, topics: ["docs"] }); // inbox: the ingest in state() publishes
-      return state(e);
+      const res = await state(e);
+      res.headers.set("X-OpenBooks-Filed", to === "inbox" ? "inbox" : "proofs"); // the app warns when a CSV or JSON wasn't taken as a statement
+      return res;
     }
     const b = body();
     if (path === "/api/csv-preview") {

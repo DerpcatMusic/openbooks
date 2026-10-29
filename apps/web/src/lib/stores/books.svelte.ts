@@ -24,6 +24,7 @@ import {
   type Period,
 } from "@openbooks/core";
 import type { RuleInput, SplitsDoc, TagsDoc, Txn } from "@openbooks/schema";
+import { goto } from "../nav.ts";
 import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
@@ -305,8 +306,14 @@ export const setProfile = (p: Record<string, unknown>) => call("/api/profile", p
 export const connection = (path: "/api/connect" | "/api/sync" | "/api/disconnect", body: unknown) => call(path, body);
 
 export async function upload(files: File[], to: "auto" | "inbox" | "proofs" = "auto") {
-  for (const f of files) await run((e) => api.upload(e, f, S.year, to)).catch(() => {});
+  const notTaken: string[] = []; // CSV / JSON the server filed under Documents because no reader or saved column mapping recognised it
+  for (const f of files)
+    await run((e) =>
+      api.upload(e, f, S.year, to, (where) => where === "proofs" && /\.(csv|json)$/i.test(f.name) && to === "auto" && notTaken.push(f.name)),
+    ).catch(() => {});
   toast(t("toast.addedFiles", { n: files.length }));
+  if (notTaken.length)
+    toast(t("toast.notStatement", { name: ltr(notTaken[0]!), n: notTaken.length }), { label: t("toast.mapColumns"), run: () => void goto("/connections#csv") });
 }
 
 // ---------- books documents (invoices, journal, customers, …) and attachments ----------

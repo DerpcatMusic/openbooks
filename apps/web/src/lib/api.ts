@@ -59,7 +59,7 @@ export class ApiError extends Error {
 export const withEntity = (path: string, e: string) => (e ? `${path}${path.includes("?") ? "&" : "?"}e=${encodeURIComponent(e)}` : path);
 
 /** fetch + JSON + error mapping. `body`: a File/Blob is sent raw, anything else as JSON; no body = GET. */
-export async function request<T>(path: string, body?: unknown): Promise<T> {
+export async function request<T>(path: string, body?: unknown, onResponse?: (r: Response) => void): Promise<T> {
   const init: RequestInit =
     body === undefined
       ? {}
@@ -67,6 +67,7 @@ export async function request<T>(path: string, body?: unknown): Promise<T> {
         ? { method: "POST", body }
         : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   const r = await fetch(path, init);
+  onResponse?.(r);
   const d = await r.json().catch(() => ({ error: r.statusText }));
   if (!r.ok) throw new ApiError(d?.error || r.statusText, r.status);
   return d as T;
@@ -79,8 +80,10 @@ export const api = {
   /** Add a business: { id, name, short, kind, currency, flag }. */
   createEntity: (meta: { id: string } & EntityMeta) => request<State>("/api/entity", meta),
   /** A statement or proof file. to: auto (statements → inbox, else proofs for `year`) | inbox | proofs. */
-  upload: (e: string, f: File, year: number, to: "auto" | "inbox" | "proofs" = "auto") =>
-    request<State>(withEntity(`/api/upload?to=${to}&year=${year}&name=${encodeURIComponent(f.name)}`, e), f),
+  upload: (e: string, f: File, year: number, to: "auto" | "inbox" | "proofs" = "auto", filed?: (where: string | null) => void) =>
+    request<State>(withEntity(`/api/upload?to=${to}&year=${year}&name=${encodeURIComponent(f.name)}`, e), f, (r) =>
+      filed?.(r.headers.get("X-OpenBooks-Filed")),
+    ),
   attach: (e: string, txn: string, f: File) =>
     request<State>(withEntity(`/api/attach?txn=${encodeURIComponent(txn)}&name=${encodeURIComponent(f.name)}`, e), f),
   csvPreview: (e: string, text: string, profile?: unknown) => request<unknown>(withEntity("/api/csv-preview", e), { text, profile }),

@@ -114,6 +114,12 @@ export default {
   "theme.system": "System",
   "theme.dark": "Dark",
   "toast.addedFiles": { one: "Added {n} file", other: "Added {n} files" },
+  "toast.notStatement": {
+    one: "The file {name} isn't a bank export OpenBooks recognises, so it was filed under Documents and not imported. Map its columns to import it.",
+    other:
+      "{n} files weren't recognised as bank exports (starting with {name}), so they were filed under Documents and not imported. Map their columns to import them.",
+  },
+  "toast.mapColumns": "Map columns",
 
   // ---- business structures (BIZ_TYPES) ----
   "biz.books": "Books",
@@ -214,6 +220,10 @@ export default {
   "home.greet.evening": "Good evening",
   "home.ask": { one: "{n} transaction needs a ledger account", other: "{n} transactions need a ledger account" },
   "home.askHint": "usually under a minute with suggestions and shortcuts",
+  "home.start.title": "Start with your bank data",
+  "home.start.text": "Drop a statement or CSV export anywhere on this page, or connect a bank. Then clear the review queue and the reports fill in.",
+  "home.start.import": "Import a statement",
+  "home.start.connect": "Connect a bank",
   "home.reviewGo": "Review →",
   "home.cash": "Cash",
   "home.cashShort": "cash",

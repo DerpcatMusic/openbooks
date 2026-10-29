@@ -27,6 +27,7 @@ export const freePort = () =>
 export interface Res {
   status: number;
   type: string;
+  headers: Record<string, string | string[] | undefined>;
   body: Buffer;
   json: () => unknown;
 }
@@ -38,7 +39,7 @@ export function http(port: number, method: string, path: string, body?: unknown,
       res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => {
         const b = Buffer.concat(chunks);
-        ok({ status: res.statusCode!, type: String(res.headers["content-type"] ?? ""), body: b, json: () => JSON.parse(b.toString("utf8")) });
+        ok({ status: res.statusCode!, type: String(res.headers["content-type"] ?? ""), headers: res.headers, body: b, json: () => JSON.parse(b.toString("utf8")) });
       });
     });
     r.on("error", no);

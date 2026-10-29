@@ -13,7 +13,10 @@
   import { PROVIDERS, GROUPS, providerName, readText, guess, toProfile, canSave, type Mapping } from "./providers.ts";
   import { onMount } from "svelte";
 
-  onMount(() => void refresh());
+  onMount(() => {
+    void refresh();
+    if (location.hash === "#csv") choose("csv"); // the "map columns" link after a CSV wasn't recognised on drop
+  });
 
   const WHAT: Record<string, string> = { mercury: "connections.what.mercury", plaid: "connections.what.plaid", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
   const what = (k: string) => {
