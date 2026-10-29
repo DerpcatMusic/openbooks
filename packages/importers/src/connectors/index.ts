@@ -175,7 +175,10 @@ const parseKeepFloats = (text: string) =>
 const num = (v: unknown) => (J.isRawJSON(v) ? Number(v.rawJSON) : Number(v ?? 0) || 0);
 
 class HttpStatus {
-  constructor(readonly code: number) {}
+  constructor(
+    readonly code: number,
+    readonly detail = "",
+  ) {}
 }
 
 export const mercury = (token: string, p: string, params: Record<string, string | number> = {}) =>
@@ -272,6 +275,63 @@ export const mercurySync = (dir: string, token: string, file = "mercury-sync.jso
     return accounts.map((a) => String(a.name));
   });
 
+// ---------- Plaid (US/CA/EU banks and cards, with the user's own Plaid keys) ----------
+// Connect is two steps, like One Zero: keys -> a Link token the browser opens Plaid Link with -> a public token we exchange
+// for the access token. Syncs are incremental (/transactions/sync); the inbox file keeps every transaction plus the cursor,
+// and is written in israeli-bank-scrapers' shape so the scraper reader ingests it as-is.
+const PLAID_ENVS = new Set(["sandbox", "production"]);
+const plaidBase = (env: string) => process.env.OPENBOOKS_PLAID_API ?? `https://${env}.plaid.com`; // tests only
+export const plaid = (s: Record<string, string>, p: string, body: Json = {}) =>
+  Effect.tryPromise({
+    try: async () => {
+      const r = await fetch(plaidBase(s.env ?? "production") + p, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: s.clientId, secret: s.secret, ...body }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      const d = (await r.json().catch(() => ({}))) as Json;
+      if (!r.ok) throw new HttpStatus(r.status, str(d.error_message || d.error_code));
+      return d;
+    },
+    catch: (x) => fail(x instanceof HttpStatus ? `Plaid ${x.code} on ${p}${x.detail ? `: ${x.detail.slice(0, 200)}` : ""}` : `Can't reach Plaid: ${(x as Error)?.message ?? "network error"}`),
+  });
+
+export const plaidSync = (dir: string, s: Record<string, string>, file = "plaid-sync.json") =>
+  Effect.gen(function* () {
+    const prev = yield* Effect.promise(() => readJson(path.join(dir, "inbox", file)));
+    const byId = new Map<string, Json>(((prev?.plaidTxns as Json[] | undefined) ?? []).map((t) => [str(t.transaction_id), t]));
+    let cursor = str(prev?.cursor ?? "");
+    let accounts: Json[] = [];
+    for (;;) {
+      const d = yield* plaid(s, "/transactions/sync", { access_token: s.accessToken, count: 500, ...(cursor ? { cursor } : {}) });
+      accounts = (d.accounts as Json[] | undefined) ?? accounts;
+      for (const t of [...((d.added as Json[]) ?? []), ...((d.modified as Json[]) ?? [])]) byId.set(str(t.transaction_id), t);
+      for (const t of (d.removed as Json[]) ?? []) byId.delete(str(t.transaction_id));
+      cursor = str(d.next_cursor);
+      if (!d.has_more) break;
+    }
+    const txns = [...byId.values()];
+    const name = (a: Json) => `${str(a.name || "Plaid")} ••${str(a.mask)}`;
+    const out = accounts.map((a) => ({
+      accountNumber: str(a.mask || a.account_id),
+      balance: (a.balances as Json | undefined)?.current ?? null,
+      txns: txns
+        .filter((t) => t.account_id === a.account_id && !t.pending)
+        .map((t) => ({
+          date: str(t.date),
+          chargedAmount: -num(t.amount), // Plaid: positive = money out
+          chargedCurrency: str(t.iso_currency_code || t.unofficial_currency_code || "USD"),
+          description: str(t.merchant_name || t.name),
+          identifier: t.transaction_id,
+          status: "completed",
+        })),
+    }));
+    // source "scraper": read.ts hands it to the scraper reader, so rows become `scraper:plaid`
+    yield* writeInbox(dir, file, { source: "scraper", companyId: "plaid", name: "Plaid", syncedAt: now(), cursor, accounts: out, plaidTxns: txns });
+    return accounts.map(name);
+  });
+
 // ---------- Israeli banks and cards ----------
 /** Scrape one company and write inbox/<file>. Banks only show about a year, so older rows of the previous sync are kept. */
 export const scraperSync = (dir: string, company: string, creds: Record<string, string>, file: string) =>
@@ -311,6 +371,7 @@ const runSync = (dir: string, key: string, c: Conn) => {
     f = inboxFile(key),
     s = c.secret ?? {};
   if (t === "mercury") return mercurySync(dir, s.token ?? "", f);
+  if (t === "plaid") return plaidSync(dir, s, f);
   if (t === "onezero") return onezeroSync(dir, s, f);
   return scraperSync(dir, t, s, f);
 };
