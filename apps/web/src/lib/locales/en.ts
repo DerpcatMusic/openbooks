@@ -12,6 +12,7 @@ import p37 from "./parts/3-7.en.ts";
 import p38 from "./parts/3-8.en.ts";
 import p310 from "./parts/3-10.en.ts";
 import bills from "./parts/bills.en.ts";
+import cfa from "./parts/cfa.en.ts";
 export default {
   ...a,
   ...b,
@@ -25,6 +26,7 @@ export default {
   ...p38,
   ...p310,
   ...bills,
+  ...cfa,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

@@ -87,9 +87,13 @@ export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 &&
 
 /** Bank/card accounts seen in the books (journal excluded). */
 export const accounts = (txns: readonly Txn[]) => [...new Set(txns.filter((t) => t.source !== "journal").map((t) => t.account))];
+/** Those, plus statement accounts that carry a balance but no transactions yet. */
+export const bankAccounts = (txns: readonly Txn[], checks: readonly StatementCheck[]) => [
+  ...new Set([...accounts(txns), ...checks.filter((c) => c.balance).map((c) => c.label)]),
+];
 /** Balance of every bank/card account at the end of day `iso` (accounts start at 0; statements cover their whole life). */
 export function balances(txns: readonly Txn[], checks: readonly StatementCheck[], iso: string): Record<string, number> {
-  const b: Record<string, number> = Object.fromEntries([...accounts(txns), ...checks.filter((c) => c.balance).map((c) => c.label)].map((a) => [a, 0]));
+  const b: Record<string, number> = Object.fromEntries(bankAccounts(txns, checks).map((a) => [a, 0]));
   for (const t of txns) if (t.date <= iso && t.account in b) b[t.account]! += t.amount;
   return b;
 }

@@ -5,6 +5,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   balances as coreBalances,
+  chartOfAccounts,
+  type Coa,
   cleanRules,
   classify as coreClassify,
   group,
@@ -387,12 +389,12 @@ const chart_of_accounts = defineTool({
   name: "chart_of_accounts",
   title: { en: "Chart of accounts", he: "מבנה החשבונות" },
   description:
-    "The account types (with where they land in the P&L) and every ledger account in use or suggested for this kind of entity, with labels and transaction counts.",
+    "The account types (with where they land in the P&L) and every ledger account in use or suggested for this kind of entity, with ledger codes, labels (as renamed in the chart) and transaction counts.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({
     types: Schema.Array(Schema.Struct({ type: S, label: S, pl: opt(S) })),
-    accounts: Schema.Array(Schema.Struct({ account: S, label: S, type: S, pl: opt(S), transactions: I })),
+    accounts: Schema.Array(Schema.Struct({ account: S, code: I, label: S, type: S, pl: opt(S), transactions: I })),
     uncategorized: I,
   }),
   run: (a, ctx) =>
@@ -400,13 +402,22 @@ const chart_of_accounts = defineTool({
       const e = yield* entityOf(a, ctx);
       const n = new Map<string, number>();
       for (const t of yield* ledgerOf(e)) n.set(t.category, (n.get(t.category) ?? 0) + 1);
-      const used = [...(BASE[e.meta.kind ?? ""] ?? []), ...n.keys(), ...(yield* rulesOf(e)).map((r) => r[1])];
+      const coa = yield* docOf<Coa>(e, "coa", {});
       const order = Object.keys(TYPE_LABELS);
+      const used = [
+        ...(BASE[e.meta.kind ?? ""] ?? []),
+        ...n.keys(),
+        ...(yield* rulesOf(e)).map((r) => r[1]),
+        ...Object.keys(coa).filter((c) => ACCOUNT_TYPES.includes(group(c))),
+      ];
+      const stable = [...new Set(used.filter((c) => c !== "ask"))];
+      const codes = new Map(chartOfAccounts(stable, [], coa).map((r) => [r.id, r.code])); // bank accounts sit in other blocks: no effect on these codes
+      const name = (c: string) => coa[c]?.name || label(c);
       const rank = (c: string) => (order.includes(group(c)) ? order.indexOf(group(c)) : 99);
-      const cats = [...new Set(used.filter((c) => c !== "ask"))].sort((x, y) => rank(x) - rank(y) || (label(x) < label(y) ? -1 : label(x) > label(y) ? 1 : 0));
+      const cats = stable.toSorted((x, y) => rank(x) - rank(y) || (label(x) < label(y) ? -1 : label(x) > label(y) ? 1 : 0));
       return {
         types: Object.entries(TYPE_LABELS).map(([type, l]) => ({ type, label: l, pl: TYPES[type] ?? null })),
-        accounts: cats.map((c) => ({ account: c, label: label(c), type: group(c), pl: plOf(c), transactions: n.get(c) ?? 0 })),
+        accounts: cats.map((c) => ({ account: c, code: codes.get(c)!, label: name(c), type: group(c), pl: plOf(c), transactions: n.get(c) ?? 0 })),
         uncategorized: n.get("ask") ?? 0,
       };
     }),

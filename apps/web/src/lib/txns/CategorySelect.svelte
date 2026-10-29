@@ -7,7 +7,7 @@
   // it for its "Search all accounts" button); call open() on a bound instance to open it from a keyboard shortcut.
   import { tick, type Snippet } from "svelte";
   import { group } from "@openbooks/core";
-  import { catGroups, catLabel, typeLabel, isUS } from "#lib/stores/books.svelte.ts";
+  import { catGroups, catLabel, typeLabel, isUS, isArchived, setAccount } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Icon, place } from "#lib/ui/index.ts";
   import { slug } from "./txns.ts";
@@ -56,7 +56,8 @@
     const match = (o: { value: string; label: string }) => !s || o.label.toLowerCase().includes(s) || o.value.includes(s);
     const all = catGroups();
     const out: { label: string; options: Opt[] }[] = [];
-    if (sugg.length && !s) out.push({ label: t("combo.suggested"), options: sugg.map((c) => ({ value: c, label: catLabel(c), hint: typeLabel(group(c)) })) });
+    const live = sugg.filter((c) => !isArchived(c)); // archived accounts are out of the pickers
+    if (live.length && !s) out.push({ label: t("combo.suggested"), options: live.map((c) => ({ value: c, label: catLabel(c), hint: typeLabel(group(c)) })) });
     for (const g of all) {
       const options = g.options.filter(match);
       if (options.length) out.push({ label: g.label, options });
@@ -88,7 +89,10 @@
   }
   function pick(c: string) {
     close();
-    if (c && c !== value) onchange(c);
+    if (c && c !== value) {
+      if (isArchived(c)) void setAccount(c, { archived: false }); // naming an archived account again brings it back
+      onchange(c);
+    }
   }
   function toggled(e: ToggleEvent) {
     shown = e.newState === "open";

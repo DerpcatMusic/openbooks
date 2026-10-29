@@ -47,7 +47,8 @@
     H = $derived(height - padB - padT);
   const tot = (r: BarRow) => on.reduce((a, s) => a + Math.max(0, r.v[s.key] ?? 0), 0);
   const peak = $derived(Math.max(1, ...rows.map(r => (layout === "stack" ? tot(r) : Math.max(0, ...on.map(s => r.v[s.key] ?? 0)))), ...(line ? rows.map(lv) : [])));
-  const lo = $derived(line ? Math.min(0, ...rows.map(lv)) : 0);
+  // grouped bars may go below zero (net movement); stacked bars never do
+  const lo = $derived(Math.min(0, ...(line ? rows.map(lv) : []), ...(layout === "group" ? rows.flatMap(r => on.map(s => r.v[s.key] ?? 0)) : [])));
   const step = $derived.by(() => {
     const raw = (peak - lo) / 4,
       p = 10 ** Math.floor(Math.log10(raw || 1));
@@ -122,8 +123,18 @@
           {/each}
         {:else}
           {#each on as s, j (s.key)}
-            {@const gw = bw / on.length}{@const v = Math.max(0, r.v[s.key] ?? 0)}
-            {#if v}<rect class="bar" style:--d="{i * 25}ms" opacity={dim(s.key)} x={x0(i) + j * gw + 1} y={y(v)} width={gw - 2} height={y(0) - y(v)} rx="3" fill="url(#{gid(s.key)})" />{/if}
+            {@const gw = bw / on.length}{@const v = r.v[s.key] ?? 0}
+            {#if v}<rect
+                class="bar"
+                style:--d="{i * 25}ms"
+                style:transform-origin={v < 0 ? "top" : "bottom"}
+                opacity={dim(s.key)}
+                x={x0(i) + j * gw + 1}
+                y={y(Math.max(v, 0))}
+                width={gw - 2}
+                height={Math.abs(y(0) - y(v))}
+                rx="3"
+                fill="url(#{gid(s.key)})" />{/if}
           {/each}
         {/if}
       </g>

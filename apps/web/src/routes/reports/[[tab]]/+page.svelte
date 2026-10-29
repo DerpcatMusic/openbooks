@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Reports (port of web/src/views/Reports.svelte): profit and loss, balance sheet (US-style books), cash flow, general ledger.
+  // Reports (port of web/src/views/Reports.svelte): profit and loss, balance sheet (US-style books), cash flow, cash flow analysis, general ledger.
   // /reports/<tab>. Every statement shows monthly columns, the period total, or this period against the prior one of the same
   // length; lines drill into the transactions; CSV export and print.
   import { page } from "$app/state";
@@ -10,12 +10,13 @@
   import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
+  import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
   import { go } from "#lib/reports/go.ts";
   import { activeMonths, bsStatement, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
-  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "gl"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
+  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "cfa", "gl"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
   const tab = $derived(TABS.some((x) => x.key === page.params.tab) ? page.params.tab! : "pl");
   const pickTab = (k: string) => goto(`/reports/${k}`, { replace: true, reset: false });
 
@@ -100,8 +101,10 @@
 <PageHeader title={t("reports.title")} sub={t("reports.sub", { entity: bidi(ent().short ?? ""), period: periodLabel(p) })}>
   {#snippet actions()}
     <div class="contents print:hidden">
-      <PeriodPicker />
-      <Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>
+      {#if tab !== "cfa"}
+        <PeriodPicker />
+        <Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>
+      {/if}
       <Button icon="printer" onclick={() => print()}>{t("common.print")}</Button>
     </div>
   {/snippet}
@@ -109,7 +112,9 @@
 </PageHeader>
 
 <div class="px-4 pt-5 sm:px-8">
-  {#if tab !== "bs" && !ts.length && !priorTs.length}
+  {#if tab === "cfa"}
+    <CashFlowAnalysis />
+  {:else if tab !== "bs" && !ts.length && !priorTs.length}
     <div class="panel"><EmptyState icon="report" title={t("reports.empty")} text={t("reports.emptyHint")} /></div>
   {:else if tab === "pl"}
     <section class="flex flex-wrap items-end gap-x-10 gap-y-4">
