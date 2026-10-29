@@ -129,7 +129,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(23);
+    expect(Object.keys(tools)).toHaveLength(25);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -437,7 +437,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(23);
+    expect(r!.result.tools).toHaveLength(25);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -474,7 +474,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(23);
+      expect((await c.listTools()).tools).toHaveLength(25);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };

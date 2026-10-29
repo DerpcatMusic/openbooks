@@ -79,6 +79,16 @@ describe("Schedule C from the ledger and the deduction engine", () => {
     expect(r.warnings.map((w) => w.k).sort()).toEqual(["equipment179", "uncategorized"]);
   });
 
+  it("a meals account with no rule from the engine is halved here; one the engine already treated is not", () => {
+    const t = tx("m9", "2026-03-03", -400, "expense:meals");
+    const bare = scheduleC({ year: 2026, fed: base.fed, txns: [t], deductions: [ded(t)] });
+    expect(bare.lines["24b"]).toBe(200);
+    expect(bare.warnings).toContainEqual({ k: "mealsHalved", v: 200 });
+    const treated = scheduleC({ year: 2026, fed: base.fed, txns: [t], deductions: [ded(t, 200, "us.meals")] });
+    expect(treated.lines["24b"]).toBe(200);
+    expect(treated.warnings.map((w) => w.k)).not.toContain("mealsHalved");
+  });
+
   it("standard mileage by trip date replaces the ledger's vehicle costs; parking and tolls are added", () => {
     const r = scheduleC({
       ...base,
@@ -308,6 +318,12 @@ describe("usReturn by business type", () => {
     expect(c.corp!.estimates.installments).toHaveLength(4);
     const f = usReturn({ ...base, type: "llc-disregarded" });
     expect([f.schedC, f.corp, f.contractors, f.notes]).toEqual([null, null, [], ["foreignOwned"]]);
+  });
+  it("untreated meals are half deductible on the corporate P&L too", () => {
+    const meal = tx("m1", "2026-03-03", -1000, "expense:meals");
+    const plain = usReturn({ ...base, type: "llc-ccorp" });
+    const withMeal = usReturn({ ...base, type: "llc-ccorp", txns: [...rows, meal], deductions: [...deductions, ded(meal)] });
+    expect(plain.corp!.taxable - withMeal.corp!.taxable).toBe(500);
   });
   it("detects the IRS payments in the ledger", () => {
     const r = usReturn({

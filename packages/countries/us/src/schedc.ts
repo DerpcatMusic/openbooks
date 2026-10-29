@@ -221,6 +221,7 @@ export function scheduleC(i: { year: number; fed: FedTable; txns: readonly Ledge
   let vehicleLedger = 0,
     disallowed = 0,
     cogs = 0,
+    mealsHalved = 0,
     bigEquipment = 0;
   const eng = new Map(i.deductions.map((r) => [r.id, r]));
   for (const r of i.deductions) {
@@ -244,8 +245,14 @@ export function scheduleC(i: { year: number; fed: FedTable; txns: readonly Ledge
       continue;
     }
     if (!r.deductible) continue;
-    if (line) add(line, r.category, r.deductible);
-    else other.set(name, (other.get(name) ?? 0) + r.deductible);
+    // a meals account the engine has no rule for: business meals are 50% deductible (IRC §274(n)(1)); the 100% exceptions need the us.meals.* tag
+    const amt = name === "meals" && g === "expense" && !r.rule ? r.deductible / 2 : r.deductible;
+    if (amt !== r.deductible) {
+      disallowed += r.deductible - amt;
+      mealsHalved += r.deductible - amt;
+    }
+    if (line) add(line, r.category, amt);
+    else other.set(name, (other.get(name) ?? 0) + amt);
   }
   for (const t of i.txns) {
     const g = groupOf(t.category);
@@ -256,6 +263,7 @@ export function scheduleC(i: { year: number; fed: FedTable; txns: readonly Ledge
     else other.set(name, (other.get(name) ?? 0) - t.amount);
   }
   if (bigEquipment) warnings.push({ k: "equipment179", v: rd(bigEquipment) });
+  if (mealsHalved) warnings.push({ k: "mealsHalved", v: rd(mealsHalved) });
 
   // vehicle: standard mileage by trip date
   let veh: SchedCResult["vehicle"] = null;

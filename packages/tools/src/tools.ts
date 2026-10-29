@@ -48,7 +48,7 @@ import {
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
 import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
-import { us } from "@openbooks/country-us";
+import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
@@ -1229,6 +1229,201 @@ const deduction_summary = defineTool({
     }),
 });
 
+// ---------- US federal filings (Schedule C / SE / QBI / 1040-ES, 1120, K-1s, 1099-NEC): the same maths the US tax page runs ----------
+const EST = Schema.Struct({
+  required: N,
+  basis: S,
+  exempt: B,
+  total: N,
+  installments: Schema.Array(Schema.Struct({ n: I, due: S, amount: N })),
+});
+const us_tax_estimate = defineTool({
+  name: "us_tax_estimate",
+  title: { en: "US tax estimate", he: 'אומדן מס בארה"ב' },
+  description:
+    "US federal tax for a year from the books, by business type. Sole proprietor / US-owned LLC: Schedule C from the ledger and the deduction rules (applied once), self-employment tax, QBI deduction, federal income tax estimate with the owner's inputs (doc 'taxus' in the app), flat state tax, and the four 1040-ES payments with safe harbor, plus the next year's plan. C-corp: 21% corporate tax and the 1120-W installments. Partnership / S corp: ordinary income and each owner's K-1 figures. Foreign-owned disregarded LLC: no income tax estimate (Form 5472 and pro forma 1120 are in tax_summary). Whole dollars like the IRS forms. Not tax advice.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    businessType: S,
+    track: S,
+    summary: Schema.Struct({
+      netProfit: opt(N),
+      selfEmploymentTax: opt(N),
+      qbiDeduction: opt(N),
+      federalIncomeTax: opt(N),
+      totalFederalTax: opt(N),
+      stateTax: opt(N),
+      stillToPay: opt(N),
+    }),
+    scheduleC: Schema.NullOr(Schema.Struct({ lines: Schema.Record(S, N), warnings: Schema.Array(Schema.Struct({ k: S, v: Schema.optionalKey(N) })) })),
+    estimates: Schema.NullOr(EST),
+    nextYearEstimates: Schema.NullOr(EST),
+    corporation: Schema.NullOr(Schema.Struct({ taxable: N, tax: N, estimates: EST })),
+    passThrough: Schema.NullOr(
+      Schema.Struct({
+        ordinaryIncome: N,
+        warnings: Schema.Array(S),
+        k1: Schema.Array(Schema.Struct({ name: S, pct: N, box1: N, box4: N, box14: N, distribution: N })),
+      }),
+    ),
+    ownerInputsMissing: Schema.Array(S),
+    notes: Schema.Array(S),
+    disclaimer: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, country } = yield* dedCtx(e, a.year);
+      if (country !== "us") return yield* fail(`${e.id} is not a US business (type ${inp.type}).`);
+      const track = usTrack(inp.type);
+      const r = deductions(inp),
+        taxus = (yield* docOf<Record<string, UsInputs>>(e, "taxus", {}))[String(a.year)] ?? {},
+        vendors = yield* docOf<Vendor1099[]>(e, "vendors", []),
+        bills = yield* docOf<unknown[]>(e, "bills", []),
+        ledger = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(a.year)));
+      const R = usReturn({
+        year: a.year,
+        type: inp.type,
+        table: us.table(a.year) as UsTable,
+        nextTable: us.table(a.year + 1) as UsTable,
+        txns: ledger,
+        deductions: r.rows.map((x) => ({ id: x.id, category: x.category, gross: x.gross, deductible: x.deductible, ...(x.rule ? { rule: x.rule } : {}) })),
+        nonDeductible: r.totals.nonDeductible,
+        inputs: taxus,
+        vendors,
+        bills: bills.map((b) => migrateBill(b as never)) as never,
+      });
+      const est = (x: typeof R.estimates) =>
+        x ? { required: x.required, basis: x.basis, exempt: x.exempt, total: x.total, installments: x.installments } : null;
+      const pt = R.personal,
+        pass = R.passThrough;
+      const ownerInputsMissing =
+        track === "individual"
+          ? [
+              ...(taxus.status ? [] : ["filing status (single assumed)"]),
+              ...(taxus.priorTax === undefined ? ["last year's total tax (only the 90% rule is used)"] : []),
+              ...(taxus.w2SsWages === undefined && taxus.otherIncome === undefined ? ["other income / W-2 wages (none assumed)"] : []),
+            ]
+          : track === "partnership" || track === "s-corp"
+            ? taxus.owners?.length
+              ? []
+              : ["owners and their percentages"]
+            : [];
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        businessType: inp.type,
+        track,
+        summary: {
+          netProfit: R.schedC?.netProfit ?? null,
+          selfEmploymentTax: pt?.se.line12 ?? null,
+          qbiDeduction: pt?.qbi.deduction ?? null,
+          federalIncomeTax: pt?.incomeTax ?? null,
+          totalFederalTax: pt?.totalTax ?? R.corp?.tax ?? null,
+          stateTax: pt?.state.tax ?? null,
+          stillToPay: pt?.afterWithholding ?? null,
+        },
+        scheduleC: R.schedC ? { lines: R.schedC.lines, warnings: R.schedC.warnings } : null,
+        estimates: est(R.estimates),
+        nextYearEstimates: est(R.nextEstimates),
+        corporation: R.corp
+          ? {
+              taxable: R.corp.taxable,
+              tax: R.corp.tax,
+              estimates: {
+                required: R.corp.estimates.required,
+                basis: R.corp.estimates.exempt ? "none" : "current",
+                exempt: R.corp.estimates.exempt,
+                total: R.corp.estimates.required,
+                installments: R.corp.estimates.installments,
+              },
+            }
+          : null,
+        passThrough: pass
+          ? {
+              ordinaryIncome: pass.lines.ordinary,
+              warnings: pass.warnings,
+              k1: pass.k1.map((k) => ({ name: k.name, pct: k.pct, box1: k.box1, box4: k.box4, box14: k.box14, distribution: k.distribution })),
+            }
+          : null,
+        ownerInputsMissing,
+        notes:
+          track === "foreign-owned"
+            ? ["Foreign-owned disregarded LLC: no US income tax estimate. See tax_summary for Form 5472 and the pro forma 1120."]
+            : R.notes,
+        disclaimer: "A worksheet from the books and the inputs saved in the app, not a filed return or tax advice.",
+      };
+    }),
+});
+
+const mask = (tin: string | undefined) => (tin ? `***${tin.replace(/\D/g, "").slice(-4)}` : null);
+const prepare_1099s = defineTool({
+  name: "prepare_1099s",
+  title: { en: "Prepare 1099-NECs", he: "הכנת טפסי 1099-NEC" },
+  description:
+    "Who needs a Form 1099-NEC for a year: payments for services to non-corporate US payees at or over the threshold ($600 up to 2025, $2,000 from 2026), by bank, check or cash. Card and PayPal/Venmo/Stripe payments are excluded (the payment company reports them on 1099-K); corporations are exempt except legal services. Lists each payee with the total, status and what is missing (tax ID, address, W-9). Tax IDs are masked here; the CSV and the filled Copy B forms are downloaded in the app (Tax → Contractors). Cannot e-file: the IRS IRIS portal or an authorised e-file provider does that. Not available for a foreign-owned disregarded LLC.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    threshold: N,
+    dueDate: S,
+    payerMissing: Schema.Array(S),
+    toFile: I,
+    total: N,
+    payees: Schema.Array(
+      Schema.Struct({ name: S, status: S, file: B, total: N, excludedCardOrNetwork: N, tin: opt(S), vendorSaved: B, issues: Schema.Array(S) }),
+    ),
+    note: opt(S),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        pk = packFor(e.meta, a.year);
+      if (!pk || pk.pack.manifest.id !== "us") return yield* fail(`${e.id} is not a US business.`);
+      const profile = yield* docOf<Record<string, string | undefined>>(e, "profile", {}),
+        vendors = yield* docOf<Vendor1099[]>(e, "vendors", []),
+        bills = yield* docOf<unknown[]>(e, "bills", []),
+        ledger = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(a.year)));
+      const foreign = usTrack(pk.type) === "foreign-owned",
+        threshold = (us.table(a.year) as UsTable).nec1099,
+        rows = foreign ? [] : prepare1099s({ year: a.year, threshold, vendors, bills: bills.map((b) => migrateBill(b as never)) as never, txns: ledger });
+      const payerMissing = [
+        !(profile.legalName || profile.taxpayerName) && "name",
+        !(profile.ein || profile.ssn) && "tax ID",
+        !profile.address && "address",
+      ].filter(Boolean) as string[];
+      return {
+        entity: e.id,
+        year: a.year,
+        threshold,
+        dueDate: us.deadlines!(a.year + 1, { businessType: pk.type }).find((d) => d.id === `us.1099nec.${a.year}`)?.date ?? `${a.year + 1}-01-31`,
+        payerMissing,
+        toFile: rows.filter((r) => r.file).length,
+        total: r2(sum(rows.filter((r) => r.file).map((r) => r.total))),
+        payees: rows.map((r) => ({
+          name: r.name,
+          status: r.status,
+          file: r.file,
+          total: r2(r.total),
+          excludedCardOrNetwork: r2(r.excluded),
+          tin: mask(r.vendor?.tin),
+          vendorSaved: !!r.vendor,
+          issues: r.issues,
+        })),
+        note: foreign
+          ? "A foreign-owned disregarded LLC is assumed to have no US trade or business: 1099-NECs are not prepared. Tell the app if that is wrong."
+          : null,
+      };
+    }),
+});
+
 const suggest_tax_tags = defineTool({
   name: "suggest_tax_tags",
   title: { en: "Suggest tax tags", he: "הצעות לתיוג מס" },
@@ -1476,6 +1671,8 @@ export const tools: readonly Tool[] = [
   draft_bill,
   aging_report,
   tax_summary,
+  us_tax_estimate,
+  prepare_1099s,
   deduction_summary,
   suggest_tax_tags,
   apply_tax_tag,

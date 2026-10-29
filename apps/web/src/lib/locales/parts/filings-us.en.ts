@@ -83,6 +83,7 @@ export default {
   "fus.warn.vehicleLedgerIgnored": "{v} of car expenses in the books are not counted: you chose the standard mileage rate.",
   "fus.warn.noTrips": "Standard mileage chosen but no trips are logged.",
   "fus.warn.homeOver300": "{v} square feet entered; the simplified method counts at most 300.",
+  "fus.warn.mealsHalved": "{v} of meals was halved: business meals are 50% deductible. If an exception (100%) applies, tag the meal with its rule.",
   "fus.warn.noIncome": "No income found for this year.",
   "fus.warn.loss": "A loss of {v}: no self-employment tax; the loss may offset other income (limits not modelled).",
   "fus.warn.qbiAbove":

@@ -3,6 +3,7 @@
 import { group, isCard, migrateBill, pl } from "@openbooks/core";
 import {
   splitCityStateZip,
+  untreatedMealsHalf,
   usReturn,
   usTrack,
   type CorpInput,
@@ -42,7 +43,7 @@ export function corpInput(y = S.year): CorpInput {
     revenue: P.revenue,
     cogs: P.cogs,
     advertising,
-    otherDeductions: Math.max(0, P.opex - advertising - disallowed(y)), // what the US deduction rules disallow (meals 50%, entertainment 0%…) comes off
+    otherDeductions: Math.max(0, P.opex - advertising - disallowed(y) - untreatedMealsHalf(result(y)?.rows ?? [])), // what the US deduction rules disallow (meals 50%, entertainment 0%…) comes off
     otherIncome: P.other,
     corpRate: taxTable(y, "us").corpRate ?? 0.21,
   };

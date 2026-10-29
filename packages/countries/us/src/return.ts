@@ -41,6 +41,10 @@ export function irsPayments(txns: readonly Pick<TxnLike, "id" | "date" | "amount
   return txns.filter((t) => t.amount < 0 && t.date >= `${y}-01-01` && t.date <= `${y + 1}-01-31` && IRS_PAYMENT.test(`${t.desc} ${t.memo ?? ""}`));
 }
 
+/** Half of the meals the deduction engine has no rule for: business meals are 50% deductible (IRC §274(n)(1)); the 100% exceptions need the us.meals.* tag. */
+export const untreatedMealsHalf = (rows: readonly Pick<DedRow, "category" | "rule" | "deductible">[]) =>
+  rows.filter((r) => r.category === "expense:meals" && !r.rule).reduce((s, r) => s + r.deductible / 2, 0);
+
 /** Ledger P&L pieces for the corporate / pass-through tracks: gross revenue, cost of revenue, allowed deductions (the engine's), other income. */
 export function booksPl(txns: readonly LedgerRow[], nonDeductible: number) {
   const P = corePl(txns as never),
@@ -109,6 +113,8 @@ export function usReturn(i: UsReturnInput): UsReturn {
     paid = { count: paidRows.length, total: rd(paidRows.reduce((s, t) => s - t.amount, 0)) };
   const base = { track, year: i.year, contractors, needs1099: contractors.some((r) => r.file), paid, notes };
   const nextFed = (i.nextTable ?? i.table).fed;
+  // a meals account the engine has no rule for is half deductible (IRC §274(n)(1)); Schedule C halves it itself, the corporate and pass-through P&Ls here
+  const nonDed = i.nonDeductible + untreatedMealsHalf(i.deductions);
 
   if (track === "individual") {
     const schedC = scheduleC({ year: i.year, fed, txns: i.txns, deductions: i.deductions, inputs: inp.schedC }),
@@ -155,7 +161,7 @@ export function usReturn(i: UsReturnInput): UsReturn {
     };
   }
   if (track === "c-corp") {
-    const c = corpTax(corpFromBooks(i.txns, i.nonDeductible, i.table.corpRate));
+    const c = corpTax(corpFromBooks(i.txns, nonDed, i.table.corpRate));
     return {
       ...base,
       schedC: null,
@@ -167,7 +173,7 @@ export function usReturn(i: UsReturnInput): UsReturn {
     };
   }
   if (track === "partnership" || track === "s-corp") {
-    const b = booksPl(i.txns, i.nonDeductible),
+    const b = booksPl(i.txns, nonDed),
       dist = i.txns.filter((t) => t.category.startsWith("equity:") && t.amount < 0).reduce((s, t) => s - t.amount, 0);
     return {
       ...base,
