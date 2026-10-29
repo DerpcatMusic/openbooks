@@ -25,6 +25,11 @@
       note = tag?.tax?.note ?? "";
     });
   });
+  let listEl = $state<HTMLElement>();
+  // bring the already-chosen rule into view when the dialog opens (the list is long)
+  $effect(() => {
+    if (open && listEl) untrack(() => requestAnimationFrame(() => listEl?.querySelector<HTMLElement>('[aria-checked="true"]')?.scrollIntoView({ block: "nearest" })));
+  });
   const chosen = $derived(ruleOf(rule));
   const list = $derived(searchRules(rulesFor(), q, lang()));
   const n = $derived(pct.trim() === "" ? undefined : Number(pct));
@@ -46,7 +51,7 @@
       save();
     }}>
     <Search bind:value={q} label={t("taxtags.search")} />
-    <div class="max-h-56 overflow-y-auto rounded-lg border border-line" role="radiogroup" aria-label={t("taxtags.rules")}>
+    <div bind:this={listEl} class="max-h-56 overflow-y-auto rounded-lg border border-line" role="radiogroup" aria-label={t("taxtags.rules")}>
       <button
         type="button"
         role="radio"

@@ -313,10 +313,10 @@ const words = (kw: string, hay: string) => {
   for (let i = hay.indexOf(k); i >= 0; i = hay.indexOf(k, i + 1)) if (!/[\p{L}\p{N}]/u.test(at(i - 1)) && !/[\p{L}\p{N}]/u.test(at(i + k.length))) return true;
   return false; // short keywords ("tea", "gym", "cpa") must stand alone, or "steam" would be a tea
 };
-/** How many of the rule's keywords / MCC codes the text contains. */
+/** How many of the rule's keywords / MCC codes the text contains; a multi-word keyword counts double, so "amazon web services" beats "amazon". */
 export const matchScore = (r: DeductionRule, t: Pick<Txn, "desc" | "memo" | "mcat">) => {
   const hay = haystack(t).toLowerCase();
-  return r.match.keywords.filter((k) => words(k, hay)).length + (r.match.mcc ?? []).filter((m) => new RegExp(`(?<!\\d)${String(m)}(?!\\d)`).test(hay)).length;
+  return r.match.keywords.reduce((n, k) => n + (words(k, hay) ? (k.trim().includes(" ") ? 2 : 1) : 0), 0) + (r.match.mcc ?? []).filter((m) => new RegExp(`(?<!\\d)${String(m)}(?!\\d)`).test(hay)).length;
 };
 
 /** Untagged outflows whose text matches a rule, grouped by rule: the best match wins, and a tie goes to the lowest deductible share (the safe reading). */
