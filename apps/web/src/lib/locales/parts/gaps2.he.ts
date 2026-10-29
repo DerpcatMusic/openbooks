@@ -100,7 +100,7 @@ export default {
   "gaps2.journal.lines": { one: "שורה אחת", two: "שתי שורות", other: "{n} שורות" },
   "gaps2.journal.rejected": { one: "אי אפשר לייבא פקודה אחת:", two: "אי אפשר לייבא שתי פקודות:", other: "אי אפשר לייבא {n} פקודות:" },
   "gaps2.journal.errors": { one: "לא ניתן לקרוא שורה אחת:", two: "לא ניתן לקרוא שתי שורות:", other: "לא ניתן לקרוא {n} שורות:" },
-  "gaps2.journal.rows": "שורות {rows}",
+  "gaps2.journal.rows": { one: "שורה {rows}", two: "שורות {rows}", other: "שורות {rows}" },
   "gaps2.journal.row": "שורה {row}",
   "gaps2.journal.importN": { one: "הוספת פקודה אחת", two: "הוספת שתי פקודות", other: "הוספת {n} פקודות" },
   "gaps2.journal.importSome": "הוספת {n} תקינות, דילוג על {skipped} שורות",

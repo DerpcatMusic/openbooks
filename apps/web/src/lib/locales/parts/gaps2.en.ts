@@ -100,7 +100,7 @@ export default {
   "gaps2.journal.lines": { one: "{n} line", other: "{n} lines" },
   "gaps2.journal.rejected": { one: "{n} entry can't be imported:", other: "{n} entries can't be imported:" },
   "gaps2.journal.errors": { one: "{n} row could not be read:", other: "{n} rows could not be read:" },
-  "gaps2.journal.rows": "Rows {rows}",
+  "gaps2.journal.rows": { one: "Row {rows}", other: "Rows {rows}" },
   "gaps2.journal.row": "Row {row}",
   "gaps2.journal.importN": { one: "Add {n} entry", other: "Add {n} entries" },
   "gaps2.journal.importSome": "Add {n} valid, skip {skipped} rows",

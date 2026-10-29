@@ -227,7 +227,7 @@
           <div class="text-[13px] text-bad">{t("gaps2.journal.rejected", { n: draft.rejected.length })}</div>
           <ul class="mt-1 space-y-0.5 text-[13px] text-ink-2">
             {#each draft.rejected as r (r.rows.join())}
-              <li>{t("gaps2.journal.rows", { rows: r.rows.join(", ") })}: {t(`gaps2.journal.problem.${r.problem}`, { date: startDate() ? mdy(startDate()!) : "" })} <span class="text-sub" dir="auto">({r.memo || r.date})</span></li>
+              <li>{t("gaps2.journal.rows", { n: r.rows.length, rows: r.rows.join(", ") })}: {t(`gaps2.journal.problem.${r.problem}`, { date: startDate() ? mdy(startDate()!) : "" })} <span class="text-sub" dir="auto">({r.memo || r.date})</span></li>
             {/each}
           </ul>
         </div>

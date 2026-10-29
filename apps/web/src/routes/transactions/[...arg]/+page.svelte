@@ -88,7 +88,8 @@
     inTab(x, tab) && inKind(x, kind) && inMethod(x, method, suggested) && inReview(x, review, marks) && inCat(x, cat) && inTag(x, tagF) && (!acct || x.account === acct) && (!s || hay.get(x.id)?.includes(s));
   const rows = $derived.by(() => {
     const s = q.trim().toLowerCase();
-    return scope.filter((x) => pass(x, s)).toReversed();
+    // newest first; same-day rows (a split's parts) keep their ledger order
+    return scope.filter((x) => pass(x, s)).toSorted((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   });
   const shown = $derived(rows.slice(0, limit));
   // nothing here: which other tax years have matches (Review's "table view" links here with every year's uncategorized rows)
