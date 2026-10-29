@@ -71,7 +71,7 @@ export default {
   "invoices.openTxn": "Open transaction",
   "invoices.receiptFromBill": "Create קבלה",
   "invoices.markUnpaid": "Mark unpaid",
-  "invoices.candHint": "Incoming payments since {date}: amount within 1% first, then payer name.",
+  "invoices.candHint": "Incoming payments since {date}: an exact fit first, then amount within 1%, then payer name.",
   "invoices.match.amount": "amount",
   "invoices.match.payer": "payer",
   "invoices.noCands": "No incoming payments after the issue date.",

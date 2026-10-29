@@ -204,6 +204,7 @@ const ROUTES: Route[] = [
     ],
   }),
   ...both("/invoices", { opens: [["drawer", click(ROW)]] }),
+  { e: "acme", path: "/bills", opens: [["drawer", click(ROW)]] },
   { e: "acme", path: "/invoices", opens: [["new", clickText("main button", "New invoice|חשבונית חדשה")]] },
   ...(inv ? [{ e: "noa", path: `/invoices/${inv}/doc` }] : []),
   ...both("/review"),
@@ -211,6 +212,8 @@ const ROUTES: Route[] = [
   { e: "acme", path: "/reports/bs", ...reports("bs") },
   ...both("/reports/cf", reports("cf")),
   ...both("/reports/gl", reports("gl")),
+  ...both("/reports/ar", { opens: [["drill", click("main tbody td button")]] }),
+  ...both("/reports/ap", { opens: [["drill", click("main tbody td button")]] }),
   ...both("/counterparties", { opens: [["row", click(ROW)]] }),
   ...both("/rules", {
     opens: [

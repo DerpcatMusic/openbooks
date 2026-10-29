@@ -126,7 +126,7 @@
               <tr>
                 <th scope="row" class="sticky start-0 z-[1] h-11 max-w-[min(18rem,50vw)] min-w-36 border-b border-line py-2 text-start font-normal text-ink [overflow-wrap:break-word] sm:min-w-52 {pad}">
                   <bdi>{p.name || noParty}</bdi>
-                  <span class="block text-[12px] text-sub">{t("aging.docs", { n: p.count })}{#if p.oldest > 0} · {t("aging.oldest")} {p.oldest}{/if}</span>
+                  <span class="block text-[12px] text-sub">{t("aging.docs", { n: p.count })}{#if p.oldest > 0}{" · "}{t("aging.oldest", { n: p.oldest })}{/if}</span>
                 </th>
                 {#each p.buckets as v, i (i)}<td class="{cell} {pad}">{@render figure(v, p.party, p.name, i, i === 0 ? "text-ink-2" : ink(i))}</td>{/each}
                 <td class="{cell} {pad}">{@render figure(p.overdue, p.party, p.name, -1, p.overdue > 0 ? "text-bad" : "text-ink-2")}</td>
@@ -179,7 +179,7 @@
         <th scope="col" class="text-end {pad}">{t("aging.pastDue")}</th>
         <th scope="col" class="text-start {pad}">{t("aging.bucket")}</th>
         <th scope="col" class="text-end {pad}">{t("aging.outstanding")}</th>
-        <th scope="col" class="w-10 {pad}"><span class="sr-only">{t("common.open")}</span></th>
+        <th scope="col" class="relative w-10 {pad}"><span class="sr-only">{t("common.open")}</span></th>
       </tr>
     </thead>
     <tbody>
