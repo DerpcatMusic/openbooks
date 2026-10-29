@@ -252,3 +252,42 @@ describe("suggestions and moves", () => {
     expect(taggableRules(IL.rules, "ltd").some((r) => r.id === "il.bl-deduction")).toBe(false);
   });
 });
+
+describe("suggestion upper bounds respect the caps", () => {
+  it("US gifts: $25 per recipient per year, shared with gifts already tagged", () => {
+    const ts = [
+      tx(100, { desc: "Wine shop", source: "mercury", tags: ["g"] }), // already tagged: uses 25 of Alice's… of the wine shop's cap
+      tx(60, { desc: "Bob gift card", source: "mercury" }),
+      tx(60, { desc: "Bob gift card", source: "mercury" }),
+      tx(10, { desc: "Carol gift basket", source: "mercury" }),
+    ];
+    const s = suggestTags(us(ts, tags({ id: "g", rule: "us.gifts" })));
+    const g = s.find((x) => x.rule === "us.gifts")!;
+    expect(g).toMatchObject({ gross: 130, deductible: 35, capped: true }); // Bob 25 + Carol 10, not 130
+    expect(deductions(us(ts, tags({ id: "g", rule: "us.gifts" }))).rows[0]!.deductible).toBe(25);
+  });
+  it("a recipient who is over the cap already gets no suggestion value; another recipient is unaffected", () => {
+    const ts = [tx(40, { desc: "Dana gift", source: "mercury", tags: ["g"] }), tx(40, { desc: "Dana gift", source: "mercury" }), tx(20, { desc: "Eli gift", source: "mercury" })];
+    const g = suggestTags(us(ts, tags({ id: "g", rule: "us.gifts" }))).find((x) => x.rule === "us.gifts")!;
+    expect(g.deductible).toBe(20);
+  });
+  it("IL gifts: ₪240 per person; a cap in another currency is not enforced", () => {
+    const ts = [tx(300, { desc: "מתנה לדנה gift", source: "mercury" }), tx(300, { desc: "מתנה לדנה gift", source: "mercury" })];
+    expect(suggestTags(il(ts, tags())).find((x) => x.rule === "il.gifts")).toMatchObject({ deductible: 240, capped: true });
+    expect(suggestTags(il(ts, tags(), { currency: "USD" })).find((x) => x.rule === "il.gifts")).toMatchObject({ deductible: 600 });
+  });
+});
+
+describe("the bank's own category (Mercury) as a signal", () => {
+  it("points a tax-tag suggestion at the rule when the description alone says nothing", () => {
+    const s = suggestTags(us([tx(12, { desc: "ZQX 8841", mcat: "Software" }), tx(300, { desc: "ZQX 9912", mcat: "Gifts" })], tags()));
+    expect(s.map((x) => x.rule).sort()).toEqual(["us.gifts", "us.software"]);
+    expect(suggestTags(il([tx(40, { desc: "ZQX 8841", mcat: "Travel" })], tags()))[0]).toMatchObject({ rule: "il.travel.flights" });
+    expect(suggestTags(us([tx(12, { desc: "ZQX 8841", mcat: "Income" })], tags()))).toEqual([]); // no hint, no match
+  });
+  it("a bank category beats a weak keyword", () => {
+    // "cafe" alone suggests a meal; the bank filed it under Software
+    const s = suggestTags(us([tx(12, { desc: "Cafe Software Ltd", mcat: "Software" })], tags()));
+    expect(s[0]!.rule).toBe("us.software");
+  });
+});

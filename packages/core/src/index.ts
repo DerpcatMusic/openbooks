@@ -7,6 +7,7 @@ export * from "./journal.ts";
 export * from "./method.ts";
 export * from "./deductions.ts";
 export * from "./reports.ts";
+export * from "./mcat.ts";
 export * from "./coa.ts";
 export * from "./py.ts";
 export * from "./privacy.ts";

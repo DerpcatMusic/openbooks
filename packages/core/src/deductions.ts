@@ -6,6 +6,7 @@
 // Not tax advice: every number is only as good as the rule's `confidence`/`unverified`, which the UI shows next to it.
 import type { DeductionMove, DeductionRule, TagsDoc, Txn } from "@openbooks/schema";
 import { group, payerOf } from "./reports.ts";
+import { MCAT_RULES, mcatKey } from "./mcat.ts";
 import { haystack } from "./rules.ts";
 import { baseId } from "./splits.ts";
 
@@ -309,8 +310,10 @@ export interface TagSuggestion {
   kind: "expense" | "uncategorized";
   ids: string[];
   gross: number;
-  /** What the rule would allow of it; null = needs your business-use share first. */
+  /** What the rule would allow of it, ceilings applied (gifts per recipient); null = needs your business-use share first. */
   deductible: number | null;
+  /** The rule's ceiling cut the figure above: the deductible is less than the share of the gross. */
+  capped?: boolean;
 }
 const words = (kw: string, hay: string) => {
   const k = kw.trim().toLowerCase();
@@ -320,10 +323,12 @@ const words = (kw: string, hay: string) => {
   for (let i = hay.indexOf(k); i >= 0; i = hay.indexOf(k, i + 1)) if (!/[\p{L}\p{N}]/u.test(at(i - 1)) && !/[\p{L}\p{N}]/u.test(at(i + k.length))) return true;
   return false; // short keywords ("tea", "gym", "cpa") must stand alone, or "steam" would be a tea
 };
-/** How many of the rule's keywords / MCC codes the text contains; a multi-word keyword counts double, so "amazon web services" beats "amazon". */
+/** How many of the rule's keywords / MCC codes the text contains; a multi-word keyword counts double, so "amazon web services" beats "amazon".
+ *  The bank's own category (Mercury "Category") counts double too when it points at this rule (mcat.ts): the bank looked at the merchant, not at a word. */
 export const matchScore = (r: DeductionRule, t: Pick<Txn, "desc" | "memo" | "mcat">) => {
   const hay = haystack(t).toLowerCase();
   return (
+    (MCAT_RULES[mcatKey(t.mcat)]?.includes(r.id) ? 2 : 0) +
     r.match.keywords.reduce((n, k) => n + (words(k, hay) ? (k.trim().includes(" ") ? 2 : 1) : 0), 0) +
     (r.match.mcc ?? []).filter((m) => new RegExp(`(?<!\\d)${String(m)}(?!\\d)`).test(hay)).length
   );
@@ -333,12 +338,19 @@ export const matchScore = (r: DeductionRule, t: Pick<Txn, "desc" | "memo" | "mca
 export function suggestTags(inp: DeductionInput): TagSuggestion[] {
   const taxed = new Set(inp.tags.tags.filter((g) => g.tax).map((g) => g.id)),
     known = taggableRules(inp.rules, inp.type),
-    have = new Set(
-      deductions(inp)
-        .rows.filter((r) => r.bucket !== "untreated")
-        .map((r) => r.id),
-    );
+    res = deductions(inp),
+    have = new Set(res.rows.filter((r) => r.bucket !== "untreated").map((r) => r.id));
   const out = new Map<string, TagSuggestion>();
+  // Ceilings on the deduction (gifts per recipient…): what the tagged rows already used, so an upper bound never promises more than the law allows.
+  const used = new Map<string, number>(),
+    who = new Map(inp.txns.map((t) => [t.id, payerOf(t)])),
+    byId = new Map(inp.rules.map((r) => [r.id, r]));
+  const ceiling = (r: DeductionRule) => (MAX_DEDUCTION.has(r.id) && r.cap && r.cap.amount !== null && r.cap.currency === inp.currency ? r.cap : null);
+  const capKey = (r: DeductionRule, id: string) => `${r.id}|${r.cap?.per === "recipient" ? who.get(id) : ""}`;
+  for (const x of res.rows) {
+    const r = x.rule ? byId.get(x.rule) : undefined;
+    if (r && ceiling(r)) used.set(capKey(r, x.id), (used.get(capKey(r, x.id)) ?? 0) + x.deductible);
+  }
   for (const t of inp.txns) {
     const kind = isExpense(t) ? "expense" : t.amount < 0 && t.category === "ask" && t.source !== "journal" ? "uncategorized" : null;
     if (!kind || +t.date.slice(0, 4) !== inp.year || have.has(t.id) || t.tags?.some((g) => taxed.has(g))) continue;
@@ -353,7 +365,17 @@ export function suggestTags(inp: DeductionInput): TagSuggestion[] {
       s = out.get(key) ?? { rule: best.id, kind, ids: [], gross: 0, deductible: best.incomeTaxPct === null ? null : 0 };
     s.ids.push(t.id);
     s.gross = r2(s.gross + -t.amount);
-    if (s.deductible !== null) s.deductible = r2(s.deductible + (-t.amount * best.incomeTaxPct!) / 100);
+    if (s.deductible !== null) {
+      let add = (-t.amount * best.incomeTaxPct!) / 100;
+      const cap = ceiling(best);
+      if (cap) {
+        const k = capKey(best, t.id),
+          left = Math.max(0, cap.amount! - (used.get(k) ?? 0));
+        if (add > left + 0.005) ((add = left), (s.capped = true));
+        used.set(k, (used.get(k) ?? 0) + add);
+      }
+      s.deductible = r2(s.deductible + add);
+    }
     out.set(key, s);
   }
   return [...out.values()].sort((a, b) => b.gross - a.gross);

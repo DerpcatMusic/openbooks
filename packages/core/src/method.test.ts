@@ -52,3 +52,18 @@ describe("suggestedIds is suggest()'s non-empty answer, in one pass", () => {
     expect(suggestedIds(all, all).size).toBe(0);
   });
 });
+
+describe("the bank's category (Mercury) for account suggestions", () => {
+  const row = (id: string, over: Partial<Txn>): Txn => ({ ...t(id, {}), ...over });
+  it("what you filed under the same bank category before outranks the usual account", () => {
+    const mine = row("old", { desc: "Q1", amount: -9, mcat: "Software", category: "expense:subscriptions" });
+    const target = row("new", { desc: "Zzzz Qqqq", amount: -5, mcat: "Software", category: "ask" });
+    expect(suggest([target], [mine, target])).toEqual(["expense:subscriptions", "expense:software"]);
+    expect(suggestedIds([target], [mine, target]).has("new")).toBe(true);
+  });
+  it("punctuation and case in the bank's category do not matter; unknown categories say nothing", () => {
+    const target = row("n", { desc: "Zzzz Qqqq", amount: -5, mcat: "food & DINING", category: "ask" });
+    expect(suggest([target], [target])).toEqual(["expense:meals"]);
+    expect(suggest([row("m", { desc: "Zzzz Qqqq", amount: -5, mcat: "Mystery", category: "ask" })], [])).toEqual([]);
+  });
+});

@@ -1,6 +1,7 @@
 // Reports over ledger rows (port of web/src/lib/books.svelte.js and mcp_server.py pl/by_account/balances). Pure: pass rows in, get numbers out.
 // Labels are not here: the UI translates "type.<key>" / "cat.<account>" keys, packs supply their own.
 import type { StatementCheck, Txn } from "@openbooks/schema";
+import { MCAT_ACCOUNT, mcatKey } from "./mcat.ts";
 
 type Row = Pick<Txn, "date" | "amount" | "category">;
 export type PlLine = "revenue" | "other" | "cogs" | "expense" | "ask";
@@ -175,20 +176,6 @@ export function payers(txns: readonly Txn[]) {
     .sort((x, y) => Math.abs(y.total) - Math.abs(x.total));
 }
 
-const MCAT: Record<string, string> = {
-  Software: "expense:software",
-  Advertising: "expense:advertising",
-  Travel: "expense:travel",
-  Restaurants: "expense:meals",
-  "Food & Dining": "expense:meals",
-  Fees: "expense:bank-fees",
-  "Office Supplies": "expense:equipment",
-  Equipment: "expense:equipment",
-  Entertainment: "expense:games",
-  Utilities: "expense:phone-internet",
-  "Professional Services": "expense:professional",
-  Legal: "expense:professional",
-};
 const words = (s: string) =>
   new Set(
     s
@@ -213,7 +200,15 @@ export function suggest(ts: readonly Txn[], all: readonly Txn[]): string[] {
       if (n) add(x.category, n * 0.6);
     }
   }
-  for (const t of ts) add(MCAT[t.mcat ?? ""], 3);
+  // The bank's own category: what you filed under the same one before is the strongest hint (up to 4 points, one per past row), then the usual account for it.
+  const asked = new Set(ts.map((t) => mcatKey(t.mcat)).filter(Boolean));
+  if (asked.size) {
+    const seen = new Map<string, number>();
+    for (const x of all)
+      if (!ids.has(x.id) && x.category !== "ask" && asked.has(mcatKey(x.mcat))) seen.set(x.category, Math.min(4, (seen.get(x.category) ?? 0) + 1));
+    for (const [c, n] of seen) add(c, n + 3);
+  }
+  for (const t of ts) add(MCAT_ACCOUNT[mcatKey(t.mcat)], 3);
   const sign = Math.sign(sum(ts));
   for (const [c] of sc)
     if ((sign < 0 && ["revenue", "other"].includes(plOf(c) ?? "")) || (sign > 0 && ["cogs", "expense"].includes(plOf(c) ?? ""))) sc.delete(c);
