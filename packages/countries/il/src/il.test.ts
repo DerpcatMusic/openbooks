@@ -204,7 +204,7 @@ describe("form 1301 hook", () => {
     );
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "200,000" } }).taxable).toBe(200000);
   });
-  it("real 2025 return matches the Tax Authority's own calculation (12.10.2026)", () => {
+  it("real 2025 return matches the Tax Authority's assessment (08.10.2026): fund tax is final, nothing back", () => {
     const T25 = il.table(2025) as IlRates;
     const r = form1301({
       y: 2025,
@@ -217,16 +217,17 @@ describe("form 1301 hook", () => {
     });
     expect(r.gross).toBeCloseTo(2595.05, 2); // site: 2,595
     expect(r.soldier).toBeCloseTo(10 / 6, 4); // Mar–Dec 2025 at 1/6 a month (s.39א)
-    expect(Math.round(r.credits)).toBe(8375); // site: 8,375 = 2.25 points + soldier credit capped at the tax on business income
-    expect(r.due).toBe(0);
-    expect(r.balance).toBe(-754);
-    expect(r.indexation).toBe(40); // site: refund 794
+    expect(Math.round(r.creditsAvailable)).toBe(8375); // assessment: 8,375 = 2.25 points + soldier credit capped at the tax on business income
+    expect(Math.round(r.credits)).toBe(1841); // they wipe the bracket tax only
+    expect(r.due).toBe(754); // the 25% on the חיסכון לכל ילד gain stays
+    expect(r.balance).toBe(0); // assessment: "יתרה אפס"; Altshuler: no refund on a lump-sum withdrawal
+    expect(r.indexation).toBe(0);
   });
-  it("child savings: 157 at 25%, 060 at 15%, withheld tax in 040 comes back when credits cover the tax", () => {
+  it("child savings: 157 at 25%, 060 at 15%, withheld tax in 040 is final even when credits exceed the bracket tax", () => {
     const r = form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "18413", "157": "3015", "040": "754", "020": "X" } });
     expect(r.capTax).toBeCloseTo(753.75, 2); // Altshuler withheld 753.83 on a 3,015 real gain
-    expect(r.due).toBe(0);
-    expect(r.balance).toBe(-754);
+    expect(r.due).toBe(754);
+    expect(r.balance).toBe(0);
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "060": "1000" } }).capTax).toBeCloseTo(150, 2);
   });
 });
