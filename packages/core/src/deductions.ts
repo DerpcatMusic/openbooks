@@ -7,6 +7,7 @@
 import type { DeductionMove, DeductionRule, TagsDoc, Txn } from "@openbooks/schema";
 import { group, payerOf } from "./reports.ts";
 import { MCAT_RULES, mcatKey } from "./mcat.ts";
+import { ROLE_RULE, roleOf, tripDeduction, tripMembers, tripText, type Trip, type TripResult } from "./trips.ts";
 import { haystack } from "./rules.ts";
 import { baseId } from "./splits.ts";
 
@@ -25,7 +26,9 @@ export interface TxnDeduction {
   gross: number;
   /** Rule id when one applies (a tag's, else the account's); undefined = untreated, or only a business-use % from a tag. */
   rule?: string;
-  from: "tag" | "account" | "none";
+  from: "tag" | "account" | "trip" | "none";
+  /** The trip this cost belongs to (doc "trips"): its per-night / per-day / per-trip limits decide the deduction. */
+  trip?: string;
   /** The tag that decided it (id). */
   tag?: string;
   /** Deductible share of the gross after caps and pooled formulas, 0-100. */
@@ -56,6 +59,8 @@ export interface DeductionResult {
   byBucket: Record<Bucket, { n: number; gross: number; deductible: number }>;
   byRule: { rule: string; n: number; gross: number; deductible: number; vatReclaimable: number }[];
   caps: CapUse[];
+  /** The trips that started this year, each with its breakdown. */
+  trips: TripResult[];
   /** false = the deductions don't change tax on this track (IL zair: deemed 30%; foreign-owned US LLC with no US trade): bookkeeping only. */
   taxEffect: boolean;
   effect: "zair" | "noEci" | null;
@@ -78,6 +83,8 @@ export interface DeductionInput {
   vatRate?: number;
   /** carPrice: IL private car list price for the shovi formula; usTrade: the owner attests a US trade or business (ECI). */
   facts?: { carPrice?: number; usTrade?: boolean };
+  /** doc "trips": business trips with their linked costs; trips that started in `year` set the deduction of the costs linked to them. */
+  trips?: readonly Trip[];
 }
 
 const TRACK: Readonly<Record<string, string>> = {
@@ -238,6 +245,33 @@ export function deductions(inp: DeductionInput): DeductionResult {
     }
   }
 
+  // trips: the per-night / per-day / per-trip limits decide the deductible part of every cost linked to a trip that started this year
+  const tripResults: TripResult[] = [];
+  const country = inp.rules.some((r) => r.id.startsWith("il.")) ? "il" : "us";
+  const mine = (inp.trips ?? []).filter((x) => +x.start.slice(0, 4) === inp.year);
+  if (mine.length) {
+    const members = tripMembers(mine, inp.txns),
+      text = new Map(inp.txns.map((x) => [x.id, tripText(x)]));
+    for (const trip of mine) {
+      const linked = rows.filter((r) => members.get(r.id) === trip);
+      if (!linked.length && !trip.perDiem) continue;
+      const costs = linked.map((r) => ({ id: r.id, gross: r.gross, role: roleOf(trip, r.id, r.rule, text.get(r.id) ?? r.desc) }));
+      const res = tripDeduction(trip, costs, { country, year: inp.year, currency: inp.currency, rule: (id) => byId.get(id) });
+      tripResults.push(res);
+      for (const r of linked) {
+        const l = res.lines[r.id]!,
+          rule = ROLE_RULE[country][l.role] ? byId.get(ROLE_RULE[country][l.role]!) : undefined;
+        r.deductible = l.deductible;
+        r.trip = trip.id;
+        r.from = "trip";
+        delete r.tag;
+        if (rule) ((r.rule = rule.id), (r.evidence = [...rule.evidence]));
+        r.why = [{ k: "tripRule", w: trip.name }, ...res.parts.find((p) => p.role === l.role && p.gross > 0)?.why.map((w) => ({ k: `trip.${w.k}`, ...(w.v !== undefined ? { v: w.v } : {}), ...(w.w !== undefined ? { w: w.w } : {}) })) ?? []];
+        r.capped = l.deductible < l.gross - 0.005 && !!res.parts.find((p) => p.role === l.role)?.cap;
+      }
+    }
+  }
+
   // ceilings on the deduction (per year, per recipient), first come first served by date
   const used = new Map<string, number>(),
     capRows: CapUse[] = [];
@@ -245,6 +279,7 @@ export function deductions(inp: DeductionInput): DeductionResult {
     const rule = r.rule ? byId.get(r.rule) : undefined,
       cap = rule?.cap;
     if (!rule || !cap) continue;
+    if (r.trip) continue; // a trip's own limits (trips.ts) already decided this cost
     if (!MAX_DEDUCTION.has(rule.id) || cap.amount === null || cap.currency !== inp.currency) {
       if (cap.per === "day" || cap.per === "trip") r.why.push({ k: "capUnchecked", w: cap.per }); // ponytail: nights/days aren't in the books; add a days field on the trip tag to enforce
       continue;
@@ -298,6 +333,7 @@ export function deductions(inp: DeductionInput): DeductionResult {
       })
       .sort((a, b) => b.gross - a.gross),
     caps: capRows,
+    trips: tripResults,
     taxEffect: effect === null,
     effect,
   };
