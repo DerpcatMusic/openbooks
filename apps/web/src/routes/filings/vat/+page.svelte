@@ -6,7 +6,7 @@
   import { checkPcn874, inputRows, pcn874, vatPeriods, type VatLine } from "@openbooks/country-il";
   import { S, bizType, mdy, toast } from "#lib/stores/books.svelte.ts";
   import { goto } from "#lib/nav.ts";
-  import { bidi, t } from "#lib/i18n.svelte.ts";
+  import { bidi, locale, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, EmptyState, Input, Money, PageHeader, Select, Table } from "#lib/ui/index.ts";
   import type { Column } from "#lib/ui/index.ts";
   import { download, il, patchIl, vatBooks, vatCtx, vatFor } from "#lib/filings.svelte.ts";
@@ -18,7 +18,7 @@
   const ended = $derived(periods.filter((p) => p.to <= todayIso).at(-1) ?? periods[0]!);
   const p = $derived(periods.find((x) => x.key === page.url.searchParams.get("period")) ?? ended);
   const label = (x: { from: string; to: string }) => {
-    const f = new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
+    const f = new Intl.DateTimeFormat(locale(), { month: "short", year: "numeric", timeZone: "UTC" });
     const a = new Date(`${x.from}T12:00Z`), b = new Date(`${x.to}T12:00Z`);
     return x.from.slice(0, 7) === x.to.slice(0, 7) ? f.format(a) : `${f.format(a)} – ${f.format(b)}`;
   };

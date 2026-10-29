@@ -57,7 +57,7 @@ export const track = (y = S.year) => usTrack(bizType(y));
 export const usInputs = (y = S.year): UsInputs => doc<Record<string, UsInputs>>("taxus", {})[y] ?? {};
 /** Merge into the year's inputs; `schedC` merges one level deeper so a single field edit keeps the trips. */
 export function saveUsInputs(y: number, patch: Partial<UsInputs>) {
-  const all = $state.snapshot(doc<Record<string, UsInputs>>("taxus", {})) as Record<string, UsInputs>,
+  const all = JSON.parse(JSON.stringify(doc<Record<string, UsInputs>>("taxus", {}))) as Record<string, UsInputs>, // plain .ts: no runes here, the doc is JSON
     cur = all[y] ?? {},
     next: UsInputs = { ...cur, ...patch, ...(patch.schedC ? { schedC: { ...cur.schedC, ...patch.schedC } } : {}) };
   for (const k of Object.keys(next) as (keyof UsInputs)[]) if (next[k] === undefined) delete next[k];

@@ -219,8 +219,8 @@ export const usDeadlines = (y: number, f: UsDeadlineFacts): Deadline[] => {
     add(
       iso(y, 6, 1),
       "de.llc",
-      "Delaware LLC annual tax ($400), due June 1",
-      "מס שנתי ל-LLC בדלאוור (400 דולר), עד 1 ביוני",
+      "Delaware LLC annual tax ($300), due June 1",
+      "מס שנתי ל-LLC בדלאוור (300 דולר), עד 1 ביוני",
       undefined,
       "https://corp.delaware.gov/paytaxes/",
       SRC.de,
