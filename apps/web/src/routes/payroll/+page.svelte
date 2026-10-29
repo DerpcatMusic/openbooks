@@ -224,7 +224,7 @@
   </div>
 
   {#if rows.length}
-    <div class="panel mt-4 grid gap-6 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+    <div class="panel mt-4 grid grid-cols-2 gap-6 p-5 sm:p-6 lg:grid-cols-4">
       <Stat label={t("payroll.stat.gross")} value={totals.gross} currency={cur} size="md" />
       <Stat label={t("payroll.stat.employer")} value={totals.employerTaxes} currency={cur} size="md" />
       <Stat label={t("payroll.stat.cost")} value={totals.cost} currency={cur} size="md" />
