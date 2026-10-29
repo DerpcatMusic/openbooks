@@ -74,7 +74,7 @@
 
 {#if list.length}
   <div class="px-4 sm:px-8">
-    <Table {columns} rows={list.slice(0, limit)} key={(p) => p.key} caption={t("counterparties.title")} class="panel">
+    <Table {columns} rows={list.slice(0, limit)} key={(p) => p.key} caption={t("counterparties.title")} class="panel" stack>
       {#snippet cell(p, c)}
         {#if c.key === "who"}
           <div class="ui-align text-ink [overflow-wrap:anywhere]" dir="auto">{p.key}</div>

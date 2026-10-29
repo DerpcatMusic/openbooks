@@ -278,6 +278,50 @@
   </div>
 </PageHeader>
 
+{#snippet txnCell(x: Txn, k: string)}
+  {#if k === "sel"}
+    <input
+      type="checkbox"
+      checked={sel.has(x.id)}
+      disabled={closed(x.date)}
+      onclick={(e) => {
+        e.stopPropagation();
+        toggle(x, e);
+      }}
+      onkeydown={(e) => e.stopPropagation()}
+      aria-label={t("txns.select", { desc: x.who ?? x.desc })}
+      class="size-4 cursor-pointer align-middle accent-accent" />
+  {:else if k === "date"}
+    <span class="num">{mdy(x.date)}</span>
+  {:else if k === "account"}
+    <span dir="auto">{x.account}</span>
+  {:else if k === "cat"}
+    <span class="flex items-center gap-1.5">
+      <span title={why(x)} class="shrink-0 text-faint"><Icon name={x.why === "manual" ? "user" : x.why === "split" ? "list" : x.why ? "rules" : "alert"} size={13} /></span>
+      {#if x.source === "journal"}
+        <span class="text-ink-2">{catLabel(x.category)}</span>
+      {:else if x.why === "split"}
+        <span class="flex flex-wrap items-center gap-1.5 text-ink-2">{catLabel(x.category)}<Badge size="sm" tone="accent">{t("gaps2.split.part", { i: +x.id.split("~")[1]! + 1 })}</Badge></span>
+      {:else if closed(x.date)}
+        <span class="flex items-center gap-1.5 text-ink-2" title={t("close.locked", { date: mdy(closeDate() ?? "") })}><Icon name="lock" size={13} class="shrink-0 text-faint" />{catLabel(x.category)}</span>
+      {:else}
+        <CategorySelect value={x.category} onchange={(c) => apply([x], c)} suggestions={() => suggest([x])} />
+      {/if}
+    </span>
+  {:else if k === "desc"}
+    <div class="ui-align text-ink [overflow-wrap:anywhere]" dir="auto">
+      {#if marks[baseId(x.id)]}<span title={t("gaps2.reviewed")} class="me-1 inline-block align-middle text-good"><Icon name="check" size={13} /><span class="sr-only">{t("gaps2.reviewed")}</span></span>{/if}{x.memo && x.why === "split" ? `${x.who ?? x.desc} · ${x.memo}` : (x.who ?? x.desc)}
+    {#if x.tags?.length}<span class="mt-1 flex flex-wrap gap-1 xl:hidden">{#each x.tags as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}</span>{/if}
+    </div>
+  {:else if k === "tags"}
+    <span class="flex flex-wrap gap-1">
+      {#each x.tags ?? [] as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}
+    </span>
+  {:else}
+    <Money value={x.amount} currency={cur} plus class={x.amount > 0 ? "text-good" : "text-ink"} />
+  {/if}
+{/snippet}
+
 {#if rows.length}
   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-2 text-[14px] text-sub sm:px-8">
     <label class="flex min-h-8 cursor-pointer items-center gap-2">
@@ -292,51 +336,27 @@
     <span class="ms-auto num">{t("common.transactions", { n: rows.length })} · <Money value={total} currency={cur} /></span>
   </div>
   <div class="px-4 sm:px-8">
-    <Table {columns} rows={shown} key={(x) => x.id} caption={t("nav.transactions")} onrowclick={(x) => (S.drawer = x.id)} selected={(x) => sel.has(x.id)} class="panel">
-      {#snippet cell(x, c)}
-        {#if c.key === "sel"}
-          <input
-            type="checkbox"
-            checked={sel.has(x.id)}
-            disabled={closed(x.date)}
-            onclick={(e) => {
-              e.stopPropagation();
-              toggle(x, e);
-            }}
-            onkeydown={(e) => e.stopPropagation()}
-            aria-label={t("txns.select", { desc: x.who ?? x.desc })}
-            class="size-4 cursor-pointer align-middle accent-accent" />
-        {:else if c.key === "date"}
-          <span class="num">{mdy(x.date)}</span>
-        {:else if c.key === "account"}
-          <span dir="auto">{x.account}</span>
-        {:else if c.key === "cat"}
-          <span class="flex items-center gap-1.5">
-            <span title={why(x)} class="shrink-0 text-faint"><Icon name={x.why === "manual" ? "user" : x.why === "split" ? "list" : x.why ? "rules" : "alert"} size={13} /></span>
-            {#if x.source === "journal"}
-              <span class="text-ink-2">{catLabel(x.category)}</span>
-            {:else if x.why === "split"}
-              <span class="flex flex-wrap items-center gap-1.5 text-ink-2">{catLabel(x.category)}<Badge size="sm" tone="accent">{t("gaps2.split.part", { i: +x.id.split("~")[1]! + 1 })}</Badge></span>
-            {:else if closed(x.date)}
-              <span class="flex items-center gap-1.5 text-ink-2" title={t("close.locked", { date: mdy(closeDate() ?? "") })}><Icon name="lock" size={13} class="shrink-0 text-faint" />{catLabel(x.category)}</span>
-            {:else}
-              <CategorySelect value={x.category} onchange={(c) => apply([x], c)} suggestions={() => suggest([x])} />
-            {/if}
-          </span>
-        {:else if c.key === "desc"}
-          <div class="ui-align text-ink [overflow-wrap:anywhere]" dir="auto">
-            {#if marks[baseId(x.id)]}<span title={t("gaps2.reviewed")} class="me-1 inline-block align-middle text-good"><Icon name="check" size={13} /><span class="sr-only">{t("gaps2.reviewed")}</span></span>{/if}{x.memo && x.why === "split" ? `${x.who ?? x.desc} · ${x.memo}` : (x.who ?? x.desc)}
-          {#if x.tags?.length}<span class="mt-1 flex flex-wrap gap-1 xl:hidden">{#each x.tags as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}</span>{/if}
-          </div>
-        {:else if c.key === "tags"}
-          <span class="flex flex-wrap gap-1">
-            {#each x.tags ?? [] as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}
-          </span>
-        {:else}
-          <Money value={x.amount} currency={cur} plus class={x.amount > 0 ? "text-good" : "text-ink"} />
-        {/if}
-      {/snippet}
+    <Table {columns} rows={shown} key={(x) => x.id} caption={t("nav.transactions")} onrowclick={(x) => (S.drawer = x.id)} selected={(x) => sel.has(x.id)} class="panel max-sm:hidden">
+      {#snippet cell(x, c)}{@render txnCell(x, c.key)}{/snippet}
     </Table>
+    <!-- phones: description and amount on top, date, ledger account and tags under them (a 5-column table would hide Amount off-screen) -->
+    <ul class="panel divide-y divide-line overflow-hidden sm:hidden" aria-label={t("nav.transactions")}>
+      {#each shown as x (x.id)}
+        <li class={["flex items-start gap-3 px-3 py-3", sel.has(x.id) && "bg-accent/9"]}>
+          <div class="pt-0.5">{@render txnCell(x, "sel")}</div>
+          <div class="min-w-0 flex-1 space-y-1.5">
+            <button type="button" class="flex w-full items-baseline gap-3 text-start outline-none focus-visible:ring-2 focus-visible:ring-accent/50" onclick={() => (S.drawer = x.id)}>
+              <span class="min-w-0 flex-1">{@render txnCell(x, "desc")}</span>
+              <span class="shrink-0">{@render txnCell(x, "amount")}</span>
+            </button>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-sub">
+              {@render txnCell(x, "date")}
+              {@render txnCell(x, "cat")}
+            </div>
+          </div>
+        </li>
+      {/each}
+    </ul>
     <More shown={shown.length} total={rows.length} onmore={() => (limit += PAGE)} />
   </div>
 {:else}

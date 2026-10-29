@@ -278,7 +278,7 @@
 <div class="sm:px-8">
   <div class="panel overflow-hidden max-sm:rounded-none">
     {#if rows.length}
-    <Table {columns} {rows} key={(r) => r.inv.id} caption={t("invoices.list")} onrowclick={(r) => edit(r.inv)} selected={(r) => drawer && draft?.id === r.inv.id}>
+    <Table {columns} {rows} key={(r) => r.inv.id} caption={t("invoices.list")} stack onrowclick={(r) => edit(r.inv)} selected={(r) => drawer && draft?.id === r.inv.id}>
       {#snippet cell(r, c)}
         {#if c.key === "number"}
           <span class="inline-flex items-center gap-1.5">

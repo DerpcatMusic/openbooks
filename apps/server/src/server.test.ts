@@ -63,7 +63,8 @@ test("upload: a CSV no reader recognises is filed under proofs and says so; a Me
   const unknown = await http(s.port, "POST", "/api/upload?e=noa&to=auto&year=2025&name=mystery.csv", Buffer.from("a,b\n1,2\n"));
   expect(unknown.status).toBe(200);
   expect(unknown.headers["x-openbooks-filed"]).toBe("proofs");
-  const merc = "Date (UTC),Description,Amount,Status,Source Account,Bank Description,Reference,Mercury Category\n02-20-2025,Stripe,250.10,Sent,Mercury Checking,STRIPE,ref-9,Income\n";
+  const merc =
+    "Date (UTC),Description,Amount,Status,Source Account,Bank Description,Reference,Mercury Category\n02-20-2025,Stripe,250.10,Sent,Mercury Checking,STRIPE,ref-9,Income\n";
   const known = await http(s.port, "POST", "/api/upload?e=noa&to=auto&year=2025&name=mercury-new.csv", Buffer.from(merc));
   expect(known.headers["x-openbooks-filed"]).toBe("inbox");
 });

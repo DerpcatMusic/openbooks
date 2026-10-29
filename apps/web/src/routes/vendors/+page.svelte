@@ -90,7 +90,7 @@
 <div class="sm:px-8">
   <div class="panel overflow-hidden max-sm:rounded-none">
     {#if rows.length}
-      <Table {columns} {rows} key={(r) => r.v.id} caption={t("vendors.list")} onrowclick={(r) => edit(r.v)} selected={(r) => drawer && draft?.id === r.v.id}>
+      <Table {columns} {rows} key={(r) => r.v.id} caption={t("vendors.list")} stack onrowclick={(r) => edit(r.v)} selected={(r) => drawer && draft?.id === r.v.id}>
         {#snippet cell(r, c)}
           {#if c.key === "name"}
             <span class="block truncate text-ink" dir="auto">{r.v.name}</span>

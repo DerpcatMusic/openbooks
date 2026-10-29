@@ -245,7 +245,7 @@
 <div class="sm:px-8">
   <div class="panel overflow-hidden max-sm:rounded-none">
     {#if rows.length}
-      <Table {columns} {rows} key={(r) => r.b.id} caption={t("bills.list")} {sort} onsort={sortBy} onrowclick={(r) => edit(r.b)} selected={(r) => drawer && draft?.id === r.b.id}>
+      <Table {columns} {rows} key={(r) => r.b.id} caption={t("bills.list")} stack {sort} onsort={sortBy} onrowclick={(r) => edit(r.b)} selected={(r) => drawer && draft?.id === r.b.id}>
         {#snippet cell(r, c)}
           {#if c.key === "number"}
             <span class="num text-ink">{r.b.number}</span>
