@@ -3,6 +3,7 @@
 import { dueInYear, filingRows, markDone, readFilings, unmarkDone, type FilingDone, type FilingRow, type FilingsDoc } from "@openbooks/core";
 import {
   depreciation,
+  ilFacts,
   ilSettings,
   paidTotal,
   periodReport,
@@ -42,7 +43,7 @@ export function calendar(year: number, today: string): FilingRow[] {
   const facts = (y: number) => {
     const type = bizType(y);
     if (!type) return null;
-    return isIL() ? { businessType: type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances } : usFacts(type);
+    return isIL() ? ilFacts(type, s) : usFacts(type);
   };
   return filingRows(dueInYear(p, year, facts), f, today);
 }

@@ -29,6 +29,14 @@ export interface IlSettings {
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const str = (v: unknown, d = "") => (typeof v === "string" ? v : d);
 const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+/** The deadline facts these settings give. Income-tax advances join the calendar only once the rate from the notice is entered: without it
+ * there is nothing to pay and every month would show as overdue (the advances page asks for the rate). */
+export const ilFacts = (businessType: string, s: IlSettings) => ({
+  businessType,
+  vatFrequency: s.vatFrequency,
+  taxAdvances: s.taxAdvanceRatePct > 0 ? s.taxAdvanceFrequency : ("none" as const),
+  blAdvances: s.blAdvances,
+});
 /** The IL settings out of the "filings" doc's settings bag, defaults filled in. */
 export function ilSettings(bag: Record<string, unknown> | undefined): IlSettings {
   const s = obj(bag?.il ?? bag);

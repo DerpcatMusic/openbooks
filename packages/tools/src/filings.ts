@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deductions, dueInYear, filingRows, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
 import {
+  ilFacts,
   ilSettings,
   iso88598,
   noteText,
@@ -51,9 +52,7 @@ export function filingTools(h: Helpers): Tool[] {
     const p = h.packFor(e.meta, y);
     if (!p || p.pack !== pack) return null;
     const s = ilSettings(settings);
-    return pack.manifest.id === "il"
-      ? { businessType: p.type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances }
-      : { businessType: p.type };
+    return pack.manifest.id === "il" ? ilFacts(p.type, s) : { businessType: p.type };
   };
 
   const filing_calendar = defineTool({
