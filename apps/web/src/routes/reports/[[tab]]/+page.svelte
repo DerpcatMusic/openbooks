@@ -5,8 +5,8 @@
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
   import { agingReport, basisBridge, inPeriod, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
-  import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
-  import { apSources, arSources, basis, ledgerRows, prSources } from "#lib/stores/basis.svelte.ts";
+  import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc, toast } from "#lib/stores/books.svelte.ts";
+  import { apSources, arSources, basis, ledgerRows, linkSuggested, prSources, unlinked } from "#lib/stores/basis.svelte.ts";
   import { t, bidi, I } from "#lib/i18n.svelte.ts";
   import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
@@ -71,6 +71,12 @@
   const cfNet = $derived([ts, priorTs].map((xs) => xs.filter((x) => x.source !== "invoice" && x.source !== "bill" && x.source !== "payroll").reduce((a, x) => a + x.amount, 0)));
   // cash net income to accrual net income, for the period shown
   const bridge = $derived(accrual && !tag ? basisBridge(S.data?.txns ?? [], rows, `${p.from}-01`, `${p.to}-31`) : null);
+  // payments with no bank row that could not be linked on their own: the ones in this period, with a one-click link where a row fits
+  const loose = $derived(bridge ? unlinked().filter((u) => u.date >= `${p.from}-01` && u.date <= `${p.to}-31`) : []);
+  const link = async (u: (typeof loose)[number]) => {
+    await linkSuggested(u);
+    toast(t("reports.bridge.linked"));
+  };
 
   // P&L chart: revenue / expenses per month (+ net line for US books)
   const chartRows = $derived(
@@ -236,7 +242,25 @@
           {/each}
           <div class="flex flex-wrap justify-between gap-x-3 border-t border-line pt-2"><dt class="text-ink">{t("reports.bridge.accrual")}</dt><dd><Money value={bridge.accrualNet} currency={cur} class="text-ink" /></dd></div>
         </dl>
-        {#if Math.abs(bridge.outside) > 0.004}<p class="mt-3 text-[12px] text-sub">{t("reports.bridge.outsideHint")}</p>{/if}
+        {#if Math.abs(bridge.outside) > 0.004 || loose.length}
+          <p class="mt-3 text-[12px] text-sub">{t("reports.bridge.outsideHint")}</p>
+          {#if loose.length}
+            <ul class="mt-2 divide-y divide-line text-[13px]" data-testid="unlinked">
+              {#each loose as u (u.doc + u.payment)}
+                <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
+                  <span class="min-w-0 flex-1">
+                    <span class="text-ink">{[u.ref, u.name].filter(Boolean).join(" ") || u.doc}</span>
+                    <span class="num text-sub"> · {bidi(mdy(u.date))} · <Money value={u.amount} currency={cur} /></span>
+                    <span class="block text-sub">
+                      {#if u.suggest}{t("reports.bridge.fits", { date: mdy(u.suggest.date), desc: u.suggest.desc })}{:else}{t("reports.bridge.noRow")}{/if}
+                    </span>
+                  </span>
+                  {#if u.suggest}<Button size="sm" onclick={() => link(u)}>{t("reports.bridge.link")}</Button>{/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {/if}
       </div>
     {/if}
   {:else if tab === "bs" && bs}

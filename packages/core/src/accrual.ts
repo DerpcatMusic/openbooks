@@ -72,7 +72,9 @@ export interface AgingSource {
   due: string | null;
   gross: number;
   /** Payments by date; `txn` (the paying ledger row) is what the accrual basis (basis.ts) clears against. */
-  payments: readonly (Pick<Payment, "amount" | "date"> & { txn?: string | null })[];
+  payments: readonly (Pick<Payment, "amount" | "date"> & { id?: string; txn?: string | null })[];
+  /** The document's own currency when it names one (autolink.ts never links across currencies). */
+  currency?: string | undefined;
   /** Invoices: the revenue ledger account (basis.ts falls back to where the payment was filed, then to a default). */
   account?: string | undefined;
   /** Bills: the lines by expense ledger account. */
@@ -208,6 +210,7 @@ interface InvoiceLike {
   payments?: readonly Payment[];
   paidDate?: string | null;
   paidTxn?: string | null;
+  currency?: string;
   /** Revenue ledger account for the accrual basis. */
   account?: string;
 }
@@ -232,8 +235,9 @@ export function invoiceSources(invoices: readonly InvoiceLike[], customer: (id: 
         due: i.due ?? null,
         gross,
         // an invoice marked paid the old way is one payment of the whole total, against its paidTxn when it has one
-        payments: i.payments ?? (i.status === "paid" || i.paidTxn ? [{ txn: i.paidTxn ?? null, amount: gross, date: i.paidDate ?? i.issued! }] : []),
+        payments: i.payments ?? (i.status === "paid" || i.paidTxn ? [{ id: `${i.id}-p1`, txn: i.paidTxn ?? null, amount: gross, date: i.paidDate ?? i.issued! }] : []),
         ...(i.account ? { account: i.account } : {}),
+        ...(i.currency ? { currency: i.currency } : {}),
       };
     });
 }
@@ -242,6 +246,7 @@ interface BillLike extends LegacyBill {
   number?: string;
   vendor?: string | null;
   due?: string | null;
+  currency?: string;
 }
 /** Approved (open) bills. Old-shape bills are migrated on the way in; cancelled and draft ones are not owed. */
 export function billSources(bills: readonly BillLike[], vendor: (id: string | null) => string): AgingSource[] {
@@ -257,6 +262,7 @@ export function billSources(bills: readonly BillLike[], vendor: (id: string | nu
       due: b.due ?? null,
       gross: billTotal(b),
       payments: b.payments,
+      ...(b.currency ? { currency: b.currency } : {}),
       lines: (b.lines ?? []).map((l) => ({ account: (l as { account?: string }).account ?? "", amount: +(l.amount as number) || 0 })),
     }));
 }

@@ -20,6 +20,7 @@ import gaps2 from "./parts/gaps2.he.ts";
 import gaps3 from "./parts/gaps3.he.ts";
 import filingsIl from "./parts/filings-il.he.ts";
 import filingsUs from "./parts/filings-us.he.ts";
+import qa2 from "./parts/qa2.he.ts";
 export default {
   ...a,
   ...b,
@@ -42,6 +43,7 @@ export default {
   ...gaps3,
   ...filingsIl,
   ...filingsUs,
+  ...qa2,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

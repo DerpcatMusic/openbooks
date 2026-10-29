@@ -13,6 +13,7 @@
 // test) is on accrual by law: its accountant's return is built from the accrual reports. docs/architecture.md § Accounting basis.
 import type { Txn } from "@openbooks/schema";
 import type { AgingSource } from "./accrual.ts";
+import { autoLink } from "./autolink.ts";
 import { plOf, pl } from "./reports.ts";
 
 export type Basis = "cash" | "accrual";
@@ -31,6 +32,8 @@ export interface AccrualOptions {
   expense: string;
   /** The books' entries start date: documents dated before it are left out, like the ledger's own rows. */
   from?: string | null | undefined;
+  /** The books' currency: a document in another currency is never linked to a bank row (autolink.ts). */
+  currency?: string | undefined;
 }
 
 /**
@@ -38,7 +41,10 @@ export interface AccrualOptions {
  * ledger. Rows keep their ids; the part of a row that paid a document gets the id `<id>^ar` / `<id>^ap`. Document rows have source "invoice" /
  * "bill" and the account name "Invoices" / "Bills", so they never count as bank accounts.
  */
-export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap: readonly AgingSource[], o: AccrualOptions): Txn[] {
+export function accrualRows(txns: readonly Txn[], arIn: readonly AgingSource[], apIn: readonly AgingSource[], o: AccrualOptions): Txn[] {
+  // a payment recorded without its bank row would clear receivable / payable while the bank row still counts as revenue / expense: link them first
+  const ar = autoLink(arIn, txns, 1, o),
+    ap = autoLink(apIn, txns, -1, o);
   const from = o.from ?? "";
   const byId = new Map(txns.map((t) => [t.id, t]));
   const taken = new Map<string, number>(); // ledger row id -> absolute money its payments applied

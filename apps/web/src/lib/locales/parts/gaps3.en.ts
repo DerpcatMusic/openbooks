@@ -128,7 +128,7 @@ export default {
   "reports.bridge.ap": "Bills and payroll runs, less payments made on them",
   "reports.bridge.outside": "Paid outside the books",
   "reports.bridge.outsideHint":
-    "Payments recorded without a bank row clear receivables and payables on their own. If the money is also in your transactions, match the payment to that row on Invoices, Bills or Payroll so it does not count twice.",
+    "Payments recorded without a bank row clear receivables and payables on their own, and a deposit that is also in your transactions would count twice. Exact matches (same amount, within a week, same customer or document number) are linked for you. Any left over are listed here: link them to a bank row, or leave them if the money really went outside the books.",
   "reports.bridge.rest": "Payments matched to rows filed outside income and expenses",
   "reports.bridge.accrual": "Net income on an accrual basis",
   "cat.ar:accounts-receivable": "Accounts receivable",

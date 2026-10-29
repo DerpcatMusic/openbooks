@@ -4,7 +4,9 @@
 // US books issue "invoice". Israeli exempt books (osek patur / zair) issue "bill" (חשבון עסקה) and "receipt" (קבלה), never a
 // חשבונית מס. VAT-registered Israeli books (osek murshe, ltd) also issue "tax" (חשבונית מס) and add VAT to every document.
 // `vat` is the rate frozen on the document when it is saved (from the issue year's table), so issued documents never change.
-import { isBiz, paidOf, payerOf, type Payment } from "@openbooks/core";
+import { isBiz, paidOf, payerOf, similarity, type Payment } from "@openbooks/core";
+
+export { similarity };
 import type { Txn } from "@openbooks/schema";
 
 export type Kind = "invoice" | "bill" | "receipt" | "tax";
@@ -124,23 +126,6 @@ export function nextNumber(invoices: readonly Invoice[], kind: Kind) {
   const prefix = kind === "invoice" ? "INV-" : "";
   const max = Math.max(0, ...invoices.filter((i) => i.kind === kind && i.number).map((i) => +String(i.number).replace(/\D/g, "") || 0));
   return prefix + String(max + 1).padStart(4, "0");
-}
-
-const words = (s: string) =>
-  new Set(
-    (s ?? "")
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((w) => w.length >= 3),
-  );
-/** 0..1: share of the customer name's words found in the payer text. */
-export function similarity(name: string, payer: string) {
-  const a = words(name),
-    b = words(payer);
-  if (!a.size) return 0;
-  let n = 0;
-  for (const w of a) if (b.has(w) || [...b].some((x) => x.includes(w) || w.includes(x))) n++;
-  return n / a.size;
 }
 
 // money in that is never a customer paying: own transfers, owner money, cashback, savings, IDF pay

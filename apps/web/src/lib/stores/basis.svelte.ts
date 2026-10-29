@@ -1,8 +1,8 @@
 // The books on their accounting basis: the cash ledger as it is, or (books "accrual") the ledger re-read with the issued invoices and approved
 // bills (core basis.ts). Reports use ledgerRows(); tax screens and the transaction list stay on S.data.txns, the cash ledger.
-import { accrualRows, billSources, invoiceSources, payrollSources, plOf, type Basis, type PayrollRun } from "@openbooks/core";
+import { accrualRows, billSources, invoiceSources, linkPayment, payrollSources, plOf, unlinkedPayments, type Basis, type PayrollRun, type Unlinked } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
-import { S, allCats, booksDoc, doc, isArchived, saveBooks, startDate } from "./books.svelte.ts";
+import { S, allCats, booksDoc, doc, ent, isArchived, saveBooks, saveDoc, startDate } from "./books.svelte.ts";
 
 /** "accrual" when the books are set to it, else "cash". */
 export const basis = (): Basis => (booksDoc().basis === "accrual" ? "accrual" : "cash");
@@ -26,7 +26,7 @@ export function ledgerRows(): Txn[] {
   const d = S.data;
   if (!d) return [];
   if (basis() === "cash") return d.txns;
-  const key = [d.txns, d.docs?.invoices, d.docs?.bills, d.docs?.customers, d.docs?.vendors, d.docs?.payroll, startDate()];
+  const key = [d.txns, d.docs?.invoices, d.docs?.bills, d.docs?.customers, d.docs?.vendors, d.docs?.payroll, startDate(), ent().currency];
   if (!memo || memo.key.some((k, i) => k !== key[i])) {
     const cats = allCats().filter((c) => !isArchived(c));
     memo = {
@@ -35,8 +35,22 @@ export function ledgerRows(): Txn[] {
         revenue: cats.find((c) => plOf(c) === "revenue") ?? "revenue:sales",
         expense: cats.find((c) => plOf(c) === "expense") ?? "expense:other",
         from: startDate(),
+        currency: ent().currency,
       }),
     };
   }
   return memo.rows;
+}
+
+/** Payments with no bank row that accrual could not link on its own (core autolink.ts), each with the deposit / payment that would fit. */
+export const unlinked = (): Unlinked[] => unlinkedPayments(arSources(), apSources(), S.data?.txns ?? [], { currency: ent().currency });
+/** One click: point the payment at the suggested bank row (writes the invoice / bill). */
+export function linkSuggested(u: Unlinked) {
+  const t = u.suggest;
+  if (!t) return;
+  const name = u.kind === "ar" ? "invoices" : "bills";
+  return saveDoc(
+    name,
+    doc<{ id: string }[]>(name).map((d) => (d.id === u.doc ? linkPayment(d as never, u.payment, t) : d)),
+  );
 }
