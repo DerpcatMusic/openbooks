@@ -207,3 +207,8 @@ export function basisBridge(cash: readonly Txn[], accrual: readonly Txn[], from:
     outAp = r2(-sum(rows.filter((r) => r.why === "outside" && isPayable(r.category)).map((r) => r.amount)));
   return { cashNet, dAr, dAp, outside: r2(outAr - outAp), accrualNet, rest: r2(accrualNet - (cashNet + dAr - dAp + outAr - outAp)) };
 }
+
+/** Net effect on earnings of payments settled outside the books (no bank row) dated within [from, to]: receivable cleared counts as income, payable as expense. */
+export function outsideNet(rows: readonly Pick<Txn, "date" | "amount" | "why">[], to: string, from = ""): number {
+  return r2(sum(rows.filter((r) => r.why === "outside" && r.date <= to && r.date >= from).map((r) => r.amount)));
+}

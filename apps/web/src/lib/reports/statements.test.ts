@@ -322,3 +322,21 @@ test("payroll on the accrual statements: a payroll liabilities line on the balan
   expect(cf.at(-1)!.v).toEqual([-750]);
   expect(cf.find((r) => r.label === "reports.cf.dAp")!.v).toEqual([0]);
 });
+
+test("balance sheet, accrual: money settled outside the books is in earnings (as on the P&L), offset by an equity line, and it balances", () => {
+  const cash = [tx("2026-01-05", 1000, "revenue:sales")];
+  const base = { iso: "2026-03-31", balances: { Bank: 1000 }, upto: cash, open: { ar: { total: 0, prior: 0 }, ap: { total: 0, prior: 0 } } };
+  const none = bsStatement([base], t, true);
+  expect(none.lines.map((l) => l.label)).not.toContain("reports.settledOutside");
+  // a 600 bill paid with no bank row: expense on the P&L, nothing in the bank
+  const { lines, totals } = bsStatement([{ ...base, outside: { total: -600, prior: 0 } }], t, true);
+  const by = (label: string) => lines.find((l) => l.label === label)!.v[0]!;
+  expect(by("reports.currentYear")).toBe(1000 - 600);
+  expect(by("reports.settledOutside")).toBe(600);
+  near(totals[0]!.assets, totals[0]!.liab + totals[0]!.equity);
+  // a payment of last year lands in retained earnings
+  const last = bsStatement([{ ...base, outside: { total: -600, prior: -600 } }], t, true);
+  expect(last.lines.find((l) => l.label === "reports.retained")!.v[0]).toBe(-600);
+  expect(last.lines.find((l) => l.label === "reports.currentYear")!.v[0]).toBe(1000);
+  near(last.totals[0]!.assets, last.totals[0]!.liab + last.totals[0]!.equity);
+});

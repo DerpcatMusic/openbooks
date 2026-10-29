@@ -4,7 +4,7 @@
   // length (at most 5 years); lines drill into the transactions; CSV export and print. The aging tabs have their own as-of date and no period.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
-  import { agingReport, basisBridge, inPeriod, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
+  import { agingReport, basisBridge, inPeriod, openAt, outsideNet, pl, priorPeriod, withTag } from "@openbooks/core";
   import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc, toast } from "#lib/stores/books.svelte.ts";
   import { apSources, arSources, basis, ledgerRows, linkSuggested, prSources, unlinked } from "#lib/stores/basis.svelte.ts";
   import { t, bidi, I } from "#lib/i18n.svelte.ts";
@@ -95,7 +95,7 @@
     prSrc = $derived(prSources());
   const bs = $derived(
     us && tab === "bs" && !tooLong
-      ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso), pr: openAt(prSrc, iso) } })), t, accrual)
+      ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso), pr: openAt(prSrc, iso) }, outside: accrual ? { total: outsideNet(rows, iso), prior: outsideNet(rows, `${+iso.slice(0, 4) - 1}-12-31`) } : { total: 0, prior: 0 } })), t, accrual)
       : null,
   );
 

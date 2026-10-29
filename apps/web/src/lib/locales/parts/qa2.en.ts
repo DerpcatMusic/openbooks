@@ -1,5 +1,6 @@
 // QA pass: accrual links, filing settings, command bar entries, localised package output.
 export default {
+  "reports.settledOutside": "Settled outside the books",
   "reports.bridge.linked": "Linked to the bank row.",
   "reports.bridge.link": "Link",
   "reports.bridge.fits": "Bank row {date}: {desc}",

@@ -1,7 +1,7 @@
 // Cash vs accrual: the same books on both bases reconcile.
 import { describe, expect, it } from "vite-plus/test";
 import type { Txn } from "@openbooks/schema";
-import { accrualRows, AP_ACCOUNT, AR_ACCOUNT, basisBridge, billSources, invoiceSources, openBalances, pl, balances, type Basis } from "./index.ts";
+import { accrualRows, AP_ACCOUNT, AR_ACCOUNT, basisBridge, billSources, invoiceSources, openBalances, outsideNet, pl, balances, type Basis } from "./index.ts";
 
 const tx = (id: string, date: string, amount: number, category: string, over: Partial<Txn> = {}): Txn => ({
   id,
@@ -253,5 +253,15 @@ describe("payments without a bank row link to the deposit on read, so the bases 
     const d = { id: "i", payments: [{ id: "p1", txn: null, amount: 5, date: "2026-01-01" }, { id: "p2", txn: null, amount: 6, date: "2026-01-02" }] };
     expect(linkPayment(d, "p2", { id: "t", date: "2026-01-04" }).payments).toEqual([d.payments[0], { id: "p2", txn: "t", amount: 6, date: "2026-01-04" }]);
     expect(linkPayment(d, "nope", { id: "t", date: "x" })).toBe(d);
+  });
+});
+
+describe("outsideNet", () => {
+  it("sums receivable (income) and payable (expense) cleared with no bank row inside the window", () => {
+    const o = (date: string, amount: number) => ({ date, amount, why: "outside" });
+    const rows = [o("2025-12-10", -50), o("2026-02-01", 200), o("2026-03-01", -600), { date: "2026-03-02", amount: 99, why: "" }];
+    expect(outsideNet(rows, "2026-12-31")).toBe(-450);
+    expect(outsideNet(rows, "2025-12-31")).toBe(-50);
+    expect(outsideNet(rows, "2026-02-28", "2026-01-01")).toBe(200);
   });
 });

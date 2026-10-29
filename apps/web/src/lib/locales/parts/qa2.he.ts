@@ -1,5 +1,6 @@
 // QA pass: accrual links, filing settings, command bar entries, localised package output.
 export default {
+  "reports.settledOutside": "סולק מחוץ לספרים",
   "reports.bridge.linked": "קושר לתנועת הבנק.",
   "reports.bridge.link": "קשרו",
   "reports.bridge.fits": "תנועת בנק {date}: {desc}",

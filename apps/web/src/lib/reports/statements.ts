@@ -118,6 +118,9 @@ export interface BsPoint {
   balances: Readonly<Record<string, number>>;
   upto: readonly Row[];
   open?: { ar: { total: number; prior: number }; ap: { total: number; prior: number }; pr?: { total: number; prior: number } };
+  /** Accrual only: receivable / payable cleared with no bank row (core basis.ts outsideNet), up to the day and up to the end of the year before. It is
+   *  income (or expense) the accrual P&L counts that no bank row carries, so earnings include it and an equity line of its own offsets it. */
+  outside?: { total: number; prior: number };
 }
 /** Balance sheet: bank accounts are assets, cards liabilities; equity = owner's net + retained earnings (earlier years) + current-year earnings
  *  (+ cash in transit, the gap cash-basis books leave). Retained and current-year are synthetic roll-ups of the P&L, as in Mercury.
@@ -143,10 +146,12 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     const year = `${p.iso.slice(0, 4)}-01-01`,
       thisYear = pl(p.upto.filter((x) => x.date >= year)).net,
       allTime = pl(p.upto).net;
-    const cy = thisYear + (accrual ? ar - arPrior - (ap - apPrior) - (pr - prPrior) : 0),
-      re = allTime - thisYear + (accrual ? arPrior - apPrior - prPrior : 0);
-    const transit = cashAssets - cardDebt - owner - allTime;
-    return { b, assets, liab, owner, re, cy, ar, ap, pr, transit, equity: owner + re + cy + transit };
+    const out = accrual ? (p.outside ?? { total: 0, prior: 0 }) : { total: 0, prior: 0 };
+    const cy = thisYear + (accrual ? ar - arPrior - (ap - apPrior) - (pr - prPrior) + out.total - out.prior : 0),
+      re = allTime - thisYear + (accrual ? arPrior - apPrior - prPrior + out.prior : 0);
+    const transit = cashAssets - cardDebt - owner - allTime,
+      settled = -out.total;
+    return { b, assets, liab, owner, re, cy, ar, ap, pr, transit, settled, equity: owner + re + cy + transit + settled };
   });
   const row = (kind: Kind, label: string, f: (x: (typeof at)[number]) => number, key?: string): Line => ({
     kind,
@@ -171,6 +176,7 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     row("line", t("reports.retained"), (x) => x.re),
     row("line", t("reports.currentYear"), (x) => x.cy),
     ...(at.some((x) => Math.abs(x.transit) > 0.005) ? [{ ...row("line", t("reports.transit"), (x) => x.transit), warn: true }] : []),
+    ...(at.some((x) => Math.abs(x.settled) > 0.005) ? [row("line", t("reports.settledOutside"), (x) => x.settled)] : []),
     row("sum", t("reports.totalEquity"), (x) => x.equity),
     row("total", t("reports.liabEquity"), (x) => x.liab + x.equity),
     ...(memo
