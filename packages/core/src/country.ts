@@ -1,5 +1,6 @@
 // The country-pack contract (docs/architecture.md § Country packs). A pack is pure data + pure functions; the server loads packs,
 // the UI and tools only ever talk to this interface. packages/countries/_template is the starting point for a new country.
+import type { DeductionTable } from "@openbooks/schema";
 import type { Dict } from "./i18n.ts";
 
 export type Bilingual = { readonly en: string; readonly he: string };
@@ -95,6 +96,8 @@ export interface CountryPack<Table = unknown> {
   /** The table for tax year y: its own, else the closest earlier year, else the earliest. */
   table(y: number): Table & { readonly year: number };
   readonly playbook: readonly PlaybookItem[];
+  /** tables/deductions.json: per-expense deduction rules and tax moves (the Taxximizer's smart tags run on these). */
+  readonly deductions?: DeductionTable;
   readonly strings: { readonly en: Dict; readonly he: Dict };
   /**
    * Residence pack only: fold foreign entities' results into the person's home tax. `home`: the person's entities in this country;

@@ -1,6 +1,6 @@
 // Tags (doc "tags"): tags with an optional tag group and colour, and the tags each transaction carries by hand. Pure: every function
 // returns the new doc. Rules add tags on top at read time (ledger.ts), so editing a rule retags at once; ids of deleted tags are ignored there.
-import type { TagsDoc } from "@openbooks/schema";
+import type { TagsDoc, TagTax } from "@openbooks/schema";
 
 export const emptyTags = (): TagsDoc => ({ groups: [], tags: [], on: {} });
 
@@ -25,13 +25,19 @@ const without = <K extends keyof Tag>(t: Tag, k: K): Tag => {
   return rest as Tag;
 };
 
-export const createTag = (d: TagsDoc, name: string, group?: string): TagsDoc =>
-  name.trim() ? { ...d, tags: [...d.tags, { id: freshId(name, d.tags), name: name.trim(), ...(group ? { group } : {}) }] } : d;
+export const createTag = (d: TagsDoc, name: string, group?: string, tax?: TagTax): TagsDoc =>
+  name.trim() ? { ...d, tags: [...d.tags, { id: freshId(name, d.tags), name: name.trim(), ...(group ? { group } : {}), ...(tax && Object.keys(tax).length ? { tax } : {}) }] } : d;
 export const renameTag = (d: TagsDoc, id: string, name: string): TagsDoc => (name.trim() ? setTagField(d, id, (t) => ({ ...t, name: name.trim() })) : d);
 /** group "" or undefined = no group. */
 export const setTagGroup = (d: TagsDoc, id: string, group?: string): TagsDoc => setTagField(d, id, (t) => (group ? { ...t, group } : without(t, "group")));
 /** color: a token such as "s1".."s6" (the chart series colours); "" or undefined = none. */
 export const setTagColor = (d: TagsDoc, id: string, color?: string): TagsDoc => setTagField(d, id, (t) => (color ? { ...t, color } : without(t, "color")));
+/** The tag's tax meaning (Taxximizer): { rule, pct, note }; empty or undefined clears it. */
+export const setTagTax = (d: TagsDoc, id: string, tax?: TagTax): TagsDoc =>
+  setTagField(d, id, (t) => {
+    const clean = Object.fromEntries(Object.entries(tax ?? {}).filter(([, v]) => v !== undefined && v !== "")) as TagTax;
+    return Object.keys(clean).length ? { ...t, tax: clean } : without(t, "tax");
+  });
 /** Removes the tag and takes it off every transaction, so a new tag with the same id starts empty. */
 export const deleteTag = (d: TagsDoc, id: string): TagsDoc => ({
   ...d,

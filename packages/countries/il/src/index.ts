@@ -1,7 +1,9 @@
 // Israel country pack: osek patur / zair / murshe and Ltd; residence pack for Israeli residents (cross-border with foreign entities).
 import { pickTable, type CountryPack, type PlaybookItem } from "@openbooks/core";
+import { DeductionTable } from "@openbooks/schema";
 import { Schema } from "effect";
 import playbook from "../playbook.json";
+import deductions from "../tables/deductions.json";
 import en from "../strings/en.json";
 import he from "../strings/he.json";
 import t2024 from "../tables/2024.json";
@@ -19,6 +21,7 @@ export const il: CountryPack<IlTable> = {
   tables,
   table: (y) => pickTable(tables, y),
   playbook: playbook as PlaybookItem[],
+  deductions: Schema.decodeUnknownSync(DeductionTable)(deductions),
   strings: { en, he },
   crossBorder(person, y, home, foreign, fx) {
     const T = pickTable(tables, y);
