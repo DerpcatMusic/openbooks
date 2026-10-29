@@ -37,12 +37,16 @@ export interface Invoice {
   vat?: number;
   /** VAT-registered books: this document charges 0% (e.g. services exported abroad). */
   noVat?: boolean;
+  /** Tax Authority allocation number (מספר הקצאה), needed on a tax invoice above the threshold; goes into the PCN874 file. */
+  alloc?: string;
 }
 export interface Customer {
   id: string;
   name: string;
   email?: string;
   address?: string;
+  /** Licensed-dealer (עוסק מורשה) or company number: required on a tax invoice above 5,000 before VAT and written into PCN874. */
+  vatId?: string;
 }
 export type Status = "draft" | "unpaid" | "partial" | "overdue" | "paid";
 
