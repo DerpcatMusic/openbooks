@@ -96,6 +96,15 @@ export interface CountryPack<Table = unknown> {
   /** The table for tax year y: its own, else the closest earlier year, else the earliest. */
   table(y: number): Table & { readonly year: number };
   readonly playbook: readonly PlaybookItem[];
+  /**
+   * Official filing and payment dates that fall in calendar year `year` for a business of this type, moved off weekends and holidays where
+   * the law does: ISO `date`, a stable `id`, a bilingual title, and the `form` / `url` / `source` to act on it. Packs may read more facts than
+   * the two shared ones (the US pack uses `state`, `formed`, `entityForm`, `foreignAccountsOver10k`); callers pass what they know.
+   */
+  deadlines?: (
+    year: number,
+    facts: { businessType: string; vatFrequency?: "monthly" | "bimonthly" },
+  ) => { date: string; id: string; title: { en: string; he: string }; form?: string; url?: string; source?: string }[];
   /** tables/deductions.json: per-expense deduction rules and tax moves (the Taxximizer's smart tags run on these). */
   readonly deductions?: DeductionTable;
   readonly strings: { readonly en: Dict; readonly he: Dict };

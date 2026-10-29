@@ -84,6 +84,9 @@ const TRACK: Readonly<Record<string, string>> = {
   "osek-zair": "zair",
   "osek-murshe": "murshe",
   "llc-ccorp": "c-corp",
+  "s-corp": "c-corp", // §162 / §274 apply to the company; no QBI, SE tax or home office of its own
+  "sole-prop": "schedule-c", // US individuals: Schedule C
+  "llc-us-owner": "schedule-c", // single-member LLC owned by a US person: disregarded, Schedule C
   "llc-partnership": "schedule-c", // ponytail: the table has no partnership column; §162 expenses are the same as Schedule C's
 };
 /** Business type key → the `appliesTo` value of the rule tables. */

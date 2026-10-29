@@ -9,6 +9,7 @@ import en from "../strings/en.json";
 import he from "../strings/he.json";
 import t2025 from "../tables/2025.json";
 import t2026 from "../tables/2026.json";
+import { usDeadlines } from "./deadlines.ts";
 import { manifest } from "./manifest.ts";
 import { UsTable } from "./schema.ts";
 
@@ -20,6 +21,7 @@ export const us: CountryPack<UsTable> = {
   tables,
   table: (y) => pickTable(tables, y),
   playbook: playbook as PlaybookItem[],
+  deadlines: usDeadlines,
   deductions: Schema.decodeUnknownSync(DeductionTable)(deductions),
   strings: { en, he },
 };
@@ -29,3 +31,12 @@ export * from "./forms.ts";
 export * from "./schema.ts";
 export * from "./irs.ts";
 export * from "./pdfs.ts";
+export * from "./dates.ts";
+export * from "./deadlines.ts";
+export * from "./entity.ts";
+export * from "./tax.ts";
+export * from "./schedc.ts";
+export * from "./contractors.ts";
+export * from "./passthrough.ts";
+export * from "./irs-forms.ts";
+export * from "./return.ts";

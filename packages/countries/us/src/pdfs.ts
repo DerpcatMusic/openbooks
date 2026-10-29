@@ -1,6 +1,6 @@
 // The official blank IRS PDFs the web app fills (apps/web/src/routes/tax/us/*.pdf), with where each came from. Every file was downloaded
 // from irs.gov on 2026-10-29; `sha256` pins the bytes so a replaced blank (new revision, shifted fields) fails the golden tests in
-// forms.test.ts instead of silently landing numbers on the wrong lines. Field maps for each form: forms-irs.ts.
+// forms.test.ts instead of silently landing numbers on the wrong lines. Field maps for each form: irs-forms.ts.
 export interface IrsPdf {
   /** Form id used by the field maps and the web writer. */
   id: "5472" | "1120" | "schedule-c" | "schedule-se" | "8995" | "1040-es" | "1099-nec-2025" | "1099-nec-2026";

@@ -77,7 +77,7 @@ export const ascii = (s: string | number | null | undefined) =>
     .normalize("NFKD")
     .replace(/[‐-―]/g, "-")
     .replace(/[^\x20-\x7E]/g, "");
-const usd = (n: number) => Math.round(n).toLocaleString("en-US");
+export const usd = (n: number) => Math.round(n).toLocaleString("en-US");
 const monthDay = (iso: string) => `${MONTHS[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
 const mdy = (iso: string) => `${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
 const has = (v: unknown) => v != null && v !== "";
@@ -100,7 +100,7 @@ export function partV(d: Pick<IrsInput, "transactions">) {
 }
 
 /** Collects fields like the old setter: blanks skipped, text made WinAnsi-safe, checkboxes "X". */
-function fields() {
+export function fields() {
   const out: Record<string, string> = {};
   return {
     out,
