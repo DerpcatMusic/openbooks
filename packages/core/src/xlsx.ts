@@ -81,14 +81,17 @@ class Styles {
   }
   xml(): string {
     const fonts = '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>';
-    const fills = '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>';
+    const fills =
+      '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>';
     const line = (side: string, style?: string) => (style ? `<${side} style="${style}"><color auto="1"/></${side}>` : `<${side}/>`);
     const border = (top?: string, bottom?: string) => `<border><left/><right/>${line("top", top)}${line("bottom", bottom)}<diagonal/></border>`;
     const borders = `<borders count="3">${border()}${border("thin")}${border("thin", "double")}</borders>`;
     const numFmts = `<numFmts count="4">${(Object.keys(FMT_ID) as NumFmt[]).map((k) => `<numFmt numFmtId="${FMT_ID[k]}" formatCode="${esc(FMT_CODE[k])}"/>`).join("")}</numFmts>`;
     const xfs = this.list.map((s) => {
       const align = s.indent || s.align || s.wrap;
-      const a = align ? `<alignment${s.align ? ` horizontal="${s.align}"` : s.indent ? ' horizontal="left"' : ""}${s.indent ? ` indent="${s.indent}"` : ""}${s.wrap ? ' wrapText="1" vertical="top"' : ""}/>` : "";
+      const a = align
+        ? `<alignment${s.align ? ` horizontal="${s.align}"` : s.indent ? ' horizontal="left"' : ""}${s.indent ? ` indent="${s.indent}"` : ""}${s.wrap ? ' wrapText="1" vertical="top"' : ""}/>`
+        : "";
       return `<xf numFmtId="${s.fmt ? FMT_ID[s.fmt] : 0}" fontId="${s.bold ? 1 : 0}" fillId="${s.fill ? 2 : 0}" borderId="${s.border === "total" ? 2 : s.border === "top" ? 1 : 0}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"${align ? ' applyAlignment="1">' + a + "</xf>" : "/>"}`;
     });
     return `${HEAD}<styleSheet ${NS}>${numFmts}${fonts}${fills}${borders}<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join("")}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
@@ -122,7 +125,9 @@ function sheetXml(sh: Sheet, st: Styles): string {
     fr || fc
       ? `<pane${fc ? ` xSplit="${fc}"` : ""}${fr ? ` ySplit="${fr}"` : ""} topLeftCell="${colName(fc)}${fr + 1}" activePane="${fr && fc ? "bottomRight" : fr ? "bottomLeft" : "topRight"}" state="frozen"/>`
       : "";
-  const cols = sh.widths?.length ? `<cols>${sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.max(2, w)}" customWidth="1"/>`).join("")}</cols>` : "";
+  const cols = sh.widths?.length
+    ? `<cols>${sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.max(2, w)}" customWidth="1"/>`).join("")}</cols>`
+    : "";
   return `${HEAD}<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"${sh.rtl ? ' rightToLeft="1"' : ""}>${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows.join("")}</sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
 }
 
@@ -130,7 +135,16 @@ function sheetXml(sh: Sheet, st: Styles): string {
 export function sheetNames(names: readonly string[]): string[] {
   const seen = new Set<string>();
   return names.map((n, i) => {
-    const base = ([...n.replace(/[[\]:*?/\\]/g, " ").trim().replace(/^'+|'+$/g, "")].slice(0, 31).join("") || `Sheet${i + 1}`).trim();
+    const base = (
+      [
+        ...n
+          .replace(/[[\]:*?/\\]/g, " ")
+          .trim()
+          .replace(/^'+|'+$/g, ""),
+      ]
+        .slice(0, 31)
+        .join("") || `Sheet${i + 1}`
+    ).trim();
     let name = base;
     for (let k = 2; seen.has(name.toLowerCase()); k++) name = `${[...base].slice(0, 31 - String(k).length - 1).join("")} ${k}`;
     seen.add(name.toLowerCase());
@@ -222,7 +236,10 @@ export async function zip(files: readonly { name: string; data: Uint8Array }[], 
   const all = [...parts, ...central, end];
   const out = new Uint8Array(all.reduce((a, p) => a + p.length, 0));
   let o = 0;
-  for (const p of all) (out.set(p, o), (o += p.length));
+  for (const p of all) {
+    out.set(p, o);
+    o += p.length;
+  }
   return out;
 }
 

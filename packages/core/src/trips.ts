@@ -145,8 +145,20 @@ export function roleOf(trip: Pick<Trip, "roles">, id: string, rule: string | und
 }
 /** The rule a role stands for in each country (for the evidence list and the Taxximizer's per-rule totals); "other" keeps the cost's own. */
 export const ROLE_RULE: Readonly<Record<"il" | "us", Partial<Record<TripRole, string>>>> = {
-  il: { transport: "il.travel.flights", lodging: "il.travel.lodging", meals: "il.travel.perdiem", carRental: "il.travel.car-rental", companion: "il.travel.companion" },
-  us: { transport: "us.travel.transport", lodging: "us.travel.lodging", meals: "us.meals.travel", carRental: "us.travel.transport", companion: "us.travel.companion" },
+  il: {
+    transport: "il.travel.flights",
+    lodging: "il.travel.lodging",
+    meals: "il.travel.perdiem",
+    carRental: "il.travel.car-rental",
+    companion: "il.travel.companion",
+  },
+  us: {
+    transport: "us.travel.transport",
+    lodging: "us.travel.lodging",
+    meals: "us.meals.travel",
+    carRental: "us.travel.transport",
+    companion: "us.travel.companion",
+  },
 };
 
 /** A linked cost: the ledger row, its role and the text it was classified from. */
@@ -229,7 +241,13 @@ export function tripDeduction(trip: Trip, costs: readonly TripCost[], cx: TripCo
         };
         for (let n = 1; n <= bizNights; n++) ded += night(n);
       } else ded = a * bizNights;
-      const cap = rate === null ? null : Array.from({ length: bizNights }, (_, i) => i + 1).reduce((s, n) => s + (n > 90 || nights > 90 ? usd(over90)! : n <= 7 ? usd(c1)! : usd(max75)!), 0);
+      const cap =
+        rate === null
+          ? null
+          : Array.from({ length: bizNights }, (_, i) => i + 1).reduce(
+              (s, n) => s + (n > 90 || nights > 90 ? usd(over90)! : n <= 7 ? usd(c1)! : usd(max75)!),
+              0,
+            );
       part("lodging", ded, cap, [
         ...missing,
         ...(nights ? [] : [{ k: "noNights" }]),
@@ -245,7 +263,11 @@ export function tripDeduction(trip: Trip, costs: readonly TripCost[], cx: TripCo
       const withL = Math.min(bizNights, B),
         without = Math.max(0, B - withL),
         cap = rate === null ? null : withL * usd(byYear(per?.withLodging, y, 102))! + without * usd(byYear(per?.withoutLodging, y, 171))!;
-      part("meals", cap === null ? mg * share : Math.min(mg, cap), cap, [...missing, { k: "ilPerDiem", v: withL, w: String(without) }, ...(uplift ? [{ k: "uplift", w: trip.country }] : [])]);
+      part("meals", cap === null ? mg * share : Math.min(mg, cap), cap, [
+        ...missing,
+        { k: "ilPerDiem", v: withL, w: String(without) },
+        ...(uplift ? [{ k: "uplift", w: trip.country }] : []),
+      ]);
     }
     const cg = gross("carRental");
     if (cg) {
@@ -286,8 +308,10 @@ export function tripDeduction(trip: Trip, costs: readonly TripCost[], cx: TripCo
     if (tg) {
       let f = 1;
       const why: TripWhy[] = [];
-      if (foreign && mixed && allocates274c(days, B)) ((f = B / days), why.push({ k: "us274c", v: B, w: String(days) }));
-      else if (foreign && mixed) why.push({ k: "us274cExempt", v: days });
+      if (foreign && mixed && allocates274c(days, B)) {
+        f = B / days;
+        why.push({ k: "us274c", v: B, w: String(days) });
+      } else if (foreign && mixed) why.push({ k: "us274cExempt", v: days });
       else if (!foreign && mixed) {
         const main = B * 2 > days;
         f = main ? 1 : 0;

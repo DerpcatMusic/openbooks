@@ -2,9 +2,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 import type { DeductionRule, TagsDoc, Txn } from "@openbooks/schema";
-import { allocates274c, deductions, roleOf, tripDeduction, tripMembers, tripProblem, type DeductionInput, type Trip, type TripCost, type TripRole } from "./index.ts";
+import {
+  allocates274c,
+  deductions,
+  roleOf,
+  tripDeduction,
+  tripMembers,
+  tripProblem,
+  type DeductionInput,
+  type Trip,
+  type TripCost,
+  type TripRole,
+} from "./index.ts";
 
-const load = (c: string) => (JSON.parse(readFileSync(new URL(`../../countries/${c}/tables/deductions.json`, import.meta.url), "utf8")) as { rules: DeductionRule[] }).rules;
+const load = (c: string) =>
+  (JSON.parse(readFileSync(new URL(`../../countries/${c}/tables/deductions.json`, import.meta.url), "utf8")) as { rules: DeductionRule[] }).rules;
 const IL = load("il"),
   US = load("us");
 const trip = (over: Partial<Trip> = {}): Trip => ({
@@ -37,7 +49,11 @@ describe("Israel: travel abroad (reg. 2(2))", () => {
   });
   it("nights 8-90: a night up to $160 is whole; over 90 nights every night is capped at $160", () => {
     expect(part(tripDeduction(trip({ fx: 1, nights: 9, end: "2026-03-10" }), [cost("lodging", 9 * 150)], ilx("USD")), "lodging").deductible).toBe(1350);
-    const long = tripDeduction(trip({ fx: 1, start: "2026-01-01", end: "2026-04-10", nights: 100, businessDays: 101 }), [cost("lodging", 100 * 200)], ilx("USD"));
+    const long = tripDeduction(
+      trip({ fx: 1, start: "2026-01-01", end: "2026-04-10", nights: 100, businessDays: 101 }),
+      [cost("lodging", 100 * 200)],
+      ilx("USD"),
+    );
     expect(part(long, "lodging").deductible).toBe(16000);
   });
   it("25% higher caps in the listed countries (France): $456.25 first 7 nights, nights 8+ at 75% up to $342.19", () => {
@@ -76,7 +92,9 @@ describe("Israel: travel abroad (reg. 2(2))", () => {
     // 7 nights at 1,000 + 2 nights where $285.71 becomes 75% = $214.29 (₪750)
     expect(part(r, "lodging").deductible).toBe(8500);
     expect(part(r, "lodging").why.map((w) => w.k)).toContain("singleRoom");
-    expect(part(tripDeduction(trip({ fx: 3.5, companion: true }), [cost("lodging", 12600)], ilx()), "lodging").why.map((w) => w.k)).toContain("singleRoomUnknown");
+    expect(part(tripDeduction(trip({ fx: 3.5, companion: true }), [cost("lodging", 12600)], ilx()), "lodging").why.map((w) => w.k)).toContain(
+      "singleRoomUnknown",
+    );
   });
   it("without a rate for the dollar caps nothing is capped, and the result says so", () => {
     const r = tripDeduction(trip(), [cost("lodging", 12600), cost("meals", 5000)], ilx());
@@ -120,7 +138,8 @@ describe("United States: §162(a)(2), §274(c), §274(n)", () => {
     expect(allocates274c(9, 6)).toBe(true); // 8 days counted, 33% personal
     expect(allocates274c(10, 8)).toBe(false); // 20% personal
     expect(allocates274c(10, 7.5)).toBe(true); // exactly 25% personal is not "under 25%"
-    const fares = (over: Partial<Trip>) => part(tripDeduction(us({ country: "GB", start: "2026-05-01", end: "2026-05-10", nights: 9, ...over }), [cost("transport", 1000)], usx()), "transport");
+    const fares = (over: Partial<Trip>) =>
+      part(tripDeduction(us({ country: "GB", start: "2026-05-01", end: "2026-05-10", nights: 9, ...over }), [cost("transport", 1000)], usx()), "transport");
     expect(fares({ businessDays: 6 }).deductible).toBe(600);
     expect(fares({ businessDays: 9 }).deductible).toBe(1000);
     expect(fares({ end: "2026-05-08", businessDays: 3 }).deductible).toBe(1000); // 8 days: the 7-day exception

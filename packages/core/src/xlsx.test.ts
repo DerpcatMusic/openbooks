@@ -51,12 +51,27 @@ const sheet: Sheet = {
   widths: [30, 14],
   freeze: { rows: 1, cols: 1 },
   rows: [
-    [{ v: "Account", s: { bold: true, fill: true } }, { v: "2026", s: { bold: true, fill: true, align: "right" } }],
+    [
+      { v: "Account", s: { bold: true, fill: true } },
+      { v: "2026", s: { bold: true, fill: true, align: "right" } },
+    ],
     [{ v: "Revenue", s: { bold: true } }, null],
-    [{ v: "Sales <web> & \"shop\"", s: { indent: 1 } }, { v: 1234.5, s: { fmt: "money" } }],
-    [{ v: "Total revenue", s: { bold: true, border: "top" } }, { v: 1234.5, s: { fmt: "money", bold: true, border: "top" } }],
-    [{ v: "Net income", s: { bold: true, border: "total" } }, { v: -80, s: { fmt: "money", bold: true, border: "total" } }],
-    [{ v: "2026-03-05", s: { fmt: "date" } }, { v: 0.253, s: { fmt: "pct" } }],
+    [
+      { v: 'Sales <web> & "shop"', s: { indent: 1 } },
+      { v: 1234.5, s: { fmt: "money" } },
+    ],
+    [
+      { v: "Total revenue", s: { bold: true, border: "top" } },
+      { v: 1234.5, s: { fmt: "money", bold: true, border: "top" } },
+    ],
+    [
+      { v: "Net income", s: { bold: true, border: "total" } },
+      { v: -80, s: { fmt: "money", bold: true, border: "total" } },
+    ],
+    [
+      { v: "2026-03-05", s: { fmt: "date" } },
+      { v: 0.253, s: { fmt: "pct" } },
+    ],
     ["שורה בעברית", 7],
   ],
 };
@@ -80,7 +95,16 @@ describe("xlsx", () => {
   it("is a zip with the parts of a workbook, all well-formed XML", async () => {
     const parts = unzip(await xlsx([sheet, { name: "GL", rows: [["a"]] }], { title: "Acme" }));
     expect(Object.keys(parts).sort()).toEqual(
-      ["[Content_Types].xml", "_rels/.rels", "docProps/core.xml", "xl/_rels/workbook.xml.rels", "xl/styles.xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml"].sort(),
+      [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "docProps/core.xml",
+        "xl/_rels/workbook.xml.rels",
+        "xl/styles.xml",
+        "xl/workbook.xml",
+        "xl/worksheets/sheet1.xml",
+        "xl/worksheets/sheet2.xml",
+      ].sort(),
     );
     for (const [name, xml] of Object.entries(parts)) {
       expect(xml.startsWith("<?xml"), name).toBe(true);
@@ -111,9 +135,23 @@ describe("xlsx", () => {
     expect(s).toContain('<alignment horizontal="left" indent="1"/>');
     expect(s).toContain('fontId="1"');
     expect(s).toContain('fillId="2"');
-    expect(s).toContain('<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>');
+    expect(s).toContain(
+      '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>',
+    );
     // the same style twice is one xf
-    const two = unzip(await xlsx([{ name: "x", rows: [[{ v: 1, s: { bold: true } }, { v: 2, s: { bold: true } }]] }]))["xl/styles.xml"]!;
+    const two = unzip(
+      await xlsx([
+        {
+          name: "x",
+          rows: [
+            [
+              { v: 1, s: { bold: true } },
+              { v: 2, s: { bold: true } },
+            ],
+          ],
+        },
+      ]),
+    )["xl/styles.xml"]!;
     expect(+/<cellXfs count="(\d+)"/.exec(two)![1]!).toBe(2);
   });
   it("text control characters are dropped; not-a-number cells are left out; tiny negatives are zero", async () => {

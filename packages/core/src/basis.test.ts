@@ -24,8 +24,32 @@ const cash: Txn[] = [
   tx("t-out", "2026-04-05", -400, "expense:rent"), // pays b1
   tx("t-draw", "2026-04-10", -300, "equity:owner"),
 ];
-const invoices = [{ id: "i1", kind: "invoice", number: "INV-1", customer: "c1", items: [{ qty: 1, price: 1000 }], vat: 0, issued: "2026-01-05", due: "2026-02-05", status: "open", payments: [{ id: "p1", txn: "t-in", amount: 1000, date: "2026-02-10" }] }];
-const bills = [{ id: "b1", number: "B-1", vendor: "v1", date: "2026-03-01", due: "2026-04-01", lines: [{ amount: 400, account: "expense:rent" }], status: "open", payments: [{ id: "q1", txn: "t-out", amount: 400, date: "2026-04-05" }] }];
+const invoices = [
+  {
+    id: "i1",
+    kind: "invoice",
+    number: "INV-1",
+    customer: "c1",
+    items: [{ qty: 1, price: 1000 }],
+    vat: 0,
+    issued: "2026-01-05",
+    due: "2026-02-05",
+    status: "open",
+    payments: [{ id: "p1", txn: "t-in", amount: 1000, date: "2026-02-10" }],
+  },
+];
+const bills = [
+  {
+    id: "b1",
+    number: "B-1",
+    vendor: "v1",
+    date: "2026-03-01",
+    due: "2026-04-01",
+    lines: [{ amount: 400, account: "expense:rent" }],
+    status: "open",
+    payments: [{ id: "q1", txn: "t-out", amount: 400, date: "2026-04-05" }],
+  },
+];
 const ar = invoiceSources(invoices, () => "Client"),
   ap = billSources(bills, () => "Landlord");
 const OPT = { revenue: "revenue:sales", expense: "expense:other" };
@@ -52,7 +76,13 @@ describe("accrual rows", () => {
     expect(openBalances(acc, "2026-04-05")).toEqual({ ar: 0, ap: 0 });
   });
   it("net income, cash vs accrual, reconciles through the change in receivables and payables (by month and for the year)", () => {
-    for (const [from, to] of [["2026-01-01", "2026-01-31"], ["2026-02-01", "2026-02-28"], ["2026-03-01", "2026-03-31"], ["2026-04-01", "2026-04-30"], ["2026-01-01", "2026-12-31"]] as const) {
+    for (const [from, to] of [
+      ["2026-01-01", "2026-01-31"],
+      ["2026-02-01", "2026-02-28"],
+      ["2026-03-01", "2026-03-31"],
+      ["2026-04-01", "2026-04-30"],
+      ["2026-01-01", "2026-12-31"],
+    ] as const) {
       const b = basisBridge(cash, acc, from, to);
       expect(b.rest, `${from}..${to}`).toBe(0);
       expect(b.accrualNet).toBe(b.cashNet + b.dAr - b.dAp + b.outside);
@@ -64,12 +94,38 @@ describe("accrual rows", () => {
   it("the ledger rows add up the same: bank balances are untouched by the basis", () => {
     const bank = acc.filter((r) => r.source === "bank");
     expect(bank.reduce((a, r) => a + r.amount, 0)).toBe(cash.reduce((a, r) => a + r.amount, 0));
-    expect(balances(acc.filter((r) => r.source !== "invoice" && r.source !== "bill"), [], "2026-12-31")).toEqual({ Checking: 750 });
+    expect(
+      balances(
+        acc.filter((r) => r.source !== "invoice" && r.source !== "bill"),
+        [],
+        "2026-12-31",
+      ),
+    ).toEqual({ Checking: 750 });
   });
   it("a part payment splits the bank row; an unpaid invoice stays receivable; a payment elsewhere (no bank row) clears it with a gap", () => {
     const rows = [tx("big", "2026-02-01", 700, "revenue:sales")];
-    const inv = [{ id: "i2", kind: "invoice", number: "2", customer: null, items: [{ qty: 1, price: 1000 }], vat: 0, issued: "2026-01-10", status: "open", payments: [{ id: "x", txn: "big", amount: 400, date: "2026-02-01" }, { id: "y", txn: null, amount: 100, date: "2026-02-03" }] }];
-    const r = accrualRows(rows, invoiceSources(inv, () => ""), [], OPT);
+    const inv = [
+      {
+        id: "i2",
+        kind: "invoice",
+        number: "2",
+        customer: null,
+        items: [{ qty: 1, price: 1000 }],
+        vat: 0,
+        issued: "2026-01-10",
+        status: "open",
+        payments: [
+          { id: "x", txn: "big", amount: 400, date: "2026-02-01" },
+          { id: "y", txn: null, amount: 100, date: "2026-02-03" },
+        ],
+      },
+    ];
+    const r = accrualRows(
+      rows,
+      invoiceSources(inv, () => ""),
+      [],
+      OPT,
+    );
     expect(r.find((x) => x.id === "big")).toMatchObject({ amount: 300, category: "revenue:sales" }); // 700 - 400 applied
     expect(r.find((x) => x.id === "big^ar")!.amount).toBe(400);
     expect(openBalances(r, "2026-02-28").ar).toBe(500); // 1,000 - 400 - 100
@@ -83,7 +139,14 @@ describe("accrual rows", () => {
       { id: "r", kind: "receipt", items: [{ qty: 1, price: 50 }], issued: "2026-01-01", status: "open" },
       { id: "old", kind: "invoice", items: [{ qty: 1, price: 70 }], issued: "2025-06-01", status: "open" },
     ];
-    expect(accrualRows([], invoiceSources(inv, () => ""), billSources([{ id: "x", date: "2026-01-01", lines: [{ amount: 9 }], status: "draft" }], () => ""), { ...OPT, from: "2026-01-01" })).toEqual([]);
+    expect(
+      accrualRows(
+        [],
+        invoiceSources(inv, () => ""),
+        billSources([{ id: "x", date: "2026-01-01", lines: [{ amount: 9 }], status: "draft" }], () => ""),
+        { ...OPT, from: "2026-01-01" },
+      ),
+    ).toEqual([]);
   });
   it("without invoices or bills the accrual books are the cash books", () => {
     expect(accrualRows(cash, [], [], OPT)).toEqual(cash);

@@ -51,11 +51,13 @@ const num = (x: unknown) => (typeof x === "number" ? x : NaN);
 /** The cost of a run still to be paid out: net pay plus everything remitted (gross + employer taxes). */
 export const payrollLiability = (r: Pick<PayrollRun, "gross" | "employerTaxes">) => r2(r.gross + r.employerTaxes);
 /** What goes to the authorities and benefit providers: withholding, benefits and employer taxes (the liability less net pay). */
-export const payrollRemittance = (r: Pick<PayrollRun, "employeeWithholding" | "benefits" | "employerTaxes">) => r2(r.employeeWithholding + r.benefits + r.employerTaxes);
+export const payrollRemittance = (r: Pick<PayrollRun, "employeeWithholding" | "benefits" | "employerTaxes">) =>
+  r2(r.employeeWithholding + r.benefits + r.employerTaxes);
 export const payrollPaid = (r: Pick<PayrollRun, "payments">) => paidOf(r.payments);
 export const payrollOwed = (r: Pick<PayrollRun, "gross" | "employerTaxes" | "payments">) => r2(payrollLiability(r) - payrollPaid(r));
 export type PayrollStatus = "open" | "partial" | "paid";
-export const payrollStatus = (r: Pick<PayrollRun, "gross" | "employerTaxes" | "payments">): PayrollStatus => (payrollOwed(r) <= 0.005 ? "paid" : payrollPaid(r) > 0 ? "partial" : "open");
+export const payrollStatus = (r: Pick<PayrollRun, "gross" | "employerTaxes" | "payments">): PayrollStatus =>
+  payrollOwed(r) <= 0.005 ? "paid" : payrollPaid(r) > 0 ? "partial" : "open";
 
 export type PayrollProblem = "period" | "payDate" | "provider" | "amount" | "net" | "over";
 /** What is wrong with a run, or undefined. `amount`: a figure that isn't a number >= 0 (gross > 0). `net`: net pay isn't gross less withholding and benefits. */
@@ -184,11 +186,16 @@ export function parseRegister(text: string): string[][] {
   for (let i = 0; i < s.length; i++) {
     const c = s[i]!;
     if (q) {
-      if (c === '"') s[i + 1] === '"' ? ((f += '"'), i++) : (q = false);
-      else f += c;
+      if (c !== '"') f += c;
+      else if (s[i + 1] === '"') {
+        f += '"';
+        i++;
+      } else q = false;
     } else if (c === '"' && !f) q = true;
-    else if (c === d) (row.push(f), (f = ""));
-    else if (c === "\n" || c === "\r") {
+    else if (c === d) {
+      row.push(f);
+      f = "";
+    } else if (c === "\n" || c === "\r") {
       if (c === "\r" && s[i + 1] === "\n") i++;
       row.push(f);
       f = "";
@@ -239,14 +246,18 @@ export function guessRegister(rows: readonly (readonly string[])[], headerRow = 
   const m = {} as Record<(typeof REGISTER_FIELDS)[number], number | null>;
   for (const k of ["employerTaxes", "net", "gross", "period", "employeeWithholding", "benefits", "payDate"] as const) m[k] = pick(k);
   const sample = rows[headerRow + 1]?.[m.payDate ?? -1] ?? "";
-  return { headerRow, ...m, dateFormat: /^\d{4}-/.test(sample) ? "YYYY-MM-DD" : /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(sample) && +sample.split("/")[0]! > 12 ? "DD/MM/YYYY" : "MM/DD/YYYY" };
+  return {
+    headerRow,
+    ...m,
+    dateFormat: /^\d{4}-/.test(sample) ? "YYYY-MM-DD" : /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(sample) && +sample.split("/")[0]! > 12 ? "DD/MM/YYYY" : "MM/DD/YYYY",
+  };
 }
 
 /** "1,234.50", "(120.00)", "$1 234,50", "₪ 2,000" -> number; NaN when it isn't one. */
 export function registerMoney(s: string): number {
   let t = s.trim();
   if (!t) return NaN;
-  const neg = /^\(.*\)$/.test(t) || /^-/.test(t) || /-$/.test(t);
+  const neg = /^\(.*\)$/.test(t) || t.startsWith("-") || t.endsWith("-");
   t = t.replace(/[^\d.,]/g, "");
   const dot = t.lastIndexOf("."),
     com = t.lastIndexOf(",");
@@ -294,7 +305,21 @@ export function importRegister(rows: readonly (readonly string[])[], m: Register
       key = `${payDate}|${period}`;
     const g = groups.get(key) ?? {
       line,
-      run: { id: `pr-${provider.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${payDate}-${period.replace(/[^\p{L}\p{N}]+/gu, "-")}`, period, payDate, gross: 0, employerTaxes: 0, employeeWithholding: 0, benefits: 0, net: 0, provider: provider.trim(), payments: [] },
+      run: {
+        id: `pr-${provider
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, "-")}-${payDate}-${period.replace(/[^\p{L}\p{N}]+/gu, "-")}`,
+        period,
+        payDate,
+        gross: 0,
+        employerTaxes: 0,
+        employeeWithholding: 0,
+        benefits: 0,
+        net: 0,
+        provider: provider.trim(),
+        payments: [],
+      },
     };
     const x = g.run;
     x.gross = r2(x.gross + gross);

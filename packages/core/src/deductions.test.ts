@@ -267,7 +267,11 @@ describe("suggestion upper bounds respect the caps", () => {
     expect(deductions(us(ts, tags({ id: "g", rule: "us.gifts" }))).rows[0]!.deductible).toBe(25);
   });
   it("a recipient who is over the cap already gets no suggestion value; another recipient is unaffected", () => {
-    const ts = [tx(40, { desc: "Dana gift", source: "mercury", tags: ["g"] }), tx(40, { desc: "Dana gift", source: "mercury" }), tx(20, { desc: "Eli gift", source: "mercury" })];
+    const ts = [
+      tx(40, { desc: "Dana gift", source: "mercury", tags: ["g"] }),
+      tx(40, { desc: "Dana gift", source: "mercury" }),
+      tx(20, { desc: "Eli gift", source: "mercury" }),
+    ];
     const g = suggestTags(us(ts, tags({ id: "g", rule: "us.gifts" }))).find((x) => x.rule === "us.gifts")!;
     expect(g.deductible).toBe(20);
   });

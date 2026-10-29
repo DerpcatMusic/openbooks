@@ -101,7 +101,11 @@ export function cfIndirect(cols: readonly (readonly Row[])[], t: Tr, cat: Tr): L
     const lines = keys
       .map((key): Line => ({ kind: "line", label: cat(key), key, v: rs.map((c) => of(c, key)) }))
       .sort((a, b) => b.v.reduce((x, y) => x + y, 0) - a.v.reduce((x, y) => x + y, 0));
-    out.push({ kind: "head", label: t(`reports.cf.${s}`), v: [] }, ...lines, { kind: "sum", label: t(`reports.cfNet.${s}`), v: rs.map((_, i) => lines.reduce((a, l) => a + l.v[i]!, 0)) });
+    out.push({ kind: "head", label: t(`reports.cf.${s}`), v: [] }, ...lines, {
+      kind: "sum",
+      label: t(`reports.cfNet.${s}`),
+      v: rs.map((_, i) => lines.reduce((a, l) => a + l.v[i]!, 0)),
+    });
   }
   out.push({ kind: "total", label: t("reports.netChange"), v: rs.map((c) => sum(c.filter((x) => !doc(x)))) });
   return out;
@@ -169,7 +173,14 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     ...(at.some((x) => Math.abs(x.transit) > 0.005) ? [{ ...row("line", t("reports.transit"), (x) => x.transit), warn: true }] : []),
     row("sum", t("reports.totalEquity"), (x) => x.equity),
     row("total", t("reports.liabEquity"), (x) => x.liab + x.equity),
-    ...(memo ? [head(t("reports.memo")), row("line", t("reports.arOpen"), (x) => x.ar), row("line", t("reports.apOpen"), (x) => x.ap), ...(at.some((x) => x.pr) ? [row("line", t("gaps3.payroll.liabilities"), (x) => x.pr)] : [])] : []),
+    ...(memo
+      ? [
+          head(t("reports.memo")),
+          row("line", t("reports.arOpen"), (x) => x.ar),
+          row("line", t("reports.apOpen"), (x) => x.ap),
+          ...(at.some((x) => x.pr) ? [row("line", t("gaps3.payroll.liabilities"), (x) => x.pr)] : []),
+        ]
+      : []),
   ];
   return { lines, totals: at.map(({ assets, liab, equity }) => ({ assets, liab, equity })) };
 }

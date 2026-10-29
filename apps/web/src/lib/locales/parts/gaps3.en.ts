@@ -99,7 +99,8 @@ export default {
   "trips.why.singleRoom": "A companion shares the room: up to the single-room price of {v} a night.",
   "trips.why.singleRoomUnknown": "A companion shares the room. Enter the single-room price on the trip, or the whole room is counted.",
   "trips.why.uplift": "25% higher caps in {w}.",
-  "trips.why.ilLodging": "Per night: the first 7 nights up to the cap; nights 8 to 90 in full up to the lower cap, then 75% of a dearer night within a band; over 90 nights the lower cap (reg. 2(2)).",
+  "trips.why.ilLodging":
+    "Per night: the first 7 nights up to the cap; nights 8 to 90 in full up to the lower cap, then 75% of a dearer night within a band; over 90 nights the lower cap (reg. 2(2)).",
   "trips.why.ilPerDiem": "Other expenses (meals, local transport): a daily cap for {v} days with lodging and {w} without.",
   "trips.why.ilCar": "Rental car: up to the daily cap for {v} days.",
   "trips.why.mainPurpose": "Business is the main purpose ({v} of {w} days): in full.",
@@ -131,11 +132,14 @@ export default {
   "cat.ar:accounts-receivable": "Accounts receivable",
   "cat.ap:accounts-payable": "Accounts payable",
   "gaps3.basis.accrual": "Accrual",
-  "gaps3.basis.cashHelp": "Income and expenses count on the day money moves. Switch to accrual to count invoices when they are issued and bills when they are approved.",
+  "gaps3.basis.cashHelp":
+    "Income and expenses count on the day money moves. Switch to accrual to count invoices when they are issued and bills when they are approved.",
   "gaps3.basis.accrualHelp":
     "Revenue counts from issued invoices on the invoice date and expenses from approved bills on the bill date. A bank transaction matched to an invoice or bill pays it off instead of counting again. Profit and loss, balance sheet, cash flow and the general ledger follow; transactions stay as they are.",
-  "gaps3.basis.taxIl": "Tax follows the law, not this setting: individuals in services in Israel report on a cash basis, so the return and planner read the cash ledger. A company reports on accrual: use the accrual reports.",
-  "gaps3.basis.taxUs": "Tax follows the law, not this setting: a sole proprietor on Schedule C normally uses the cash method, so the tax screens read the cash ledger. A C corporation above the gross-receipts test must use accrual: use the accrual reports.",
+  "gaps3.basis.taxIl":
+    "Tax follows the law, not this setting: individuals in services in Israel report on a cash basis, so the return and planner read the cash ledger. A company reports on accrual: use the accrual reports.",
+  "gaps3.basis.taxUs":
+    "Tax follows the law, not this setting: a sole proprietor on Schedule C normally uses the cash method, so the tax screens read the cash ledger. A C corporation above the gross-receipts test must use accrual: use the accrual reports.",
   "gaps3.basis.closed": "The books are closed through a date. Changing the basis changes what the reports show for the closed period, not the entries.",
   // ---------- payroll ----------
   "cat.expense:payroll-wages": "Payroll: wages",
@@ -145,9 +149,12 @@ export default {
   "gaps3.cf.dPr": "Change in payroll liabilities",
   "payroll.title": "Payroll",
   "payroll.sub": "Record the payroll your provider ran, match it to the bank, and see what is still owed.",
-  "payroll.notice": "OpenBooks does not calculate payroll tax. Withholding, employer taxes and net pay come from your payroll provider or its register; here they are only recorded and checked against each other (net pay = gross pay - withholding - benefits). Nothing is filed. The same for Israel and the US.",
-  "payroll.basisCash": "Cash basis: wages count when the bank rows are filed to an expense account. Runs are a record and show what is still to be paid. Switch to the accrual basis in Settings to book each run on its pay date.",
-  "payroll.basisAccrual": "Accrual basis: each run books wages and employer taxes on its pay date. The bank rows you match to it (net pay, tax deposits) clear the payroll liability instead of counting as expenses again.",
+  "payroll.notice":
+    "OpenBooks does not calculate payroll tax. Withholding, employer taxes and net pay come from your payroll provider or its register; here they are only recorded and checked against each other (net pay = gross pay - withholding - benefits). Nothing is filed. The same for Israel and the US.",
+  "payroll.basisCash":
+    "Cash basis: wages count when the bank rows are filed to an expense account. Runs are a record and show what is still to be paid. Switch to the accrual basis in Settings to book each run on its pay date.",
+  "payroll.basisAccrual":
+    "Accrual basis: each run books wages and employer taxes on its pay date. The bank rows you match to it (net pay, tax deposits) clear the payroll liability instead of counting as expenses again.",
   "payroll.settings": "Open Settings",
   "payroll.new": "New run",
   "payroll.import": "Import register",
@@ -179,7 +186,8 @@ export default {
   "payroll.providerPh": "Gusto, ADP, my payroll bureau",
   "payroll.gross": "Gross pay",
   "payroll.employerTaxes": "Employer taxes",
-  "payroll.employerTaxesHint": "Employer-side taxes and contributions on top of gross pay (employer national insurance or FICA match, unemployment, employer-paid benefits).",
+  "payroll.employerTaxesHint":
+    "Employer-side taxes and contributions on top of gross pay (employer national insurance or FICA match, unemployment, employer-paid benefits).",
   "payroll.withholding": "Employee withholding",
   "payroll.withholdingHint": "Income tax and employee national insurance or FICA taken from gross pay.",
   "payroll.benefits": "Benefits and other deductions",
@@ -203,7 +211,8 @@ export default {
   "payroll.debit": "Debit",
   "payroll.credit": "Credit",
   "payroll.payments": "Payments",
-  "payroll.paymentsHint": "Bank rows that paid this run: net pay to the employees, then the deposits of withholding, benefits and employer taxes (or one row for all of it).",
+  "payroll.paymentsHint":
+    "Bank rows that paid this run: net pay to the employees, then the deposits of withholding, benefits and employer taxes (or one row for all of it).",
   "payroll.owedLine": "Paid {paid} of {cost}. Still owed {owed}.",
   "payroll.outside": "Paid outside the books",
   "payroll.removePayment": "Remove payment",
@@ -221,7 +230,8 @@ export default {
   "payroll.saved": "Saved the {period} payroll run.",
   "payroll.removed": "Removed the {period} payroll run.",
   "payroll.imp.title": "Import a payroll register",
-  "payroll.imp.intro": "Choose the CSV your provider exports (a payroll journal or register). Pick which column holds what; rows with the same pay date and period are added into one run. Nothing is calculated: the amounts are taken as they are.",
+  "payroll.imp.intro":
+    "Choose the CSV your provider exports (a payroll journal or register). Pick which column holds what; rows with the same pay date and period are added into one run. Nothing is calculated: the amounts are taken as they are.",
   "payroll.imp.choose": "Choose a CSV",
   "payroll.imp.provider": "Provider",
   "payroll.imp.headerRow": "Header row",

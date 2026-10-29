@@ -329,7 +329,18 @@ describe("Books", () => {
 
   test('doc "payroll": figures that do not tie are refused, a good run is kept; unchanged old runs never block a save', async () => {
     const home = books();
-    const pay = { id: "r1", period: "2026-03", payDate: "2026-03-31", gross: 10000, employerTaxes: 900, employeeWithholding: 2000, benefits: 500, net: 7500, provider: "Gusto", payments: [] };
+    const pay = {
+      id: "r1",
+      period: "2026-03",
+      payDate: "2026-03-31",
+      gross: 10000,
+      employerTaxes: 900,
+      employeeWithholding: 2000,
+      benefits: 500,
+      net: 7500,
+      provider: "Gusto",
+      payments: [],
+    };
     const r = await run(
       home,
       Effect.gen(function* () {

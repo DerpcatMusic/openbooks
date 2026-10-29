@@ -25,7 +25,18 @@ import {
   type PayrollRun,
 } from "./index.ts";
 
-const tx = (id: string, date: string, amount: number, category: string, desc = id): Txn => ({ id, date, amount, desc, source: "bank", account: "Checking", file: "", page: 0, category, why: "" });
+const tx = (id: string, date: string, amount: number, category: string, desc = id): Txn => ({
+  id,
+  date,
+  amount,
+  desc,
+  source: "bank",
+  account: "Checking",
+  file: "",
+  page: 0,
+  category,
+  why: "",
+});
 const run = (over: Partial<PayrollRun> = {}): PayrollRun => ({
   id: "r1",
   period: "2026-03",
@@ -121,7 +132,17 @@ describe("payroll on the accrual basis", () => {
   });
   it("a row that paid both a bill and a payroll run is split between their accounts", () => {
     const lump = [tx("lump", "2026-04-01", -1400, "expense:other")];
-    const bill = { id: "b", party: null, name: "Landlord", ref: "B-1", date: "2026-03-01", due: null, gross: 400, payments: [{ amount: 400, date: "2026-04-01", txn: "lump" }], lines: [{ account: "expense:rent", amount: 400 }] };
+    const bill = {
+      id: "b",
+      party: null,
+      name: "Landlord",
+      ref: "B-1",
+      date: "2026-03-01",
+      due: null,
+      gross: 400,
+      payments: [{ amount: 400, date: "2026-04-01", txn: "lump" }],
+      lines: [{ account: "expense:rent", amount: 400 }],
+    };
     const r = accrualRows(lump, [], [bill, ...payrollSources([run({ payments: [{ id: "p", txn: "lump", amount: 1000, date: "2026-04-01" }] })])], OPT);
     expect(r.find((x) => x.id === "lump^ap")).toMatchObject({ amount: -400, category: "ap:accounts-payable" });
     expect(r.find((x) => x.id === "lump^pr")).toMatchObject({ amount: -1000, category: PAYROLL_ACCOUNT });
@@ -170,7 +191,10 @@ describe("matching bank rows to a run", () => {
       ["all", 10900], // one row paid the whole run: nothing else is added
     ]);
     expect(a.has("r2")).toBe(false);
-    const b = autoMatch([run()], bank.filter((x) => x.id !== "all"));
+    const b = autoMatch(
+      [run()],
+      bank.filter((x) => x.id !== "all"),
+    );
     expect(b.get("r1")?.map((p) => [p.txn, p.amount])).toEqual([
       ["n", 7500],
       ["t", 3400],
@@ -192,7 +216,10 @@ describe("the provider's register", () => {
     const rows = parseRegister("﻿" + csv);
     expect(rows).toHaveLength(4);
     expect(rows[1]).toEqual(["2026-03-31", "Mar 2026", "Ann", "5,000.00", "1000.00", "450.00", "250.00", "3,750.00"]);
-    expect(parseRegister('a;b\n"x;y";2\n')).toEqual([["a", "b"], ["x;y", "2"]]);
+    expect(parseRegister('a;b\n"x;y";2\n')).toEqual([
+      ["a", "b"],
+      ["x;y", "2"],
+    ]);
     expect(parseRegister('q\n"say ""hi"""\n')).toEqual([["q"], ['say "hi"']]);
   });
   it("guesses the columns from the header names", () => {
@@ -208,7 +235,17 @@ describe("the provider's register", () => {
     const a = importRegister(rows, guessRegister(rows), "Gusto");
     expect(a.errors).toEqual([]);
     expect(a.runs).toHaveLength(2);
-    expect(a.runs[0]).toMatchObject({ payDate: "2026-03-31", period: "Mar 2026", gross: 10000, employerTaxes: 900, employeeWithholding: 2000, benefits: 500, net: 7500, provider: "Gusto", payments: [] });
+    expect(a.runs[0]).toMatchObject({
+      payDate: "2026-03-31",
+      period: "Mar 2026",
+      gross: 10000,
+      employerTaxes: 900,
+      employeeWithholding: 2000,
+      benefits: 500,
+      net: 7500,
+      provider: "Gusto",
+      payments: [],
+    });
     expect(a.runs.every((r) => payrollProblem(r) === undefined)).toBe(true);
     expect(importRegister(rows, guessRegister(rows), "Gusto").runs.map((r) => r.id)).toEqual(a.runs.map((r) => r.id));
     expect(new Set(a.runs.map((r) => r.id)).size).toBe(2);
@@ -222,7 +259,9 @@ describe("the provider's register", () => {
     expect(r).toMatchObject({ net: 2400, period: "2026-05", employerTaxes: 0 });
   });
   it("reports rows it can't read and runs whose figures don't tie, by line", () => {
-    const rows = parseRegister("Pay Date,Gross,Employee Tax,Net\n2026-05-15,3000,600,2400\nnot a date,3000,600,2400\n2026-06-15,0,0,0\n2026-07-15,3000,600,2000\n");
+    const rows = parseRegister(
+      "Pay Date,Gross,Employee Tax,Net\n2026-05-15,3000,600,2400\nnot a date,3000,600,2400\n2026-06-15,0,0,0\n2026-07-15,3000,600,2000\n",
+    );
     const out = importRegister(rows, guessRegister(rows), "X");
     expect(out.runs.map((r) => r.payDate)).toEqual(["2026-05-15"]);
     expect(out.errors).toEqual([

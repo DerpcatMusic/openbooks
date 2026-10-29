@@ -266,7 +266,12 @@ export function deductions(inp: DeductionInput): DeductionResult {
         r.from = "trip";
         delete r.tag;
         if (rule) ((r.rule = rule.id), (r.evidence = [...rule.evidence]));
-        r.why = [{ k: "tripRule", w: trip.name }, ...res.parts.find((p) => p.role === l.role && p.gross > 0)?.why.map((w) => ({ k: `trip.${w.k}`, ...(w.v !== undefined ? { v: w.v } : {}), ...(w.w !== undefined ? { w: w.w } : {}) })) ?? []];
+        r.why = [
+          { k: "tripRule", w: trip.name },
+          ...(res.parts
+            .find((p) => p.role === l.role && p.gross > 0)
+            ?.why.map((w) => ({ k: `trip.${w.k}`, ...(w.v !== undefined ? { v: w.v } : {}), ...(w.w !== undefined ? { w: w.w } : {}) })) ?? []),
+        ];
         r.capped = l.deductible < l.gross - 0.005 && !!res.parts.find((p) => p.role === l.role)?.cap;
       }
     }

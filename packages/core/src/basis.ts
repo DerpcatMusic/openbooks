@@ -79,7 +79,13 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
     if (Math.abs(rest) >= 0.005) out.push({ ...t, amount: rest });
     for (const [acct, part] of by) {
       const suffix = acct === AR_ACCOUNT ? "ar" : acct === AP_ACCOUNT ? "ap" : "pr";
-      out.push({ ...t, id: `${t.id}^${suffix}`, amount: sign * part, category: acct, why: acct === AR_ACCOUNT ? "invoice" : acct === AP_ACCOUNT ? "bill" : "payroll" });
+      out.push({
+        ...t,
+        id: `${t.id}^${suffix}`,
+        amount: sign * part,
+        category: acct,
+        why: acct === AR_ACCOUNT ? "invoice" : acct === AP_ACCOUNT ? "bill" : "payroll",
+      });
     }
   }
 
@@ -88,8 +94,28 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
     const filed = s.payments.map((p) => (p.txn ? filedAr.get(p.txn) : undefined)).find(Boolean);
     const label = [s.ref, s.name].filter(Boolean).join(" ") || s.id;
     out.push(
-      { ...base, id: `inv:${s.id}:rev`, date: s.date, amount: s.gross, desc: label, source: "invoice", account: "Invoices", category: s.account || filed || o.revenue, why: "invoice" },
-      { ...base, id: `inv:${s.id}:ar`, date: s.date, amount: -s.gross, desc: label, source: "invoice", account: "Invoices", category: AR_ACCOUNT, why: "invoice" },
+      {
+        ...base,
+        id: `inv:${s.id}:rev`,
+        date: s.date,
+        amount: s.gross,
+        desc: label,
+        source: "invoice",
+        account: "Invoices",
+        category: s.account || filed || o.revenue,
+        why: "invoice",
+      },
+      {
+        ...base,
+        id: `inv:${s.id}:ar`,
+        date: s.date,
+        amount: -s.gross,
+        desc: label,
+        source: "invoice",
+        account: "Invoices",
+        category: AR_ACCOUNT,
+        why: "invoice",
+      },
     );
     outside(out, s, "inv", AR_ACCOUNT, 1, base);
   }
@@ -103,9 +129,29 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
     lines.forEach((l, i) => {
       if (!l.amount) return;
       const filed = s.payments.map((p) => (p.txn ? filedAp.get(p.txn) : undefined)).find(Boolean);
-      out.push({ ...base, id: `${k}:${s.id}:${i}`, date: s.date, amount: -l.amount, desc: label, source: k, account: acct, category: l.account || filed || o.expense, why: k });
+      out.push({
+        ...base,
+        id: `${k}:${s.id}:${i}`,
+        date: s.date,
+        amount: -l.amount,
+        desc: label,
+        source: k,
+        account: acct,
+        category: l.account || filed || o.expense,
+        why: k,
+      });
     });
-    out.push({ ...base, id: `${k}:${s.id}:ap`, date: s.date, amount: s.gross, desc: label, source: k, account: acct, category: s.payable || AP_ACCOUNT, why: k });
+    out.push({
+      ...base,
+      id: `${k}:${s.id}:ap`,
+      date: s.date,
+      amount: s.gross,
+      desc: label,
+      source: k,
+      account: acct,
+      category: s.payable || AP_ACCOUNT,
+      why: k,
+    });
     outside(out, s, k, s.payable || AP_ACCOUNT, -1, base);
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -132,7 +178,10 @@ function outside(out: Txn[], s: AgingSource, kind: "inv" | "bill" | "payroll", a
 /** Receivable and payable still open at the end of `iso`, from accrual rows (open invoices and bills; money owed to you / by you). */
 export function openBalances(rows: readonly Pick<Txn, "date" | "amount" | "category">[], iso: string) {
   const upto = rows.filter((r) => r.date <= iso);
-  return { ar: r2(-sum(upto.filter((r) => isReceivable(r.category)).map((r) => r.amount))), ap: r2(sum(upto.filter((r) => isPayable(r.category)).map((r) => r.amount))) };
+  return {
+    ar: r2(-sum(upto.filter((r) => isReceivable(r.category)).map((r) => r.amount))),
+    ap: r2(sum(upto.filter((r) => isPayable(r.category)).map((r) => r.amount))),
+  };
 }
 
 /**

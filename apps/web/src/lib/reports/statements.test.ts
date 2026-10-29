@@ -177,7 +177,18 @@ test("aging CSV: bucket columns, overdue, totals and percent rows; by document",
 });
 
 // ---------- the accrual basis through the statements ----------
-const row = (id: string, date: string, amount: number, category: string, account = "Mercury Checking"): Txn => ({ id, date, amount, category, desc: id, source: "bank", account, file: "", page: 0, why: "" });
+const row = (id: string, date: string, amount: number, category: string, account = "Mercury Checking"): Txn => ({
+  id,
+  date,
+  amount,
+  category,
+  desc: id,
+  source: "bank",
+  account,
+  file: "",
+  page: 0,
+  why: "",
+});
 const cashRows: Txn[] = [
   row("s1", "2026-01-12", 800, "revenue:sales"),
   row("pay", "2026-02-10", 1000, "revenue:services"), // pays invoice a1
@@ -185,8 +196,33 @@ const cashRows: Txn[] = [
   row("rent", "2026-04-05", -400, "expense:rent"), // pays bill b1
   row("own", "2026-03-01", 2000, "equity:contribution"),
 ];
-const a1 = invoiceSources([{ id: "a1", kind: "invoice", customer: "c1", items: [{ qty: 1, price: 1000 }], issued: "2026-01-05", status: "open", payments: [{ id: "p", txn: "pay", amount: 1000, date: "2026-02-10" }] }], () => "Client");
-const b1 = billSources([{ id: "b1", vendor: "v1", date: "2026-03-01", lines: [{ amount: 400, account: "expense:rent" }], status: "open", payments: [{ id: "q", txn: "rent", amount: 400, date: "2026-04-05" }] }], () => "Landlord");
+const a1 = invoiceSources(
+  [
+    {
+      id: "a1",
+      kind: "invoice",
+      customer: "c1",
+      items: [{ qty: 1, price: 1000 }],
+      issued: "2026-01-05",
+      status: "open",
+      payments: [{ id: "p", txn: "pay", amount: 1000, date: "2026-02-10" }],
+    },
+  ],
+  () => "Client",
+);
+const b1 = billSources(
+  [
+    {
+      id: "b1",
+      vendor: "v1",
+      date: "2026-03-01",
+      lines: [{ amount: 400, account: "expense:rent" }],
+      status: "open",
+      payments: [{ id: "q", txn: "rent", amount: 400, date: "2026-04-05" }],
+    },
+  ],
+  () => "Landlord",
+);
 const acc = accrualRows(cashRows, a1, b1, { revenue: "revenue:sales", expense: "expense:other" });
 
 test("accrual cash flow (indirect): net income ± receivable and payable = cash from operations; the sections add up to the change in cash", () => {
@@ -208,7 +244,24 @@ test("accrual cash flow (indirect): net income ± receivable and payable = cash 
 });
 
 test("accrual cash flow: money settled outside the books is not cash", () => {
-  const out = accrualRows([], invoiceSources([{ id: "o", kind: "invoice", items: [{ qty: 1, price: 300 }], issued: "2026-01-02", status: "open", payments: [{ id: "x", txn: null, amount: 100, date: "2026-01-20" }] }], () => ""), [], { revenue: "revenue:sales", expense: "expense:other" });
+  const out = accrualRows(
+    [],
+    invoiceSources(
+      [
+        {
+          id: "o",
+          kind: "invoice",
+          items: [{ qty: 1, price: 300 }],
+          issued: "2026-01-02",
+          status: "open",
+          payments: [{ id: "x", txn: null, amount: 100, date: "2026-01-20" }],
+        },
+      ],
+      () => "",
+    ),
+    [],
+    { revenue: "revenue:sales", expense: "expense:other" },
+  );
   const rows = cfIndirect([out], t, cat);
   expect(rows.find((r) => r.label === "reports.cf.outside")!.v).toEqual([-100]);
   expect(rows.find((r) => r.label === "reports.cfNet.operating")!.v).toEqual([0]); // 300 income - 200 still receivable - 100 settled elsewhere
@@ -218,7 +271,9 @@ test("accrual cash flow: money settled outside the books is not cash", () => {
 test("P&L on accrual rows: the invoice is Jan revenue, the paying row leaves the P&L; and it reconciles with the balance sheet's current-year earnings", () => {
   const q1 = plStatement([acc.filter((x) => x.date <= "2026-01-31")], true, t, cat);
   expect(q1.find((r) => r.key === "revenue:services")!.v).toEqual([1000]); // filed where the payment was filed
-  expect(plStatement([acc.filter((x) => x.date >= "2026-02-01" && x.date <= "2026-02-28")], true, t, cat).find((r) => r.key === "revenue:services")).toBeUndefined();
+  expect(
+    plStatement([acc.filter((x) => x.date >= "2026-02-01" && x.date <= "2026-02-28")], true, t, cat).find((r) => r.key === "revenue:services"),
+  ).toBeUndefined();
   // balance sheet with the cash rows + open documents (accrual on) vs the P&L of the accrual rows: same current-year earnings
   const open = (iso: string) => ({ ar: openAt(a1, iso), ap: openAt(b1, iso) });
   for (const iso of ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"]) {
@@ -231,8 +286,23 @@ test("P&L on accrual rows: the invoice is Jan revenue, the paying row leaves the
 });
 
 // ---------- payroll through the statements ----------
-const payRun: PayrollRun = { id: "r1", period: "2026-03", payDate: "2026-03-31", gross: 1000, employerTaxes: 100, employeeWithholding: 200, benefits: 50, net: 750, provider: "Gusto", payments: [{ id: "m1", txn: "netpay", amount: 750, date: "2026-03-31" }] };
-const payCash: Txn[] = [row("own2", "2026-01-02", 5000, "equity:contribution"), row("sale", "2026-02-01", 3000, "revenue:sales"), row("netpay", "2026-03-31", -750, "expense:payroll-wages")];
+const payRun: PayrollRun = {
+  id: "r1",
+  period: "2026-03",
+  payDate: "2026-03-31",
+  gross: 1000,
+  employerTaxes: 100,
+  employeeWithholding: 200,
+  benefits: 50,
+  net: 750,
+  provider: "Gusto",
+  payments: [{ id: "m1", txn: "netpay", amount: 750, date: "2026-03-31" }],
+};
+const payCash: Txn[] = [
+  row("own2", "2026-01-02", 5000, "equity:contribution"),
+  row("sale", "2026-02-01", 3000, "revenue:sales"),
+  row("netpay", "2026-03-31", -750, "expense:payroll-wages"),
+];
 const pr = payrollSources([payRun]);
 const payAcc = accrualRows(payCash, [], pr, { revenue: "revenue:sales", expense: "expense:other" });
 
