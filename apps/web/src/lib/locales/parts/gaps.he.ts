@@ -17,6 +17,19 @@ export default {
   "bills.applyToBill": "החלה על {number}",
   "bills.appliedTo": "התשלום הוחל על {number}",
 
+  // invoices: partial payments
+  "invoices.status.partial": "שולם חלקית",
+  "invoices.applyNone": "אין מה להחיל: החשבונית מכוסה במלואה, או שהתשלום נוצל כולו.",
+  "invoices.paidOutsideShort": "מחוץ לספרים",
+  "invoices.unapply": "ביטול החלה",
+  "invoices.paidSoFar": "שולם",
+  "invoices.applyAmount": "סכום להחלה",
+  "invoices.applyHint": "ריק = החלת הסכום המרבי שמתאים. נותר לתשלום: {amount}.",
+  "invoices.match.exact": "התאמה מדויקת",
+  "invoices.leftOfPayment": "נותרו {amount} מהתשלום הזה",
+  "invoices.addPayment": "רישום תשלום נוסף",
+  "invoices.leftN": "נותרו {amount}",
+
   // reports: tabs, range cap, balance sheet, P&L
   "reports.tab.ar": "גיול חייבים",
   "reports.tab.ap": "גיול ספקים",

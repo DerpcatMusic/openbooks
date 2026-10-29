@@ -17,6 +17,19 @@ export default {
   "bills.applyToBill": "Apply to {number}",
   "bills.appliedTo": "Payment applied to {number}",
 
+  // invoices: partial payments
+  "invoices.status.partial": "Partially paid",
+  "invoices.applyNone": "Nothing to apply: the invoice is covered, or the payment is used up.",
+  "invoices.paidOutsideShort": "Outside the books",
+  "invoices.unapply": "Unapply",
+  "invoices.paidSoFar": "Paid",
+  "invoices.applyAmount": "Amount to apply",
+  "invoices.applyHint": "Empty applies as much as fits. Still owed: {amount}.",
+  "invoices.match.exact": "Exact fit",
+  "invoices.leftOfPayment": "{amount} left of this payment",
+  "invoices.addPayment": "Record another payment",
+  "invoices.leftN": "{amount} left",
+
   // reports: tabs, range cap, balance sheet, P&L
   "reports.tab.ar": "AR aging",
   "reports.tab.ap": "AP aging",
