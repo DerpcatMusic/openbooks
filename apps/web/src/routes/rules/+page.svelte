@@ -112,7 +112,12 @@
   const FIELD_OPTIONS = $derived(FIELDS.map((f) => ({ value: f, label: t(`rules2.field.${f}`) })));
   const opOptions = (f: Field) => OPS[f].map((o) => ({ value: o, label: t(`rules2.op.${o}`) }));
   const acctOptions = (now: string) => [...new Set([...accounts(), now].filter(Boolean))].map((a) => ({ value: a, label: a }));
-  const toggleTag = (r: D, id: string) => edit(() => (r.tags = r.tags.includes(id) ? r.tags.filter((x) => x !== id) : [...r.tags, id]));
+  /** One tag per group, like setTag by hand: picking a tag drops the rule's other tag of the same group (the newest pick wins). */
+  const toggleTag = (r: D, id: string) =>
+    edit(() => {
+      const grp = tagOf(id)?.group;
+      r.tags = r.tags.includes(id) ? r.tags.filter((x) => x !== id) : [...r.tags.filter((x) => !grp || tagOf(x)?.group !== grp), id];
+    });
   const box =
     "ui-align h-8 min-w-32 flex-1 basis-40 rounded-full bg-fill px-3 text-[14px] text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/50";
 
