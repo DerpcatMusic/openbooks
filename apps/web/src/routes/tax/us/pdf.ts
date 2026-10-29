@@ -2,9 +2,42 @@
 // copied from app/irs/) with pdf-lib, plus the Part V statement page. Port of the pdf half of web/src/lib/irs.js.
 // pdf-lib is ~1 MB, so the page imports this module on click.
 import { PDFCheckBox, PDFDocument, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
-import { ascii, form1120, form1120ProForma, form5472, IRS_PREFIX, partV, PRO_FORMA_STAMP, type CorpInput, type IrsInput } from "@openbooks/country-us";
+import {
+  ascii,
+  form1040ES,
+  form1099NEC2025,
+  form1099NEC2026,
+  form1120,
+  form1120ProForma,
+  form5472,
+  form8995,
+  formScheduleC,
+  formScheduleSE,
+  IRS_PREFIX,
+  NEC_COPY_B_PAGE,
+  partV,
+  PRO_FORMA_STAMP,
+  type CorpInput,
+  type Es1040Ctx,
+  type IrsInput,
+  type Nec,
+  type QbiResult,
+  type SchedCCtx,
+  type SeResult,
+  type UsProfile,
+} from "@openbooks/country-us";
 
-const BLANKS = { f5472: new URL("./f5472.pdf", import.meta.url).href, f1120: new URL("./f1120.pdf", import.meta.url).href };
+// One literal URL per blank so the bundler copies each file; the names are the ones in the pack's IRS_PDFS registry.
+const BLANKS = {
+  f5472: new URL("./f5472.pdf", import.meta.url).href,
+  f1120: new URL("./f1120.pdf", import.meta.url).href,
+  schedC: new URL("./f1040sc.pdf", import.meta.url).href,
+  schedSE: new URL("./f1040sse.pdf", import.meta.url).href,
+  f8995: new URL("./f8995.pdf", import.meta.url).href,
+  es: new URL("./f1040es.pdf", import.meta.url).href,
+  nec2025: new URL("./f1099nec-2025.pdf", import.meta.url).href,
+  nec2026: new URL("./f1099nec-2026.pdf", import.meta.url).href,
+};
 const blank = async (name: keyof typeof BLANKS) => PDFDocument.load(await (await fetch(BLANKS[name])).arrayBuffer());
 const cents = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -15,11 +48,29 @@ function write(doc: PDFDocument, values: Readonly<Record<string, string>>) {
     try {
       const f = form.getField(IRS_PREFIX + name);
       if (f instanceof PDFCheckBox) f.check();
-      else form.getTextField(IRS_PREFIX + name).setText(v);
+      else {
+        const tf = form.getTextField(IRS_PREFIX + name);
+        if (v.includes("\n")) tf.enableMultiline(); // the 2025 1099-NEC payer block is one field of several lines
+        tf.setText(v);
+      }
     } catch (e) {
       console.warn("irs: field", name, (e as Error).message);
     }
   }
+}
+
+/** Fill a blank with a hook's output and flatten it, ready to be copied into a packet (several blanks share field names). */
+async function flat(name: keyof typeof BLANKS, values: Readonly<Record<string, string>>) {
+  const doc = await blank(name);
+  write(doc, values);
+  doc.getForm().flatten();
+  return doc;
+}
+/** The pages (all, or the listed 0-based ones) of each document, in order, as one PDF. */
+async function merge(parts: readonly (readonly [PDFDocument, readonly number[] | null])[]) {
+  const out = await PDFDocument.create();
+  for (const [src, pages] of parts) for (const p of await out.copyPages(src, pages ? [...pages] : src.getPageIndices())) out.addPage(p);
+  return out.save();
 }
 
 export async function fill5472(d: IrsInput & { de?: boolean }) {
@@ -122,4 +173,30 @@ export function download(bytes: Uint8Array, filename: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------- individual / sole proprietor: Schedule C, SE, 8995 (tax year 2025 blanks), 1040-ES (2026), 1099-NEC ----------
+export const fillScheduleC = async (d: SchedCCtx) => (await flat("schedC", formScheduleC(d))).save();
+export const fillScheduleSE = async (d: UsProfile & { se: SeResult }) => (await flat("schedSE", formScheduleSE(d))).save();
+export const fill8995 = async (d: UsProfile & { qbi: QbiResult }) => (await flat("f8995", form8995(d))).save();
+/** The estimated-tax worksheet and the vouchers of the installments still ahead (`from` drops the past ones). */
+export const fill1040ES = async (d: Es1040Ctx) => (await flat("es", form1040ES(d))).save();
+/** Schedule C + Schedule SE + Form 8995 in the order they attach to the 1040. */
+export async function individualPacket(c: SchedCCtx, se: SeResult, qbi: QbiResult, withQbi: boolean) {
+  const parts: (readonly [PDFDocument, null])[] = [
+    [await flat("schedC", formScheduleC(c)), null],
+    [await flat("schedSE", formScheduleSE({ ...c, se })), null],
+  ];
+  if (withQbi) parts.push([await flat("f8995", form8995({ ...c, qbi })), null]);
+  return merge(parts);
+}
+/**
+ * Recipient copies (Copy B) of the 1099-NEC, one per payee, in one PDF. Copy A, the copy sent to the IRS, is red-ink and cannot be printed from
+ * a download: file electronically (IRIS) or order the official scannable forms.
+ */
+export async function fill1099NEC(rows: readonly Nec[], year: number) {
+  const parts: (readonly [PDFDocument, number[]])[] = [];
+  for (const n of rows)
+    parts.push([await flat(year >= 2026 ? "nec2026" : "nec2025", (year >= 2026 ? form1099NEC2026 : form1099NEC2025)(n)), [NEC_COPY_B_PAGE]]);
+  return merge(parts);
 }

@@ -1,15 +1,17 @@
 <script lang="ts">
   // US tax for the open LLC: what the IRS needs for the tax year, computed from the books, and the official forms filled from them.
-  // Disregarded single-member LLC: Form 5472 + pro forma 1120 (+ Part V statement). LLC taxed as a C-corp: its own 1120 + 5472.
-  // Port of web/src/views/TaxUS.svelte; field maps are the US pack's form hooks (irs.ts), the PDF writing is ./pdf.ts.
+  // Disregarded single-member LLC owned from abroad: Form 5472 + pro forma 1120 (+ Part V statement). LLC taxed as a C-corp: its own 1120 + 5472
+  // and the 1120-W estimates. The header and year picker are the page's (+page.svelte); field maps are the US pack's form hooks (irs.ts).
   import { ccorpObligations, corpTax, llcObligations, type UsTable } from "@openbooks/country-us";
   import { S, catLabel, ent, fmt, mdy, setProfile, taxTable, toast, yearTxns } from "#lib/stores/books.svelte.ts";
   import { bidi, t } from "#lib/i18n.svelte.ts";
-  import { Badge, Button, Card, Icon, Input, Money, PageHeader, Select, Table, type Column } from "#lib/ui/index.ts";
-  import { corpInput, irsInput, isCorp, ownerTxns, totalAssets } from "#lib/ustax/books.ts";
+  import { Badge, Button, Card, Icon, Input, Money, Table, type Column } from "#lib/ui/index.ts";
+  import { corpInput, irsInput, isCorp, ownerTxns, totalAssets, usNow } from "#lib/ustax/books.ts";
+  import Contractors from "./Contractors.svelte";
+  import Deadlines from "./Deadlines.svelte";
   import type { Txn } from "@openbooks/schema";
 
-  const y = $derived(S.year);
+  let { y }: { y: number } = $props();
   const p = $derived((S.data?.profile ?? {}) as Record<string, string | undefined>);
   const cur = $derived(ent().currency ?? "USD");
   const corp = $derived(isCorp(y));
@@ -25,6 +27,7 @@
   const due = $derived(duties[0]!.due!),
     ext = $derived(duties[0]!.extendedDue!);
   const ctax = $derived(corp ? corpTax(corpInput(y)) : null);
+  const est = $derived(corp ? usNow(y).corp?.estimates : null);
 
   // [key, input type, dir]: identifiers and addresses stay LTR inside a Hebrew page
   const FIELDS: [string, string, "auto" | "ltr"][] = [
@@ -99,15 +102,16 @@
           { ok: null, title: t("taxUS.proForma"), text: t("taxUS.proFormaText") },
           { ok: null, title: t("taxUS.fileBy", { date: mdy(due) }), text: t("taxUS.fileByText", { ext: mdy(ext) }) },
         ]),
+    { ok: null, title: t("fus.boi.title"), text: t("fus.boi.text") },
     { ok: null, title: t("taxUS.stateFiling"), text: stateText },
     { ok: null, title: t("taxUS.israel"), text: t(corp ? "taxUS.cc.israelText" : "taxUS.israelText", { y }) },
   ]);
 
-  const yearOpts = $derived(
-    (S.data?.years ?? [])
-      .map((v) => ({ value: String(v), label: String(v) }))
-      .reverse(),
-  );
+  const wcols: Column<{ n: number; due: string; amount: number }>[] = $derived([
+    { key: "n", label: t("fus.est.payment") },
+    { key: "due", label: t("fus.est.due") },
+    { key: "amount", label: t("common.amount"), numeric: true },
+  ]);
   const cols: Column<Txn>[] = $derived([
     { key: "date", label: t("common.date"), class: "w-32" },
     { key: "desc", label: t("common.description"), wrap: true },
@@ -116,13 +120,7 @@
   ]);
 </script>
 
-<PageHeader title={t("nav.form5472")} badge={String(y)} sub={t(corp ? "taxUS.cc.sub" : "taxUS.sub")}>
-  {#snippet actions()}
-    <Select variant="pill" icon="calendar" label={t("taxUS.year")} value={String(y)} options={yearOpts} onchange={(v) => (S.year = +v)} />
-  {/snippet}
-</PageHeader>
-
-<div class="px-4 pb-12 pt-4 sm:px-8">
+<div>
   <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/25 bg-accent/6 px-4 py-4 sm:px-5">
     <span class="grid size-9 shrink-0 place-items-center rounded-full bg-accent/15 text-accent-ink"><Icon name="form" size={18} /></span>
     <div class="min-w-0 flex-1 basis-56">
@@ -159,6 +157,18 @@
         </ol>
       </Card>
 
+      {#if est}
+        <Card title={t("fus.w.title", { y })} description={est.exempt ? t("fus.w.exempt", { min: fmt(UT.fed?.corpEstimateMin ?? 500) }) : t("fus.w.sub", { amount: fmt(est.required) })} flush>
+          <Table columns={wcols} rows={est.installments} key={(r) => r.n} caption={t("fus.w.title", { y })} stack>
+            {#snippet cell(r, c)}
+              {#if c.key === "n"}<span class="text-sub">{t("fus.est.n", { n: r.n })}</span>
+              {:else if c.key === "due"}<span class="text-ink num">{mdy(r.due)}</span>
+              {:else}<Money value={r.amount} currency={cur} />{/if}
+            {/snippet}
+          </Table>
+        </Card>
+      {/if}
+
       <Card title={t(corp ? "taxUS.cc.ownerTitle" : "taxUS.partVTitle", { y })} flush>
         <Table columns={cols} rows={owner} key={(r) => r.id} onrowclick={(r) => (S.drawer = r.id)}>
           {#snippet cell(r, c)}
@@ -176,6 +186,9 @@
           {/snippet}
         </Table>
       </Card>
+
+      {#if corp}<Contractors {y} />{/if}
+      <Deadlines {y} />
     </div>
 
     <Card title={t("taxUS.companyOwner")} description={t("taxUS.savedWith")} class="xl:sticky xl:top-4">

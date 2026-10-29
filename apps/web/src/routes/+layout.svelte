@@ -13,6 +13,7 @@
   import VaultPrompt from "#lib/vault/VaultPrompt.svelte";
   import { installAi } from "#lib/ai.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { navKey } from "#lib/ustax/books.ts";
 
   let { children }: { children: Snippet } = $props();
 
@@ -78,7 +79,7 @@
           [
             t("nav.section.tax"),
             [
-              isUS() ? { href: "/tax/us", label: t("nav.form5472"), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
+              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
               { href: "/planner", label: t("nav.planner"), icon: "sparkle" },
               { href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" },
               { href: "/you", label: t("nav.you"), icon: "user" },

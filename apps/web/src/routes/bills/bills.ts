@@ -2,7 +2,8 @@
 // money you owe, settled by the outgoing payments applied to it.
 // bill:   { id, number, vendor: vendor id | null, date, due: string | null, lines: [{ desc, amount, account }],
 //           status: "draft"|"open"|"cancelled", payments: [{ id, txn: transaction id | null, amount, date }], memo, created? }
-// vendor: { id, name, email?, address?, account? (default expense ledger account), terms? (days; 30 when missing) }
+// vendor: { id, name, email?, address?, account? (default expense ledger account), terms? (days; 30 when missing),
+//           US 1099-NEC: city?, state?, zip?, tin?, tinType?, w9?, payee?, exempt? }
 // Stored status is only draft/open/cancelled. Paid, partially paid and overdue are derived (core displayStatus) from the payments, which are
 // applications of bank transactions: one bill can take several payments, one transaction can pay several bills. Old docs (status paid | void,
 // one paidTxn) are migrated on read by readBills; the next save writes the new shape.
@@ -41,6 +42,15 @@ export interface Vendor {
   address?: string;
   account?: string;
   terms?: number;
+  /** US 1099-NEC details (see @openbooks/country-us Vendor1099): `address` is the street. */
+  city?: string;
+  state?: string;
+  zip?: string;
+  tin?: string;
+  tinType?: "ssn" | "ein";
+  w9?: boolean | string;
+  payee?: "individual" | "corporation" | "foreign";
+  exempt?: boolean;
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
