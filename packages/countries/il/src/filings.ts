@@ -46,7 +46,7 @@ export function ilSettings(bag: Record<string, unknown> | undefined): IlSettings
   };
 }
 /** The bag to store: the IL settings under "il", other packs' keys untouched. */
-export const withIlSettings = (bag: Record<string, unknown> | undefined, s: IlSettings): Record<string, unknown> => ({ ...(bag ?? {}), il: s });
+export const withIlSettings = (bag: Record<string, unknown> | undefined, s: IlSettings): Record<string, unknown> => ({ ...bag, il: s });
 
 export type InvoiceDoc = Omit<VatSaleDoc, "customerName" | "customerVatId">;
 export interface CustomerDoc {
@@ -70,7 +70,15 @@ export function inputRows(rows: readonly TxnDeduction[], txns: readonly Txn[]): 
     .filter((r) => r.vatReclaimable > 0)
     .map((r) => {
       const t = byId.get(r.id);
-      return { id: r.id, date: r.date, desc: r.desc, gross: r.gross, vatReclaimable: r.vatReclaimable, ...(r.rule ? { rule: r.rule } : {}), ...(t ? { supplier: payerOf(t) } : {}) };
+      return {
+        id: r.id,
+        date: r.date,
+        desc: r.desc,
+        gross: r.gross,
+        vatReclaimable: r.vatReclaimable,
+        ...(r.rule ? { rule: r.rule } : {}),
+        ...(t ? { supplier: payerOf(t) } : {}),
+      };
     });
 }
 
@@ -103,7 +111,11 @@ export function vatTurnover(from: string, to: string, c: VatContext): number {
 
 const KIND_CODE: Record<string, UniformDoc["type"] | undefined> = { tax: 305, bill: 300, receipt: 400 };
 /** Issued documents as uniform-structure documents (drafts and US invoices are skipped). */
-export function uniformDocs(invoices: readonly (Omit<InvoiceDoc, "items"> & { items: readonly { desc?: string; qty?: unknown; price?: unknown }[] })[], customers: readonly CustomerDoc[], method?: (i: InvoiceDoc) => string): UniformDoc[] {
+export function uniformDocs(
+  invoices: readonly (Omit<InvoiceDoc, "items"> & { items: readonly { desc?: string; qty?: unknown; price?: unknown }[] })[],
+  customers: readonly CustomerDoc[],
+  method?: (i: InvoiceDoc) => string,
+): UniformDoc[] {
   const byId = new Map(customers.map((c) => [c.id, c]));
   const out: UniformDoc[] = [];
   for (const i of invoices) {

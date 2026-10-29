@@ -54,7 +54,17 @@ export function pcn874Header(vatId: string, report: Pcn874Input["report"], creat
 export function pcn874Record(l: VatLine): string {
   // the sign applies to the invoice: a credit has a negative total and VAT written as a positive number
   const neg = l.net < 0 || (l.net === 0 && l.vat < 0);
-  return [l.type, num(+l.party, 9), ymd(l.date), alnum(l.group, 4), num(+l.ref || 0, 9), num(l.vat, 9), neg ? "-" : "+", num(l.net, 10), num(+l.alloc || 0, 9)].join("");
+  return [
+    l.type,
+    num(+l.party, 9),
+    ymd(l.date),
+    alnum(l.group, 4),
+    num(+l.ref || 0, 9),
+    num(l.vat, 9),
+    neg ? "-" : "+",
+    num(l.net, 10),
+    num(+l.alloc || 0, 9),
+  ].join("");
 }
 /** The whole file as text (CRLF separated, with a final CRLF). */
 export function pcn874(inp: Pcn874Input): string {
@@ -135,7 +145,8 @@ export function checkPcn874(text: string): Pcn874Problem[] {
   if (ins.length !== h.inputRecords) bad.push({ code: "inputRecords", a: h.inputRecords, b: ins.length });
   const inVat = ins.reduce((a, r) => a + signedVat(r), 0);
   if (inVat !== h.otherInputsVat + h.equipmentVat) bad.push({ code: "inputVat", a: h.otherInputsVat + h.equipmentVat, b: inVat });
-  if (h.payable !== h.outputVat - h.otherInputsVat - h.equipmentVat) bad.push({ code: "payable", a: h.payable, b: h.outputVat - h.otherInputsVat - h.equipmentVat });
+  if (h.payable !== h.outputVat - h.otherInputsVat - h.equipmentVat)
+    bad.push({ code: "payable", a: h.payable, b: h.outputVat - h.otherInputsVat - h.equipmentVat });
   if (f.closingId !== h.vatId) bad.push({ code: "closingId" });
   return bad;
 }

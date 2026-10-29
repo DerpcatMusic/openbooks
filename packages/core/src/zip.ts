@@ -35,7 +35,17 @@ export function zip(files: readonly ZipFile[]): Uint8Array {
     const name = enc.encode(f.name),
       d = f.date ?? new Date(Date.UTC(2026, 0, 1)),
       // version needed 2.0, flags: UTF-8 names, method 0 (stored), time, date, crc, sizes
-      common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(dosTime(d)), ...u16(dosDate(d)), ...u32(crc32(f.data)), ...u32(f.data.length), ...u32(f.data.length), ...u16(name.length)];
+      common = [
+        ...u16(20),
+        ...u16(0x0800),
+        ...u16(0),
+        ...u16(dosTime(d)),
+        ...u16(dosDate(d)),
+        ...u32(crc32(f.data)),
+        ...u32(f.data.length),
+        ...u32(f.data.length),
+        ...u16(name.length),
+      ];
     local.push(new Uint8Array([0x50, 0x4b, 3, 4, ...common, ...u16(0)]), name, f.data);
     central.push([0x50, 0x4b, 1, 2, ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(at), ...name]);
     at += 30 + name.length + f.data.length;

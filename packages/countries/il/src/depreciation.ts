@@ -50,7 +50,11 @@ export interface DepRow {
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Depreciation of every asset bought on or before the end of `year`, for that year. */
-export function depreciation(assets: readonly AssetIn[], rates: Readonly<Record<string, number>>, year: number): { rows: DepRow[]; totals: { cost: number; amount: number; accumulated: number; remaining: number; bought: number } } {
+export function depreciation(
+  assets: readonly AssetIn[],
+  rates: Readonly<Record<string, number>>,
+  year: number,
+): { rows: DepRow[]; totals: { cost: number; amount: number; accumulated: number; remaining: number; bought: number } } {
   const rows: DepRow[] = [];
   for (const a of assets) {
     const y0 = +a.date.slice(0, 4);
@@ -63,9 +67,30 @@ export function depreciation(assets: readonly AssetIn[], rates: Readonly<Record<
     const upto = (y: number) => Math.min(a.cost, (a.cost * rate * monthsTo(y)) / 12);
     const acc = r2(upto(year)),
       prev = r2(upto(year - 1));
-    rows.push({ id: a.id, desc: a.desc, date: a.date, cls, guessed: !a.cls, cost: r2(a.cost), rate, months: y0 === year ? 13 - m0 : prev < a.cost ? 12 : 0, amount: r2(acc - prev), accumulated: acc, remaining: r2(a.cost - acc) });
+    rows.push({
+      id: a.id,
+      desc: a.desc,
+      date: a.date,
+      cls,
+      guessed: !a.cls,
+      cost: r2(a.cost),
+      rate,
+      months: y0 === year ? 13 - m0 : prev < a.cost ? 12 : 0,
+      amount: r2(acc - prev),
+      accumulated: acc,
+      remaining: r2(a.cost - acc),
+    });
   }
   rows.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const sum = (f: (r: DepRow) => number) => r2(rows.reduce((s, r) => s + f(r), 0));
-  return { rows, totals: { cost: sum((r) => r.cost), amount: sum((r) => r.amount), accumulated: sum((r) => r.accumulated), remaining: sum((r) => r.remaining), bought: r2(rows.filter((r) => +r.date.slice(0, 4) === year).reduce((s, r) => s + r.cost, 0)) } };
+  return {
+    rows,
+    totals: {
+      cost: sum((r) => r.cost),
+      amount: sum((r) => r.amount),
+      accumulated: sum((r) => r.accumulated),
+      remaining: sum((r) => r.remaining),
+      bought: r2(rows.filter((r) => +r.date.slice(0, 4) === year).reduce((s, r) => s + r.cost, 0)),
+    },
+  };
 }

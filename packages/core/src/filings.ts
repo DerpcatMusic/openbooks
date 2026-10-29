@@ -47,7 +47,7 @@ export function filingRows(deadlines: readonly FilingDeadline[], doc: FilingsDoc
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }
 
-const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, ";").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 /** RFC 5545 line folding at 75 octets (counted in UTF-8 bytes, never inside a character). */
 function fold(line: string): string {
   const enc = new TextEncoder();
@@ -83,7 +83,11 @@ export function icsCalendar(rows: readonly FilingRow[], opts: { name: string; la
       `DTSTART;VALUE=DATE:${compact(r.date)}`,
       `DTEND;VALUE=DATE:${compact(next(r.date))}`,
       `SUMMARY:${esc(title)}`,
-      ...(r.source || r.unverified ? [`DESCRIPTION:${esc([r.form ? `Form ${r.form}.` : "", r.unverified ? "Date not confirmed from a primary source." : "", r.source ?? ""].filter(Boolean).join(" "))}`] : []),
+      ...(r.source || r.unverified
+        ? [
+            `DESCRIPTION:${esc([r.form ? `Form ${r.form}.` : "", r.unverified ? "Date not confirmed from a primary source." : "", r.source ?? ""].filter(Boolean).join(" "))}`,
+          ]
+        : []),
       ...(r.url ? [`URL:${r.url}`] : []),
       "BEGIN:VALARM",
       "ACTION:DISPLAY",
@@ -98,7 +102,11 @@ export function icsCalendar(rows: readonly FilingRow[], opts: { name: string; la
 }
 
 /** Deadlines that fall due in calendar `year`: the returns of the year before and the periods of this one. `factsFor` gives the entity's facts for a tax year (null = no business type then). */
-export function dueInYear(pack: CountryPack, year: number, factsFor: (taxYear: number) => Parameters<NonNullable<CountryPack["deadlines"]>>[1] | null): FilingDeadline[] {
+export function dueInYear(
+  pack: CountryPack,
+  year: number,
+  factsFor: (taxYear: number) => Parameters<NonNullable<CountryPack["deadlines"]>>[1] | null,
+): FilingDeadline[] {
   const out = new Map<string, FilingDeadline>();
   for (const y of [year - 1, year]) {
     const f = factsFor(y);

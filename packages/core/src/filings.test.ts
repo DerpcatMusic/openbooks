@@ -7,7 +7,11 @@ describe("filings", () => {
   it("gives each deadline a status", () => {
     const doc = markDone(emptyFilings(), "a", { on: "2026-10-02", confirmation: "123" });
     const r = filingRows(list, doc, "2026-10-29");
-    expect(r.map((x) => [x.id, x.status])).toEqual([["a", "done"], ["b", "soon"], ["c", "upcoming"]]);
+    expect(r.map((x) => [x.id, x.status])).toEqual([
+      ["a", "done"],
+      ["b", "soon"],
+      ["c", "upcoming"],
+    ]);
     expect(filingRows(list, emptyFilings(), "2026-10-29").map((x) => x.status)).toEqual(["overdue", "soon", "upcoming"]);
     expect(filingRows(list, emptyFilings(), "2026-10-29", 3).map((x) => x.status)).toEqual(["overdue", "upcoming", "upcoming"]);
     expect(r[1]!.days).toBe(7);
@@ -23,7 +27,7 @@ describe("filings", () => {
     expect(ics.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
     expect(ics).toContain("DTSTART;VALUE=DATE:20260219\r\nDTEND;VALUE=DATE:20260220");
     expect(ics).toContain("UID:il.vat.2026-01@openbooks");
-    expect(ics).toContain("DESCRIPTION:Law\; section\\, 5");
+    expect(ics).toContain("DESCRIPTION:Law; section\\, 5");
     for (const line of ics.split("\r\n")) expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
     expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);
     expect(icsCalendar(rows, { name: "x", lang: "en", stamp: "s", skipDone: true })).toContain("Report il.vat");

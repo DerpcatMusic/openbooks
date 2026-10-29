@@ -89,7 +89,14 @@ export function register(y: number): { rows: DepRow[]; totals: ReturnType<typeof
     .filter((yy) => yy <= y)
     .flatMap((yy) => resultOf(yy)?.rows ?? [])
     .filter((r) => r.rule === "il.depreciation")
-    .map((r) => ({ id: r.id, date: r.date, desc: r.desc, cost: Math.max(0, r.gross - r.vatReclaimable), rule: r.rule, ...(s.assetClass[r.id] ? { cls: s.assetClass[r.id] } : {}) }));
+    .map((r) => ({
+      id: r.id,
+      date: r.date,
+      desc: r.desc,
+      cost: Math.max(0, r.gross - r.vatReclaimable),
+      rule: r.rule,
+      ...(s.assetClass[r.id] ? { cls: s.assetClass[r.id] } : {}),
+    }));
   return depreciation(assets, rates, y);
 }
 

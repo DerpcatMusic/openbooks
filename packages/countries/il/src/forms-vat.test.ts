@@ -3,7 +3,18 @@ import type { Txn } from "@openbooks/schema";
 import { form1301, form1301Auto, form1301FromBooks } from "./forms.ts";
 import { il } from "./index.ts";
 
-const row = (id: string, amount: number, category: string): Txn => ({ id, date: "2026-03-01", amount, desc: id, source: "bank", account: "b", file: "", page: 0, category, why: "" });
+const row = (id: string, amount: number, category: string): Txn => ({
+  id,
+  date: "2026-03-01",
+  amount,
+  desc: id,
+  source: "bank",
+  account: "b",
+  file: "",
+  page: 0,
+  category,
+  why: "",
+});
 const txns = [row("a", 11800, "business:sales"), row("b", -2360, "expense:software"), row("c", -1180, "expense:equipment")];
 const T = il.table(2026);
 

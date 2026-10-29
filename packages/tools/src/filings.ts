@@ -90,7 +90,8 @@ export function filingTools(h: Helpers): Tool[] {
         const e = yield* h.entityOf(a, ctx),
           year = a.year ?? new Date().getFullYear(),
           p = h.packFor(e.meta, year);
-        if (!p?.pack.deadlines) return yield* fail(`${e.id} has no filing calendar: its business type is not set or its country has none. Set the business type in the app.`);
+        if (!p?.pack.deadlines)
+          return yield* fail(`${e.id} has no filing calendar: its business type is not set or its country has none. Set the business type in the app.`);
         const doc = readFilings(yield* h.docOf<unknown>(e, "filings", null)),
           now = today(),
           rows = filingRows(dueInYear(p.pack, year, factsOf(doc.settings, p.pack, e)), doc, now).filter((r) => !a.upcomingOnly || r.status !== "done");
@@ -156,10 +157,19 @@ export function filingTools(h: Helpers): Tool[] {
         const e = yield* h.entityOf(a, ctx),
           y = +a.period.slice(0, 4),
           d = yield* ilData(e, y);
-        if (!vatRegistered(d.type)) return yield* fail(`${d.type} is not VAT-registered: there is no periodic VAT report (an osek patur has only an annual turnover declaration).`);
+        if (!vatRegistered(d.type))
+          return yield* fail(`${d.type} is not VAT-registered: there is no periodic VAT report (an osek patur has only an annual turnover declaration).`);
         const freq = a.frequency ?? d.settings.vatFrequency,
           period = periodOf(`${a.period}-01`, freq);
-        const r = periodReport(period, { invoices: d.invoices, customers: d.customers, rows: d.rows, txns: d.txns, rate: d.rate, settings: d.settings, ...(e.meta.currency ? { currency: e.meta.currency } : {}) });
+        const r = periodReport(period, {
+          invoices: d.invoices,
+          customers: d.customers,
+          rows: d.rows,
+          txns: d.txns,
+          rate: d.rate,
+          settings: d.settings,
+          ...(e.meta.currency ? { currency: e.meta.currency } : {}),
+        });
         return {
           entity: e.id,
           period: { from: period.from, to: period.to, months: period.months },
@@ -199,7 +209,9 @@ export function filingTools(h: Helpers): Tool[] {
         const now = new Date(),
           g = now.toLocaleDateString("sv"),
           time = now.toLocaleTimeString("sv").slice(0, 5);
-        const rows = d.txns.filter((t) => t.date >= a.from && t.date <= a.to).map((t) => ({ id: t.id, date: t.date, amount: t.amount, desc: t.desc, account: t.account, category: t.category, source: t.source }));
+        const rows = d.txns
+          .filter((t) => t.date >= a.from && t.date <= a.to)
+          .map((t) => ({ id: t.id, date: t.date, amount: t.amount, desc: t.desc, account: t.account, category: t.category, source: t.source }));
         const f = uniformFiles({
           business: { vatId: d.settings.vatId, name: e.meta.name },
           taxYear: +a.to.slice(0, 4),
@@ -208,7 +220,7 @@ export function filingTools(h: Helpers): Tool[] {
           generated: { date: g, time },
           primaryId: Array.from(crypto.getRandomValues(new Uint8Array(15)), (b) => b % 10).join(""),
           currency: e.meta.currency ?? "ILS",
-          docs: uniformDocs(d.invoices as never, d.customers, (i) => (i as { method?: string }).method === "ביט" ? "other" : "transfer"),
+          docs: uniformDocs(d.invoices as never, d.customers, (i) => ((i as { method?: string }).method === "ביט" ? "other" : "transfer")),
           rows,
           accountName: h.label,
         });
@@ -220,7 +232,10 @@ export function filingTools(h: Helpers): Tool[] {
           { name: `${f.dir}/BKMVDATA.TXT`, data: iso88598(f.data) },
           { name: `${f.dir}/README.TXT`, data: iso88598(f.readme) },
         ]);
-        yield* Effect.try({ try: () => (mkdirSync(dir, { recursive: true }), writeFileSync(path, bytes)), catch: (x) => new ToolError({ message: `Could not write ${path}: ${String(x)}` }) });
+        yield* Effect.try({
+          try: () => (mkdirSync(dir, { recursive: true }), writeFileSync(path, bytes)),
+          catch: (x) => new ToolError({ message: `Could not write ${path}: ${String(x)}` }),
+        });
         return {
           entity: e.id,
           path,

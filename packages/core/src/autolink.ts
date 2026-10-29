@@ -132,7 +132,12 @@ export function autoLink(docs: readonly AgingSource[], txns: readonly Txn[], dir
   if (!made.size) return [...docs];
   return docs.map((s) =>
     s.payments.some((_, i) => made.has(keyOf(s.id, i)))
-      ? { ...s, payments: s.payments.map((p, i) => (made.has(keyOf(s.id, i)) ? { ...p, txn: made.get(keyOf(s.id, i))!.id, date: made.get(keyOf(s.id, i))!.date } : p)) }
+      ? {
+          ...s,
+          payments: s.payments.map((p, i) =>
+            made.has(keyOf(s.id, i)) ? { ...p, txn: made.get(keyOf(s.id, i))!.id, date: made.get(keyOf(s.id, i))!.date } : p,
+          ),
+        }
       : s,
   );
 }
@@ -154,7 +159,10 @@ export interface Unlinked {
 /** What auto-link left: payments with no bank row, each with the most likely bank row to link it to. */
 export function unlinkedPayments(ar: readonly AgingSource[], ap: readonly AgingSource[], txns: readonly Txn[], o: LinkOptions = {}): Unlinked[] {
   const out: Unlinked[] = [];
-  for (const [kind, dir, docs] of [["ar", 1, ar], ["ap", -1, ap]] as const) {
+  for (const [kind, dir, docs] of [
+    ["ar", 1, ar],
+    ["ap", -1, ap],
+  ] as const) {
     const linked = autoLink(docs, txns, dir, o);
     const hints = assign(linked, txns, dir, o, true);
     for (const s of linked) {
@@ -182,11 +190,14 @@ export function unlinkedPayments(ar: readonly AgingSource[], ap: readonly AgingS
  * The stored invoice / bill with one payment pointed at a bank row. A document marked paid the old way (no payments list: the whole total on
  * `paidDate`) gets `paidTxn` / `paidDate`, which both readers still understand; otherwise the payment in the list is updated.
  */
-export function linkPayment<D extends { id: string; payments?: readonly { id: string; txn: string | null; amount: number; date: string }[]; paidTxn?: string | null; paidDate?: string | null }>(
-  d: D,
-  payment: string,
-  txn: { id: string; date: string },
-): D {
+export function linkPayment<
+  D extends {
+    id: string;
+    payments?: readonly { id: string; txn: string | null; amount: number; date: string }[];
+    paidTxn?: string | null;
+    paidDate?: string | null;
+  },
+>(d: D, payment: string, txn: { id: string; date: string }): D {
   if (d.payments?.some((p) => p.id === payment))
     return { ...d, payments: d.payments.map((p) => (p.id === payment ? { ...p, txn: txn.id, date: txn.date } : p)) };
   if (!d.payments && payment === `${d.id}-p1`) return { ...d, paidTxn: txn.id, paidDate: txn.date };

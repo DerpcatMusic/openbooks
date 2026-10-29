@@ -60,12 +60,23 @@ export function taxAdvances(year: number, frequency: "monthly" | "bimonthly", ra
       from = `${year}-${pad(m0)}-01`,
       to = `${year}-${pad(m1)}-${pad(lastDay(year, m1))}`,
       base = r2(turnover(from, to));
-    return { id: `tax:${dy}-${pad(dm)}`, kind: "tax" as const, from, to, due: dueDate(`${dy}-${pad(dm)}-15`), base, amount: Math.round((base * ratePct) / 100) };
+    return {
+      id: `tax:${dy}-${pad(dm)}`,
+      kind: "tax" as const,
+      from,
+      to,
+      due: dueDate(`${dy}-${pad(dm)}-15`),
+      base,
+      amount: Math.round((base * ratePct) / 100),
+    };
   });
 }
 
 /** Monthly Bituach Leumi + health advance for a declared monthly income (clamped to the table's minimum and maximum base). */
-export function blMonthly(T: Pick<IlRates, "blReducedMonthly" | "blMaxMonthly" | "blMinMonthly" | "blRateReduced" | "blRateFull" | "healthRateReduced" | "healthRateFull">, monthlyIncome: number): { base: number; bl: number; health: number; total: number } {
+export function blMonthly(
+  T: Pick<IlRates, "blReducedMonthly" | "blMaxMonthly" | "blMinMonthly" | "blRateReduced" | "blRateFull" | "healthRateReduced" | "healthRateFull">,
+  monthlyIncome: number,
+): { base: number; bl: number; health: number; total: number } {
   const base = Math.min(Math.max(monthlyIncome, T.blMinMonthly), T.blMaxMonthly),
     bl = bands(base, [
       [T.blReducedMonthly, T.blRateReduced],
@@ -85,12 +96,21 @@ export function blAdvances(year: number, T: Parameters<typeof blMonthly>[0], mon
     const m = i + 1,
       dy = year + (m === 12 ? 1 : 0),
       dm = m === 12 ? 1 : m + 1;
-    return { id: `bl:${year}-${pad(m)}`, kind: "bl" as const, from: `${year}-${pad(m)}-01`, to: `${year}-${pad(m)}-${pad(lastDay(year, m))}`, due: `${dy}-${pad(dm)}-15`, base: x.base, amount: x.total };
+    return {
+      id: `bl:${year}-${pad(m)}`,
+      kind: "bl" as const,
+      from: `${year}-${pad(m)}-01`,
+      to: `${year}-${pad(m)}-${pad(lastDay(year, m))}`,
+      due: `${dy}-${pad(dm)}-15`,
+      base: x.base,
+      amount: x.total,
+    };
   });
 }
 
 /** Paid so far for the year and kind. */
-export const paidTotal = (paid: readonly PaidAdvance[], year: number, kind: AdvanceKind) => r2(paid.filter((p) => p.year === year && p.kind === kind).reduce((a, p) => a + p.amount, 0));
+export const paidTotal = (paid: readonly PaidAdvance[], year: number, kind: AdvanceKind) =>
+  r2(paid.filter((p) => p.year === year && p.kind === kind).reduce((a, p) => a + p.amount, 0));
 
 /** The schedule with what has been paid against each row (by the row it settles) and what is still owed up to `today`. */
 export function withPaid(rows: readonly AdvanceRow[], paid: readonly PaidAdvance[]) {

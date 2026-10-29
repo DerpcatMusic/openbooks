@@ -161,7 +161,8 @@ describe("accrual rows", () => {
 import { autoLink, linkPayment, unlinkedPayments } from "./index.ts";
 
 describe("payments without a bank row link to the deposit on read, so the bases agree", () => {
-  const dep = (id: string, date: string, amount: number, desc: string, category = "revenue:services") => tx(id, date, amount, category, { desc, source: "mercury" });
+  const dep = (id: string, date: string, amount: number, desc: string, category = "revenue:services") =>
+    tx(id, date, amount, category, { desc, source: "mercury" });
   const paidInv = (id: string, number: string, customer: string, price: number, issued: string, paidDate: string | null, extra: object = {}) => ({
     id,
     kind: "invoice",
@@ -184,7 +185,11 @@ describe("payments without a bank row link to the deposit on read, so the bases 
       dep("d2", "2026-03-20", 700, "ACH CREDIT LUMEN STUDIOS"),
       tx("rent", "2026-03-01", -400, "expense:rent"),
     ],
-    invoices: [paidInv("i1", "INV-0001", "c1", 1000, "2026-01-05", "2026-02-10"), paidInv("i2", "INV-0002", "c2", 700, "2026-03-02", "2026-03-20"), paidInv("i3", "INV-0003", "c1", 250, "2026-12-20", null)],
+    invoices: [
+      paidInv("i1", "INV-0001", "c1", 1000, "2026-01-05", "2026-02-10"),
+      paidInv("i2", "INV-0002", "c2", 700, "2026-03-02", "2026-03-20"),
+      paidInv("i3", "INV-0003", "c1", 250, "2026-12-20", null),
+    ],
   };
   const ar = invoiceSources(books.invoices, name);
   const OPTC = { ...OPT, currency: "USD" };
@@ -214,7 +219,8 @@ describe("payments without a bank row link to the deposit on read, so the bases 
     expect(unlinkedPayments(ar, [], books.txns, { currency: "USD" })).toEqual([]); // the demo-like case leaves nothing behind
   });
   it("needs the exact amount, the window, the customer, the same currency; never reuses a bank row", () => {
-    const one = (inv: object, rows: Txn[], o = { currency: "USD" }) => autoLink(invoiceSources([{ ...paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10"), ...inv }], name), rows, 1, o)[0]!.payments[0]!.txn;
+    const one = (inv: object, rows: Txn[], o = { currency: "USD" }) =>
+      autoLink(invoiceSources([{ ...paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10"), ...inv }], name), rows, 1, o)[0]!.payments[0]!.txn;
     const good = dep("g", "2026-01-12", 500, "NORTHBOUND RECORDS");
     expect(one({}, [good])).toBe("g");
     expect(one({}, [dep("g", "2026-01-12", 500.01, "NORTHBOUND RECORDS")])).toBeNull(); // a cent off
@@ -225,10 +231,23 @@ describe("payments without a bank row link to the deposit on read, so the bases 
     expect(one({}, [dep("g", "2026-01-12", -500, "NORTHBOUND RECORDS")])).toBeNull(); // wrong direction
     expect(one({}, [dep("g", "2026-01-12", 500, "WIRE INV-7")])).toBe("g"); // the document number is enough
     // two invoices of 500 for one customer and one deposit: only one links
-    const two = autoLink(invoiceSources([paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10"), paidInv("b", "INV-8", "c1", 500, "2026-01-02", "2026-01-10")], name), [good], 1, { currency: "USD" });
+    const two = autoLink(
+      invoiceSources([paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10"), paidInv("b", "INV-8", "c1", 500, "2026-01-02", "2026-01-10")], name),
+      [good],
+      1,
+      { currency: "USD" },
+    );
     expect(two.map((s) => s.payments[0]!.txn)).toEqual(["g", null]);
     // a row an explicit payment already took is not offered again
-    const taken = autoLink(invoiceSources([paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10", { paidTxn: "g" }), paidInv("b", "INV-8", "c1", 500, "2026-01-02", "2026-01-10")], name), [good], 1, { currency: "USD" });
+    const taken = autoLink(
+      invoiceSources(
+        [paidInv("a", "INV-7", "c1", 500, "2026-01-01", "2026-01-10", { paidTxn: "g" }), paidInv("b", "INV-8", "c1", 500, "2026-01-02", "2026-01-10")],
+        name,
+      ),
+      [good],
+      1,
+      { currency: "USD" },
+    );
     expect(taken.map((s) => s.payments[0]!.txn)).toEqual(["g", null]);
   });
   it("is deterministic: the order of the books does not change who gets which deposit", () => {
@@ -240,7 +259,16 @@ describe("payments without a bank row link to the deposit on read, so the bases 
     expect(run([...docs].reverse(), [...rows].reverse())).toEqual(first);
   });
   it("bills link the same way, outgoing", () => {
-    const bill = { id: "b1", number: "BILL-1", vendor: "v1", date: "2026-03-01", due: "2026-03-31", lines: [{ amount: 300, account: "expense:professional" }], status: "open", payments: [{ id: "p", txn: null, amount: 300, date: "2026-03-14" }] };
+    const bill = {
+      id: "b1",
+      number: "BILL-1",
+      vendor: "v1",
+      date: "2026-03-01",
+      due: "2026-03-31",
+      lines: [{ amount: 300, account: "expense:professional" }],
+      status: "open",
+      payments: [{ id: "p", txn: null, amount: 300, date: "2026-03-14" }],
+    };
     const out = tx("h", "2026-03-15", -300, "expense:professional", { desc: "HARBOR COMPLIANCE", source: "mercury" });
     const ap = billSources([bill], () => "Harbor Compliance");
     const acc = accrualRows([out], [], ap, OPTC);
@@ -249,8 +277,18 @@ describe("payments without a bank row link to the deposit on read, so the bases 
     expect(basisBridge([out], acc, "2026-01-01", "2026-12-31")).toMatchObject({ cashNet: -300, accrualNet: -300, outside: 0, rest: 0 });
   });
   it("linkPayment points a legacy paid document or a listed payment at the row", () => {
-    expect(linkPayment({ id: "i", paidTxn: null, paidDate: "2026-01-01" }, "i-p1", { id: "t", date: "2026-01-03" })).toEqual({ id: "i", paidTxn: "t", paidDate: "2026-01-03" });
-    const d = { id: "i", payments: [{ id: "p1", txn: null, amount: 5, date: "2026-01-01" }, { id: "p2", txn: null, amount: 6, date: "2026-01-02" }] };
+    expect(linkPayment({ id: "i", paidTxn: null, paidDate: "2026-01-01" }, "i-p1", { id: "t", date: "2026-01-03" })).toEqual({
+      id: "i",
+      paidTxn: "t",
+      paidDate: "2026-01-03",
+    });
+    const d = {
+      id: "i",
+      payments: [
+        { id: "p1", txn: null, amount: 5, date: "2026-01-01" },
+        { id: "p2", txn: null, amount: 6, date: "2026-01-02" },
+      ],
+    };
     expect(linkPayment(d, "p2", { id: "t", date: "2026-01-04" }).payments).toEqual([d.payments[0], { id: "p2", txn: "t", amount: 6, date: "2026-01-04" }]);
     expect(linkPayment(d, "nope", { id: "t", date: "x" })).toBe(d);
   });

@@ -101,9 +101,15 @@ export default {
   "trips.why.uplift": "25% higher caps in {w}.",
   "trips.why.ilLodging":
     "Per night: the first 7 nights up to the cap; nights 8 to 90 in full up to the lower cap, then 75% of a dearer night within a band; over 90 nights the lower cap (reg. 2(2)).",
-  "trips.why.ilPerDiem": { one: "Other expenses (meals, local transport): a daily cap for {v} day with lodging and {w} without.", other: "Other expenses (meals, local transport): a daily cap for {v} days with lodging and {w} without." },
+  "trips.why.ilPerDiem": {
+    one: "Other expenses (meals, local transport): a daily cap for {v} day with lodging and {w} without.",
+    other: "Other expenses (meals, local transport): a daily cap for {v} days with lodging and {w} without.",
+  },
   "trips.why.ilCar": { one: "Rental car: up to the daily cap for {v} day.", other: "Rental car: up to the daily cap for {v} days." },
-  "trips.why.mainPurpose": { one: "Business is the main purpose ({v} of {w} day): in full.", other: "Business is the main purpose ({v} of {w} days): in full." },
+  "trips.why.mainPurpose": {
+    one: "Business is the main purpose ({v} of {w} day): in full.",
+    other: "Business is the main purpose ({v} of {w} days): in full.",
+  },
   "trips.why.byDays": "Apportioned by business days: {v} of {w}.",
   "trips.why.flightClass": "Economy class in full; business or first class only up to the business fare. Keep the ticket.",
   "trips.why.companion": "A companion's costs are private (s.32, §274(m)(3)): nothing, unless they work for the business and it is documented.",
@@ -113,7 +119,10 @@ export default {
   "trips.why.perDiemUnlinked": "Per diem beyond the meals linked to the trip.",
   "trips.why.usMeals50": "Travel meals: 50% of the actual cost (§274(n)).",
   "trips.why.us274c": "Foreign trip over 7 days with 25% or more personal time (§274(c)): fares by business days, {v} of {w}.",
-  "trips.why.us274cExempt": { one: "Foreign trip of {v} day: the §274(c) allocation doesn't apply, so fares are in full.", other: "Foreign trip of {v} days: the §274(c) allocation doesn't apply, so fares are in full." },
+  "trips.why.us274cExempt": {
+    one: "Foreign trip of {v} day: the §274(c) allocation doesn't apply, so fares are in full.",
+    other: "Foreign trip of {v} days: the §274(c) allocation doesn't apply, so fares are in full.",
+  },
   "trips.why.mainPersonal": "Personal days outweigh business days ({v} of {w}): the fare isn't deductible.",
   "reports.exportXlsx": "Export Excel",
   // ---------- accounting basis ----------

@@ -5,7 +5,7 @@ export default {
   "reports.bridge.link": "קשרו",
   "reports.bridge.fits": "תנועת בנק {date}: {desc}",
   "reports.bridge.noRow": "אין תנועת בנק בסכום הזה: נרשם כשולם מחוץ לספרים.",
-  "filings.us.settings": "הגדרות הגשה בארה\"ב",
+  "filings.us.settings": 'הגדרות הגשה בארה"ב',
   "filings.us.settingsHint": "נשמרות עם הספרים. הן קובעות אילו מועדים פדרליים ומדינתיים מופיעים, והן מודפסות על הטפסים.",
   "filings.us.state": "מדינת ההתאגדות",
   "filings.us.stateHint": "דלאוור ווויומינג מוסיפות את מועדי האגרה השנתית שלהן.",

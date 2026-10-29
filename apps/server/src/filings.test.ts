@@ -14,12 +14,54 @@ beforeAll(async () => {
   await post("/api/doc?e=zz-il", {
     name: "invoices",
     value: [
-      { id: "i1", kind: "tax", number: "0001", customer: "c1", items: [{ desc: "work", qty: 1, price: 8000 }], vat: 0.18, issued: "2026-04-01", due: "2026-05-01", status: "open", paidTxn: null, paidDate: null, ref: null },
-      { id: "i2", kind: "tax", number: "0002", customer: "c1", items: [{ desc: "work", qty: 1, price: 1000 }], vat: 0.18, issued: "2026-05-02", due: null, status: "open", paidTxn: null, paidDate: null, ref: null },
-      { id: "i3", kind: "tax", number: null, customer: "c1", items: [{ desc: "draft", qty: 1, price: 999 }], vat: 0.18, issued: "2026-04-03", due: null, status: "draft", paidTxn: null, paidDate: null, ref: null },
+      {
+        id: "i1",
+        kind: "tax",
+        number: "0001",
+        customer: "c1",
+        items: [{ desc: "work", qty: 1, price: 8000 }],
+        vat: 0.18,
+        issued: "2026-04-01",
+        due: "2026-05-01",
+        status: "open",
+        paidTxn: null,
+        paidDate: null,
+        ref: null,
+      },
+      {
+        id: "i2",
+        kind: "tax",
+        number: "0002",
+        customer: "c1",
+        items: [{ desc: "work", qty: 1, price: 1000 }],
+        vat: 0.18,
+        issued: "2026-05-02",
+        due: null,
+        status: "open",
+        paidTxn: null,
+        paidDate: null,
+        ref: null,
+      },
+      {
+        id: "i3",
+        kind: "tax",
+        number: null,
+        customer: "c1",
+        items: [{ desc: "draft", qty: 1, price: 999 }],
+        vat: 0.18,
+        issued: "2026-04-03",
+        due: null,
+        status: "draft",
+        paidTxn: null,
+        paidDate: null,
+        ref: null,
+      },
     ],
   });
-  await post("/api/doc?e=zz-il", { name: "filings", value: { done: { "il.vat.2026-03": { on: "2026-04-18", confirmation: "ABC123" } }, settings: { il: { vatId: "514290543", vatFrequency: "monthly" } } } });
+  await post("/api/doc?e=zz-il", {
+    name: "filings",
+    value: { done: { "il.vat.2026-03": { on: "2026-04-18", confirmation: "ABC123" } }, settings: { il: { vatId: "514290543", vatFrequency: "monthly" } } },
+  });
 }, 30_000);
 afterAll(() => {
   s?.stop();

@@ -38,7 +38,8 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
         title: { en: `VAT report and payment, ${span("en")}`, he: `דוח מע"מ ותשלום, ${span("he")}` },
         form: "PCN874",
         url: VATLAW(67),
-        source: "VAT Law s.67(b): within 15 days after the period. Online filers get until the 19th in Tax Authority practice (not confirmed from a primary source); detailed-reporting filers until the 23rd (s.67א).",
+        source:
+          "VAT Law s.67(b): within 15 days after the period. Online filers get until the 19th in Tax Authority practice (not confirmed from a primary source); detailed-reporting filers until the 23rd (s.67א).",
       });
     }
   }
@@ -59,7 +60,8 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
           he: `מקדמת מס הכנסה עבור ${from === m ? mm(m).he : `${mm(from).he}-${mm(m).he}`} ${year}`,
         },
         url: "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(קביעת_מקדמות_על_פי_מחזור)",
-        source: "Income Tax (Determination of Advances by Turnover) Regulations 1982, reg.2: the 15th, rate from the Assessing Officer's notice times the turnover of the preceding month(s).",
+        source:
+          "Income Tax (Determination of Advances by Turnover) Regulations 1982, reg.2: the 15th, rate from the Assessing Officer's notice times the turnover of the preceding month(s).",
       });
     }
   }
@@ -92,7 +94,8 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
       id: `il.short.${year}`,
       date: `${year + 1}-12-31`,
       title: { en: `Short year-end report ${year} (small business, exempt from the annual return)`, he: `דיווח מקוצר ${year} (בעל עסק זעיר, פטור מדוח שנתי)` },
-      source: "Tax Authority notice 2025-000092 of 4 Dec 2025: the short report for tax year 2024 could be filed until 31.12.2025. Same pattern assumed for later years.",
+      source:
+        "Tax Authority notice 2025-000092 of 4 Dec 2025: the short report for tax year 2024 could be filed until 31.12.2025. Same pattern assumed for later years.",
       unverified: true,
     });
     out.push({
@@ -109,7 +112,8 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
       title: { en: `Annual return 1301 for ${year}`, he: `דוח שנתי 1301 לשנת ${year}` },
       form: "1301",
       url: ORD(132),
-      source: "Ordinance s.132(a): 30 April; s.132(b)(1),(1א): 31 May for double-entry books or an online self-employed report. The Tax Authority often extends.",
+      source:
+        "Ordinance s.132(a): 30 April; s.132(b)(1),(1א): 31 May for double-entry books or an online self-employed report. The Tax Authority often extends.",
     });
   }
   if (t === "osek-patur") {

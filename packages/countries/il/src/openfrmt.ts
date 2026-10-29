@@ -16,8 +16,31 @@ const L = layout.records as unknown as Record<string, Rec>;
 
 /** Fields written as signed amounts X9(n)v<dec>: id → decimals. Every other Num field is a zero-padded integer. */
 const DEC: Record<number, number> = {
-  1217: 2, 1219: 2, 1220: 2, 1221: 2, 1222: 2, 1223: 2, 1224: 2, 1264: 4, 1265: 2, 1266: 2, 1267: 2, 1268: 2, 1312: 2,
-  1368: 2, 1369: 2, 1370: 4, 1414: 2, 1415: 2, 1416: 2, 1422: 2, 1460: 4, 1461: 4, 1462: 4, 1463: 2, 1464: 2,
+  1217: 2,
+  1219: 2,
+  1220: 2,
+  1221: 2,
+  1222: 2,
+  1223: 2,
+  1224: 2,
+  1264: 4,
+  1265: 2,
+  1266: 2,
+  1267: 2,
+  1268: 2,
+  1312: 2,
+  1368: 2,
+  1369: 2,
+  1370: 4,
+  1414: 2,
+  1415: 2,
+  1416: 2,
+  1422: 2,
+  1460: 4,
+  1461: 4,
+  1462: 4,
+  1463: 2,
+  1464: 2,
 };
 /** VAT rate and similar unsigned percentages (9(2)v99). */
 const UNSIGNED: ReadonlySet<number> = new Set([1268]);
@@ -31,7 +54,11 @@ export function record(code: string, v: Readonly<Record<number, Value>>): string
   for (const [id, type, start, len] of rec.fields) {
     if (out.length !== start) throw new Error(`OPENFRMT: ${code} field ${id} starts at ${out.length}, layout says ${start}`);
     const x = start === 0 ? (v[id] ?? code) : v[id]; // the first field is the record code
-    if (type === "Str") out += String(x ?? "").replace(/[\r\n]+/g, " ").slice(0, len).padEnd(len, " ");
+    if (type === "Str")
+      out += String(x ?? "")
+        .replace(/[\r\n]+/g, " ")
+        .slice(0, len)
+        .padEnd(len, " ");
     else if (id in DEC) {
       const n = typeof x === "number" ? x : +(x ?? 0) || 0,
         digits = String(Math.round(Math.abs(n) * 10 ** DEC[id]!)).padStart(len - (UNSIGNED.has(id) ? 0 : 1), "0");
@@ -192,12 +219,42 @@ export function uniformFiles(inp: UniformInput): UniformFiles {
       const eid = r.id.replace(/-\d+$/, "");
       if (!entry.has(eid)) entry.set(eid, ++no);
       const credit = r.amount > 0;
-      movements.push({ no: entry.get(eid)!, date: r.date, ref: eid, desc: r.desc, acct: r.category, contra: "", debit: !credit, amount: Math.abs(r.amount), bank: false });
+      movements.push({
+        no: entry.get(eid)!,
+        date: r.date,
+        ref: eid,
+        desc: r.desc,
+        acct: r.category,
+        contra: "",
+        debit: !credit,
+        amount: Math.abs(r.amount),
+        bank: false,
+      });
     } else {
       const m = ++no,
         inflow = r.amount > 0;
-      movements.push({ no: m, date: r.date, ref: r.id, desc: r.desc, acct: r.account, contra: r.category, debit: inflow, amount: Math.abs(r.amount), bank: true });
-      movements.push({ no: m, date: r.date, ref: r.id, desc: r.desc, acct: r.category, contra: r.account, debit: !inflow, amount: Math.abs(r.amount), bank: false });
+      movements.push({
+        no: m,
+        date: r.date,
+        ref: r.id,
+        desc: r.desc,
+        acct: r.account,
+        contra: r.category,
+        debit: inflow,
+        amount: Math.abs(r.amount),
+        bank: true,
+      });
+      movements.push({
+        no: m,
+        date: r.date,
+        ref: r.id,
+        desc: r.desc,
+        acct: r.category,
+        contra: r.account,
+        debit: !inflow,
+        amount: Math.abs(r.amount),
+        bank: false,
+      });
     }
   }
   for (const m of movements) {

@@ -153,7 +153,6 @@ export function sheetNames(names: readonly string[]): string[] {
   });
 }
 
-
 /** The workbook as .xlsx bytes. */
 export async function xlsx(sheets: readonly Sheet[], opts: { title?: string } = {}): Promise<Uint8Array> {
   const enc = new TextEncoder();

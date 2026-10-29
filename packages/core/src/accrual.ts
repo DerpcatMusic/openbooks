@@ -235,7 +235,8 @@ export function invoiceSources(invoices: readonly InvoiceLike[], customer: (id: 
         due: i.due ?? null,
         gross,
         // an invoice marked paid the old way is one payment of the whole total, against its paidTxn when it has one
-        payments: i.payments ?? (i.status === "paid" || i.paidTxn ? [{ id: `${i.id}-p1`, txn: i.paidTxn ?? null, amount: gross, date: i.paidDate ?? i.issued! }] : []),
+        payments:
+          i.payments ?? (i.status === "paid" || i.paidTxn ? [{ id: `${i.id}-p1`, txn: i.paidTxn ?? null, amount: gross, date: i.paidDate ?? i.issued! }] : []),
         ...(i.account ? { account: i.account } : {}),
         ...(i.currency ? { currency: i.currency } : {}),
       };

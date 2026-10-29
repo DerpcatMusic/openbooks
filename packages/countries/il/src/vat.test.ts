@@ -4,7 +4,15 @@ import { CLOSING_LENGTH, HEADER_LENGTH, RECORD_LENGTH, checkPcn874, parsePcn874,
 import { shekel, validVatId, vatReport, type VatSaleDoc } from "./vat.ts";
 
 const jan = vatPeriods(2026, "monthly")[0]!;
-const doc = (o: Partial<VatSaleDoc> & { id: string }): VatSaleDoc => ({ kind: "tax", number: o.id, status: "open", issued: "2026-01-10", items: [{ qty: 1, price: 1000 }], vat: 0.18, ...o });
+const doc = (o: Partial<VatSaleDoc> & { id: string }): VatSaleDoc => ({
+  kind: "tax",
+  number: o.id,
+  status: "open",
+  issued: "2026-01-10",
+  items: [{ qty: 1, price: 1000 }],
+  vat: 0.18,
+  ...o,
+});
 const docs: VatSaleDoc[] = [
   doc({ id: "0001", issued: "2026-01-05", items: [{ qty: 1, price: 10000 }], customerVatId: "123456782", alloc: "123456789" }),
   doc({ id: "0002", issued: "2026-01-20", items: [{ qty: 2, price: 1000 }] }),
@@ -50,7 +58,13 @@ describe("vat report", () => {
     expect(r.due).toEqual({ statutory: "2026-02-15", online: "2026-02-19", detailed: "2026-02-23" }); // 15 Feb 2026 is a Sunday
   });
   it("credits are negative and a refund comes out negative", () => {
-    const r = vatReport({ period: jan, docs: [doc({ id: "9", items: [{ qty: 1, price: -1000 }], customerVatId: "123456782" })], inputs, rate: 0.18, supplierIds: { Dell: "123456782" } });
+    const r = vatReport({
+      period: jan,
+      docs: [doc({ id: "9", items: [{ qty: 1, price: -1000 }], customerVatId: "123456782" })],
+      inputs,
+      rate: 0.18,
+      supplierIds: { Dell: "123456782" },
+    });
     expect(r.totals.outputVat).toBe(-180);
     expect(r.totals.payable).toBe(-180 - 210 - 1800);
     const f = pcn874({ vatId: "514290543", report: r, created: "2026-02-03" });
@@ -60,7 +74,12 @@ describe("vat report", () => {
   it("flags what the Tax Authority will reject", () => {
     const r = vatReport({
       period: jan,
-      docs: [doc({ id: "1", items: [{ qty: 1, price: 6000 }] }), doc({ id: "2", customerVatId: "123456789" }), doc({ id: "3", items: [{ qty: 1, price: 12000 }], customerVatId: "123456782" }), doc({ id: "4", currency: "USD" })],
+      docs: [
+        doc({ id: "1", items: [{ qty: 1, price: 6000 }] }),
+        doc({ id: "2", customerVatId: "123456789" }),
+        doc({ id: "3", items: [{ qty: 1, price: 12000 }], customerVatId: "123456782" }),
+        doc({ id: "4", currency: "USD" }),
+      ],
       inputs: [{ id: "x", date: "2026-01-02", desc: "bulk", gross: 59000, vatReclaimable: 9000 }],
       rate: 0.18,
     });
@@ -71,7 +90,23 @@ describe("vat report", () => {
 describe("PCN874 file", () => {
   const text = pcn874({ vatId: "514290543", report: report(), created: "2026-02-03" });
   const rows = text.split("\r\n");
-  const header = ["O", "514290543", "202601", "1", "20260203", "+00000013000", "+000002340", "+00000000000", "+000000000", "000000003", "+00000004000", "+000000210", "+000001800", "000000003", "+00000000330"].join("");
+  const header = [
+    "O",
+    "514290543",
+    "202601",
+    "1",
+    "20260203",
+    "+00000013000",
+    "+000002340",
+    "+00000000000",
+    "+000000000",
+    "000000003",
+    "+00000004000",
+    "+000000210",
+    "+000001800",
+    "000000003",
+    "+00000000330",
+  ].join("");
   const rec = (...f: string[]) => f.join("");
   it("is fixed width", () => {
     expect(rows.length).toBe(1 + 6 + 1 + 1);
@@ -120,6 +155,9 @@ describe("vat issues carry values, not English sentences", () => {
       { level: "warn", code: "badCustomerId", ref: "0009", receipt: true },
       { level: "warn", code: "badCustomerId", ref: "0010", receipt: false },
     ]);
-    expect(r.lines.map((l) => [l.doc, l.receipt])).toEqual([["0009", true], ["0010", false]]);
+    expect(r.lines.map((l) => [l.doc, l.receipt])).toEqual([
+      ["0009", true],
+      ["0010", false],
+    ]);
   });
 });

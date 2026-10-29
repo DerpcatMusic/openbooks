@@ -33,7 +33,8 @@ export default {
   "filings.filedDate": "Date filed",
   "filings.confirmationNo": "Confirmation number",
   "filings.confirmationHint": "The reference the Tax Authority showed after you submitted. Optional.",
-  "filings.disclaimer": "Dates follow the statutes and the Tax Authority's published practice, including the rest-day rules. They can move by decree or extension; check the date on the Authority's site before relying on it. Only you can submit: the Authority accepts no third-party submission from software.",
+  "filings.disclaimer":
+    "Dates follow the statutes and the Tax Authority's published practice, including the rest-day rules. They can move by decree or extension; check the date on the Authority's site before relying on it. Only you can submit: the Authority accepts no third-party submission from software.",
   "filings.tools": "Tools",
   "filings.settings": "Israeli filing settings",
   "filings.settingsHint": "Used for the VAT report, the uniform-structure file and the advances.",
@@ -71,14 +72,16 @@ export default {
   "vat.due.statutory": "Statutory (paper and payment)",
   "vat.due.online": "Online filing",
   "vat.due.detailed": "Detailed reporting (PCN874)",
-  "vat.due.note": "Moved past weekends, holidays and Chol HaMoed; the online and detailed dates are Tax Authority practice and not verified against the Authority's site.",
+  "vat.due.note":
+    "Moved past weekends, holidays and Chol HaMoed; the online and detailed dates are Tax Authority practice and not verified against the Authority's site.",
   "vat.markOnHub": "Mark filed on the hub",
   "vat.file": "PCN874 file",
   "vat.needId": "Enter your business number to create the file.",
   "vat.download": "Download PCN874.TXT",
   "vat.downloaded": "PCN874.TXT downloaded",
   "vat.fileOk": "Consistent",
-  "vat.fileNote": "Built to the Tax Authority's published layout and checked for internal consistency. Run it through the Authority's online simulator before the real upload: OpenBooks has not been able to test against it.",
+  "vat.fileNote":
+    "Built to the Tax Authority's published layout and checked for internal consistency. Run it through the Authority's online simulator before the real upload: OpenBooks has not been able to test against it.",
   "vat.issues": "Check before filing",
   "vat.level.error": "Fix",
   "vat.level.warn": "Check",
@@ -153,12 +156,14 @@ export default {
   "adv.kind.bl": "Bituach Leumi",
   "adv.extra": "Extra payment",
   "adv.linked": "linked to a bank transaction",
-  "adv.disclaimer": "Advances you record here reduce the balance on your 1301 estimate. The amounts follow the rates you enter; the Authority's own notices are the authority.",
+  "adv.disclaimer":
+    "Advances you record here reduce the balance on your 1301 estimate. The amounts follow the rates you enter; the Authority's own notices are the authority.",
 
   // uniform file
   "uniform.title": "Uniform-structure file",
   "uniform.sub": "Your books as INI.TXT and BKMVDATA.TXT in the OPENFRMT 1.31 layout, zipped.",
-  "uniform.notRegistered": "OpenBooks is not registered with the Tax Authority as an accounting program. Registration is a separate process that has not been done, so use this file for your accountant and for the Authority's simulator, and for an audit request, not as a certified program output.",
+  "uniform.notRegistered":
+    "OpenBooks is not registered with the Tax Authority as an accounting program. Registration is a separate process that has not been done, so use this file for your accountant and for the Authority's simulator, and for an audit request, not as a certified program output.",
   "uniform.range": "Range",
   "uniform.from": "From",
   "uniform.to": "To",
@@ -176,7 +181,10 @@ export default {
   "uniform.rec.D120": "Receipt lines",
   "uniform.rec.M100": "Inventory items",
   "uniform.rec.Z900": "Closing record",
-  "uniform.note.unbalanced": { one: "{n} journal entry does not balance (debits differ from credits).", other: "{n} journal entries do not balance (debits differ from credits)." },
+  "uniform.note.unbalanced": {
+    one: "{n} journal entry does not balance (debits differ from credits).",
+    other: "{n} journal entries do not balance (debits differ from credits).",
+  },
   "uniform.note.noCustomerName": "Document {ref} has no customer name.",
   "uniform.moreNotes": { one: "and 1 more note", other: "and {n} more notes" },
   "uniform.how": "Using the file",
@@ -189,7 +197,8 @@ export default {
   // depreciation (1342)
   "tax.tabDepreciation": "Depreciation",
   "dep.title": "Depreciation (Form 1342)",
-  "dep.intro": "Equipment bought for the business is deducted over several years at rates set by regulation, not all at once. This is the 1342 appendix, built from the assets in your books.",
+  "dep.intro":
+    "Equipment bought for the business is deducted over several years at rates set by regulation, not all at once. This is the 1342 appendix, built from the assets in your books.",
   "dep.empty": "No assets yet",
   "dep.emptyText": "Purchases filed under Equipment, or tagged with the equipment and depreciation rule, show up here.",
   "dep.col.asset": "Asset",
@@ -207,7 +216,8 @@ export default {
   "dep.class.privateCar": "Private car",
   "dep.guessed": "Guessed class",
   "dep.total": "Total",
-  "dep.note": "The class was guessed from the description where marked; change it if it is wrong. Rates are from the depreciation regulations and have not been checked against a current table.",
+  "dep.note":
+    "The class was guessed from the description where marked; change it if it is wrong. Rates are from the depreciation regulations and have not been checked against a current table.",
 
   // 1301 additions
   "taxReturn.advances": "Advances paid",

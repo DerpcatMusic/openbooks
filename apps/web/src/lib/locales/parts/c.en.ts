@@ -102,8 +102,14 @@ export default {
   "taxChecks.withholdingDoc": "Withholding has a document",
   "taxChecks.withholdingDocText": "Field 040 needs the fund's certificate or statement in Proofs.",
   "taxChecks.soldier": "Released-soldier points: +{pts}",
-  "taxChecks.soldierIn": { one: "Discharged {date}, {months} month. Form 830 is in Proofs.", other: "Discharged {date}, {months} months. Form 830 is in Proofs." },
-  "taxChecks.soldierMissing": { one: "Discharged {date}, {months} month. Form 830 missing from Proofs.", other: "Discharged {date}, {months} months. Form 830 missing from Proofs." },
+  "taxChecks.soldierIn": {
+    one: "Discharged {date}, {months} month. Form 830 is in Proofs.",
+    other: "Discharged {date}, {months} months. Form 830 is in Proofs.",
+  },
+  "taxChecks.soldierMissing": {
+    one: "Discharged {date}, {months} month. Form 830 missing from Proofs.",
+    other: "Discharged {date}, {months} months. Form 830 missing from Proofs.",
+  },
   "taxChecks.bl": "Bituach Leumi payments",
   "taxChecks.blFound": "Payments from Bituach Leumi found — reserve/unemployment pay goes in 194/250 with their annual certificate.",
   "taxChecks.blNone": "None in the bank, so fields 194/250 stay empty.",

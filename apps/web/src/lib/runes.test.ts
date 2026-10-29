@@ -7,7 +7,7 @@ const walk = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(jo
 
 test("no runes in plain .ts files", () => {
   const bad = walk(new URL("..", import.meta.url).pathname)
-    .filter((f) => /\.ts$/.test(f) && !/\.svelte\.ts$/.test(f) && !/\.test\.ts$/.test(f))
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".svelte.ts") && !f.endsWith(".test.ts"))
     .filter((f) => /\$(state|derived|effect|props|bindable)\b/.test(readFileSync(f, "utf8").replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "")));
   expect(bad).toEqual([]);
 });

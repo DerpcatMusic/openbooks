@@ -1,6 +1,17 @@
 // The books on their accounting basis: the cash ledger as it is, or (books "accrual") the ledger re-read with the issued invoices and approved
 // bills (core basis.ts). Reports use ledgerRows(); tax screens and the transaction list stay on S.data.txns, the cash ledger.
-import { accrualRows, billSources, invoiceSources, linkPayment, payrollSources, plOf, unlinkedPayments, type Basis, type PayrollRun, type Unlinked } from "@openbooks/core";
+import {
+  accrualRows,
+  billSources,
+  invoiceSources,
+  linkPayment,
+  payrollSources,
+  plOf,
+  unlinkedPayments,
+  type Basis,
+  type PayrollRun,
+  type Unlinked,
+} from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { S, allCats, booksDoc, doc, ent, isArchived, saveBooks, saveDoc, startDate } from "./books.svelte.ts";
 

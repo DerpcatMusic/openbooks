@@ -4,7 +4,8 @@ import { dueDate, isRestDay, periodOf, reportDue, restDays, vatPeriods } from ".
 describe("rest days (ICU Hebrew calendar)", () => {
   it("2026 holidays fall where the calendar says", () => {
     const r = restDays(2026);
-    for (const d of ["2026-04-02", "2026-04-08", "2026-05-22", "2026-09-12", "2026-09-13", "2026-09-21", "2026-09-26", "2026-10-03"]) expect(r.has(d), d).toBe(true); // Pesach 1/7, Shavuot, RH 1-2, YK, Sukkot 1, Shmini Atzeret
+    for (const d of ["2026-04-02", "2026-04-08", "2026-05-22", "2026-09-12", "2026-09-13", "2026-09-21", "2026-09-26", "2026-10-03"])
+      expect(r.has(d), d).toBe(true); // Pesach 1/7, Shavuot, RH 1-2, YK, Sukkot 1, Shmini Atzeret
     for (const d of ["2026-04-03", "2026-04-07", "2026-09-27", "2026-10-02"]) expect(r.has(d), `chol hamoed ${d}`).toBe(true);
     for (const d of ["2026-04-09", "2026-04-10", "2026-10-04", "2026-11-19"]) expect(r.has(d) && d !== "2026-04-11", d).toBe(false); // Fridays and the day after are working days
     expect(r.has("2026-04-22")).toBe(true); // Independence Day: 5 Iyar 5786 is a Wednesday

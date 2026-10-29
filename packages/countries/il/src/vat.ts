@@ -241,23 +241,39 @@ export function vatReport(inp: VatReportInput): VatReport {
   const sales = lines.filter((l) => l.side === "sale"),
     inputs = lines.filter((l) => l.side === "input");
   const totals: VatTotals = {
-    taxableSales: sum(sales.filter((l) => l.taxable), (l) => l.net),
+    taxableSales: sum(
+      sales.filter((l) => l.taxable),
+      (l) => l.net,
+    ),
     outputVat: sum(sales, (l) => l.vat),
-    zeroExempt: sum(sales.filter((l) => !l.taxable), (l) => l.net),
+    zeroExempt: sum(
+      sales.filter((l) => !l.taxable),
+      (l) => l.net,
+    ),
     salesRecords: sales.length,
-    otherInputsVat: sum(inputs.filter((l) => !l.equipment), (l) => l.vat),
-    equipmentVat: sum(inputs.filter((l) => l.equipment), (l) => l.vat),
+    otherInputsVat: sum(
+      inputs.filter((l) => !l.equipment),
+      (l) => l.vat,
+    ),
+    equipmentVat: sum(
+      inputs.filter((l) => l.equipment),
+      (l) => l.vat,
+    ),
     inputRecords: inputs.length,
     payable: 0,
   };
   totals.payable = totals.outputVat - totals.otherInputsVat - totals.equipmentVat;
 
   // petty cash (K): the total VAT of the entries must stay under 2% of the file's VAT or 2,000, whichever is larger (spec note E; the limits can change)
-  const petty = sum(inputs.filter((l) => l.type === "K"), (l) => l.vat),
+  const petty = sum(
+      inputs.filter((l) => l.type === "K"),
+      (l) => l.vat,
+    ),
     fileVat = sum(lines, (l) => Math.abs(l.vat)),
     pettyMax = Math.max(0.02 * fileVat, 2000);
   if (petty > pettyMax) issues.push({ level: "error", code: "pettyCashOver", v: Math.round(pettyMax) });
-  else if (petty > 0 && inputs.some((l) => l.type === "K" && l.vat > 0 && Math.abs(l.net) > IDENTIFY_ABOVE)) issues.push({ level: "warn", code: "pettyCashBig" });
+  else if (petty > 0 && inputs.some((l) => l.type === "K" && l.vat > 0 && Math.abs(l.net) > IDENTIFY_ABOVE))
+    issues.push({ level: "warn", code: "pettyCashBig" });
 
   const due = (day: 15 | 19 | 23) => reportDue(period, day);
   return { period, lines, totals, issues, due: { statutory: due(15), online: due(19), detailed: due(23) } };

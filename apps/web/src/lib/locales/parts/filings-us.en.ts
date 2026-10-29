@@ -38,12 +38,16 @@ export default {
   "fus.in.priorTax": "Last year's total tax",
   "fus.in.priorAgi": "Last year's AGI",
   "fus.in.paidEstimates": "Estimated tax already paid",
-  "fus.in.paidHint": { one: "Blank = the {n} IRS payment found in your bank ({amount}).", other: "Blank = the {n} IRS payments found in your bank ({amount})." },
+  "fus.in.paidHint": {
+    one: "Blank = the {n} IRS payment found in your bank ({amount}).",
+    other: "Blank = the {n} IRS payments found in your bank ({amount}).",
+  },
   "fus.in.stateRate": "State income tax rate (%)",
   "fus.in.stateHint": "A single flat rate you enter, applied to profit less half of SE tax. It is an estimate: state returns are not prepared.",
   "fus.f.stateName": "State you pay income tax to",
   "fus.state.generic": "State",
-  "fus.est.state": "{state} estimated tax: about {amount} a quarter (estimate at your {rate}% flat rate). It is paid to the state and is not part of the 1040-ES payments.",
+  "fus.est.state":
+    "{state} estimated tax: about {amount} a quarter (estimate at your {rate}% flat rate). It is paid to the state and is not part of the 1040-ES payments.",
   "fus.status.single": "Single",
   "fus.status.mfj": "Married filing jointly",
   "fus.status.hoh": "Head of household",
@@ -78,18 +82,25 @@ export default {
   // forms
   "fus.ind.autoTitle": "{y} forms filled from your books",
   "fus.ind.autoText": "Schedule C, Schedule SE, Form 8995 and the 1040-ES payment vouchers, as the IRS blanks. Check them, sign, and file with your Form 1040.",
-  "fus.ind.autoMissing": { one: "{n} of your details is missing; the forms will have a blank until you add it.", other: "{n} of your details are missing; the forms will have blanks until you add them." },
+  "fus.ind.autoMissing": {
+    one: "{n} of your details is missing; the forms will have a blank until you add it.",
+    other: "{n} of your details are missing; the forms will have blanks until you add them.",
+  },
   "fus.ind.packet": "Schedule C + SE + 8995",
   "fus.lines.title": "Schedule SE and Form 8995 lines for {y}",
   "fus.lines.sub": "The figures the filled forms carry, line by line, for checking or for tax software.",
   "fus.lines.noQbi": "No QBI deduction this year.",
   "fus.lines.noSe": "Nothing to report.",
   "fus.lines.seStop": "Line 4c is under $400: stop there, no self-employment tax is due.",
-  "fus.pdf.noYear": "The IRS has not published the {y} Schedule C, SE and 8995 yet (they come out in December), so those buttons stay off until it does. The numbers below are still computed, line by line, for you to type in.",
+  "fus.pdf.noYear":
+    "The IRS has not published the {y} Schedule C, SE and 8995 yet (they come out in December), so those buttons stay off until it does. The numbers below are still computed, line by line, for you to type in.",
   "fus.lines.subNo": "The IRS has not published the {y} forms yet. Type these figures into the blank forms when it does, or into your tax software.",
 
   // results
-  "fus.warn.uncategorized": { one: "{v} transaction is uncategorized and left out. Review it first.", other: "{v} transactions are uncategorized and left out. Review them first." },
+  "fus.warn.uncategorized": {
+    one: "{v} transaction is uncategorized and left out. Review it first.",
+    other: "{v} transactions are uncategorized and left out. Review them first.",
+  },
   "fus.warn.equipment179": "{v} of equipment: the books deduct it at once; Schedule C line 13 and Form 4562 (section 179) are yours to complete.",
   "fus.warn.vehicleLedgerIgnored": "{v} of car expenses in the books are not counted: you chose the standard mileage rate.",
   "fus.warn.noTrips": "Standard mileage chosen but no trips are logged.",
