@@ -522,12 +522,10 @@ const set_rules = defineTool({
   kind: "write",
   annotations: { destructive: true, idempotent: true },
   input: input({
-    rules: Schema.Array(RULE_ITEM)
-      .check(Schema.isMaxLength(2000))
-      .annotate({
-        description:
-          '[[match text, "type:name"], ...] or { when: [{ field, op, value }], then: { account?: "type:name", tags?: [tag ids] } }. Fields: text|description|counterparty (contains, description also equals|startsWith), account (is), direction (in|out), amount (eq|gte|lte|between with `to`).',
-      }),
+    rules: Schema.Array(RULE_ITEM).check(Schema.isMaxLength(2000)).annotate({
+      description:
+        '[[match text, "type:name"], ...] or { when: [{ field, op, value }], then: { account?: "type:name", tags?: [tag ids] } }. Fields: text|description|counterparty (contains, description also equals|startsWith), account (is), direction (in|out), amount (eq|gte|lte|between with `to`).',
+    }),
     confirm: CONFIRM,
   }),
   output: Schema.Struct({ rules: RULES }),
@@ -802,7 +800,9 @@ const list_bills = defineTool({
   input: input({}),
   output: Schema.Struct({
     ...CUR,
-    bills: Schema.Array(Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountPaid: N, amountDue: N, state: S })),
+    bills: Schema.Array(
+      Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountPaid: N, amountDue: N, state: S }),
+    ),
   }),
   run: (a, ctx) =>
     Effect.gen(function* () {
@@ -899,7 +899,9 @@ const aging_report = defineTool({
   input: input({
     type: Schema.Literals(["receivable", "payable"]).annotate({ description: "receivable = invoices customers owe you; payable = bills you owe vendors" }),
     as_of: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
-    periods: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 12 })).annotate({ default: 3, description: "Number of past-due buckets before the open-ended last one" })),
+    periods: Schema.optionalKey(
+      I.check(Schema.isBetween({ minimum: 1, maximum: 12 })).annotate({ default: 3, description: "Number of past-due buckets before the open-ended last one" }),
+    ),
     days: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 365 })).annotate({ default: 30, description: "Days per bucket" })),
   }),
   output: Schema.Struct({
@@ -954,7 +956,14 @@ const aging_report = defineTool({
           daysPastDue: Math.max(0, s.days),
           bucket: label(s.bucket),
         })),
-        totals: { buckets: r.totals.buckets, percents: r.totals.percents, overdue: r.totals.overdue, total: r.totals.total, documents: r.totals.count, parties: r.totals.parties },
+        totals: {
+          buckets: r.totals.buckets,
+          percents: r.totals.percents,
+          overdue: r.totals.overdue,
+          total: r.totals.total,
+          documents: r.totals.count,
+          parties: r.totals.parties,
+        },
       };
     }),
 });
@@ -1185,14 +1194,36 @@ const deduction_summary = defineTool({
             : r.effect === "noEci"
               ? "Foreign-owned disregarded LLC with no US trade or business: US deductions have no US tax effect. Home-country (Israeli) rules decide what counts."
               : null,
-        totals: { gross: r2(r.totals.gross), deductible: r2(r.totals.deductible), nonDeductible: r2(r.totals.nonDeductible), vatReclaimable: r2(r.totals.vatReclaimable) },
+        totals: {
+          gross: r2(r.totals.gross),
+          deductible: r2(r.totals.deductible),
+          nonDeductible: r2(r.totals.nonDeductible),
+          vatReclaimable: r2(r.totals.vatReclaimable),
+        },
         buckets: { full: b("full"), partial: b("partial"), none: b("none"), untreated: b("untreated") },
-        byRule: r.byRule.map((x) => ({ rule: x.rule, label: lbl(x.rule), count: x.n, gross: r2(x.gross), deductible: r2(x.deductible), vatReclaimable: r2(x.vatReclaimable) })),
+        byRule: r.byRule.map((x) => ({
+          rule: x.rule,
+          label: lbl(x.rule),
+          count: x.n,
+          gross: r2(x.gross),
+          deductible: r2(x.deductible),
+          vatReclaimable: r2(x.vatReclaimable),
+        })),
         ceilings: r.caps.map((c) => ({ rule: c.rule, label: lbl(c.rule), per: c.per, amount: c.amount, used: r2(c.used), exhausted: c.over })),
-        biggestLosses: lost.slice(0, 10).map((x) => ({ id: x.id, date: x.date, desc: x.desc, gross: r2(x.gross), deductible: r2(x.deductible), rule: x.rule ?? null })),
+        biggestLosses: lost
+          .slice(0, 10)
+          .map((x) => ({ id: x.id, date: x.date, desc: x.desc, gross: r2(x.gross), deductible: r2(x.deductible), rule: x.rule ?? null })),
         missingReceipts: { count: miss.length, deductible: r2(miss.reduce((s, x) => s + x.deductible, 0)) },
-        leftOnTheTable: { suggestions: sg.length, transactions: sg.reduce((s, x) => s + x.ids.length, 0), potentialDeduction: r2(uncl.reduce((s, x) => s + (x.deductible ?? 0), 0)) },
-        moves: relevantMoves(table.moves, inp.type, new Set([...r.byRule.map((x) => x.rule), ...sg.map((x) => x.rule)])).relevant.map((m) => ({ id: m.id, title: m.title.en, effect: m.effect })),
+        leftOnTheTable: {
+          suggestions: sg.length,
+          transactions: sg.reduce((s, x) => s + x.ids.length, 0),
+          potentialDeduction: r2(uncl.reduce((s, x) => s + (x.deductible ?? 0), 0)),
+        },
+        moves: relevantMoves(table.moves, inp.type, new Set([...r.byRule.map((x) => x.rule), ...sg.map((x) => x.rule)])).relevant.map((m) => ({
+          id: m.id,
+          title: m.title.en,
+          effect: m.effect,
+        })),
         disclaimer: table.disclaimer,
       };
     }),
@@ -1258,11 +1289,14 @@ const tagFor = (d: TagsDoc, name: string, rule: string | undefined, pct: number 
   const key = name.trim().toLowerCase(),
     found = d.tags.find((g) => g.id === name || g.name.trim().toLowerCase() === key),
     r = rule ? rules.find((x) => x.id === rule) : undefined;
-  if (rule && (!r || !taggable(r, type))) return fail(`Rule ${repr(rule)} does not exist or does not apply to ${type}; see suggest_tax_tags / deduction_summary for rule ids`);
+  if (rule && (!r || !taggable(r, type)))
+    return fail(`Rule ${repr(rule)} does not exist or does not apply to ${type}; see suggest_tax_tags / deduction_summary for rule ids`);
   if (found) {
     const was = found.tax;
     if ((rule && was?.rule && was.rule !== rule) || (pct !== undefined && was?.pct !== undefined && was.pct !== pct))
-      return fail(`Tag ${repr(found.name)} already means ${was?.rule ?? "a business-use share"}${was?.pct !== undefined ? ` at ${was.pct}%` : ""}: change it in the app (Tags) or use another tag`);
+      return fail(
+        `Tag ${repr(found.name)} already means ${was?.rule ?? "a business-use share"}${was?.pct !== undefined ? ` at ${was.pct}%` : ""}: change it in the app (Tags) or use another tag`,
+      );
     const tax = { ...was, ...(rule ? { rule } : {}), ...(pct !== undefined ? { pct } : {}) };
     return Effect.succeed({ doc: Object.keys(tax).length ? setTagTax(d, found.id, tax) : d, id: found.id, created: false });
   }
@@ -1281,7 +1315,11 @@ const apply_tax_tag = defineTool({
     ids: Schema.Array(ID).check(Schema.isBetweenLength(1, 500)),
     tag: S.check(Schema.isBetweenLength(1, 80)).annotate({ description: "Tag id or name (created when new and `rule` or `pct` is given)" }),
     rule: Schema.optionalKey(S.check(Schema.isBetweenLength(1, 80)).annotate({ description: 'Deduction rule id, e.g. "il.refreshments" or "us.meals"' })),
-    pct: Schema.optionalKey(N.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({ description: "Business-use share in percent; multiplies the rule's own deductible share" })),
+    pct: Schema.optionalKey(
+      N.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({
+        description: "Business-use share in percent; multiplies the rule's own deductible share",
+      }),
+    ),
     confirm: CONFIRM,
   }),
   output: Schema.Struct({ tag: Schema.Struct({ id: S, name: S, rule: opt(S), pct: opt(N) }), created: B, tagged: I }),
@@ -1289,7 +1327,8 @@ const apply_tax_tag = defineTool({
     Effect.gen(function* () {
       const e = yield* entityOf(a, ctx),
         ts = yield* ledgerOf(e);
-      for (const i of a.ids) if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      for (const i of a.ids)
+        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
       return `Tag ${a.ids.length} transaction${a.ids.length === 1 ? "" : "s"} “${a.tag}”${a.rule ? ` (tax rule ${a.rule}${a.pct !== undefined ? `, ${a.pct}% business use` : ""})` : ""}?`;
     }),
   run: (a, ctx) =>
@@ -1297,7 +1336,8 @@ const apply_tax_tag = defineTool({
       const e = yield* entityOf(a, ctx),
         p = packFor(e.meta, new Date().getFullYear());
       const ts = yield* ledgerOf(e);
-      for (const i of a.ids) if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      for (const i of a.ids)
+        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
       const d = yield* docOf<TagsDoc>(e, "tags", emptyTags());
       const made = yield* tagFor(d, a.tag, a.rule, a.pct, p?.table.rules ?? [], p?.type ?? "");
       yield* putDoc(e, "tags", setTag(made.doc, a.ids, made.id, true));
@@ -1313,7 +1353,9 @@ const SPLIT_LINE = Schema.Struct({
       "This line's share, in the same direction as the transaction (a $40 line of a $100 payment is 40, not -40). A negative share goes the other way (a refund inside the payment). Shares must add up to the transaction's amount to the cent.",
   }),
   memo: Schema.optionalKey(S.check(Schema.isMaxLength(200))),
-  tags: Schema.optionalKey(Schema.Array(S).annotate({ description: "Tag ids for this line (one per tag group); they are added to the tags the transaction already has" })),
+  tags: Schema.optionalKey(
+    Schema.Array(S).annotate({ description: "Tag ids for this line (one per tag group); they are added to the tags the transaction already has" }),
+  ),
 });
 const split_transaction = defineTool({
   name: "split_transaction",
@@ -1360,9 +1402,14 @@ const split_transaction = defineTool({
         const p = splitProblem(total, lines);
         if (p === "sum") {
           const rem = remaining(total, lines);
-          return yield* fail(`The lines add up to ${r2(total - rem)} but the transaction is ${total}: ${r2(Math.abs(rem))} ${rem * sign > 0 ? "left to allocate" : "too much"}`);
+          return yield* fail(
+            `The lines add up to ${r2(total - rem)} but the transaction is ${total}: ${r2(Math.abs(rem))} ${rem * sign > 0 ? "left to allocate" : "too much"}`,
+          );
         }
-        if (p) return yield* fail({ lines: "A split needs at least two lines", amount: "Every line needs a non-zero amount", account: "Every line needs a ledger account" }[p]);
+        if (p)
+          return yield* fail(
+            { lines: "A split needs at least two lines", amount: "Every line needs a non-zero amount", account: "Every line needs a ledger account" }[p],
+          );
         next[id] = lines;
       }
       yield* putDoc(e, "splits", Object.keys(next).length ? next : null);

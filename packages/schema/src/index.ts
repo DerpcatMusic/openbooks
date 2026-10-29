@@ -190,7 +190,13 @@ export const DeductionRule = Schema.Struct({
   values: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
 });
 export type DeductionRule = typeof DeductionRule.Type;
-export const DeductionMove = Schema.Struct({ id: Schema.String, title: Bilingual, when: Schema.String, effect: Schema.String, sources: Schema.Array(Citation) });
+export const DeductionMove = Schema.Struct({
+  id: Schema.String,
+  title: Bilingual,
+  when: Schema.String,
+  effect: Schema.String,
+  sources: Schema.Array(Citation),
+});
 export type DeductionMove = typeof DeductionMove.Type;
 export const DeductionTable = Schema.Struct({
   country: Schema.String,

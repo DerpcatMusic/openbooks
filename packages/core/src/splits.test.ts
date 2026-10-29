@@ -53,7 +53,18 @@ describe("evenAmounts", () => {
     expect(evenAmounts(-100, 3)).toEqual([-33.34, -33.33, -33.33]);
     expect(evenAmounts(0.05, 3)).toEqual([0.02, 0.02, 0.01]);
     expect(evenAmounts(10, 2)).toEqual([5, 5]);
-    for (const [a, n] of [[19.99, 7], [-1234.57, 6], [0.01, 2], [1e6 + 0.03, 9]] as const) expect(remaining(a, evenAmounts(a, n).map((amount) => ({ amount })))).toBe(0);
+    for (const [a, n] of [
+      [19.99, 7],
+      [-1234.57, 6],
+      [0.01, 2],
+      [1e6 + 0.03, 9],
+    ] as const)
+      expect(
+        remaining(
+          a,
+          evenAmounts(a, n).map((amount) => ({ amount })),
+        ),
+      ).toBe(0);
   });
 });
 
@@ -66,7 +77,12 @@ describe("ids and cleaning", () => {
     expect(isSplitRow("abc")).toBe(false);
   });
   it("cleanSplit trims, rounds to the cent, drops empty memo and tag lists", () => {
-    expect(cleanSplit([{ account: " expense:a ", amount: -33.333, memo: "  ", tags: [] }, { account: "expense:b", amount: -66.667, memo: " x ", tags: ["t", "t", ""] }])).toEqual([
+    expect(
+      cleanSplit([
+        { account: " expense:a ", amount: -33.333, memo: "  ", tags: [] },
+        { account: "expense:b", amount: -66.667, memo: " x ", tags: ["t", "t", ""] },
+      ]),
+    ).toEqual([
       { account: "expense:a", amount: -33.33 },
       { account: "expense:b", amount: -66.67, memo: "x", tags: ["t"] },
     ]);
@@ -95,7 +111,7 @@ describe("the ledger with splits", () => {
     expect(parts[0]).toMatchObject({ date: "2026-03-10", account: "Main", desc: "Staples supplies", source: "bank", file: "a.pdf" });
     expect(parts[1]!.memo).toBe("lunch");
     expect(rows.find((r) => r.id === "b")).toMatchObject({ category: "revenue:services", why: "Client" }); // others untouched
-    expect(rows.map((r) => r.date)).toEqual([...rows.map((r) => r.date)].sort());
+    expect(rows.map((r) => r.date)).toEqual(rows.map((r) => r.date).sort());
   });
   it("a split ignores the transaction's override and rule; unsplitting brings both back", () => {
     const withOverride = ledger(stored, { a: "expense:games" }, rules, [], undefined, { splits });
@@ -131,7 +147,16 @@ describe("the ledger with splits", () => {
     expect(rows.map((r) => r.id)).toEqual(["a"]);
   });
   it("entries start date leaves out earlier transactions and journal entries", () => {
-    const je = [{ id: "j1", date: "2026-01-05", lines: [{ account: "expense:x", debit: 5 }, { account: "equity:owner", credit: 5 }] }];
+    const je = [
+      {
+        id: "j1",
+        date: "2026-01-05",
+        lines: [
+          { account: "expense:x", debit: 5 },
+          { account: "equity:owner", credit: 5 },
+        ],
+      },
+    ];
     expect(ledger(stored, {}, rules, je, undefined, { from: "2026-03-01" }).map((r) => r.id)).toEqual(["a", "b"]);
     expect(ledger(stored, {}, rules, je, undefined, { from: "2026-01-01" }).length).toBe(3 + 2);
     expect(ledger(stored, {}, rules, je, undefined, { from: null }).length).toBe(3 + 2);
@@ -142,7 +167,11 @@ describe("tags on split lines", () => {
   const stored = [row("a", -100)];
   const doc: TagsDoc = {
     groups: [{ id: "proj", name: "Project" }],
-    tags: [{ id: "x", name: "X", group: "proj" }, { id: "y", name: "Y", group: "proj" }, { id: "biz", name: "Biz" }],
+    tags: [
+      { id: "x", name: "X", group: "proj" },
+      { id: "y", name: "Y", group: "proj" },
+      { id: "biz", name: "Biz" },
+    ],
     on: { a: ["biz", "x"] },
   };
   const splits = { a: [L("expense:a", -60, { tags: ["y"] }), L("expense:b", -40)] };

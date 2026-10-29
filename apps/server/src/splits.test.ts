@@ -40,7 +40,12 @@ test("a split becomes one ledger row per line; the lines add up to the transacti
 
 test("lines that don't add up, a single line, an unknown transaction or an unusable account are refused with 400", async () => {
   const id = await idOn("2026-02-03");
-  for (const bad of [[L("expense:software", -33.34), L("expense:hosting", -16.65)], [L("expense:software", -50)], [L("expense:software", -50), L("ask", 0)], [L("expense:software", -25), L("ask", -25)]]) {
+  for (const bad of [
+    [L("expense:software", -33.34), L("expense:hosting", -16.65)],
+    [L("expense:software", -50)],
+    [L("expense:software", -50), L("ask", 0)],
+    [L("expense:software", -25), L("ask", -25)],
+  ]) {
     const r = await doc("splits", { [id]: bad });
     expect(r.status).toBe(400);
     expect((r.json() as J).error).toContain(id);
@@ -86,7 +91,10 @@ test("the MCP-style split_transaction tool: validates, splits, replaces and unsp
   expect(r.status).toBe(200);
   const out = (r.json() as J).result;
   expect(out).toMatchObject({ id, split: true, amount: -20 });
-  expect(out.transactions.map((t: J) => [t.id, t.amount, t.category])).toEqual([[`${id}~0`, -12.5, "expense:software"], [`${id}~1`, -7.5, "expense:hosting"]]);
+  expect(out.transactions.map((t: J) => [t.id, t.amount, t.category])).toEqual([
+    [`${id}~0`, -12.5, "expense:software"],
+    [`${id}~1`, -7.5, "expense:hosting"],
+  ]);
   // a split line's `~` id means its transaction
   r = await tool("split_transaction", { id: `${id}~1`, lines: [L("expense:software", 5), L("expense:hosting", 15)] }); // replaces the earlier split
   expect((r.json() as J).result.transactions.map((t: J) => t.amount)).toEqual([-5, -15]);
@@ -136,15 +144,39 @@ test("books dates: no future close date, close not before start, start only earl
 
 test("journal entries: must balance in cents, have a debit and a credit, use no archived account and not predate the start date", async () => {
   const je = (id: string, lines: J[], date = "2026-03-05") => ({ id, date, memo: "adj", lines });
-  const ok = [{ account: "expense:other", debit: 5, credit: 0 }, { account: "equity:owner", debit: 0, credit: 5 }];
+  const ok = [
+    { account: "expense:other", debit: 5, credit: 0 },
+    { account: "equity:owner", debit: 0, credit: 5 },
+  ];
   const bad = async (entry: J) => {
     const r = await doc("journal", [entry]);
     expect(r.status).toBe(400);
     return (r.json() as J).error as string;
   };
-  expect(await bad(je("u", [{ account: "expense:other", debit: 5.01 }, { account: "equity:owner", credit: 5 }]))).toContain("debits that do not equal credits");
-  expect(await bad(je("d", [{ account: "expense:other", debit: 5 }, { account: "expense:meals", debit: 5 }]))).toContain("credit");
-  expect(await bad(je("a", [{ account: "expense:old", debit: 5 }, { account: "equity:owner", credit: 5 }]))).toContain("archived");
+  expect(
+    await bad(
+      je("u", [
+        { account: "expense:other", debit: 5.01 },
+        { account: "equity:owner", credit: 5 },
+      ]),
+    ),
+  ).toContain("debits that do not equal credits");
+  expect(
+    await bad(
+      je("d", [
+        { account: "expense:other", debit: 5 },
+        { account: "expense:meals", debit: 5 },
+      ]),
+    ),
+  ).toContain("credit");
+  expect(
+    await bad(
+      je("a", [
+        { account: "expense:old", debit: 5 },
+        { account: "equity:owner", credit: 5 },
+      ]),
+    ),
+  ).toContain("archived");
   expect((await doc("journal", [je("good", ok)])).status).toBe(200);
   await doc("books", { startDate: "2026-03-01" });
   expect(await bad(je("early", ok, "2026-02-01"))).toContain("before the books' entries start date");

@@ -4,7 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 import type { DeductionRule, TagsDoc, Txn } from "@openbooks/schema";
 import { deductions, relevantMoves, searchRules, suggestTags, taggableRules, withOverrides, type DeductionInput } from "./index.ts";
 
-const load = (c: string) => JSON.parse(readFileSync(new URL(`../../countries/${c}/tables/deductions.json`, import.meta.url), "utf8")) as { rules: DeductionRule[]; moves: never[] };
+const load = (c: string) =>
+  JSON.parse(readFileSync(new URL(`../../countries/${c}/tables/deductions.json`, import.meta.url), "utf8")) as { rules: DeductionRule[]; moves: never[] };
 const IL = load("il"),
   US = load("us");
 
@@ -27,8 +28,25 @@ const tags = (...ts: { id: string; rule?: string; pct?: number }[]): TagsDoc => 
   tags: ts.map(({ id, ...tax }) => ({ id, name: id, ...(Object.keys(tax).length ? { tax } : {}) })),
   on: {},
 });
-const il = (txns: Txn[], t: TagsDoc, over: Partial<DeductionInput> = {}): DeductionInput => ({ txns, tags: t, rules: IL.rules, type: "osek-murshe", year: 2026, currency: "ILS", vatRate: 0.18, ...over });
-const us = (txns: Txn[], t: TagsDoc, over: Partial<DeductionInput> = {}): DeductionInput => ({ txns, tags: t, rules: US.rules, type: "llc-ccorp", year: 2026, currency: "USD", ...over });
+const il = (txns: Txn[], t: TagsDoc, over: Partial<DeductionInput> = {}): DeductionInput => ({
+  txns,
+  tags: t,
+  rules: IL.rules,
+  type: "osek-murshe",
+  year: 2026,
+  currency: "ILS",
+  vatRate: 0.18,
+  ...over,
+});
+const us = (txns: Txn[], t: TagsDoc, over: Partial<DeductionInput> = {}): DeductionInput => ({
+  txns,
+  tags: t,
+  rules: US.rules,
+  type: "llc-ccorp",
+  year: 2026,
+  currency: "USD",
+  ...over,
+});
 const one = (inp: DeductionInput) => deductions(inp).rows[0]!;
 
 describe("per transaction", () => {
@@ -70,18 +88,32 @@ describe("per transaction", () => {
   });
   it("US meals are 50%; solo coffee 0%; entertainment 0%", () => {
     const t = tags({ id: "client", rule: "us.meals" }, { id: "solo", rule: "us.meals.solo" }, { id: "show", rule: "us.entertainment" });
-    expect(deductions(us([tx(80, { tags: ["client"] }), tx(5, { tags: ["solo"] }), tx(300, { tags: ["show"] })], t)).rows.map((r) => r.deductible)).toEqual([40, 0, 0]);
+    expect(deductions(us([tx(80, { tags: ["client"] }), tx(5, { tags: ["solo"] }), tx(300, { tags: ["show"] })], t)).rows.map((r) => r.deductible)).toEqual([
+      40, 0, 0,
+    ]);
   });
   it("the account's default rule applies without a tag; a tag's rule wins over it", () => {
     const t = tags({ id: "x", rule: "us.entertainment" });
     const accountRules = { "expense:meals": "us.meals" };
-    expect(deductions(us([tx(100, { category: "expense:meals" }), tx(100, { category: "expense:meals", tags: ["x"] })], t, { accountRules })).rows.map((r) => [r.from, r.deductible])).toEqual([
+    expect(
+      deductions(us([tx(100, { category: "expense:meals" }), tx(100, { category: "expense:meals", tags: ["x"] })], t, { accountRules })).rows.map((r) => [
+        r.from,
+        r.deductible,
+      ]),
+    ).toEqual([
       ["account", 50],
       ["tag", 0],
     ]);
   });
   it("only outflows on expense / cost accounts of the year count", () => {
-    const ts = [tx(10), tx(10, { category: "cogs:hosting" }), tx(10, { category: "personal:family" }), tx(10, { date: "2025-12-31" }), { ...tx(10), amount: 10 }, tx(10, { category: "ask" })];
+    const ts = [
+      tx(10),
+      tx(10, { category: "cogs:hosting" }),
+      tx(10, { category: "personal:family" }),
+      tx(10, { date: "2025-12-31" }),
+      { ...tx(10), amount: 10 },
+      tx(10, { category: "ask" }),
+    ];
     expect(deductions(il(ts, tags())).totals).toMatchObject({ n: 2, gross: 20, deductible: 20, nonDeductible: 0 });
   });
 });
@@ -89,7 +121,12 @@ describe("per transaction", () => {
 describe("rules with their own formula", () => {
   const mobile = (costs: number[], pct?: number) => {
     const t = tags({ id: "ph", rule: "il.phone.mobile", ...(pct === undefined ? {} : { pct }) });
-    return deductions(il(costs.map((c) => tx(c, { tags: ["ph"] })), t));
+    return deductions(
+      il(
+        costs.map((c) => tx(c, { tags: ["ph"] })),
+        t,
+      ),
+    );
   };
   it("IL mobile: not deductible = the lower of 50% and ₪1,380 a year, and a use-% doesn't stack", () => {
     expect(mobile([2000]).totals.deductible).toBe(1000);
@@ -111,7 +148,9 @@ describe("rules with their own formula", () => {
   });
   it("per-recipient and yearly ceilings (first come first served), only in the cap's currency", () => {
     const t = tags({ id: "gift", rule: "il.gifts" }, { id: "kh", rule: "il.keren-hishtalmut" });
-    const g = deductions(il([tx(200, { desc: "Dana", tags: ["gift"] }), tx(100, { desc: "Dana", tags: ["gift"] }), tx(100, { desc: "Ron", tags: ["gift"] })], t));
+    const g = deductions(
+      il([tx(200, { desc: "Dana", tags: ["gift"] }), tx(100, { desc: "Dana", tags: ["gift"] }), tx(100, { desc: "Ron", tags: ["gift"] })], t),
+    );
     expect(g.rows.map((r) => r.deductible)).toEqual([200, 40, 100]);
     expect(g.rows[1]).toMatchObject({ capped: true, bucket: "partial" });
     expect(g.caps).toEqual([{ rule: "il.gifts", per: "recipient", amount: 240, used: 240, over: 1 }]);

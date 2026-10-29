@@ -5,7 +5,8 @@ export default {
   "taxtags.none": "Not set",
   "taxtags.editFor": "Tax treatment of “{tag}”",
   "taxtags.pickerTitle": "Tax treatment: {tag}",
-  "taxtags.pickerHelp": "Say what this tag means for tax. Pick a rule from your country's research table; every transaction with the tag is then counted by that rule in the Taxximizer.",
+  "taxtags.pickerHelp":
+    "Say what this tag means for tax. Pick a rule from your country's research table; every transaction with the tag is then counted by that rule in the Taxximizer.",
   "taxtags.search": "Search rules (coffee, hotel, gift…)",
   "taxtags.rules": "Rules",
   "taxtags.noMatch": "No rule matches “{q}”.",
@@ -83,8 +84,10 @@ export default {
   "taxtags.drawer.suggest": "Looks like “{rule}”.",
   "taxtags.drawer.tagAs": "Tag as this",
   "taxtags.drawer.manage": "Change in Tags",
-  "taxtags.noEffect.zair": "No effect on tax on the osek zair track: you are taxed on 70% of turnover whatever the receipts say. Keep them in case you switch to actual expenses.",
-  "taxtags.noEffect.noEci": "No US tax effect: a foreign-owned LLC with no US trade or business has no US deductions to claim. Home-country rules decide what counts.",
+  "taxtags.noEffect.zair":
+    "No effect on tax on the osek zair track: you are taxed on 70% of turnover whatever the receipts say. Keep them in case you switch to actual expenses.",
+  "taxtags.noEffect.noEci":
+    "No US tax effect: a foreign-owned LLC with no US trade or business has no US deductions to claim. Home-country rules decide what counts.",
   "taxtags.why.tagRule": "The tag's rule decides.",
   "taxtags.why.accountRule": "The account's default rule decides.",
   "taxtags.why.usePct": "Times {v}% business use.",
@@ -101,18 +104,24 @@ export default {
   "taxtags.why.vatNone": "No input VAT can be reclaimed on this.",
   // Taxximizer: Deductions
   "taxtags.tx.title": "Deductions",
-  "taxtags.tx.sub": "What your receipts are worth for tax in {y}, from your tags and account defaults. Rules come from sourced research tables; each shows how firm it is.",
+  "taxtags.tx.sub":
+    "What your receipts are worth for tax in {y}, from your tags and account defaults. Rules come from sourced research tables; each shows how firm it is.",
   "taxtags.tx.noRules": "Set this business's type in Settings to get deduction rules.",
-  "taxtags.tx.zairNote": "On the osek zair track you are taxed on 70% of turnover whatever the receipts say, so these deductions don't change your tax now. They matter if you switch to actual expenses.",
-  "taxtags.tx.zairCompare": "Deemed 30% takes off {deemed}; your receipts allow {actual}. Tax and contributions: {zair} on the deemed track against {actualTax} on actual expenses.",
+  "taxtags.tx.zairNote":
+    "On the osek zair track you are taxed on 70% of turnover whatever the receipts say, so these deductions don't change your tax now. They matter if you switch to actual expenses.",
+  "taxtags.tx.zairCompare":
+    "Deemed 30% takes off {deemed}; your receipts allow {actual}. Tax and contributions: {zair} on the deemed track against {actualTax} on actual expenses.",
   "taxtags.tx.zairWins": "The deemed track keeps {amount} more.",
   "taxtags.tx.actualWins": "Actual expenses keep {amount} more.",
   "taxtags.tx.zairOver": "Turnover is over the osek zair ceiling, so the deemed 30% doesn't apply.",
-  "taxtags.tx.noEciNote": "This LLC is treated as foreign-owned. Unless the owner is a US person or the LLC has a US trade or business, there is no US income tax to deduct against, so the numbers below are bookkeeping with $0 US effect.",
+  "taxtags.tx.noEciNote":
+    "This LLC is treated as foreign-owned. Unless the owner is a US person or the LLC has a US trade or business, there is no US income tax to deduct against, so the numbers below are bookkeeping with $0 US effect.",
   "taxtags.tx.attest": "US-owned, or I have a US trade or business",
-  "taxtags.tx.attestHint": "Tick this if the owner is a US citizen or resident (a sole proprietor reporting on Schedule C) or the income is effectively connected with the US (a US office, employees or agent). Then these deductions lower US tax.",
+  "taxtags.tx.attestHint":
+    "Tick this if the owner is a US citizen or resident (a sole proprietor reporting on Schedule C) or the income is effectively connected with the US (a US office, employees or agent). Then these deductions lower US tax.",
   "taxtags.rule.enOnly": "Notes, conditions and proof lists are in English, as in the sources.",
-  "taxtags.tx.usNotModeled": "Not modelled: self-employment tax, the QBI deduction, the standard or itemized deduction, state tax, and depreciation schedules (Section 179, bonus). The rules above decide each expense, not where it lands on Schedule C or the 1120.",
+  "taxtags.tx.usNotModeled":
+    "Not modelled: self-employment tax, the QBI deduction, the standard or itemized deduction, state tax, and depreciation schedules (Section 179, bonus). The rules above decide each expense, not where it lands on Schedule C or the 1120.",
   "taxtags.tx.stat.gross": "Expenses",
   "taxtags.tx.stat.deductible": "Deductible",
   "taxtags.tx.stat.nonDeductible": "Not deductible",
@@ -142,7 +151,10 @@ export default {
   "taxtags.tx.capUsed": "{used} of {amount} per {per}",
   "taxtags.tx.capOver": { one: "{n} recipient is at the ceiling", other: "{n} recipients are at the ceiling" },
   "taxtags.tx.gapsTitle": "Receipts missing",
-  "taxtags.tx.gapsCount": { one: "{n} deductible expense worth {amount} has no receipt attached. Open it to attach one.", other: "{n} deductible expenses worth {amount} have no receipt attached. Open one to attach it." },
+  "taxtags.tx.gapsCount": {
+    one: "{n} deductible expense worth {amount} has no receipt attached. Open it to attach one.",
+    other: "{n} deductible expenses worth {amount} have no receipt attached. Open one to attach it.",
+  },
   "taxtags.tx.movesTitle": "Moves that fit your books",
   "taxtags.tx.movesOther": "More ideas ({n})",
   "taxtags.tx.cutNote": "Expenses here exclude {amount} the deduction rules disallow.",

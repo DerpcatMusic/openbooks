@@ -1,8 +1,28 @@
 // The books store: one reactive State from the server (GET /api/state and every write's answer), the open entity, year, period,
 // theme, toasts, and the formatters every screen uses. Pure ledger math lives in @openbooks/core; this file only binds it to S.
 // Live updates: one EventSource on /api/events; a change for the open entity (or entity: null) re-fetches the whole state.
-import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest, emptyTags, normalizeRule } from "@openbooks/core";
-import { bankAccounts, baseId, chartOfAccounts, closedOn, group, inPeriod, monthsIn, nextCode, type BooksDoc, type Coa, type CoaEntry, type Period } from "@openbooks/core";
+import {
+  cashSeries as coreCashSeries,
+  balances as coreBalances,
+  accounts as coreAccounts,
+  suggest as coreSuggest,
+  emptyTags,
+  normalizeRule,
+} from "@openbooks/core";
+import {
+  bankAccounts,
+  baseId,
+  chartOfAccounts,
+  closedOn,
+  group,
+  inPeriod,
+  monthsIn,
+  nextCode,
+  type BooksDoc,
+  type Coa,
+  type CoaEntry,
+  type Period,
+} from "@openbooks/core";
 import type { RuleInput, SplitsDoc, TagsDoc, Txn } from "@openbooks/schema";
 import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
@@ -133,7 +153,9 @@ export const catLabel = (c: string) =>
   coa()[c]?.name || (has(`cat.${c}`) ? t(`cat.${c}`) : c.split(":")[1] || c).replace(/-/g, " ").replace(/^./, (m) => m.toUpperCase());
 /** Ledger accounts in a stable order (the pack's chart, then in order of first use, then added in the chart): default codes follow it. */
 function ledgerList() {
-  const used = S.data ? S.data.txns.map((x) => x.category).concat(S.data.rules.map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account.trim()] : []))) : [];
+  const used = S.data
+    ? S.data.txns.map((x) => x.category).concat(S.data.rules.map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account.trim()] : [])))
+    : [];
   const base = pack()?.manifest.accounts ?? PACKS.find((p) => p.manifest.id === "us")!.manifest.accounts;
   const added = Object.keys(coa()).filter((c) => (TYPE_KEYS as readonly string[]).includes(group(c)));
   return [...new Set([...base, ...used, ...added])].filter((c) => c !== "ask");
@@ -328,8 +350,9 @@ export const reviewedDoc = () => doc<Record<string, boolean>>("reviewed", {});
 export const isReviewed = (id: string) => !!reviewedDoc()[baseId(id)];
 export function setReviewed(ids: readonly string[], on: boolean) {
   const next = { ...reviewedDoc() };
-  for (const id of ids) if (on) next[baseId(id)] = true;
-  else delete next[baseId(id)];
+  for (const id of ids)
+    if (on) next[baseId(id)] = true;
+    else delete next[baseId(id)];
   return saveDoc("reviewed", Object.keys(next).length ? next : null);
 }
 export const attachmentsOf = (id: string) => S.data?.attachments?.[baseId(id)] ?? [];

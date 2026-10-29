@@ -131,7 +131,11 @@ export function percents(values: readonly number[]): number[] | null {
 }
 
 /** Aged balances as of a date. Documents issued after it, or with nothing outstanding then, are left out. */
-export function agingReport(sources: readonly AgingSource[], asOf: string, opts: { periods?: number; days?: number; parties?: readonly (string | null)[] } = {}): AgingReport {
+export function agingReport(
+  sources: readonly AgingSource[],
+  asOf: string,
+  opts: { periods?: number; days?: number; parties?: readonly (string | null)[] } = {},
+): AgingReport {
   const periods = Math.min(MAX_PERIODS, Math.max(1, Math.trunc(opts.periods ?? 3) || 3)),
     days = Math.max(1, Math.trunc(opts.days ?? 30) || 30);
   const want = opts.parties?.length ? new Set(opts.parties) : null;
@@ -140,7 +144,18 @@ export function agingReport(sources: readonly AgingSource[], asOf: string, opts:
     .map((s) => {
       const left = outstanding(s.gross, s.payments, asOf),
         over = daysBetween(s.due ?? s.date, asOf);
-      return { id: s.id, party: s.party, name: s.name, ref: s.ref, date: s.date, due: s.due, gross: s.gross, outstanding: left, days: over, bucket: bucketOf(over, periods, days) };
+      return {
+        id: s.id,
+        party: s.party,
+        name: s.name,
+        ref: s.ref,
+        date: s.date,
+        due: s.due,
+        gross: s.gross,
+        outstanding: left,
+        days: over,
+        bucket: bucketOf(over, periods, days),
+      };
     })
     .filter((r) => r.outstanding !== 0);
   const by = new Map<string | null, AgingSourceRow[]>();
@@ -220,7 +235,16 @@ export function billSources(bills: readonly BillLike[], vendor: (id: string | nu
   return bills
     .map(migrateBill)
     .filter((b) => b.status === "open")
-    .map((b) => ({ id: b.id, party: b.vendor ?? null, name: vendor(b.vendor ?? null), ref: b.number ?? "", date: b.date, due: b.due ?? null, gross: billTotal(b), payments: b.payments }));
+    .map((b) => ({
+      id: b.id,
+      party: b.vendor ?? null,
+      name: vendor(b.vendor ?? null),
+      ref: b.number ?? "",
+      date: b.date,
+      due: b.due ?? null,
+      gross: billTotal(b),
+      payments: b.payments,
+    }));
 }
 
 /** Total still outstanding on `iso` across sources, and the part of it issued before that year (it lands in retained earnings, not the year's). */

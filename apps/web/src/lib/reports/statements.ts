@@ -170,7 +170,13 @@ export const toCsv = (header: readonly string[], lines: readonly Line[]) =>
 
 /** An aging report as CSV: by party (one column per bucket, Overdue, Total, a totals row) or by document. Plain 2-decimal numbers.
  *  `bucket(i)` names bucket i ("Current", "1-30 days"); `label` holds the party, document and no-party captions. */
-export function agingCsv(r: AgingReport, view: "party" | "source", t: Tr, bucket: (i: number) => string, label: { party: string; ref: string; none: string }): string {
+export function agingCsv(
+  r: AgingReport,
+  view: "party" | "source",
+  t: Tr,
+  bucket: (i: number) => string,
+  label: { party: string; ref: string; none: string },
+): string {
   const n = (x: number) => (Math.abs(x) < 0.005 ? 0 : x).toFixed(2);
   if (view === "source")
     return csv([

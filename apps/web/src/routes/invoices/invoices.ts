@@ -100,7 +100,15 @@ export function applied(invoices: readonly Invoice[], skip: (i: Invoice) => bool
 export const remaining = (t: Pick<Txn, "id" | "amount">, taken: ReadonlyMap<string, number>) => Math.max(0, r2(Math.abs(t.amount) - (taken.get(t.id) ?? 0)));
 /** The invoice's payments with `amount` of a transaction (or money received outside the books: txn null) added, capped at what is owed and at
  *  what is left of the transaction. Unchanged when nothing can be applied. `owed` is what the invoice still owes (VAT included). */
-export function apply(inv: Invoice, owed: number, txn: Pick<Txn, "id" | "amount" | "date"> | null, amount: number, date: string, taken: ReadonlyMap<string, number>, id: string): Payment[] {
+export function apply(
+  inv: Invoice,
+  owed: number,
+  txn: Pick<Txn, "id" | "amount" | "date"> | null,
+  amount: number,
+  date: string,
+  taken: ReadonlyMap<string, number>,
+  id: string,
+): Payment[] {
   const have = inv.payments ?? [];
   const a = r2(Math.min(amount, owed, txn ? remaining(txn, taken) : Infinity));
   return a > 0 ? [...have, { id, txn: txn?.id ?? null, amount: a, date: txn?.date ?? date }] : have;

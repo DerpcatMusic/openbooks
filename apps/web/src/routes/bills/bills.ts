@@ -81,7 +81,14 @@ export const remaining = (t: Pick<Txn, "id" | "amount">, taken: ReadonlyMap<stri
 
 /** Apply `amount` of a transaction (or money paid outside the books: txn null) to a bill. The amount is capped at what the bill still owes
  *  and, for a transaction, at what is left of it. Returns the bill's payments, unchanged when nothing can be applied. */
-export function apply(b: Bill, txn: Pick<Txn, "id" | "amount" | "date"> | null, amount: number, date: string, taken: ReadonlyMap<string, number>, id: string): Payment[] {
+export function apply(
+  b: Bill,
+  txn: Pick<Txn, "id" | "amount" | "date"> | null,
+  amount: number,
+  date: string,
+  taken: ReadonlyMap<string, number>,
+  id: string,
+): Payment[] {
   const cap = Math.min(Math.max(0, r2(total(b) - paid(b))), txn ? remaining(txn, taken) : Infinity);
   const a = r2(Math.min(amount, cap));
   return a > 0 ? [...b.payments, { id, txn: txn?.id ?? null, amount: a, date: txn?.date ?? date }] : b.payments;

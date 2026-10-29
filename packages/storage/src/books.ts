@@ -230,7 +230,8 @@ export const makeBooks = (opts: BooksOptions) =>
             if (!close) return Effect.void;
             // a review mark is bookkeeping, not an amount, but a closed period is closed: its marks stay as they were
             const dates = new Map(storedTxns(e).map((t) => [t.id, t.date])),
-              marks = (v: unknown) => Object.entries((v ?? {}) as Record<string, unknown>).flatMap(([id, on]) => (dates.has(id) ? [{ id, date: dates.get(id)!, on: !!on }] : []));
+              marks = (v: unknown) =>
+                Object.entries((v ?? {}) as Record<string, unknown>).flatMap(([id, on]) => (dates.has(id) ? [{ id, date: dates.get(id)!, on: !!on }] : []));
             return closed(movedBefore(marks(getDoc(e, name, {})), marks(value), close).length);
           }
           default:

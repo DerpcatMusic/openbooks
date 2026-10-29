@@ -48,7 +48,15 @@ export function ledger(
       lines.forEach((l, i) => {
         const own = tagsOf(tags?.on[t.id] ?? [], hit.tags, l.tags),
           { tags: _drop, ...bare } = { ...row, tags: undefined };
-        out.push({ ...bare, id: splitId(t.id, i), amount: l.amount, category: l.account, why: "split", ...(l.memo ? { memo: l.memo } : {}), ...(own.length ? { tags: own } : {}) });
+        out.push({
+          ...bare,
+          id: splitId(t.id, i),
+          amount: l.amount,
+          category: l.account,
+          why: "split",
+          ...(l.memo ? { memo: l.memo } : {}),
+          ...(own.length ? { tags: own } : {}),
+        });
       });
       continue;
     }

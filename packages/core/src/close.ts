@@ -39,7 +39,8 @@ export interface BooksDoc {
 }
 export type BooksProblem = "date" | "closeFuture" | "closeBeforeStart" | "startLater";
 
-const isoOk = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
+const isoOk = (s: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
 /**
  * Why a new "books" doc is refused, or null. Both dates must be real dates; the close date can't be in the future (`today`, the
  * machine's date) or before the start date; a start date that is already set can only move earlier (or be cleared, which is the

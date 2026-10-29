@@ -41,7 +41,12 @@ export function bracketRows(income: number, brackets: IlTable["brackets"]) {
 }
 
 /** The automatic 1301 field values (strings, as printed). */
-export function form1301Auto({ txns, type, profile: p = {}, disallowed = 0 }: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed">): Record<string, string> {
+export function form1301Auto({
+  txns,
+  type,
+  profile: p = {},
+  disallowed = 0,
+}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed">): Record<string, string> {
   const turnover = txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const zair = type === "osek-zair",
     expenses = -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) - disallowed;

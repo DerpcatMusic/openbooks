@@ -11,8 +11,9 @@ const cash = (ts: readonly Row[]) => ts.filter((t) => !isCard(t.account));
 export function cashFlow(ts: readonly Row[]) {
   let inn = 0,
     out = 0;
-  for (const t of cash(ts)) if (t.amount > 0) inn += t.amount;
-  else out -= t.amount;
+  for (const t of cash(ts))
+    if (t.amount > 0) inn += t.amount;
+    else out -= t.amount;
   return { in: r2(inn), out: r2(out), net: r2(inn - out) };
 }
 /** Cash on hand at the end of day `iso`. */

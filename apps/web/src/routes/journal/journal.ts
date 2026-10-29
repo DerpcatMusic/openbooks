@@ -31,7 +31,12 @@ export const off = (e: Entry) => {
  */
 export const problem = (e: Entry, ctx: JournalCtx = {}): JournalProblem | null => journalProblem({ date: e.date, lines: e.lines }, ctx);
 /** A copy of an entry as a new draft: same date, memo and lines (Mercury's "Duplicate"). */
-export const duplicate = (e: Entry, id: string): Entry => ({ id, date: e.date, memo: e.memo ?? "", lines: e.lines.map((l) => ({ account: l.account, debit: l.debit ?? "", credit: l.credit ?? "" })) });
+export const duplicate = (e: Entry, id: string): Entry => ({
+  id,
+  date: e.date,
+  memo: e.memo ?? "",
+  lines: e.lines.map((l) => ({ account: l.account, debit: l.debit ?? "", credit: l.credit ?? "" })),
+});
 /** What gets stored: numbers only, lines without an amount dropped. */
 export const clean = (es: readonly Entry[]): Entry[] =>
   es.map((e) => ({ ...e, lines: e.lines.filter(used).map((l) => ({ account: l.account, debit: num(l.debit), credit: num(l.credit) })) }));

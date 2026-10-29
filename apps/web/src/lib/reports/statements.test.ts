@@ -94,7 +94,16 @@ const books = [
 const cashBal = (iso: string) => ({ "Mercury Checking": books.filter((x) => x.date <= iso).reduce((a, x) => a + x.amount, 0) });
 const invoices = [
   { id: "i1", kind: "invoice", customer: "c1", items: [{ qty: 1, price: 400 }], issued: "2025-12-01", due: "2025-12-31", status: "open" }, // last year, open
-  { id: "i2", kind: "invoice", customer: "c1", items: [{ qty: 1, price: 1000 }], issued: "2026-01-20", due: "2026-02-20", status: "open", payments: [{ id: "p", txn: null, amount: 250, date: "2026-02-10" }] },
+  {
+    id: "i2",
+    kind: "invoice",
+    customer: "c1",
+    items: [{ qty: 1, price: 1000 }],
+    issued: "2026-01-20",
+    due: "2026-02-20",
+    status: "open",
+    payments: [{ id: "p", txn: null, amount: 250, date: "2026-02-10" }],
+  },
   { id: "i3", kind: "invoice", customer: "c1", items: [{ qty: 1, price: 999 }], issued: "2026-01-21", status: "draft" },
 ];
 const bills = [{ id: "b1", vendor: "v1", date: "2026-02-05", due: "2026-03-05", lines: [{ amount: 300 }], status: "open", payments: [] }];

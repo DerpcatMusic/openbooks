@@ -3,7 +3,23 @@ import { checkDictionaries } from "@openbooks/core";
 import en from "#lib/locales/parts/3-6.en.ts";
 import he from "#lib/locales/parts/3-6.he.ts";
 import type { Txn } from "@openbooks/schema";
-import { apply, applied, candidates, isLate, kindsFor, net, nextNumber, owedOf, paidAmount, remaining, status, total, unmatched, vatOf, type Invoice } from "./invoices.ts";
+import {
+  apply,
+  applied,
+  candidates,
+  isLate,
+  kindsFor,
+  net,
+  nextNumber,
+  owedOf,
+  paidAmount,
+  remaining,
+  status,
+  total,
+  unmatched,
+  vatOf,
+  type Invoice,
+} from "./invoices.ts";
 
 const inv = (o: Partial<Invoice>): Invoice => ({
   id: "i",
@@ -42,8 +58,10 @@ test("invoices: VAT, totals, numbering, status", () => {
   expect(status(inv({ due: "2026-03-01" }), "2026-02-01")).toBe("unpaid");
 });
 
-const tx = (o: Partial<Txn>) => ({ id: "t", date: "2026-01-20", amount: 100, desc: "", category: "business:client", account: "bank", source: "mercury", ...o }) as Txn;
-const one = (price: number, o: Partial<Invoice> = {}) => inv({ kind: "invoice", number: "INV-1", items: [{ desc: "x", qty: 1, price }], due: "2026-02-10", ...o });
+const tx = (o: Partial<Txn>) =>
+  ({ id: "t", date: "2026-01-20", amount: 100, desc: "", category: "business:client", account: "bank", source: "mercury", ...o }) as Txn;
+const one = (price: number, o: Partial<Invoice> = {}) =>
+  inv({ kind: "invoice", number: "INV-1", items: [{ desc: "x", qty: 1, price }], due: "2026-02-10", ...o });
 
 test("invoices: partial payments derive the status and what is still owed; the old paid shape still reads as paid in full", () => {
   const now = "2026-03-01";
@@ -51,7 +69,12 @@ test("invoices: partial payments derive the status and what is still owed; the o
   expect(status(part, now)).toBe("partial"); // past due and partly paid: partial, like Mercury
   expect(isLate(part, now)).toBe(true);
   expect([paidAmount(part), owedOf(part)]).toEqual([40, 60]);
-  const full = one(100, { payments: [{ id: "p", txn: "t1", amount: 40, date: "2026-02-01" }, { id: "q", txn: null, amount: 60, date: "2026-02-02" }] });
+  const full = one(100, {
+    payments: [
+      { id: "p", txn: "t1", amount: 40, date: "2026-02-01" },
+      { id: "q", txn: null, amount: 60, date: "2026-02-02" },
+    ],
+  });
   expect([status(full, now), owedOf(full), isLate(full, now)]).toEqual(["paid", 0, false]); // open but covered
   expect([status(one(100, { status: "paid", paidTxn: "t1" }), now), owedOf(one(100, { status: "paid" }))]).toEqual(["paid", 0]);
   expect([status(one(100), now), owedOf(one(100))]).toEqual(["overdue", 100]);
@@ -96,7 +119,10 @@ test("invoices: the exact fit (what is left of the payment = what is owed, issue
 });
 
 test("invoices: income with money not yet applied still shows as loose", () => {
-  const docs = [one(100, { payments: [{ id: "p", txn: "t1", amount: 100, date: "2026-01-20" }] }), one(100, { id: "j", payments: [{ id: "q", txn: "t2", amount: 40, date: "2026-01-20" }] })];
+  const docs = [
+    one(100, { payments: [{ id: "p", txn: "t1", amount: 100, date: "2026-01-20" }] }),
+    one(100, { id: "j", payments: [{ id: "q", txn: "t2", amount: 40, date: "2026-01-20" }] }),
+  ];
   expect(unmatched([tx({ id: "t1" }), tx({ id: "t2", amount: 100 }), tx({ id: "t3", amount: 7 })], docs, []).map((u) => u.t.id)).toEqual(["t2", "t3"]); // t1 is fully applied; t2 only 40 of 100
 });
 

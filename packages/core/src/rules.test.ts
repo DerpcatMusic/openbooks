@@ -83,7 +83,13 @@ describe("legacy [match, account] tuples", () => {
     expect(L[0]).not.toHaveProperty("tags");
   });
   it("cleanRules keeps tuples as tuples (not flattened) and drops blanks", () => {
-    expect(cleanRules([[" a,b ", " c:d "], ["", "c:d"], ["x", " "]])).toEqual([["a b", "c:d"]]);
+    expect(
+      cleanRules([
+        [" a,b ", " c:d "],
+        ["", "c:d"],
+        ["x", " "],
+      ]),
+    ).toEqual([["a b", "c:d"]]);
   });
   it("classify puts a legacy tuple on top of rule objects", () => {
     const obj = R([{ field: "direction", op: "in" }], { tags: ["t"] });
@@ -94,7 +100,13 @@ describe("legacy [match, account] tuples", () => {
 describe("ordered rules: account, tags, manual overrides", () => {
   const rules: RuleInput[] = [
     R([{ field: "description", op: "contains", value: "aws" }], { tags: ["infra"] }), // tag only: does not take the account
-    R([{ field: "description", op: "contains", value: "aws" }, { field: "amount", op: "gte", value: 100 }], { account: "cogs:hosting", tags: ["infra", "big"] }),
+    R(
+      [
+        { field: "description", op: "contains", value: "aws" },
+        { field: "amount", op: "gte", value: 100 },
+      ],
+      { account: "cogs:hosting", tags: ["infra", "big"] },
+    ),
     ["AWS", "expense:software"],
     R([{ field: "direction", op: "out" }], { account: "expense:other" }),
   ];
@@ -104,7 +116,7 @@ describe("ordered rules: account, tags, manual overrides", () => {
     const rs = rules.map(normalizeRule);
     expect(applyRules(rs, { desc: "aws eu", source: "bank", account: "b", amount: -150 })).toEqual({
       account: "cogs:hosting",
-      why: 'description contains aws · amount gte 100',
+      why: "description contains aws · amount gte 100",
       tags: ["infra", "big"],
     });
     expect(applyRules(rs, { desc: "aws eu", source: "bank", account: "b", amount: -50 })).toMatchObject({ account: "expense:other", tags: ["infra"] }); // lowercase aws: the legacy rule is exact-case
@@ -121,9 +133,18 @@ describe("ordered rules: account, tags, manual overrides", () => {
     expect(ledger([row("a", -150, "aws eu")], {}, rules).at(0)).not.toHaveProperty("tags"); // no tags doc: no tags
   });
   it("labels and text of rules", () => {
-    expect(ruleLabel(R([{ field: "direction", op: "in" }, { field: "amount", op: "between", value: 1, to: 2 }, { field: "account", op: "is", value: "X" }], { tags: ["t"] }))).toBe(
-      "direction in · amount 1–2 · account is X",
-    );
+    expect(
+      ruleLabel(
+        R(
+          [
+            { field: "direction", op: "in" },
+            { field: "amount", op: "between", value: 1, to: 2 },
+            { field: "account", op: "is", value: "X" },
+          ],
+          { tags: ["t"] },
+        ),
+      ),
+    ).toBe("direction in · amount 1–2 · account is X");
     expect(textOf(normalizeRule(["abc", "a:b"]))).toBe("abc");
     expect(textOf(R([{ field: "description", op: "contains", value: "abc" }], { account: "a:b" }))).toBeUndefined();
   });
@@ -132,7 +153,10 @@ describe("ordered rules: account, tags, manual overrides", () => {
 describe("cleanRule on rule objects", () => {
   const aws = { field: "description", op: "contains", value: " aws " } as const;
   it("trims text and writes only the actions that are set", () => {
-    expect(cleanRule(R([aws], { account: " expense:x ", tags: ["a", "a", ""] }))).toEqual({ when: [{ ...aws, value: "aws" }], then: { account: "expense:x", tags: ["a"] } });
+    expect(cleanRule(R([aws], { account: " expense:x ", tags: ["a", "a", ""] }))).toEqual({
+      when: [{ ...aws, value: "aws" }],
+      then: { account: "expense:x", tags: ["a"] },
+    });
     expect(cleanRule(R([aws], { account: "", tags: ["a"] }))).toEqual({ when: [{ ...aws, value: "aws" }], then: { tags: ["a"] } });
   });
   it("legacy text conditions get the rules.csv cleanup (commas become spaces)", () => {
@@ -161,7 +185,13 @@ describe("invalid rules (archived or missing ledger account) are kept but skippe
   it("the engine skips an invalid rule whole and falls through to the next one, tags included", () => {
     const rules = [R([aws], { account: "expense:old", tags: ["t"] }), R([aws], { account: "expense:hosting" })];
     const t: RuleRow = { desc: "AWS", source: "bank", account: "Main", amount: -5 };
-    expect(applyRules(rules.map((r) => r), t, archived)).toEqual({ account: "expense:hosting", why: "description contains aws", tags: [] });
+    expect(
+      applyRules(
+        rules.map((r) => r),
+        t,
+        archived,
+      ),
+    ).toEqual({ account: "expense:hosting", why: "description contains aws", tags: [] });
     expect(applyRules(rules, t, {})).toMatchObject({ account: "expense:old", tags: ["t"] }); // account restored: it applies again
     expect(applyRules([rules[0]!], t, archived)).toEqual({ account: undefined, why: "", tags: [] });
   });
@@ -169,7 +199,10 @@ describe("invalid rules (archived or missing ledger account) are kept but skippe
     const rules = [[`AWS`, "expense:old"] as const];
     const rows = [row("a", -5, "AWS"), row("b", -5, "AWS")];
     const L = ledger(rows, { b: "expense:meals" }, rules, [], undefined, { coa: archived });
-    expect(L.map((x) => [x.id, x.category, x.why])).toEqual([["a", "ask", ""], ["b", "expense:meals", "manual"]]);
+    expect(L.map((x) => [x.id, x.category, x.why])).toEqual([
+      ["a", "ask", ""],
+      ["b", "expense:meals", "manual"],
+    ]);
     expect(ledger(rows, {}, rules, [], undefined, { coa: {} })[0]!.category).toBe("expense:old");
   });
 });

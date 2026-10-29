@@ -29,7 +29,12 @@ const without = <K extends keyof Tag>(t: Tag, k: K): Tag => {
 };
 
 export const createTag = (d: TagsDoc, name: string, group?: string, tax?: TagTax): TagsDoc =>
-  name.trim() ? { ...d, tags: [...d.tags, { id: freshId(name, d.tags), name: name.trim(), ...(group ? { group } : {}), ...(tax && Object.keys(tax).length ? { tax } : {}) }] } : d;
+  name.trim()
+    ? {
+        ...d,
+        tags: [...d.tags, { id: freshId(name, d.tags), name: name.trim(), ...(group ? { group } : {}), ...(tax && Object.keys(tax).length ? { tax } : {}) }],
+      }
+    : d;
 export const renameTag = (d: TagsDoc, id: string, name: string): TagsDoc => (name.trim() ? setTagField(d, id, (t) => ({ ...t, name: name.trim() })) : d);
 /** group "" or undefined = no group. */
 export const setTagGroup = (d: TagsDoc, id: string, group?: string): TagsDoc => setTagField(d, id, (t) => (group ? { ...t, group } : without(t, "group")));
@@ -52,7 +57,8 @@ export const deleteTag = (d: TagsDoc, id: string): TagsDoc => ({
   ),
 });
 
-export const createGroup = (d: TagsDoc, name: string): TagsDoc => (name.trim() ? { ...d, groups: [...d.groups, { id: freshId(name, d.groups), name: name.trim() }] } : d);
+export const createGroup = (d: TagsDoc, name: string): TagsDoc =>
+  name.trim() ? { ...d, groups: [...d.groups, { id: freshId(name, d.groups), name: name.trim() }] } : d;
 export const renameGroup = (d: TagsDoc, id: string, name: string): TagsDoc =>
   name.trim() ? { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) } : d;
 /** Removes the group and its tags (taken off every transaction too). */
@@ -97,7 +103,11 @@ export function setTag(d: TagsDoc, ids: readonly string[], tag: string, on: bool
   for (const raw of ids) {
     const id = baseId(raw);
     const cur = next[id] ?? [],
-      mine = on ? (cur.includes(tag) ? cur.filter((x) => x === tag || !sameGroup.has(x)) : [...cur.filter((x) => !sameGroup.has(x)), tag]) : cur.filter((x) => x !== tag);
+      mine = on
+        ? cur.includes(tag)
+          ? cur.filter((x) => x === tag || !sameGroup.has(x))
+          : [...cur.filter((x) => !sameGroup.has(x)), tag]
+        : cur.filter((x) => x !== tag);
     if (mine.length) next[id] = mine;
     else delete next[id];
   }

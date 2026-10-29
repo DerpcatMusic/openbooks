@@ -287,7 +287,13 @@ export function deductions(inp: DeductionInput): DeductionResult {
     byRule: ruleIds
       .map((rule) => {
         const xs = rows.filter((r) => r.rule === rule);
-        return { rule, n: xs.length, gross: sum(xs, (r) => r.gross), deductible: sum(xs, (r) => r.deductible), vatReclaimable: sum(xs, (r) => r.vatReclaimable) };
+        return {
+          rule,
+          n: xs.length,
+          gross: sum(xs, (r) => r.gross),
+          deductible: sum(xs, (r) => r.deductible),
+          vatReclaimable: sum(xs, (r) => r.vatReclaimable),
+        };
       })
       .sort((a, b) => b.gross - a.gross),
     caps: capRows,
@@ -317,14 +323,21 @@ const words = (kw: string, hay: string) => {
 /** How many of the rule's keywords / MCC codes the text contains; a multi-word keyword counts double, so "amazon web services" beats "amazon". */
 export const matchScore = (r: DeductionRule, t: Pick<Txn, "desc" | "memo" | "mcat">) => {
   const hay = haystack(t).toLowerCase();
-  return r.match.keywords.reduce((n, k) => n + (words(k, hay) ? (k.trim().includes(" ") ? 2 : 1) : 0), 0) + (r.match.mcc ?? []).filter((m) => new RegExp(`(?<!\\d)${String(m)}(?!\\d)`).test(hay)).length;
+  return (
+    r.match.keywords.reduce((n, k) => n + (words(k, hay) ? (k.trim().includes(" ") ? 2 : 1) : 0), 0) +
+    (r.match.mcc ?? []).filter((m) => new RegExp(`(?<!\\d)${String(m)}(?!\\d)`).test(hay)).length
+  );
 };
 
 /** Untagged outflows whose text matches a rule, grouped by rule: the best match wins, and a tie goes to the lowest deductible share (the safe reading). */
 export function suggestTags(inp: DeductionInput): TagSuggestion[] {
   const taxed = new Set(inp.tags.tags.filter((g) => g.tax).map((g) => g.id)),
     known = taggableRules(inp.rules, inp.type),
-    have = new Set(deductions(inp).rows.filter((r) => r.bucket !== "untreated").map((r) => r.id));
+    have = new Set(
+      deductions(inp)
+        .rows.filter((r) => r.bucket !== "untreated")
+        .map((r) => r.id),
+    );
   const out = new Map<string, TagSuggestion>();
   for (const t of inp.txns) {
     const kind = isExpense(t) ? "expense" : t.amount < 0 && t.category === "ask" && t.source !== "journal" ? "uncategorized" : null;
@@ -333,7 +346,7 @@ export function suggestTags(inp: DeductionInput): TagSuggestion[] {
       hits = 0;
     for (const r of known) {
       const n = matchScore(r, t);
-      if (n > hits || (n === hits && n > 0 && best && (r.incomeTaxPct ?? 100) < (best.incomeTaxPct ?? 100))) (best = r), (hits = n);
+      if (n > hits || (n === hits && n > 0 && best && (r.incomeTaxPct ?? 100) < (best.incomeTaxPct ?? 100))) ((best = r), (hits = n));
     }
     if (!best) continue;
     const key = `${kind}|${best.id}`,
@@ -386,7 +399,10 @@ export function relevantMoves(moves: readonly DeductionMove[], type: string, rul
     other: DeductionMove[] = [];
   for (const m of moves) {
     const w = MOVE_WHEN[m.id];
-    (w && (!w.types || w.types.includes(track) || w.types.includes(type)) && (!w.rules || have.some((id) => w.rules!.some((p) => id.startsWith(p)))) ? relevant : other).push(m);
+    (w && (!w.types || w.types.includes(track) || w.types.includes(type)) && (!w.rules || have.some((id) => w.rules!.some((p) => id.startsWith(p))))
+      ? relevant
+      : other
+    ).push(m);
   }
   return { relevant, other };
 }
@@ -396,6 +412,12 @@ export function searchRules(rules: readonly DeductionRule[], q: string, lang: "e
   const s = q.trim().toLowerCase();
   if (!s) return [...rules];
   const rank = (r: DeductionRule) =>
-    r.label[lang].toLowerCase().includes(s) || r.label.en.toLowerCase().includes(s) || r.label.he.includes(s) ? 0 : r.id.includes(s) ? 1 : r.match.keywords.some((k) => k.toLowerCase().includes(s)) ? 2 : 3;
+    r.label[lang].toLowerCase().includes(s) || r.label.en.toLowerCase().includes(s) || r.label.he.includes(s)
+      ? 0
+      : r.id.includes(s)
+        ? 1
+        : r.match.keywords.some((k) => k.toLowerCase().includes(s))
+          ? 2
+          : 3;
   return rules.filter((r) => rank(r) < 3).sort((a, b) => rank(a) - rank(b));
 }

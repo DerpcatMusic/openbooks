@@ -269,7 +269,7 @@ describe("Books", () => {
     expect(statSync(join(home, "new-co/inbox")).isDirectory()).toBe(true);
   });
 
-  test("rules v2: the legacy rule table is read until rules are saved, then doc \"rules\" (table untouched); rule and hand tags reach the ledger", async () => {
+  test('rules v2: the legacy rule table is read until rules are saved, then doc "rules" (table untouched); rule and hand tags reach the ledger', async () => {
     const home = books();
     const r = await run(
       home,
@@ -285,7 +285,13 @@ describe("Books", () => {
           ],
           on: { [openai.id]: ["big", "deleted"] },
         });
-        const mine = { when: [{ field: "description", op: "contains", value: "meta" }, { field: "direction", op: "out" }], then: { account: "expense:advertising", tags: ["ads"] } } as const;
+        const mine = {
+          when: [
+            { field: "description", op: "contains", value: "meta" },
+            { field: "direction", op: "out" },
+          ],
+          then: { account: "expense:advertising", tags: ["ads"] },
+        } as const;
         yield* b.setRules("acme", [mine, ...legacy]);
         return { legacy, after: yield* b.rules("acme"), led: yield* b.ledger("acme"), st: yield* b.state("acme") };
       }),

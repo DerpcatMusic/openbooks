@@ -5,7 +5,27 @@ import en from "#lib/locales/parts/bills.en.ts";
 import he from "#lib/locales/parts/bills.he.ts";
 import gapsEn from "#lib/locales/parts/gaps.en.ts";
 import gapsHe from "#lib/locales/parts/gaps.he.ts";
-import { amountDue, apply, applied, byVendor, candidates, dueOf, inWindow, isOverdue, nextNumber, outgoing, readBills, remaining, status, suggestBills, total, unapply, unmatched, type Bill, type Vendor } from "./bills.ts";
+import {
+  amountDue,
+  apply,
+  applied,
+  byVendor,
+  candidates,
+  dueOf,
+  inWindow,
+  isOverdue,
+  nextNumber,
+  outgoing,
+  readBills,
+  remaining,
+  status,
+  suggestBills,
+  total,
+  unapply,
+  unmatched,
+  type Bill,
+  type Vendor,
+} from "./bills.ts";
 
 const bill = (o: Partial<Bill>): Bill => ({
   id: "b",
@@ -138,7 +158,12 @@ test("bills: suggestions rank the exact fit first (outstanding = payment, dated 
   expect(c.map((x) => x.exact)).toEqual([true, false, false, false]);
   // a used-up payment is gone; a partly used one is offered for what is left
   expect(candidates(b, txns, new Map([["name", 200]]), "Acme Ltd").map((x) => x.t.id)).toEqual(["both", "late", "far"]);
-  const half = candidates(bill({ ...b, payments: [pay(100, "x")] }), [tx({ id: "p", date: "2026-01-20", amount: -150, desc: "ACME" })], new Map([["p", 50]]), "Acme");
+  const half = candidates(
+    bill({ ...b, payments: [pay(100, "x")] }),
+    [tx({ id: "p", date: "2026-01-20", amount: -150, desc: "ACME" })],
+    new Map([["p", 50]]),
+    "Acme",
+  );
   expect(half[0]).toMatchObject({ left: 100, exact: true }); // 100 left of the payment, 100 still owed
   // the other direction: which bills does one payment fit?
   const pay1 = tx({ id: "pp", date: "2026-02-10", amount: -200 });

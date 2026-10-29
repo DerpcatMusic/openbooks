@@ -18,18 +18,112 @@ beforeAll(async () => {
   await doc("customers", [{ id: "c1", name: "Example Customer" }]);
   const line = (amount: number) => [{ desc: "x", amount, account: "" }];
   await doc("bills", [
-    { id: "b1", number: "BILL-0001", vendor: "v1", date: "2026-01-01", due: "2026-01-31", lines: line(100), status: "open", payments: [{ id: "p1", txn: null, amount: 40, date: "2026-02-01" }], memo: "" },
+    {
+      id: "b1",
+      number: "BILL-0001",
+      vendor: "v1",
+      date: "2026-01-01",
+      due: "2026-01-31",
+      lines: line(100),
+      status: "open",
+      payments: [{ id: "p1", txn: null, amount: 40, date: "2026-02-01" }],
+      memo: "",
+    },
     { id: "b2", number: "BILL-0002", vendor: "v2", date: "2026-01-05", due: "2026-02-04", lines: line(300), status: "open", payments: [], memo: "" },
-    { id: "b3", number: "BILL-0003", vendor: "v2", date: "2026-01-05", due: "2026-02-04", lines: line(60), status: "paid", paidTxn: "t1", paidDate: "2026-01-20", memo: "" }, // old shape, paid
-    { id: "b4", number: "BILL-0004", vendor: "v1", date: "2026-01-05", due: "2026-02-04", lines: line(10), status: "void", paidTxn: null, paidDate: null, memo: "" }, // old shape, void
+    {
+      id: "b3",
+      number: "BILL-0003",
+      vendor: "v2",
+      date: "2026-01-05",
+      due: "2026-02-04",
+      lines: line(60),
+      status: "paid",
+      paidTxn: "t1",
+      paidDate: "2026-01-20",
+      memo: "",
+    }, // old shape, paid
+    {
+      id: "b4",
+      number: "BILL-0004",
+      vendor: "v1",
+      date: "2026-01-05",
+      due: "2026-02-04",
+      lines: line(10),
+      status: "void",
+      paidTxn: null,
+      paidDate: null,
+      memo: "",
+    }, // old shape, void
     { id: "b5", number: "BILL-0005", vendor: "v1", date: "2026-01-05", due: null, lines: line(5), status: "draft", payments: [], memo: "" },
   ]);
   await doc("invoices", [
-    { id: "i1", kind: "invoice", number: "INV-0001", customer: "c1", items: [{ desc: "a", qty: 2, price: 50 }], vat: 0.18, issued: "2026-01-10", due: "2026-02-10", status: "open", paidTxn: null, paidDate: null, ref: null }, // 118
-    { id: "i2", kind: "invoice", number: "INV-0002", customer: "c1", items: [{ desc: "a", qty: 1, price: 1000 }], issued: "2026-01-20", due: "2026-02-20", status: "open", payments: [{ id: "q", txn: null, amount: 250, date: "2026-02-10" }], paidTxn: null, paidDate: null, ref: null },
-    { id: "i3", kind: "invoice", number: "INV-0003", customer: "c1", items: [{ desc: "a", qty: 1, price: 70 }], issued: "2026-01-21", due: "2026-02-21", status: "paid", paidTxn: "t2", paidDate: "2026-02-01", ref: null },
-    { id: "i4", kind: "receipt", number: "0001", customer: "c1", items: [{ desc: "a", qty: 1, price: 70 }], issued: "2026-02-01", due: null, status: "paid", paidTxn: "t2", paidDate: "2026-02-01", ref: "INV-0003" },
-    { id: "i5", kind: "invoice", number: null, customer: "c1", items: [{ desc: "a", qty: 1, price: 999 }], issued: "2026-01-22", due: "2026-02-22", status: "draft", paidTxn: null, paidDate: null, ref: null },
+    {
+      id: "i1",
+      kind: "invoice",
+      number: "INV-0001",
+      customer: "c1",
+      items: [{ desc: "a", qty: 2, price: 50 }],
+      vat: 0.18,
+      issued: "2026-01-10",
+      due: "2026-02-10",
+      status: "open",
+      paidTxn: null,
+      paidDate: null,
+      ref: null,
+    }, // 118
+    {
+      id: "i2",
+      kind: "invoice",
+      number: "INV-0002",
+      customer: "c1",
+      items: [{ desc: "a", qty: 1, price: 1000 }],
+      issued: "2026-01-20",
+      due: "2026-02-20",
+      status: "open",
+      payments: [{ id: "q", txn: null, amount: 250, date: "2026-02-10" }],
+      paidTxn: null,
+      paidDate: null,
+      ref: null,
+    },
+    {
+      id: "i3",
+      kind: "invoice",
+      number: "INV-0003",
+      customer: "c1",
+      items: [{ desc: "a", qty: 1, price: 70 }],
+      issued: "2026-01-21",
+      due: "2026-02-21",
+      status: "paid",
+      paidTxn: "t2",
+      paidDate: "2026-02-01",
+      ref: null,
+    },
+    {
+      id: "i4",
+      kind: "receipt",
+      number: "0001",
+      customer: "c1",
+      items: [{ desc: "a", qty: 1, price: 70 }],
+      issued: "2026-02-01",
+      due: null,
+      status: "paid",
+      paidTxn: "t2",
+      paidDate: "2026-02-01",
+      ref: "INV-0003",
+    },
+    {
+      id: "i5",
+      kind: "invoice",
+      number: null,
+      customer: "c1",
+      items: [{ desc: "a", qty: 1, price: 999 }],
+      issued: "2026-01-22",
+      due: "2026-02-22",
+      status: "draft",
+      paidTxn: null,
+      paidDate: null,
+      ref: null,
+    },
   ]);
 }, 30_000);
 afterAll(() => {
@@ -81,7 +175,11 @@ test("aging_report payable: buckets by due date as of a day, per vendor, payment
   expect(early.totals.total).toBe(100 + 300 + 60);
   expect(early.totals.buckets[0]).toBe(100 + 300 + 60);
   expect((await run("aging_report", { type: "payable", as_of: "2026-01-25" })).totals.total).toBe(100 + 300); // b3 was paid on 01-20
-  expect((await run("aging_report", { type: "payable", as_of: "2026-03-01", periods: 1, days: 10 })).buckets.map((b: J) => b.label)).toEqual(["current", "1-10", "11+"]);
+  expect((await run("aging_report", { type: "payable", as_of: "2026-03-01", periods: 1, days: 10 })).buckets.map((b: J) => b.label)).toEqual([
+    "current",
+    "1-10",
+    "11+",
+  ]);
 });
 
 test("aging_report receivable: VAT total, partial payment, receipts and drafts excluded, paid invoice settled", async () => {

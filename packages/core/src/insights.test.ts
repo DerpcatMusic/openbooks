@@ -4,7 +4,12 @@ import { burn, cashAt, cashDelta, cashFlow, margins, pctLabel } from "./insights
 const tx = (date: string, amount: number, category = "expense:software", account = "Checking") => ({ date, amount, category, account });
 
 test("cash flow: cash accounts only (a card purchase is not cash out until the card is paid)", () => {
-  const ts = [tx("2026-01-05", 1000, "revenue:sales"), tx("2026-01-06", -300), tx("2026-01-07", -50, "expense:meals", "Visa Credit Card"), tx("2026-01-20", -200, "transfer:internal")];
+  const ts = [
+    tx("2026-01-05", 1000, "revenue:sales"),
+    tx("2026-01-06", -300),
+    tx("2026-01-07", -50, "expense:meals", "Visa Credit Card"),
+    tx("2026-01-20", -200, "transfer:internal"),
+  ];
   expect(cashFlow(ts)).toEqual({ in: 1000, out: 500, net: 500 });
   expect(cashAt(ts, "2026-01-06")).toBe(700);
   expect(cashAt(ts, "2026-12-31")).toBe(500);
@@ -40,7 +45,10 @@ test("burn: needs three months of history, a non-zero average, and treats negati
   expect(burn([tx("2025-12-01", 1), ...three], "2026-04-15")!.cash).toBe(-5999); // overdrawn
   expect(burn([tx("2025-12-01", 1), ...three], "2026-04-15")!.runway).toBe(0);
   // January: the window is Oct-Dec of the year before
-  expect(burn([tx("2025-09-01", 100), ...month("2025-10", -300), ...month("2025-11", -300), ...month("2025-12", -300)], "2026-01-05")).toMatchObject({ avg: -300, months: ["2025-10", "2025-12"] });
+  expect(burn([tx("2025-09-01", 100), ...month("2025-10", -300), ...month("2025-11", -300), ...month("2025-12", -300)], "2026-01-05")).toMatchObject({
+    avg: -300,
+    months: ["2025-10", "2025-12"],
+  });
 });
 
 test("build rate: positive average gives coverage = cash / average monthly expenses, no runway", () => {

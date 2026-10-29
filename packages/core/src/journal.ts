@@ -154,7 +154,7 @@ function splitCsv(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]!;
     if (q) {
-      if (ch === '"' && line[i + 1] === '"') (cur += '"', i++);
+      if (ch === '"' && line[i + 1] === '"') ((cur += '"'), i++);
       else if (ch === '"') q = false;
       else cur += ch;
     } else if (ch === '"') q = true;

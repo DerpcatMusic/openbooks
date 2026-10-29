@@ -62,7 +62,13 @@ export function holds(c: RuleCondition, t: RuleRow): boolean {
 export const matches = (r: Rule, t: RuleRow) => r.when.length > 0 && r.when.every((c) => holds(c, t));
 
 const condLabel = (c: RuleCondition) =>
-  c.field === "text" ? c.value : c.field === "direction" ? `direction ${c.op}` : c.op === "between" ? `amount ${c.value}–${c.to}` : `${c.field} ${c.op} ${c.value}`;
+  c.field === "text"
+    ? c.value
+    : c.field === "direction"
+      ? `direction ${c.op}`
+      : c.op === "between"
+        ? `amount ${c.value}–${c.to}`
+        : `${c.field} ${c.op} ${c.value}`;
 /** The rule in words, for a transaction's `why`. A legacy rule's label is its own match text. */
 export const ruleLabel = (r: Rule) => r.when.map(condLabel).join(" · ");
 /** The match text of a rule that is just one "text" condition (what a quick "create rule" makes), else undefined. */
@@ -79,7 +85,8 @@ export function ruleProblem(r: Rule, coa?: Coa): "archived" | "missing" | undefi
 
 /** The ledger's answer for one transaction: the first matching rule that has an account sets it (`why` = that rule); tags from all matches. Invalid rules (ruleProblem) are skipped. */
 export function applyRules(rules: readonly Rule[], t: RuleRow, coa?: Coa): { account: string | undefined; why: string; tags: string[] } {
-  let account: string | undefined, why = "";
+  let account: string | undefined,
+    why = "";
   const tags = new Set<string>();
   for (const r of rules) {
     if (!matches(r, t) || ruleProblem(r, coa)) continue;

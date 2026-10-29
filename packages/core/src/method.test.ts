@@ -2,7 +2,19 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Txn } from "@openbooks/schema";
 import { methodOf, suggest, suggestedIds } from "./index.ts";
 
-const t = (id: string, over: Partial<Txn> = {}): Txn => ({ id, date: "2026-01-02", amount: -10, desc: "Shop", source: "bank", account: "Main", file: "", page: 0, category: "ask", why: "", ...over });
+const t = (id: string, over: Partial<Txn> = {}): Txn => ({
+  id,
+  date: "2026-01-02",
+  amount: -10,
+  desc: "Shop",
+  source: "bank",
+  account: "Main",
+  file: "",
+  page: 0,
+  category: "ask",
+  why: "",
+  ...over,
+});
 
 describe("methodOf", () => {
   it("uncategorized beats everything; journal, split, manual and rule are read off why", () => {

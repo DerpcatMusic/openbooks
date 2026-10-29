@@ -33,7 +33,8 @@ export default {
   "gaps2.split.start": "Split transaction",
   "gaps2.split.edit": "Edit split",
   "gaps2.split.unsplit": "Unsplit",
-  "gaps2.split.hint": "Allocate this transaction to several ledger accounts, for example a supplies run that is part equipment and part meals. Reports, tags and deductions follow each line.",
+  "gaps2.split.hint":
+    "Allocate this transaction to several ledger accounts, for example a supplies run that is part equipment and part meals. Reports, tags and deductions follow each line.",
   "gaps2.split.part": "Part {i}",
   "gaps2.split.line": "line {i} of a split",
   "gaps2.split.total": "Transaction total",
@@ -74,7 +75,8 @@ export default {
   "gaps2.tag.reactivated": "“{tag}” is active again",
   "gaps2.tag.onePerGroup": "A transaction holds one tag from each group: picking another from the same group replaces it.",
   "gaps2.tag.deleteTitle": "Delete tag “{name}”?",
-  "gaps2.tag.deleteHelp": "This permanently removes the tag from every transaction that has it. To keep it on past transactions but stop using it, deactivate it instead.",
+  "gaps2.tag.deleteHelp":
+    "This permanently removes the tag from every transaction that has it. To keep it on past transactions but stop using it, deactivate it instead.",
   "gaps2.tag.deleteConfirm": "Delete tag",
   "gaps2.group.deleteTitle": "Delete group “{name}”?",
   "gaps2.group.deleteHelp": "Deleting a group deletes all of its tags and takes them off every transaction. This can't be undone.",
@@ -93,9 +95,11 @@ export default {
   "gaps2.journal.duplicated": "Copied as a new draft: change what differs, then Save",
   "gaps2.journal.paste": "Paste from a spreadsheet",
   "gaps2.journal.pasteTitle": "Paste journal entries",
-  "gaps2.journal.pasteHelp": "Copy rows from a spreadsheet with the columns date, account, debit, credit, memo, and paste them here. Nothing is saved until you review the draft entries and press Save.",
+  "gaps2.journal.pasteHelp":
+    "Copy rows from a spreadsheet with the columns date, account, debit, credit, memo, and paste them here. Nothing is saved until you review the draft entries and press Save.",
   "gaps2.journal.pastePlaceholder": "2026-03-10\tSoftware and Subscriptions\t100.00\t\tGitHub\n2026-03-10\tOwner Contributions & Draws\t\t100.00\tGitHub",
-  "gaps2.journal.pasteGroups": "Rows with the same date and memo make one entry. An account is its name, its id (expense:software) or its code. A header row is skipped.",
+  "gaps2.journal.pasteGroups":
+    "Rows with the same date and memo make one entry. An account is its name, its id (expense:software) or its code. A header row is skipped.",
   "gaps2.journal.ready": { one: "{n} entry ready", other: "{n} entries ready" },
   "gaps2.journal.lines": { one: "{n} line", other: "{n} lines" },
   "gaps2.journal.rejected": { one: "{n} entry can't be imported:", other: "{n} entries can't be imported:" },
@@ -131,12 +135,14 @@ export default {
   "gaps2.books.name": "Business name",
   "gaps2.books.basis": "Accounting basis",
   "gaps2.books.cash": "Cash",
-  "gaps2.books.basisHelp": "These books are kept on a cash basis: income and expenses count on the day money moves. Accrual accounting (receivables and payables on the balance sheet) is not supported, and the basis can't be changed.",
+  "gaps2.books.basisHelp":
+    "These books are kept on a cash basis: income and expenses count on the day money moves. Accrual accounting (receivables and payables on the balance sheet) is not supported, and the basis can't be changed.",
   "gaps2.books.start": "Entries start date",
   "gaps2.books.startDate": "Start date",
   "gaps2.books.startThrough": "Books start on {date}.",
   "gaps2.books.startNone": "No start date: every transaction counts.",
-  "gaps2.books.startHelp": "Transactions and journal entries dated before it are left out of the books and every report; they are not deleted. Once set it can only move earlier, never later.",
+  "gaps2.books.startHelp":
+    "Transactions and journal entries dated before it are left out of the books and every report; they are not deleted. Once set it can only move earlier, never later.",
   "gaps2.books.startSet": "Set start date",
   "gaps2.books.startMove": "Move start date earlier",
   "gaps2.books.startClear": "Include everything",
@@ -144,9 +150,15 @@ export default {
   "gaps2.books.startCleared": "Every transaction counts again",
   "gaps2.books.startLater": "The start date can only move earlier than {date}.",
   "gaps2.books.startAfterClose": "The start date can't be after the close date ({date}).",
-  "gaps2.books.startDrops": { one: "{n} transaction before this date will be left out of the books.", other: "{n} transactions before this date will be left out of the books." },
+  "gaps2.books.startDrops": {
+    one: "{n} transaction before this date will be left out of the books.",
+    other: "{n} transactions before this date will be left out of the books.",
+  },
   "gaps2.books.startConfirmTitle": "Start the books on {date}?",
-  "gaps2.books.startConfirm": { one: "{n} earlier transaction will be left out of the books and every report.", other: "{n} earlier transactions will be left out of the books and every report." },
+  "gaps2.books.startConfirm": {
+    one: "{n} earlier transaction will be left out of the books and every report.",
+    other: "{n} earlier transactions will be left out of the books and every report.",
+  },
   "gaps2.books.startConfirmMore": "Nothing is deleted, and you can move the start date earlier at any time to bring them back. You can't move it later.",
   "gaps2.books.closeFuture": "The close date can't be in the future.",
   "gaps2.books.closeBeforeStart": "The close date can't be before the start date ({date}).",

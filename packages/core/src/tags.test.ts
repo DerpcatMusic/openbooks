@@ -62,7 +62,10 @@ describe("tags", () => {
   });
   it("groups: create, rename; deleting a group deletes its tags and takes them off every transaction", () => {
     let d = createGroup(createGroup(emptyTags(), "Clients"), "clients");
-    expect(d.groups).toEqual([{ id: "clients", name: "Clients" }, { id: "clients-2", name: "clients" }]);
+    expect(d.groups).toEqual([
+      { id: "clients", name: "Clients" },
+      { id: "clients-2", name: "clients" },
+    ]);
     d = renameGroup(d, "clients", "Customers");
     d = createTag(createTag(d, "A", "clients"), "B", "clients-2");
     d = setTag(setTag(d, ["x", "y"], "a", true), ["y"], "b", true);
@@ -128,7 +131,13 @@ describe("tags", () => {
 describe("tags on ledger rows: one per group, by hand over rules", () => {
   const row = (id: string): StoredTxn => ({ id, date: "2026-01-02", amount: -5, desc: "AWS", source: "bank", account: "Main", file: "", page: 0 });
   let d = createGroup(emptyTags(), "Dept");
-  for (const [n, g] of [["Sales", "dept"], ["Ops", "dept"], ["Eng", "dept"], ["Solo", undefined]] as const) d = createTag(d, n, g);
+  for (const [n, g] of [
+    ["Sales", "dept"],
+    ["Ops", "dept"],
+    ["Eng", "dept"],
+    ["Solo", undefined],
+  ] as const)
+    d = createTag(d, n, g);
   const rule = (tags: string[]) => ({ when: [{ field: "description", op: "contains", value: "aws" } as const], then: { tags } });
   it("two rules adding tags of one group: the earlier rule wins", () => {
     const L = ledger([row("a")], {}, [rule(["sales", "solo"]), rule(["ops"])], [], d);

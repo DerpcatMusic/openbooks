@@ -187,7 +187,16 @@ CPA,expense:professional
     { id: "v-rent", name: "Sound Rent Co", email: "hello@soundrent.example", account: "expense:equipment" },
     { id: "v-aws", name: "Amazon Web Services", account: "cogs:hosting" },
   ];
-  const bill = (n: number, vendor: string, date: string, due: string, amount: number, account: string, status = "open", payments: { amount: number; date: string }[] = []) => ({
+  const bill = (
+    n: number,
+    vendor: string,
+    date: string,
+    due: string,
+    amount: number,
+    account: string,
+    status = "open",
+    payments: { amount: number; date: string }[] = [],
+  ) => ({
     id: `bill-${n}`,
     number: `BILL-${String(n).padStart(4, "0")}`,
     vendor,

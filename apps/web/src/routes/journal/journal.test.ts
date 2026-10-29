@@ -107,7 +107,15 @@ test("journal: a debit line and a credit line are both needed, archived accounts
 });
 
 test("journal: duplicate copies date, memo and lines into a new draft id", () => {
-  const src: Entry = { id: "je1", date: "2026-01-15", memo: "Rent", lines: [{ account: "expense:rent", debit: 100, credit: "" }, { account: "equity:owner", debit: "", credit: 100 }] };
+  const src: Entry = {
+    id: "je1",
+    date: "2026-01-15",
+    memo: "Rent",
+    lines: [
+      { account: "expense:rent", debit: 100, credit: "" },
+      { account: "equity:owner", debit: "", credit: 100 },
+    ],
+  };
   const copy = duplicate(src, "je2");
   expect(copy).toEqual({ id: "je2", date: "2026-01-15", memo: "Rent", lines: src.lines });
   expect(copy.lines[0]).not.toBe(src.lines[0]); // edits to the copy don't touch the original

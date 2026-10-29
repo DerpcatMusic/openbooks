@@ -88,7 +88,8 @@ export default {
   "accounts.newHint": "New ledger accounts: pick “+ New ledger account…” in any account picker and name it {code}.",
 
   "rules.title": "Rules",
-  "rules.sub": "If all of a rule's conditions hold, it sets the ledger account and/or adds tags. The first matching rule that sets an account wins, and a choice you made by hand always beats rules. Rules apply to past and new transactions.",
+  "rules.sub":
+    "If all of a rule's conditions hold, it sets the ledger account and/or adds tags. The first matching rule that sets an account wins, and a choice you made by hand always beats rules. Rules apply to past and new transactions.",
   "rules.discard": "Discard",
   "rules.new": "New rule",
   "rules.save": "Save rules",

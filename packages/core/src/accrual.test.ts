@@ -1,7 +1,31 @@
 import { expect, test } from "vite-plus/test";
-import { agingBuckets, agingReport, billSources, bucketOf, displayStatus, invoiceSources, invoiceTotal, migrateBill, openAt, outstanding, paidOf, percents, type AgingSource } from "./accrual.ts";
+import {
+  agingBuckets,
+  agingReport,
+  billSources,
+  bucketOf,
+  displayStatus,
+  invoiceSources,
+  invoiceTotal,
+  migrateBill,
+  openAt,
+  outstanding,
+  paidOf,
+  percents,
+  type AgingSource,
+} from "./accrual.ts";
 
-const src = (o: Partial<AgingSource>): AgingSource => ({ id: "s", party: "p1", name: "Acme", ref: "1", date: "2026-01-01", due: "2026-02-01", gross: 100, payments: [], ...o });
+const src = (o: Partial<AgingSource>): AgingSource => ({
+  id: "s",
+  party: "p1",
+  name: "Acme",
+  ref: "1",
+  date: "2026-01-01",
+  due: "2026-02-01",
+  gross: 100,
+  payments: [],
+  ...o,
+});
 
 test("display status: partial beats overdue, credit memos are never paid, draft/cancelled pass through", () => {
   const d = (stored: string, gross: number, paid: number, due: string | null = "2026-02-01") => displayStatus(stored, gross, paid, due, "2026-03-01");
@@ -96,11 +120,28 @@ test("percentages: one decimal, add to 100.0, nothing to split gives null", () =
 });
 
 test("docs as sources: invoices (VAT, receipts, drafts, old paid) and bills (migrated, open only)", () => {
-  const inv = (o: object) => ({ id: "i", kind: "invoice", number: "INV-1", customer: "c1", items: [{ qty: 2, price: 50 }], vat: 0.18, issued: "2026-01-10", due: "2026-02-10", status: "open", ...o });
+  const inv = (o: object) => ({
+    id: "i",
+    kind: "invoice",
+    number: "INV-1",
+    customer: "c1",
+    items: [{ qty: 2, price: 50 }],
+    vat: 0.18,
+    issued: "2026-01-10",
+    due: "2026-02-10",
+    status: "open",
+    ...o,
+  });
   expect(invoiceTotal(inv({}))).toBe(118);
   const name = (id: string | null) => (id === "c1" ? "Client" : "");
   const s = invoiceSources(
-    [inv({ id: "open" }), inv({ id: "draft", status: "draft" }), inv({ id: "rcpt", kind: "receipt", status: "paid" }), inv({ id: "paid", status: "paid", paidDate: "2026-02-01" }), inv({ id: "part", payments: [{ id: "p", txn: null, amount: 18, date: "2026-02-01" }] })],
+    [
+      inv({ id: "open" }),
+      inv({ id: "draft", status: "draft" }),
+      inv({ id: "rcpt", kind: "receipt", status: "paid" }),
+      inv({ id: "paid", status: "paid", paidDate: "2026-02-01" }),
+      inv({ id: "part", payments: [{ id: "p", txn: null, amount: 18, date: "2026-02-01" }] }),
+    ],
     name,
   );
   expect(s.map((x) => x.id)).toEqual(["open", "paid", "part"]);
@@ -119,8 +160,15 @@ test("docs as sources: invoices (VAT, receipts, drafts, old paid) and bills (mig
 });
 
 test("open at a date for the balance sheet, split by issue year", () => {
-  const s = [src({ id: "old", date: "2025-12-01", gross: 100 }), src({ id: "new", date: "2026-02-01", gross: 50 }), src({ id: "future", date: "2026-09-01", gross: 7 })];
+  const s = [
+    src({ id: "old", date: "2025-12-01", gross: 100 }),
+    src({ id: "new", date: "2026-02-01", gross: 50 }),
+    src({ id: "future", date: "2026-09-01", gross: 7 }),
+  ];
   expect(openAt(s, "2026-06-30")).toEqual({ total: 150, prior: 100 });
-  expect(openAt([...s, src({ id: "paid", date: "2026-01-05", gross: 40, payments: [{ amount: 40, date: "2026-03-01" }] })], "2026-06-30")).toEqual({ total: 150, prior: 100 });
+  expect(openAt([...s, src({ id: "paid", date: "2026-01-05", gross: 40, payments: [{ amount: 40, date: "2026-03-01" }] })], "2026-06-30")).toEqual({
+    total: 150,
+    prior: 100,
+  });
   expect(openAt(s, "2025-12-31")).toEqual({ total: 100, prior: 0 }); // issued in the same year as the date
 });
