@@ -62,6 +62,7 @@
       [
         { href: "/rules", label: t("nav.rules"), icon: "rules" },
         { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
+        { href: "/reconciliation", label: t("nav.reconciliation"), icon: "check" },
         { href: "/journal", label: t("nav.journal"), icon: "file" },
         { href: "/documents", label: t("nav.documents"), icon: "folder" },
         { href: "/connections", label: t("nav.connections"), icon: "wallet" },

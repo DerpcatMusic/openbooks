@@ -72,6 +72,7 @@
       ["/counterparties", "nav.counterparties", "users"],
       ["/rules", "nav.rules", "rules"],
       ["/accounts", "nav.accounts", "bank"],
+      ["/reconciliation", "nav.reconciliation", "check"],
       ["/journal", "nav.journal", "file"],
       ["/documents", "nav.documents", "folder"],
       ["/connections", "nav.connections", "wallet"],

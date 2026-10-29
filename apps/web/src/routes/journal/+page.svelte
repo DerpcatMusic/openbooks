@@ -2,7 +2,7 @@
   // Manual journal entries: double-entry adjustments with no bank movement (owner-paid expenses, depreciation, reclasses,
   // accruals). Port of web/src/views/Journal.svelte. Edits stay local until Save; an entry saves only when its debits equal its
   // credits and every line with an amount has a ledger account (./journal.ts).
-  import { doc, saveDoc, catLabel, catGroups, mdy, fmt, toast, ent } from "#lib/stores/books.svelte.ts";
+  import { doc, saveDoc, catLabel, catGroups, closed, closeDate, mdy, fmt, toast, ent } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, EmptyState, Icon, IconButton, Input, Money, PageHeader, Select } from "#lib/ui/index.ts";
   import { totals, off, problem, clean, blankLine, type Entry } from "./journal.ts";
@@ -14,6 +14,9 @@
     if (!dirty) entries = structuredClone($state.snapshot(doc<Entry[]>("journal")));
   });
   const cur = $derived(ent().currency ?? "ILS");
+  // an entry already saved with a date on or before the close date is locked (a draft isn't: the server checks it when it's saved)
+  const savedDate = $derived(new Map(doc<Entry[]>("journal").map((e) => [e.id, e.date])));
+  const locked = (e: Entry) => closed(savedDate.get(e.id) ?? "");
   const SIDES = ["debit", "credit"] as const;
   const today = () => new Date().toLocaleDateString("sv");
   const bad = $derived(entries.find((e) => problem(e)));
@@ -78,6 +81,7 @@
     {#each entries as e, i (e.id)}
       {@const [d, c] = totals(e)}
       {@const diff = off(e)}
+      {@const lk = locked(e)}
       <section class="panel overflow-hidden">
         <button
           class="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5 text-start outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-inset sm:px-5"
@@ -86,6 +90,7 @@
           onclick={() => (open = open === e.id ? null : e.id)}>
           <Icon name="chevron-right" size={14} class="shrink-0 text-sub transition-transform {open === e.id ? 'rotate-90' : 'rtl:-scale-x-100'}" />
           <span class="num w-28 shrink-0 text-[14px] text-sub">{e.date ? mdy(e.date) : ""}</span>
+          {#if lk}<span title={t("close.locked", { date: mdy(closeDate() ?? "") })} class="shrink-0 text-faint"><Icon name="lock" size={14} /></span>{/if}
           <span class="min-w-0 flex-1 basis-40 truncate text-[14px] text-ink">
             <bdi>{e.memo || t("journal.untitled")}</bdi>{#if accountsOf(e)}<span class="ms-2 text-sub">{accountsOf(e)}</span>{/if}
           </span>
@@ -94,9 +99,10 @@
         </button>
         {#if open === e.id}
           <div id="je-{e.id}" class="border-t border-line px-4 py-4 sm:px-5">
+            {#if lk}<p class="mb-3 flex items-center gap-1.5 text-[13px] text-sub" role="status"><Icon name="lock" size={14} />{t("close.locked", { date: mdy(closeDate() ?? "") })}</p>{/if}
             <div class="flex flex-wrap gap-3">
-              <Input label={t("common.date")} type="date" value={e.date} oninput={(x) => edit(() => (e.date = (x.currentTarget as HTMLInputElement).value))} class="w-44" />
-              <Input label={t("journal.memo")} value={e.memo ?? ""} oninput={(x) => edit(() => (e.memo = (x.currentTarget as HTMLInputElement).value))} placeholder={t("journal.memoPlaceholder")} class="min-w-0 flex-1 basis-64" />
+              <Input label={t("common.date")} type="date" value={e.date} disabled={lk} oninput={(x) => edit(() => (e.date = (x.currentTarget as HTMLInputElement).value))} class="w-44" />
+              <Input label={t("journal.memo")} value={e.memo ?? ""} disabled={lk} oninput={(x) => edit(() => (e.memo = (x.currentTarget as HTMLInputElement).value))} placeholder={t("journal.memoPlaceholder")} class="min-w-0 flex-1 basis-64" />
             </div>
 
             <!-- lines: a 4-column grid from sm up; on phones the account takes the full row and debit/credit sit under it -->
@@ -106,24 +112,25 @@
               </div>
               {#each e.lines as l, j (j)}
                 <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-2 border-b border-line py-2 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_2rem] sm:items-center sm:py-1.5">
-                  <Select label={t("journal.line", { n: j + 1 })} variant="pill" value={l.account} groups={groupsFor(l.account)} onchange={(v) => edit(() => (l.account = v))} class={["col-span-3 sm:col-span-1", l.account === "ask" ? "[&_select]:text-warn" : ""].join(" ")} />
+                  <Select label={t("journal.line", { n: j + 1 })} variant="pill" value={l.account} groups={groupsFor(l.account)} disabled={lk} onchange={(v) => edit(() => (l.account = v))} class={["col-span-3 sm:col-span-1", l.account === "ask" ? "[&_select]:text-warn" : ""].join(" ")} />
                   {#each SIDES as k (k)}
                     <label class="flex min-w-0 flex-col gap-0.5">
                       <span class="text-[12px] text-sub sm:sr-only">{t(`journal.${k}`)}<span class="sr-only"> · {t("journal.line", { n: j + 1 })}</span></span>
                       <input
                         inputmode="decimal"
                         dir="ltr"
+                        disabled={lk}
                         value={l[k] === 0 ? "" : (l[k] ?? "")}
                         oninput={(x) => amount(l, k, x.currentTarget.value)}
                         class="num h-8 w-full min-w-0 rounded-md bg-fill px-2 text-end text-ink outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/50 sm:bg-transparent sm:hover:bg-fill sm:focus:bg-fill"
                         placeholder="0.00" />
                     </label>
                   {/each}
-                  <IconButton icon="x" size="sm" class="hover:text-bad" label={t("journal.removeLine")} disabled={e.lines.length <= 2} onclick={() => edit(() => e.lines.splice(j, 1))} />
+                  <IconButton icon="x" size="sm" class="hover:text-bad" label={t("journal.removeLine")} disabled={lk || e.lines.length <= 2} onclick={() => edit(() => e.lines.splice(j, 1))} />
                 </div>
               {/each}
               <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-center gap-2 py-2 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_2rem]">
-                <div class="col-span-3 sm:col-span-1"><Button size="sm" variant="ghost" icon="plus" onclick={() => edit(() => e.lines.push(blankLine()))}>{t("journal.addLine").replace(/^\+\s*/, "")}</Button></div>
+                <div class="col-span-3 sm:col-span-1"><Button size="sm" variant="ghost" icon="plus" disabled={lk} onclick={() => edit(() => e.lines.push(blankLine()))}>{t("journal.addLine").replace(/^\+\s*/, "")}</Button></div>
                 <div dir="ltr" class="px-2 text-end font-medium"><Money value={d} currency={cur} class="text-ink" /></div>
                 <div dir="ltr" class="px-2 text-end font-medium"><Money value={c} currency={cur} class="text-ink" /></div>
                 <span></span>
@@ -134,7 +141,7 @@
                 <Icon name={diff ? "alert" : "check"} size={14} class="shrink-0" />
                 {diff ? t("journal.differ", { amount: fmt(Math.abs(diff), 2) }) : t("journal.balanced")}
               </span>
-              <Button variant="ghost" size="sm" icon="trash" class="hover:text-bad" onclick={() => edit(() => { entries.splice(i, 1); open = null; })}>{t("journal.deleteEntry")}</Button>
+              <Button variant="ghost" size="sm" icon="trash" class="hover:text-bad" disabled={lk} onclick={() => edit(() => { entries.splice(i, 1); open = null; })}>{t("journal.deleteEntry")}</Button>
             </div>
           </div>
         {/if}

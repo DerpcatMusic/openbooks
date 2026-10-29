@@ -10,7 +10,7 @@
   // what it would match), receipts/attachments, links to the statement file, the journal or the counterparty.
   import { goto } from "#lib/nav.ts";
   import { payerOf, suggestRule, haystack } from "@openbooks/core";
-  import { S, ent, catLabel, mdy, classify, toast, fileUrl, attach, attachmentsOf, suggest } from "#lib/stores/books.svelte.ts";
+  import { S, ent, catLabel, mdy, classify, closed, closeDate, toast, fileUrl, attach, attachmentsOf, suggest } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Drawer, Money, Button, Icon } from "#lib/ui/index.ts";
   import CategorySelect from "./CategorySelect.svelte";
@@ -87,6 +87,8 @@
       <div class="text-[13px] text-sub">{t("common.ledgerAccount")}</div>
       {#if journal}
         <div class="mt-2 text-[15px] text-ink">{catLabel(x.category)} <span class="text-[13px] text-sub">· {t("txn.editInJournal")}</span></div>
+      {:else if closed(x.date)}
+        <div class="mt-2 flex items-center gap-1.5 text-[15px] text-ink"><Icon name="lock" size={14} class="text-faint" />{catLabel(x.category)} <span class="text-[13px] text-sub">· {t("close.locked", { date: mdy(closeDate() ?? "") })}</span></div>
       {:else}
         <div class="mt-2"><CategorySelect value={x.category} variant="pill" suggestions={() => suggest([x])} onchange={(c) => classify([x.id], c)} /></div>
       {/if}

@@ -2,7 +2,7 @@
   // Settings: appearance (language, theme, font), security (vault), business (names, structure per tax year), tax years,
   // tax tables (edits are overrides: POST /api/taxtables → doc(_app, "taxtables")), AI, and a summary of these books.
   import { goto } from "#lib/nav.ts";
-  import { S, ent, family, isUS, bizType, bizTypes, bizLabel, setBizType, setMeta, setTheme, addYear, removeYear, saveTaxTable, fmt, toast, type Theme } from "#lib/stores/books.svelte.ts";
+  import { S, ent, family, isUS, bizType, bizTypes, bizLabel, setBizType, setMeta, setTheme, addYear, removeYear, saveTaxTable, closeDate, setCloseDate, mdy, fmt, toast, type Theme } from "#lib/stores/books.svelte.ts";
   import { t, I, setLang, type Lang } from "#lib/i18n.svelte.ts";
   import { Button, Card, IconButton, Input, PageHeader, Segmented, Select, Table } from "#lib/ui/index.ts";
   import VaultPanel from "#lib/vault/VaultPanel.svelte";
@@ -28,6 +28,18 @@
     try {
       localStorage.setItem("ob-font", f);
     } catch {}
+  }
+
+  // close date: everything dated on or before it is locked (screens, API and MCP tools)
+  const closing = $derived(closeDate());
+  let closeInput = $state("");
+  $effect(() => {
+    closeInput = closing ?? "";
+  });
+  const closeOk = $derived(/^\d{4}-\d{2}-\d{2}$/.test(closeInput) && closeInput !== closing);
+  async function saveClose(date: string | null) {
+    await setCloseDate(date);
+    toast(date ? t("close.saved", { date: mdy(date) }) : t("close.cleared"));
   }
 
   // tax years of these books
@@ -140,6 +152,15 @@
       </div>
       <p class="mt-3 text-[12px] text-faint">{t(fam === "il" ? "settings.structureNoteIl" : "settings.structureNoteUs")}</p>
     {/if}
+  </Card>
+
+  <Card title={t("close.title")} description={t("close.hint")}>
+    <p class="mb-3 text-[14px] text-ink">{closing ? t("close.through", { date: mdy(closing) }) : t("close.notYet")}</p>
+    <div class="flex flex-wrap items-end gap-2">
+      <Input label={t("close.date")} type="date" bind:value={closeInput} class="w-44" />
+      <Button variant="primary" disabled={!closeOk} onclick={() => saveClose(closeInput)}>{t("close.set")}</Button>
+      {#if closing}<Button variant="ghost" onclick={() => saveClose(null)}>{t("close.clear")}</Button>{/if}
+    </div>
   </Card>
 
   <section class={section}>

@@ -9,7 +9,7 @@
   import { tick } from "svelte";
   import { TYPES, group, inPeriod, payerOf, suggestRule } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
-  import { S, ent, accounts, catLabel, catGroups, typeLabel, classify, toast, suggest, mdy, period, periodLabel } from "#lib/stores/books.svelte.ts";
+  import { S, ent, accounts, catLabel, catGroups, typeLabel, classify, closed, closeDate, toast, suggest, mdy, period, periodLabel } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { PageHeader, Tabs, Select, Search, Button, Money, Icon, Table, EmptyState, type Column, type SelectGroup } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
@@ -94,13 +94,15 @@
   });
 
   // ---------- selection ----------
-  const selected = $derived(rows.filter((x) => sel.has(x.id)));
-  const allOn = $derived(rows.length > 0 && selected.length === rows.length);
+  // rows in a closed period (on or before the close date) can't be selected or re-filed
+  const pickable = $derived(rows.filter((x) => !closed(x.date)));
+  const selected = $derived(pickable.filter((x) => sel.has(x.id)));
+  const allOn = $derived(pickable.length > 0 && selected.length === pickable.length);
   // the same counterparty as anything selected, within the current filters
   const similar = $derived.by(() => {
     if (!selected.length) return [];
     const ks = new Set(selected.map(payerOf));
-    return rows.filter((x) => ks.has(payerOf(x)));
+    return pickable.filter((x) => ks.has(payerOf(x)));
   });
   function toggle(x: Txn, e: MouseEvent) {
     const s = new Set(sel),
@@ -113,6 +115,7 @@
           )
         : [x.id];
     for (const id of ids) {
+      if (!pickable.some((r) => r.id === id)) continue;
       if (on) s.add(id);
       else s.delete(id);
     }
@@ -207,7 +210,7 @@
         type="checkbox"
         checked={allOn}
         indeterminate={!!selected.length && !allOn}
-        onchange={() => (allOn ? clear() : (sel = new Set(rows.map((x) => x.id))))}
+        onchange={() => (allOn ? clear() : (sel = new Set(pickable.map((x) => x.id))))}
         class="size-4 shrink-0 cursor-pointer accent-accent" />
       {t("txns.selectAll")}
     </label>
@@ -220,6 +223,7 @@
           <input
             type="checkbox"
             checked={sel.has(x.id)}
+            disabled={closed(x.date)}
             onclick={(e) => {
               e.stopPropagation();
               toggle(x, e);
@@ -236,6 +240,8 @@
             <span title={why(x)} class="shrink-0 text-faint"><Icon name={x.why === "manual" ? "user" : x.why ? "rules" : "alert"} size={13} /></span>
             {#if x.source === "journal"}
               <span class="text-ink-2">{catLabel(x.category)}</span>
+            {:else if closed(x.date)}
+              <span class="flex items-center gap-1.5 text-ink-2" title={t("close.locked", { date: mdy(closeDate() ?? "") })}><Icon name="lock" size={13} class="shrink-0 text-faint" />{catLabel(x.category)}</span>
             {:else}
               <CategorySelect value={x.category} onchange={(c) => apply([x], c)} suggestions={() => suggest([x])} />
             {/if}

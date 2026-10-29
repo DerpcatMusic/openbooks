@@ -2,9 +2,9 @@
 // theme, toasts, and the formatters every screen uses. Pure ledger math lives in @openbooks/core; this file only binds it to S.
 // Live updates: one EventSource on /api/events; a change for the open entity (or entity: null) re-fetches the whole state.
 import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest } from "@openbooks/core";
-import { group, inPeriod, monthsIn, type Period } from "@openbooks/core";
+import { closedOn, group, inPeriod, monthsIn, type Period } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
-import { api, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
+import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
 
@@ -203,20 +203,25 @@ function accept(d: State | NoBooks) {
   }
   if (!d.years.includes(S.year)) S.year = d.years.at(-1) ?? new Date().getFullYear();
 }
-/** Run a request for the current entity; drop the answer if the user switched entity meanwhile. */
-async function run(req: (e: string) => Promise<State | NoBooks>) {
+/**
+ * Run a request for the current entity; drop the answer if the user switched entity meanwhile. A refused write (`write`) re-reads
+ * the books: saveDoc already showed the new value locally. 409 = the close date refused it (see `closeDate`).
+ */
+async function run(req: (e: string) => Promise<State | NoBooks>, write = false) {
   const e = S.e;
   S.busy = true;
   try {
     const d = await req(e);
     if (e === S.e) accept(d);
   } catch (x) {
-    toast(String((x as Error).message || x));
+    const close = closeDate();
+    toast(x instanceof ApiError && x.status === 409 && close ? t("close.refused", { date: mdy(close) }) : String((x as Error).message || x));
+    if (write) void load();
   } finally {
     S.busy = false;
   }
 }
-const call = (path: string, body: unknown) => run((e) => api.post(path, body, e));
+const call = (path: string, body: unknown) => run((e) => api.post(path, body, e), true);
 
 let loading: Promise<void> | null = null,
   again = false;
@@ -268,6 +273,11 @@ export function saveDoc(name: string, value: unknown) {
   if (S.data) S.data.docs = { ...S.data.docs, [name]: value };
   return call("/api/doc", { name, value });
 }
+/** The books' close date (doc "books" = { closeDate }): everything dated on or before it is locked, here and on the server. */
+export const closeDate = (): string | null => doc<{ closeDate?: string | null }>("books", {}).closeDate || null;
+export const setCloseDate = (date: string | null) => saveDoc("books", date ? { closeDate: date } : null);
+/** True for a date on or before the close date. */
+export const closed = (date: string) => closedOn(date, closeDate());
 export const attachmentsOf = (id: string) => S.data?.attachments?.[id] ?? [];
 export async function attach(id: string, files: File[]) {
   for (const f of files) await run((e) => api.attach(e, id, f));

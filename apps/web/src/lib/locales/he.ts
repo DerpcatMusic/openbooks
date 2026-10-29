@@ -10,6 +10,7 @@ import p34 from "./parts/3-4.he.ts";
 import p37 from "./parts/3-7.he.ts";
 import p38 from "./parts/3-8.he.ts";
 import p310 from "./parts/3-10.he.ts";
+import recon from "./parts/recon.he.ts";
 export default {
   ...a,
   ...b,
@@ -22,6 +23,7 @@ export default {
   ...p37,
   ...p38,
   ...p310,
+  ...recon,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

@@ -319,7 +319,8 @@ const bizType = (m: Meta, year: number) => {
     .sort();
   return past.length ? m.types![past.at(-1)!]! : ({ "il-osek-zair": "osek-zair", "us-llc": "llc-disregarded" } as Record<string, string>)[m.kind ?? ""] || "";
 };
-const PAGES = "home, transactions, invoices, review, reports, counterparties, rules, accounts, journal, documents, connections, tax, planner, settings";
+const PAGES =
+  "home, transactions, invoices, review, reports, counterparties, rules, accounts, reconciliation, journal, documents, connections, tax, planner, settings";
 const ymd = () => new Date().toLocaleDateString("sv-SE");
 
 export function systemPrompt(e: { id: string; meta: Meta }, year: number, lang: Lang) {
