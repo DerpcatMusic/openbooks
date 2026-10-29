@@ -77,6 +77,8 @@ export interface AgingSource {
   account?: string | undefined;
   /** Bills: the lines by expense ledger account. */
   lines?: readonly { account: string; amount: number }[] | undefined;
+  /** Bills: the payable account the document sits in (basis.ts; Accounts payable when missing). Payroll runs use their own. */
+  payable?: string | undefined;
 }
 export interface AgingSourceRow {
   id: string;

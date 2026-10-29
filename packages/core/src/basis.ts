@@ -42,12 +42,12 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
   const from = o.from ?? "";
   const byId = new Map(txns.map((t) => [t.id, t]));
   const taken = new Map<string, number>(); // ledger row id -> absolute money its payments applied
-  const side = new Map<string, "ar" | "ap">(); // ... and which side they settled
+  const parts = new Map<string, Map<string, number>>(); // ... and per receivable / payable account (a row can pay a bill and a payroll run)
   const out: Txn[] = [];
   const base = { file: "", page: 0 };
 
   // payments: the part of a bank row that settles a document (same direction as the row, never more than is left of it)
-  const settle = (docs: readonly AgingSource[], dir: 1 | -1, kind: "ar" | "ap", pls: readonly string[]) => {
+  const settle = (docs: readonly AgingSource[], dir: 1 | -1, acct: (s: AgingSource) => string, pls: readonly string[]) => {
     const found = new Map<string, string>(); // txn id -> the revenue / expense account the row is filed under
     for (const s of docs.filter((x) => x.date >= from))
       for (const p of s.payments) {
@@ -57,26 +57,30 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
           part = r2(Math.min(left, Math.abs(+p.amount || 0)));
         if (part <= 0) continue;
         taken.set(t.id, r2((taken.get(t.id) ?? 0) + part));
-        side.set(t.id, kind);
+        const by = parts.get(t.id) ?? new Map<string, number>();
+        by.set(acct(s), r2((by.get(acct(s)) ?? 0) + part));
+        parts.set(t.id, by);
         if (!found.has(t.id) && pls.includes(plOf(t.category) ?? "")) found.set(t.id, t.category);
       }
     return found;
   };
-  const filedAr = settle(ar, 1, "ar", ["revenue", "other"]);
-  const filedAp = settle(ap, -1, "ap", ["cogs", "expense"]);
+  const filedAr = settle(ar, 1, () => AR_ACCOUNT, ["revenue", "other"]);
+  const filedAp = settle(ap, -1, (s) => s.payable || AP_ACCOUNT, ["cogs", "expense"]);
 
-  // cash rows: split off the part that paid a receivable or payable
+  // cash rows: split off the parts that paid a receivable or payable
   for (const t of txns) {
-    const part = taken.get(t.id) ?? 0;
-    if (!part) {
+    const by = parts.get(t.id);
+    if (!by) {
       out.push(t);
       continue;
     }
     const sign = Math.sign(t.amount),
-      kind = side.get(t.id)!,
-      rest = r2(t.amount - sign * part);
+      rest = r2(t.amount - sign * (taken.get(t.id) ?? 0));
     if (Math.abs(rest) >= 0.005) out.push({ ...t, amount: rest });
-    out.push({ ...t, id: `${t.id}^${kind}`, amount: sign * part, category: kind === "ar" ? AR_ACCOUNT : AP_ACCOUNT, why: kind === "ar" ? "invoice" : "bill" });
+    for (const [acct, part] of by) {
+      const suffix = acct === AR_ACCOUNT ? "ar" : acct === AP_ACCOUNT ? "ap" : "pr";
+      out.push({ ...t, id: `${t.id}^${suffix}`, amount: sign * part, category: acct, why: acct === AR_ACCOUNT ? "invoice" : acct === AP_ACCOUNT ? "bill" : "payroll" });
+    }
   }
 
   // invoices: revenue when issued, receivable until paid. Paid into a row filed under a revenue account? That account.
@@ -89,23 +93,26 @@ export function accrualRows(txns: readonly Txn[], ar: readonly AgingSource[], ap
     );
     outside(out, s, "inv", AR_ACCOUNT, 1, base);
   }
-  // bills: expense per line when approved, payable until paid
+  // bills: expense per line when approved, payable until paid. A payroll run is the same, in its own payable account (payroll.ts)
   for (const s of ap.filter((x) => x.date >= from && x.gross !== 0)) {
-    const label = [s.ref, s.name].filter(Boolean).join(" ") || s.id;
+    const pay = !!s.payable && s.payable !== AP_ACCOUNT,
+      k = pay ? "payroll" : "bill",
+      acct = pay ? "Payroll" : "Bills",
+      label = [s.ref, s.name].filter(Boolean).join(" ") || s.id;
     const lines = s.lines?.length ? s.lines : [{ account: "", amount: s.gross }];
     lines.forEach((l, i) => {
       if (!l.amount) return;
       const filed = s.payments.map((p) => (p.txn ? filedAp.get(p.txn) : undefined)).find(Boolean);
-      out.push({ ...base, id: `bill:${s.id}:${i}`, date: s.date, amount: -l.amount, desc: label, source: "bill", account: "Bills", category: l.account || filed || o.expense, why: "bill" });
+      out.push({ ...base, id: `${k}:${s.id}:${i}`, date: s.date, amount: -l.amount, desc: label, source: k, account: acct, category: l.account || filed || o.expense, why: k });
     });
-    out.push({ ...base, id: `bill:${s.id}:ap`, date: s.date, amount: s.gross, desc: label, source: "bill", account: "Bills", category: AP_ACCOUNT, why: "bill" });
-    outside(out, s, "bill", AP_ACCOUNT, -1, base);
+    out.push({ ...base, id: `${k}:${s.id}:ap`, date: s.date, amount: s.gross, desc: label, source: k, account: acct, category: s.payable || AP_ACCOUNT, why: k });
+    outside(out, s, k, s.payable || AP_ACCOUNT, -1, base);
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 /** A payment applied outside the books (no bank row): it clears the receivable / payable on its date, with no other side. */
-function outside(out: Txn[], s: AgingSource, kind: string, acct: string, dir: 1 | -1, base: { file: string; page: number }) {
+function outside(out: Txn[], s: AgingSource, kind: "inv" | "bill" | "payroll", acct: string, dir: 1 | -1, base: { file: string; page: number }) {
   s.payments.forEach((p, i) => {
     if (p.txn || !(+p.amount > 0)) return;
     out.push({
@@ -114,8 +121,8 @@ function outside(out: Txn[], s: AgingSource, kind: string, acct: string, dir: 1 
       date: p.date,
       amount: dir * r2(+p.amount),
       desc: [s.ref, s.name].filter(Boolean).join(" ") || s.id,
-      source: kind === "inv" ? "invoice" : "bill",
-      account: kind === "inv" ? "Invoices" : "Bills",
+      source: kind === "inv" ? "invoice" : kind,
+      account: kind === "inv" ? "Invoices" : kind === "bill" ? "Bills" : "Payroll",
       category: acct,
       why: "outside",
     });

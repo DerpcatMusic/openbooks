@@ -1,7 +1,7 @@
 // Financial statements as rows × columns, for the Reports page (port of web/src/views/Reports.svelte). Pure: callers pass the
 // transactions of each column (months, the period total, or this period vs the prior one) and the label functions.
 // Each column is computed independently, so the same builder serves the monthly view, the total and the period comparison.
-import { group, isCard, isPayable, isReceivable, pl, plOf, type AgingReport, type PL } from "@openbooks/core";
+import { group, isCard, isPayable, isReceivable, PAYROLL_ACCOUNT, pl, plOf, type AgingReport, type PL } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 
 type Row = Pick<Txn, "date" | "amount" | "category">;
@@ -79,18 +79,20 @@ export function cfStatement(cols: readonly (readonly Row[])[], t: Tr, cat: Tr): 
 export function cfIndirect(cols: readonly (readonly Row[])[], t: Tr, cat: Tr): Line[] {
   type R = Row & { source?: string; why?: string };
   const rs = cols as readonly (readonly R[])[];
-  const doc = (x: R) => x.source === "invoice" || x.source === "bill";
+  const doc = (x: R) => x.source === "invoice" || x.source === "bill" || x.source === "payroll";
   const out: Line[] = [{ kind: "head", label: t("reports.cf.operating"), v: [] }];
   const net = rs.map((c) => pl(c).net),
     ar = rs.map((c) => sum(c.filter((x) => isReceivable(x.category)))),
-    ap = rs.map((c) => sum(c.filter((x) => isPayable(x.category)))),
+    ap = rs.map((c) => sum(c.filter((x) => isPayable(x.category) && x.category !== PAYROLL_ACCOUNT))),
+    pr = rs.map((c) => sum(c.filter((x) => x.category === PAYROLL_ACCOUNT))),
     gone = rs.map((c) => -sum(c.filter((x) => x.why === "outside")));
   out.push(
     { kind: "line", label: t("reports.netIncome"), v: net },
     { kind: "line", label: t("reports.cf.dAr"), v: ar, key: "ar:accounts-receivable" },
     { kind: "line", label: t("reports.cf.dAp"), v: ap, key: "ap:accounts-payable" },
+    ...(pr.some((x) => Math.abs(x) > 0.005) ? [{ kind: "line" as const, label: t("gaps3.cf.dPr"), v: pr, key: PAYROLL_ACCOUNT }] : []),
     ...(gone.some((x) => Math.abs(x) > 0.005) ? [{ kind: "line" as const, label: t("reports.cf.outside"), v: gone }] : []),
-    { kind: "sum", label: t("reports.cfNet.operating"), v: net.map((n, i) => n + ar[i]! + ap[i]! + gone[i]!) },
+    { kind: "sum", label: t("reports.cfNet.operating"), v: net.map((n, i) => n + ar[i]! + ap[i]! + pr[i]! + gone[i]!) },
   );
   const all = rs.flat();
   for (const s of ["financing", "other", "transfers"] as const) {
@@ -111,7 +113,7 @@ export interface BsPoint {
   iso: string;
   balances: Readonly<Record<string, number>>;
   upto: readonly Row[];
-  open?: { ar: { total: number; prior: number }; ap: { total: number; prior: number } };
+  open?: { ar: { total: number; prior: number }; ap: { total: number; prior: number }; pr?: { total: number; prior: number } };
 }
 /** Balance sheet: bank accounts are assets, cards liabilities; equity = owner's net + retained earnings (earlier years) + current-year earnings
  *  (+ cash in transit, the gap cash-basis books leave). Retained and current-year are synthetic roll-ups of the P&L, as in Mercury.
@@ -126,19 +128,21 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     const ar = p.open?.ar.total ?? 0,
       ap = p.open?.ap.total ?? 0,
       arPrior = p.open?.ar.prior ?? 0,
-      apPrior = p.open?.ap.prior ?? 0;
+      apPrior = p.open?.ap.prior ?? 0,
+      pr = p.open?.pr?.total ?? 0,
+      prPrior = p.open?.pr?.prior ?? 0;
     const cashAssets = cash.reduce((s, a) => s + b(a), 0),
       cardDebt = -cards.reduce((s, a) => s + b(a), 0);
     const assets = cashAssets + (accrual ? ar : 0),
-      liab = cardDebt + (accrual ? ap : 0);
+      liab = cardDebt + (accrual ? ap + pr : 0);
     const owner = sum(p.upto.filter((x) => group(x.category) === "equity"));
     const year = `${p.iso.slice(0, 4)}-01-01`,
       thisYear = pl(p.upto.filter((x) => x.date >= year)).net,
       allTime = pl(p.upto).net;
-    const cy = thisYear + (accrual ? ar - arPrior - (ap - apPrior) : 0),
-      re = allTime - thisYear + (accrual ? arPrior - apPrior : 0);
+    const cy = thisYear + (accrual ? ar - arPrior - (ap - apPrior) - (pr - prPrior) : 0),
+      re = allTime - thisYear + (accrual ? arPrior - apPrior - prPrior : 0);
     const transit = cashAssets - cardDebt - owner - allTime;
-    return { b, assets, liab, owner, re, cy, ar, ap, transit, equity: owner + re + cy + transit };
+    return { b, assets, liab, owner, re, cy, ar, ap, pr, transit, equity: owner + re + cy + transit };
   });
   const row = (kind: Kind, label: string, f: (x: (typeof at)[number]) => number, key?: string): Line => ({
     kind,
@@ -147,7 +151,7 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     ...(key ? { key } : {}),
   });
   const head = (label: string): Line => ({ kind: "head", label, v: [] });
-  const memo = !accrual && at.some((x) => x.ar || x.ap);
+  const memo = !accrual && at.some((x) => x.ar || x.ap || x.pr);
   const lines = [
     head(t("reports.assets")),
     ...cash.map((a) => row("line", a, (x) => x.b(a))),
@@ -156,6 +160,7 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     head(t("reports.liabilities")),
     ...cards.map((a) => row("line", a, (x) => -x.b(a) || 0)),
     ...(accrual ? [row("line", t("reports.ap"), (x) => x.ap)] : []),
+    ...(accrual && at.some((x) => x.pr) ? [row("line", t("gaps3.payroll.liabilities"), (x) => x.pr)] : []),
     row("sum", t("reports.totalLiabilities"), (x) => x.liab),
     head(t("reports.equity")),
     row("line", t("reports.ownerNet"), (x) => x.owner, "type:equity"),
@@ -164,7 +169,7 @@ export function bsStatement(points: readonly BsPoint[], t: Tr, accrual = false):
     ...(at.some((x) => Math.abs(x.transit) > 0.005) ? [{ ...row("line", t("reports.transit"), (x) => x.transit), warn: true }] : []),
     row("sum", t("reports.totalEquity"), (x) => x.equity),
     row("total", t("reports.liabEquity"), (x) => x.liab + x.equity),
-    ...(memo ? [head(t("reports.memo")), row("line", t("reports.arOpen"), (x) => x.ar), row("line", t("reports.apOpen"), (x) => x.ap)] : []),
+    ...(memo ? [head(t("reports.memo")), row("line", t("reports.arOpen"), (x) => x.ar), row("line", t("reports.apOpen"), (x) => x.ap), ...(at.some((x) => x.pr) ? [row("line", t("gaps3.payroll.liabilities"), (x) => x.pr)] : [])] : []),
   ];
   return { lines, totals: at.map(({ assets, liab, equity }) => ({ assets, liab, equity })) };
 }

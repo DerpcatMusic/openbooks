@@ -6,7 +6,7 @@
   import { goto } from "#lib/nav.ts";
   import { agingReport, basisBridge, inPeriod, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
   import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
-  import { apSources, arSources, basis, ledgerRows } from "#lib/stores/basis.svelte.ts";
+  import { apSources, arSources, basis, ledgerRows, prSources } from "#lib/stores/basis.svelte.ts";
   import { t, bidi, I } from "#lib/i18n.svelte.ts";
   import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
@@ -68,7 +68,7 @@
     { label: t(us ? "reports.revenue" : "reports.businessIncome"), v: P.map((x) => x.revenue + x.other), invert: false },
     ...(us ? [{ label: t("reports.expenses"), v: P.map((x) => x.cogs + x.opex), invert: true }] : []),
   ]);
-  const cfNet = $derived([ts, priorTs].map((xs) => xs.filter((x) => x.source !== "invoice" && x.source !== "bill").reduce((a, x) => a + x.amount, 0)));
+  const cfNet = $derived([ts, priorTs].map((xs) => xs.filter((x) => x.source !== "invoice" && x.source !== "bill" && x.source !== "payroll").reduce((a, x) => a + x.amount, 0)));
   // cash net income to accrual net income, for the period shown
   const bridge = $derived(accrual && !tag ? basisBridge(S.data?.txns ?? [], rows, `${p.from}-01`, `${p.to}-31`) : null);
 
@@ -85,10 +85,11 @@
   const asOf = $derived(v === "compare" ? [endOf(p.to), endOf(prior.to)] : [endOf(p.to)]);
   // open invoices (AR) and bills (AP): a memo under the cash-basis sheet, or part of it on the accrual basis
   const arSrc = $derived(arSources()),
-    apSrc = $derived(apSources());
+    apSrc = $derived(apSources()),
+    prSrc = $derived(prSources());
   const bs = $derived(
     us && tab === "bs" && !tooLong
-      ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso) } })), t, accrual)
+      ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso), pr: openAt(prSrc, iso) } })), t, accrual)
       : null,
   );
 
@@ -117,7 +118,7 @@
   const allOpen = $derived(gl.length > 0 && gl.every((g) => open[g.key]));
 
   /** A ledger row opens its transaction; an invoice or bill row opens its page; the payment part of a row (id^ar) opens its transaction. */
-  const openRow = (tx: { id: string; source: string }) => (tx.source === "invoice" ? void goto("/invoices") : tx.source === "bill" ? void goto("/bills") : (S.drawer = tx.id.split("^")[0]!));
+  const openRow = (tx: { id: string; source: string }) => (tx.source === "invoice" ? void goto("/invoices") : tx.source === "bill" ? void goto("/bills") : tx.source === "payroll" ? void goto("/payroll") : (S.drawer = tx.id.split("^")[0]!));
   const drill = (l: Line) => l.key && go("transactions", l.key === "ask" ? "ask" : l.key.startsWith("type:") ? l.key : `cat:${l.key}`);
 
   function exportCsv() {

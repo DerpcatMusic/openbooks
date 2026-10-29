@@ -18,3 +18,4 @@ export * from "./insights.ts";
 export * from "./trips.ts";
 export * from "./basis.ts";
 export * from "./xlsx.ts";
+export * from "./payroll.ts";
