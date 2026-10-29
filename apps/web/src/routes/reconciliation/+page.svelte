@@ -23,8 +23,9 @@
   const now = new Date(),
     nowYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const yms = $derived(Array.from({ length: 12 }, (_, i) => `${S.year}-${String(i + 1).padStart(2, "0")}`).filter((m) => m <= nowYm));
-  const ym = $derived(yms.includes(picked) ? picked : (yms.at(-1) ?? ""));
   const sums = $derived(new Map(account ? yms.map((m) => [m, monthOf(all, checks, recs, account, m)] as const) : []));
+  // until a month is picked: the latest one with activity (books often end months ago), else the current one
+  const ym = $derived(yms.includes(picked) ? picked : (yms.findLast((m) => sums.get(m)?.rows.length) ?? yms.at(-1) ?? ""));
   const month = $derived(sums.get(ym));
 
   const locked = $derived(!!ym && closed(`${ym}-01`)); // the close date has reached this month

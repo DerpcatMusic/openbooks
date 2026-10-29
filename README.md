@@ -31,7 +31,7 @@ Bank sync, invoices, reports and tax forms for freelancers, Israeli osek and US 
 | **Rules & review** | "If / then" rules classify once and stick, and can add tags. A keyboard-first queue clears the rest |
 | **Tags & smart tax tags** | Tag groups (one tag per group), colours, and tags that carry a tax meaning: 50% meals, a trip with a companion, a business-use share |
 | **Invoices, bills, vendors** | US invoices, Israeli חשבון עסקה / קבלה / חשבונית מס, customers and vendors. Payments match in full or in part, including the bills you owe |
-| **Reports** | P&L, balance sheet with roll-ups, cash flow and cash flow analysis, general ledger, AR and AP aging. Cash or accrual, monthly or total, vs last year, CSV |
+| **Reports** | P&L, balance sheet (US books), cash flow and cash flow analysis, general ledger, AR and AP aging. Cash basis; monthly, quarterly or total, vs last year, CSV |
 | **Books** | Editable chart of accounts, journal entries (paste from a spreadsheet), monthly reconciliation against the statement, a close date that locks finished periods |
 | **Tax** | 🇮🇱 Form 1301 over the official form, proof pack, osek zair planner · 🇺🇸 Form 5472 + pro forma 1120 |
 | **Taxximizer** | Compare business structures, then see what your receipts are worth: sourced Israeli and US deduction rules per expense, caps, missing receipts, and "tag these" suggestions you apply in one click |

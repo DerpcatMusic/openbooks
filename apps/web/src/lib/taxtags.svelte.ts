@@ -16,7 +16,7 @@ import {
   type TagSuggestion,
 } from "@openbooks/core";
 import type { DeductionRule, TagsDoc, TagTax } from "@openbooks/schema";
-import { lang } from "./i18n.svelte.ts";
+import { lang, t } from "./i18n.svelte.ts";
 import { personNow } from "./person.ts";
 import { S, bizType, coa, doc, ent, family, pack, saveTags, tagsDoc, taxTable } from "./stores/books.svelte.ts";
 
@@ -140,7 +140,8 @@ export function applySuggestion(s: TagSuggestion) {
   let d = snap(),
     tag = d.tags.find((g) => g.tax?.rule === s.rule && g.tax.pct === undefined);
   if (!tag) {
-    const name = ruleName(s.rule),
+    const preset = (PRESETS[family() ?? ""] ?? []).find((p) => p.rule === s.rule && p.pct === undefined), // a short name when a preset means the same
+      name = preset ? t(`taxtags.preset.${preset.key}`) : ruleName(s.rule),
       same = d.tags.find((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (same && !same.tax) d = setTagTax(d, same.id, { rule: s.rule });
     else d = createTag(d, same ? `${name} (${s.rule})` : name, undefined, { rule: s.rule });

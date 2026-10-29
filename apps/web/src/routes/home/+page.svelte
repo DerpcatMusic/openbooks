@@ -146,6 +146,17 @@
     </div>
   </div>
 
+  {#if S.data && !S.data.txns.length}
+    <div class="rise mt-5 rounded-2xl border border-line bg-panel p-5">
+      <h2 class="text-[16px] text-ink">{t("home.start.title")}</h2>
+      <p class="mt-1 max-w-[60ch] text-[14px] text-sub">{t("home.start.text")}</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button variant="primary" icon="upload" href="/documents">{t("home.start.import")}</Button>
+        <Button href="/connections">{t("home.start.connect")}</Button>
+      </div>
+    </div>
+  {/if}
+
   {#if ask}
     <a
       href="{BASE}/review"
