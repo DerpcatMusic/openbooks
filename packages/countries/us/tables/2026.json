@@ -3,7 +3,7 @@
   "dueMonthDay": "04-15",
   "extendedMonthDay": "10-15",
   "note": "Foreign-owned single-member LLC: pro forma 1120 + 5472",
-  "delawareTax": 400,
+  "delawareTax": 300,
   "wyomingMin": 60,
   "treatyRoyalty": 0.1,
   "defaultWithholding": 0.3,

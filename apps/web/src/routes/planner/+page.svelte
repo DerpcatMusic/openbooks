@@ -94,7 +94,7 @@
   const stateFee = $derived(
     (
       ({
-        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 400) }),
+        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 300) }),
         WY: () => t("planner.stateFee.WY", { amount: fmt(UT.wyomingMin ?? 60) }),
         NM: () => t("planner.stateFee.NM"),
       }) as Record<string, () => string>
