@@ -1,7 +1,7 @@
 // Chart of accounts. A ledger account is "type:slug": that id is the key on transactions and rules and is never renamed. The books keep an
 // overlay (doc "coa") of per-account { code, name, subtype, archived } over the derived set (country pack + accounts in use + accounts the
 // user added). Bank and card accounts are chart rows too (assets / liabilities), keyed by their account name. Pure: no labels here.
-import { group, isCard } from "./reports.ts";
+import { group, isCard, TYPES } from "./reports.ts";
 
 export interface CoaEntry {
   code?: number;
@@ -73,3 +73,13 @@ export function chartOfAccounts(ledger: readonly string[], banks: readonly strin
 /** The code a new account of `type` would get. */
 export const nextCode = (ledger: readonly string[], banks: readonly string[], coa: Coa, type: string) =>
   chartOfAccounts([...ledger, `${type}:`], banks, coa).find((r) => r.id === `${type}:`)!.code;
+
+/**
+ * Why a ledger account can't take new postings (rules, splits, journal lines): "missing" = "ask", blank, or of no known type;
+ * "archived" = hidden in the chart. undefined = fine. Existing rows on an archived account stay (and every report still shows them).
+ */
+export function accountProblem(account: string | undefined, coa?: Coa): "archived" | "missing" | undefined {
+  const a = (account ?? "").trim();
+  if (!a || a === "ask" || !a.includes(":") || !Object.hasOwn(TYPES, group(a))) return "missing";
+  return coa?.[a]?.archived ? "archived" : undefined;
+}

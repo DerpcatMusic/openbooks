@@ -1,6 +1,9 @@
 // Tags (doc "tags"): tags with an optional tag group and colour, and the tags each transaction carries by hand. Pure: every function
 // returns the new doc. Rules add tags on top at read time (ledger.ts), so editing a rule retags at once; ids of deleted tags are ignored there.
+// A transaction holds at most one tag per tag group: tagging with a second one from the same group replaces the first (setTag), and when
+// hand-made, rule and split-line tags meet on read (pickByGroup) the nearest to the user wins: line, then hand, then the earliest rule.
 import type { TagsDoc, TagTax } from "@openbooks/schema";
+import { baseId } from "./splits.ts";
 
 export const emptyTags = (): TagsDoc => ({ groups: [], tags: [], on: {} });
 
@@ -52,18 +55,49 @@ export const deleteTag = (d: TagsDoc, id: string): TagsDoc => ({
 export const createGroup = (d: TagsDoc, name: string): TagsDoc => (name.trim() ? { ...d, groups: [...d.groups, { id: freshId(name, d.groups), name: name.trim() }] } : d);
 export const renameGroup = (d: TagsDoc, id: string, name: string): TagsDoc =>
   name.trim() ? { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) } : d;
-/** Removes the group; its tags stay, ungrouped. */
-export const deleteGroup = (d: TagsDoc, id: string): TagsDoc => ({
-  ...d,
-  groups: d.groups.filter((g) => g.id !== id),
-  tags: d.tags.map((t) => (t.group === id ? without(t, "group") : t)),
-});
+/** Removes the group and its tags (taken off every transaction too). */
+export const deleteGroup = (d: TagsDoc, id: string): TagsDoc =>
+  d.tags.filter((t) => t.group === id).reduce<TagsDoc>((acc, t) => deleteTag(acc, t.id), { ...d, groups: d.groups.filter((g) => g.id !== id) });
 
-/** Put the tag on (on = true) or take it off these transactions by hand. */
+/** Deactivate (false) or reactivate (true) a tag. An inactive tag can't be added to anything new but stays where it already is. */
+export const setTagActive = (d: TagsDoc, id: string, active: boolean): TagsDoc =>
+  setTagField(d, id, (t) => (active ? without(t, "inactive") : { ...t, inactive: true }));
+/** Tags that pickers offer. */
+export const activeTags = (d: TagsDoc) => d.tags.filter((t) => !t.inactive);
+
+/** tag id → its group id (undefined = no group). */
+export const groupMap = (d: TagsDoc | undefined): ReadonlyMap<string, string | undefined> => new Map(d?.tags.map((t) => [t.id, t.group]) ?? []);
+/**
+ * Of tag ids in priority order (best first), the ones that survive "one tag per group": the first of each group; tags without a group
+ * (or whose tag is unknown) all stay.
+ */
+export function pickByGroup(groups: ReadonlyMap<string, string | undefined>, best: readonly string[]): Set<string> {
+  const seen = new Set<string>(),
+    keep = new Set<string>();
+  for (const id of best) {
+    const g = groups.get(id);
+    if (g) {
+      if (seen.has(g)) continue;
+      seen.add(g);
+    }
+    keep.add(id);
+  }
+  return keep;
+}
+
+/**
+ * Put the tag on (on = true) or take it off these transactions by hand. Putting it on drops any other tag of its group from the
+ * transaction (the newest pick wins); an inactive or unknown tag is not added. Ids of split rows (`id~1`) mean their transaction.
+ */
 export function setTag(d: TagsDoc, ids: readonly string[], tag: string, on: boolean): TagsDoc {
+  const t = d.tags.find((x) => x.id === tag);
+  if (on && (!t || t.inactive)) return d;
+  const sameGroup = new Set(t?.group ? d.tags.filter((x) => x.group === t.group).map((x) => x.id) : [tag]);
   const next = { ...d.on };
-  for (const id of ids) {
-    const mine = on ? [...new Set([...(next[id] ?? []), tag])] : (next[id] ?? []).filter((x) => x !== tag);
+  for (const raw of ids) {
+    const id = baseId(raw);
+    const cur = next[id] ?? [],
+      mine = on ? (cur.includes(tag) ? cur.filter((x) => x === tag || !sameGroup.has(x)) : [...cur.filter((x) => !sameGroup.has(x)), tag]) : cur.filter((x) => x !== tag);
     if (mine.length) next[id] = mine;
     else delete next[id];
   }

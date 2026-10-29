@@ -2,6 +2,7 @@
 // account sets the ledger account, and the tags of every matching rule are added. A legacy [match text, account] tuple is one "text"
 // condition (case-sensitive substring of "desc memo [mcat]"), so books written before rule objects behave exactly as before.
 import type { LegacyRule, Rule, RuleCondition, RuleInput } from "@openbooks/schema";
+import { accountProblem, type Coa } from "./coa.ts";
 import { payerOf } from "./reports.ts";
 
 /** What a "text" condition sees (same string in books.py, web and here). */
@@ -67,12 +68,21 @@ export const ruleLabel = (r: Rule) => r.when.map(condLabel).join(" · ");
 /** The match text of a rule that is just one "text" condition (what a quick "create rule" makes), else undefined. */
 export const textOf = (r: Rule) => (r.when.length === 1 && r.when[0]!.field === "text" ? r.when[0]!.value : undefined);
 
-/** The ledger's answer for one transaction: the first matching rule that has an account sets it (`why` = that rule); tags from all matches. */
-export function applyRules(rules: readonly Rule[], t: RuleRow): { account: string | undefined; why: string; tags: string[] } {
+/**
+ * Why a rule can't be used, or undefined: its ledger account is archived in the chart ("archived"), or is not a ledger account at all
+ * ("missing": "ask", or of no known type). A rule that only adds tags is never invalid. Invalid rules are kept and shown, but the
+ * engine skips them, so they neither set an account nor add tags until the account is restored or the rule is fixed.
+ */
+export function ruleProblem(r: Rule, coa?: Coa): "archived" | "missing" | undefined {
+  return r.then.account?.trim() ? accountProblem(r.then.account, coa) : undefined;
+}
+
+/** The ledger's answer for one transaction: the first matching rule that has an account sets it (`why` = that rule); tags from all matches. Invalid rules (ruleProblem) are skipped. */
+export function applyRules(rules: readonly Rule[], t: RuleRow, coa?: Coa): { account: string | undefined; why: string; tags: string[] } {
   let account: string | undefined, why = "";
   const tags = new Set<string>();
   for (const r of rules) {
-    if (!matches(r, t)) continue;
+    if (!matches(r, t) || ruleProblem(r, coa)) continue;
     if (account === undefined && r.then.account) [account, why] = [r.then.account.trim(), ruleLabel(r)];
     for (const g of r.then.tags ?? []) tags.add(g);
   }

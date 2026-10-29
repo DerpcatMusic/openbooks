@@ -7,6 +7,7 @@
 import type { DeductionMove, DeductionRule, TagsDoc, Txn } from "@openbooks/schema";
 import { group, payerOf } from "./reports.ts";
 import { haystack } from "./rules.ts";
+import { baseId } from "./splits.ts";
 
 export type Bucket = "full" | "partial" | "none" | "untreated";
 /** A reason, as a code the UI translates ("taxtags.why.<k>"): v = a number (percent, amount), w = a word (tag name, "year"…). */
@@ -267,7 +268,7 @@ export function deductions(inp: DeductionInput): DeductionResult {
     r.pct = r.gross ? r2((r.deductible / r.gross) * 100) : 0;
     r.bucket = !rule && !r.why.length ? "untreated" : r.deductible <= 0.005 ? "none" : r.deductible >= r.gross - 0.005 ? "full" : "partial";
     if (vatOn && rule?.vatPct) r.vatReclaimable = r2((((r.gross * inp.vatRate!) / (1 + inp.vatRate!)) * rule.vatPct) / 100); // ponytail: assumes the price includes Israeli VAT (foreign suppliers charge none)
-    r.receipt = r.deductible > 0 && !(inp.attachments?.[r.id]?.length ?? 0);
+    r.receipt = r.deductible > 0 && !(inp.attachments?.[baseId(r.id)]?.length ?? 0);
     if (rule?.vatPct === 0 && vatOn) r.why.push({ k: "vatNone" });
   }
 

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { closedOn, movedBefore } from "./close.ts";
+import { checkBooks, closedOn, movedBefore } from "./close.ts";
 
 test("closedOn: on or before the close date, never without one", () => {
   expect(closedOn("2026-09-30", "2026-09-30")).toBe(true);
@@ -24,4 +24,26 @@ test("movedBefore: closed items that changed, added or removed; key order and op
   expect(movedBefore(before, [before[0]!], "2026-03-31")).toEqual([]); // deleted after it
   expect(movedBefore(before, [e("old", "2026-06-01"), before[1]!], "2026-03-31")).toEqual(["old"]); // moved out of it
   expect(movedBefore(before, [before[0]!, e("new", "2026-02-01")], "2026-03-31")).toEqual(["new"]); // moved into it
+});
+
+test("checkBooks: close date not in the future or before the start date; the start date only moves earlier", () => {
+  const today = "2026-10-29";
+  expect(checkBooks({}, { closeDate: "2026-10-29" }, today)).toBeNull();
+  expect(checkBooks({}, { closeDate: "2026-10-30" }, today)).toBe("closeFuture");
+  expect(checkBooks({}, { closeDate: "2026-02-30" }, today)).toBe("date");
+  expect(checkBooks({}, { closeDate: "nope" }, today)).toBe("date");
+  expect(checkBooks({}, { startDate: "2025-01-01", closeDate: "2024-12-31" }, today)).toBe("closeBeforeStart");
+  expect(checkBooks({}, { startDate: "2025-01-01", closeDate: "2025-01-01" }, today)).toBeNull();
+  // the start date, once set, can only move earlier (or be cleared)
+  expect(checkBooks({ startDate: "2025-01-01" }, { startDate: "2025-01-02" }, today)).toBe("startLater");
+  expect(checkBooks({ startDate: "2025-01-01" }, { startDate: "2025-01-01" }, today)).toBeNull();
+  expect(checkBooks({ startDate: "2025-01-01" }, { startDate: "2024-06-01" }, today)).toBeNull();
+  expect(checkBooks({ startDate: "2025-01-01" }, { startDate: null }, today)).toBeNull();
+  expect(checkBooks({ startDate: "2025-01-01" }, null, today)).toBeNull();
+  expect(checkBooks({}, { startDate: "2030-01-01" }, today)).toBeNull(); // nothing says the first start date can't be set freely
+  // a value saved before these checks existed doesn't block unrelated edits
+  expect(checkBooks({ closeDate: "2027-01-01" }, { closeDate: "2027-01-01", startDate: "2025-01-01" }, today)).toBeNull();
+  expect(checkBooks({ closeDate: "2027-01-01" }, { closeDate: "2027-01-02" }, today)).toBe("closeFuture");
+  // moving the close date back stays allowed (it unlocks the period)
+  expect(checkBooks({ closeDate: "2026-09-30" }, { closeDate: "2026-01-31" }, today)).toBeNull();
 });

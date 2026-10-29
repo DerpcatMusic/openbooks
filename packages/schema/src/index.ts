@@ -89,11 +89,25 @@ export const TagsDoc = Schema.Struct({
       group: Schema.optionalKey(Schema.String),
       color: Schema.optionalKey(Schema.String),
       tax: Schema.optionalKey(TagTax),
+      /** Deactivated: hidden from pickers and filters, kept on the transactions that already carry it. Absent = active. */
+      inactive: Schema.optionalKey(Schema.Boolean),
     }),
   ),
   on: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 export type TagsDoc = typeof TagsDoc.Type;
+
+/** One line of a split transaction: signed like the transaction (negative = money out), so the lines add up to its amount to the cent. */
+export const SplitLine = Schema.Struct({
+  account: Schema.String,
+  amount: Schema.Finite,
+  memo: Schema.optionalKey(Schema.String),
+  tags: Schema.optionalKey(Schema.Array(Schema.String)),
+});
+export type SplitLine = typeof SplitLine.Type;
+/** doc "splits": stored transaction id -> its lines. The ledger emits one row per line (id `${txnId}~${i}`). */
+export const SplitsDoc = Schema.Record(Schema.String, Schema.Array(SplitLine));
+export type SplitsDoc = typeof SplitsDoc.Type;
 
 export const JournalLine = Schema.Struct({
   account: Schema.String,

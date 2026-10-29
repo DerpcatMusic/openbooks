@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Rule, RuleInput, StoredTxn, TagsDoc } from "@openbooks/schema";
-import { applyRules, classify, cleanRule, cleanRules, ledger, matches, normalizeRule, ruleLabel, textOf, type RuleRow } from "./index.ts";
+import { applyRules, classify, cleanRule, cleanRules, ledger, matches, normalizeRule, ruleLabel, ruleProblem, textOf, type RuleRow } from "./index.ts";
 
 const row = (id: string, amount: number, desc: string, extra: Partial<StoredTxn> = {}): StoredTxn => ({
   id,
@@ -143,5 +143,33 @@ describe("cleanRule on rule objects", () => {
     expect(cleanRule(R([{ field: "description", op: "contains", value: " " }], { account: "x:y" }))).toBeUndefined();
     expect(cleanRule(R([{ field: "amount", op: "between", value: 1, to: Number.NaN }], { account: "x:y" }))).toBeUndefined();
     expect(cleanRule(R([aws], { account: " ", tags: [] }))).toBeUndefined();
+  });
+});
+
+describe("invalid rules (archived or missing ledger account) are kept but skipped", () => {
+  const aws = { field: "description", op: "contains", value: "aws" } as const;
+  const archived = { "expense:old": { archived: true } };
+  it("ruleProblem", () => {
+    expect(ruleProblem(R([aws], { account: "expense:old" }), archived)).toBe("archived");
+    expect(ruleProblem(R([aws], { account: "expense:old" }), {})).toBeUndefined();
+    expect(ruleProblem(R([aws], { account: "ask" }))).toBe("missing");
+    expect(ruleProblem(R([aws], { account: "nonsense" }))).toBe("missing");
+    expect(ruleProblem(R([aws], { account: "bogus:x" }))).toBe("missing"); // no such account type
+    expect(ruleProblem(R([aws], { tags: ["t"] }), archived)).toBeUndefined(); // tag-only rules need no account
+    expect(ruleProblem(R([aws], { account: "revenue:x" }), archived)).toBeUndefined();
+  });
+  it("the engine skips an invalid rule whole and falls through to the next one, tags included", () => {
+    const rules = [R([aws], { account: "expense:old", tags: ["t"] }), R([aws], { account: "expense:hosting" })];
+    const t: RuleRow = { desc: "AWS", source: "bank", account: "Main", amount: -5 };
+    expect(applyRules(rules.map((r) => r), t, archived)).toEqual({ account: "expense:hosting", why: "description contains aws", tags: [] });
+    expect(applyRules(rules, t, {})).toMatchObject({ account: "expense:old", tags: ["t"] }); // account restored: it applies again
+    expect(applyRules([rules[0]!], t, archived)).toEqual({ account: undefined, why: "", tags: [] });
+  });
+  it("in the ledger: a row that only an archived account's rule filed goes back to ask; manual overrides stay", () => {
+    const rules = [[`AWS`, "expense:old"] as const];
+    const rows = [row("a", -5, "AWS"), row("b", -5, "AWS")];
+    const L = ledger(rows, { b: "expense:meals" }, rules, [], undefined, { coa: archived });
+    expect(L.map((x) => [x.id, x.category, x.why])).toEqual([["a", "ask", ""], ["b", "expense:meals", "manual"]]);
+    expect(ledger(rows, {}, rules, [], undefined, { coa: {} })[0]!.category).toBe("expense:old");
   });
 });

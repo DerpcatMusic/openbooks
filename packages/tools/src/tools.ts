@@ -5,6 +5,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   balances as coreBalances,
+  accountProblem,
+  baseId,
   chartOfAccounts,
   type Coa,
   cleanRule,
@@ -15,6 +17,7 @@ import {
   group,
   haystack,
   inRange,
+  cleanSplit,
   isCard,
   isLegacy,
   normalizeRule,
@@ -23,8 +26,10 @@ import {
   pyRound,
   pyStr,
   relevantMoves,
+  remaining,
   setTag,
   setTagTax,
+  splitProblem,
   suggestTags,
   taggable,
   TYPES,
@@ -36,7 +41,7 @@ import { handle as connectorHandle, status as connectorStatus } from "@openbooks
 import { Books, taxTables } from "@openbooks/storage";
 import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
 import { us } from "@openbooks/country-us";
-import { Rule, RuleInput, type DeductionRule, type EntityMeta, type TagsDoc, type Txn } from "@openbooks/schema";
+import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
@@ -152,7 +157,7 @@ const ledgerOf = (e: Entity) => Books.use((b) => b.ledger(e.id)).pipe(Effect.map
 const docOf = <A>(e: Entity, name: string, fallback: A) => Books.use((b) => b.doc(e.id, name, fallback)).pipe(Effect.mapError(gone(e.id)));
 /** A write's failure for the client: the close date's own message, else unknown entity. */
 const refused = (e: Entity) => (x: { readonly _tag: string; readonly message?: string }) =>
-  x._tag === "ClosedPeriod" ? new ToolError({ message: x.message! }) : gone(e.id)();
+  x._tag === "ClosedPeriod" || x._tag === "BadInput" ? new ToolError({ message: x.message! }) : gone(e.id)();
 const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(refused(e)));
 const rulesOf = (e: Entity) => Books.use((b) => b.rules(e.id)).pipe(Effect.mapError(gone(e.id)));
 const setRules = (e: Entity, rs: readonly RuleInput[]) => Books.use((b) => b.setRules(e.id, rs)).pipe(Effect.mapError(refused(e)));
@@ -192,8 +197,9 @@ export const balancesAt = (e: Entity, iso: string, txns?: readonly Txn[]) =>
     return Object.fromEntries(Object.entries(coreBalances(ts, checks, iso)).map(([k, v]) => [k, r2(v)]));
   });
 
+/** A ledger row by id; the id of a split transaction (which has no row of its own) finds its first line. */
 const findTxn = (e: Entity, id: string, txns: readonly Txn[]) => {
-  const t = txns.find((x) => x.id === id);
+  const t = txns.find((x) => x.id === id) ?? txns.find((x) => x.id === `${id}~0`);
   return t ? Effect.succeed(t) : fail(`No transaction ${repr(id)} in ${e.id}`);
 };
 
@@ -460,8 +466,11 @@ const classify = defineTool({
       const e = yield* entityOf(a, ctx);
       const cat = yield* checkCategory(a.category, !a.rule);
       const ts = yield* ledgerOf(e);
-      for (const i of a.ids)
-        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: change the journal entry instead`);
+      for (const i of a.ids) {
+        const t = yield* findTxn(e, i, ts);
+        if (t.source === "journal") return yield* fail(`${i} is a journal line: change the journal entry instead`);
+        if (t.why === "split") return yield* fail(`${i} is part of a split transaction: change it with split_transaction`);
+      }
       const rule = (a.rule ?? "").replaceAll(",", " ").trim() || undefined;
       yield* Books.use((b) => b.classify(e.id, a.ids, cat, rule)).pipe(Effect.mapError(refused(e)));
       const after = yield* ledgerOf(e),
@@ -1187,6 +1196,71 @@ const apply_tax_tag = defineTool({
     }),
 });
 
+const SPLIT_LINE = Schema.Struct({
+  account: S.annotate({ description: CAT_DESC }),
+  amount: Schema.Finite.annotate({
+    description:
+      "This line's share, in the same direction as the transaction (a $40 line of a $100 payment is 40, not -40). A negative share goes the other way (a refund inside the payment). Shares must add up to the transaction's amount to the cent.",
+  }),
+  memo: Schema.optionalKey(S.check(Schema.isMaxLength(200))),
+  tags: Schema.optionalKey(Schema.Array(S).annotate({ description: "Tag ids for this line (one per tag group); they are added to the tags the transaction already has" })),
+});
+const split_transaction = defineTool({
+  name: "split_transaction",
+  title: { en: "Split transaction", he: "פיצול תנועה" },
+  description:
+    "WRITES: allocate one bank transaction to several ledger accounts (a $100 supplies run: $60 equipment, $40 meals). `lines` are the shares, at least two, adding up to the transaction's amount to the cent; the transaction then becomes one ledger row per line (ids `<id>~0`, `<id>~1`…) and reports, tags and deductions follow. Send `lines: []` to unsplit. Replaces any earlier split of the same transaction. Always needs the user's confirmation (see `confirm`).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: true },
+  input: input({
+    id: ID.annotate({ description: "The transaction's id (not a split line's `~` id) from list_transactions" }),
+    lines: Schema.Array(SPLIT_LINE).check(Schema.isMaxLength(50)),
+    confirm: CONFIRM,
+  }),
+  output: Schema.Struct({ id: S, split: B, amount: N, transactions: Schema.Array(TXN) }),
+  confirm: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        t = yield* findTxn(e, baseId(a.id), yield* ledgerOf(e));
+      return a.lines.length
+        ? `Split “${t.desc}” (${r2(a.lines.reduce((x, l) => x + l.amount, 0))}) into ${a.lines.length} lines: ${a.lines.map((l) => `${l.account} ${l.amount}`).join(", ")}?`
+        : `Remove the split of “${t.desc}”?`;
+    }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        ts = yield* ledgerOf(e),
+        id = baseId(a.id);
+      const first = yield* findTxn(e, id, ts);
+      if (first.source === "journal") return yield* fail(`${a.id} is a journal line: change the journal entry instead`);
+      const total = r2(ts.filter((x) => baseId(x.id) === id).reduce((x, y) => x + y.amount, 0)); // a split's lines add up to the transaction
+      const splits = yield* docOf<SplitsDoc>(e, "splits", {});
+      const next = { ...splits };
+      if (!a.lines.length) delete next[id];
+      else {
+        const coa = yield* docOf<Coa>(e, "coa", {}),
+          known = new Set((yield* docOf<TagsDoc>(e, "tags", emptyTags())).tags.filter((g) => !g.inactive).map((g) => g.id));
+        const sign = total < 0 ? -1 : 1;
+        for (const l of a.lines) {
+          yield* checkCategory(l.account);
+          if (accountProblem(l.account, coa)) return yield* fail(`${l.account} is archived or unknown; pick an account from chart_of_accounts`);
+          for (const g of l.tags ?? []) if (!known.has(g)) return yield* fail(`No active tag ${repr(g)}; tags are managed in the app (Tags)`);
+        }
+        const lines = cleanSplit(a.lines.map((l) => ({ ...l, amount: sign * l.amount })));
+        const p = splitProblem(total, lines);
+        if (p === "sum") {
+          const rem = remaining(total, lines);
+          return yield* fail(`The lines add up to ${r2(total - rem)} but the transaction is ${total}: ${r2(Math.abs(rem))} ${rem * sign > 0 ? "left to allocate" : "too much"}`);
+        }
+        if (p) return yield* fail({ lines: "A split needs at least two lines", amount: "Every line needs a non-zero amount", account: "Every line needs a ledger account" }[p]);
+        next[id] = lines;
+      }
+      yield* putDoc(e, "splits", Object.keys(next).length ? next : null);
+      const after = yield* ledgerOf(e);
+      return { id, split: a.lines.length > 0, amount: total, transactions: after.filter((x) => baseId(x.id) === id).map(slim) };
+    }),
+});
+
 // ---------- bank connections (status and sync only: credentials are entered in the app, never here) ----------
 const locked = () => new ToolError({ message: "unlock OpenBooks in the app first" });
 const statusOf = (e: Entity) => connectorStatus(e.id);
@@ -1247,6 +1321,7 @@ export const tools: readonly Tool[] = [
   deduction_summary,
   suggest_tax_tags,
   apply_tax_tag,
+  split_transaction,
   bank_status,
   bank_sync,
 ];
