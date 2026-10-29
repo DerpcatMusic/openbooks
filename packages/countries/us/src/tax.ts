@@ -190,7 +190,11 @@ export function personalTax(fed: FedTable, i: PersonalInput): PersonalResult {
     usedItemized = (i.itemized ?? 0) > std,
     deduction = usedItemized ? rd(i.itemized!) : std,
     taxableBeforeQbi = Math.max(0, agi - deduction),
-    qbi = qbiDeduction(fed, i.status, { qbi: rd(i.netProfit) - se.line13 - health - retire, taxableBefore: taxableBeforeQbi, netCapitalGain: i.netCapitalGain }),
+    qbi = qbiDeduction(fed, i.status, {
+      qbi: rd(i.netProfit) - se.line13 - health - retire,
+      taxableBefore: taxableBeforeQbi,
+      netCapitalGain: i.netCapitalGain,
+    }),
     taxable = Math.max(0, taxableBeforeQbi - qbi.deduction),
     tax = incomeTax(fed, i.status, taxable),
     afterCredits = Math.max(0, tax - rd(i.credits ?? 0)),

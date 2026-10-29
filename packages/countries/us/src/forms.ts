@@ -59,4 +59,5 @@ export function llcObligations(y: number, T: UsTable, p: UsProfile = {}): (Oblig
     { form: "State annual report", country: "us", why: `depends on the state of formation (${p.state || "not set"})` },
   ];
 }
-export const missingProfile = (p: UsProfile) => (Object.keys(PROFILE_FIELDS) as (keyof typeof PROFILE_FIELDS)[]).filter((k) => !p[k]).map((k) => PROFILE_FIELDS[k]);
+export const missingProfile = (p: UsProfile) =>
+  (Object.keys(PROFILE_FIELDS) as (keyof typeof PROFILE_FIELDS)[]).filter((k) => !p[k]).map((k) => PROFILE_FIELDS[k]);

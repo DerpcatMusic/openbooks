@@ -126,7 +126,32 @@ export const LINE_TITLE: Readonly<Record<string, string>> = {
   "30": "Expenses for business use of your home",
   "31": "Net profit or (loss)",
 };
-export const EXPENSE_LINES = ["8", "9", "10", "11", "12", "13", "14", "15", "16a", "16b", "17", "18", "19", "20a", "20b", "21", "22", "23", "24a", "24b", "25", "26", "27a", "27b"] as const;
+export const EXPENSE_LINES = [
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  "16a",
+  "16b",
+  "17",
+  "18",
+  "19",
+  "20a",
+  "20b",
+  "21",
+  "22",
+  "23",
+  "24a",
+  "24b",
+  "25",
+  "26",
+  "27a",
+  "27b",
+] as const;
 
 const nameOf = (account: string) => (account.includes(":") ? account.slice(account.indexOf(":") + 1) : account);
 const groupOf = (account: string) => (account || "ask").split(":")[0]!;
@@ -146,7 +171,15 @@ export interface SchedCResult {
   /** Part III (only with inventory): lines 35-42. */
   partIII: Record<string, number> | null;
   /** Part IV: vehicle information. */
-  vehicle: { method: "standard" | "actual"; businessMiles: number; commutingMiles: number; otherMiles: number; placedInService?: string; deduction: number; bands: { cents: number; miles: number; amount: number }[] } | null;
+  vehicle: {
+    method: "standard" | "actual";
+    businessMiles: number;
+    commutingMiles: number;
+    otherMiles: number;
+    placedInService?: string;
+    deduction: number;
+    bands: { cents: number; miles: number; amount: number }[];
+  } | null;
   homeOffice: { sqft: number; deduction: number; limited: boolean } | null;
   /** Net profit or loss (line 31): what Schedule SE and the QBI deduction start from. */
   netProfit: number;
@@ -155,13 +188,7 @@ export interface SchedCResult {
   disallowed: number;
 }
 
-export function scheduleC(i: {
-  year: number;
-  fed: FedTable;
-  txns: readonly LedgerRow[];
-  deductions: readonly DedRow[];
-  inputs?: SchedCInputs;
-}): SchedCResult {
+export function scheduleC(i: { year: number; fed: FedTable; txns: readonly LedgerRow[]; deductions: readonly DedRow[]; inputs?: SchedCInputs }): SchedCResult {
   const inp = i.inputs ?? {},
     inv = inp.inventory?.on ? inp.inventory : null,
     warnings: SchedCWarn[] = [],

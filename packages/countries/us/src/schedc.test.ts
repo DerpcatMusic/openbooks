@@ -1,9 +1,37 @@
 import { describe, expect, it } from "vite-plus/test";
-import { csv1099, nec1099, passThrough, prepare1099s, scheduleC, us, usReturn, viaOf, type BillLike, type DedRow, type LedgerRow, type TxnLike, type Vendor1099 } from "./index.ts";
+import {
+  csv1099,
+  nec1099,
+  passThrough,
+  prepare1099s,
+  scheduleC,
+  us,
+  usReturn,
+  viaOf,
+  type BillLike,
+  type DedRow,
+  type LedgerRow,
+  type TxnLike,
+  type Vendor1099,
+} from "./index.ts";
 
 const fed = us.table(2026).fed;
-const tx = (id: string, date: string, amount: number, category: string, desc = id, extra: Partial<TxnLike> = {}): LedgerRow & TxnLike => ({ id, date, amount, category, desc, account: "Mercury Checking", ...extra });
-const ded = (t: LedgerRow, deductible = -t.amount, rule?: string): DedRow => ({ id: t.id, category: t.category, gross: -t.amount, deductible, ...(rule ? { rule } : {}) });
+const tx = (id: string, date: string, amount: number, category: string, desc = id, extra: Partial<TxnLike> = {}): LedgerRow & TxnLike => ({
+  id,
+  date,
+  amount,
+  category,
+  desc,
+  account: "Mercury Checking",
+  ...extra,
+});
+const ded = (t: LedgerRow, deductible = -t.amount, rule?: string): DedRow => ({
+  id: t.id,
+  category: t.category,
+  gross: -t.amount,
+  deductible,
+  ...(rule ? { rule } : {}),
+});
 
 describe("Schedule C from the ledger and the deduction engine", () => {
   const rows = [
@@ -38,7 +66,12 @@ describe("Schedule C from the ledger and the deduction engine", () => {
     expect(r.lines["9"]).toBe(900); // no vehicle method chosen: the ledger's vehicle account as the engine allows it
     expect(r.lines["11"]).toBe(8000);
     expect(r.lines["25"]).toBe(300);
-    expect(r.partV).toEqual([{ label: "Hosting", amount: 700 }, { label: "Software", amount: 1150 }].sort((a, b) => b.amount - a.amount));
+    expect(r.partV).toEqual(
+      [
+        { label: "Hosting", amount: 700 },
+        { label: "Software", amount: 1150 },
+      ].sort((a, b) => b.amount - a.amount),
+    );
     expect(r.lines["27b"]).toBe(1850);
     expect(r.lines["28"]).toBe(5000 + 900 + 8000 + 3000 + 300 + 400 + 1000 + 1850 - 0);
     expect(r.netProfit).toBe(r.lines["7"]! - r.lines["28"]!);
@@ -49,7 +82,18 @@ describe("Schedule C from the ledger and the deduction engine", () => {
   it("standard mileage by trip date replaces the ledger's vehicle costs; parking and tolls are added", () => {
     const r = scheduleC({
       ...base,
-      inputs: { vehicle: { method: "standard", trips: [{ date: "2026-05-01", miles: 1000 }, { date: "2026-08-01", miles: 1000 }], parkingTolls: 40, totalMiles: 5000, commutingMiles: 1500 } },
+      inputs: {
+        vehicle: {
+          method: "standard",
+          trips: [
+            { date: "2026-05-01", miles: 1000 },
+            { date: "2026-08-01", miles: 1000 },
+          ],
+          parkingTolls: 40,
+          totalMiles: 5000,
+          commutingMiles: 1500,
+        },
+      },
     });
     expect(r.lines["9"]).toBe(725 + 760 + 40);
     expect(r.vehicle).toMatchObject({ businessMiles: 2000, commutingMiles: 1500, otherMiles: 1500, deduction: 1525 });
@@ -75,7 +119,12 @@ describe("Schedule C from the ledger and the deduction engine", () => {
   });
 
   it("a year with only a loss", () => {
-    const r = scheduleC({ year: 2026, fed, txns: [tx("e", "2026-01-01", -900, "expense:software")], deductions: [ded(tx("e", "2026-01-01", -900, "expense:software"))] });
+    const r = scheduleC({
+      year: 2026,
+      fed,
+      txns: [tx("e", "2026-01-01", -900, "expense:software")],
+      deductions: [ded(tx("e", "2026-01-01", -900, "expense:software"))],
+    });
     expect(r.netProfit).toBe(-900);
     expect(r.warnings.map((w) => w.k)).toEqual(expect.arrayContaining(["noIncome", "loss"]));
   });
@@ -112,9 +161,24 @@ describe("1099-NEC preparation", () => {
   ];
   const bills: BillLike[] = [
     // Ana's bill paid partly from t1 (2,000) and partly outside the books: no double count of t1
-    { id: "b1", vendor: "a", status: "open", lines: [{ amount: 3000, account: "expense:contractors" }], payments: [{ id: "p1", txn: "t1", amount: 2000, date: "2026-03-01" }, { id: "p2", txn: null, amount: 500, date: "2026-03-10" }] },
+    {
+      id: "b1",
+      vendor: "a",
+      status: "open",
+      lines: [{ amount: 3000, account: "expense:contractors" }],
+      payments: [
+        { id: "p1", txn: "t1", amount: 2000, date: "2026-03-01" },
+        { id: "p2", txn: null, amount: 500, date: "2026-03-10" },
+      ],
+    },
     // a bill of goods: not reportable
-    { id: "b2", vendor: "e", status: "open", lines: [{ amount: 800, account: "expense:equipment" }], payments: [{ id: "p3", txn: null, amount: 800, date: "2026-05-05" }] },
+    {
+      id: "b2",
+      vendor: "e",
+      status: "open",
+      lines: [{ amount: 800, account: "expense:equipment" }],
+      payments: [{ id: "p3", txn: null, amount: 800, date: "2026-05-05" }],
+    },
   ];
   const rows = prepare1099s({ year: 2026, threshold: 2000, vendors, bills, txns });
   const by = (n: string) => rows.find((r) => r.name === n)!;
@@ -136,7 +200,13 @@ describe("1099-NEC preparation", () => {
     expect(ana.payments.filter((p) => p.txn === "t1").reduce((s, p) => s + p.amount, 0)).toBe(2500);
   });
   it("missing TIN or address is flagged with the backup withholding warning", () => {
-    const b = prepare1099s({ year: 2026, threshold: 2000, vendors: [{ id: "x", name: "No Tin" }], bills: [], txns: [tx("n", "2026-01-05", -2100, "expense:contractors", "No Tin")] })[0]!;
+    const b = prepare1099s({
+      year: 2026,
+      threshold: 2000,
+      vendors: [{ id: "x", name: "No Tin" }],
+      bills: [],
+      txns: [tx("n", "2026-01-05", -2100, "expense:contractors", "No Tin")],
+    })[0]!;
     expect(b.status).toBe("missing");
     expect(b.issues).toEqual(expect.arrayContaining(["noTin", "backupWithholding", "noAddress", "noW9"]));
   });
@@ -155,34 +225,71 @@ describe("1099-NEC preparation", () => {
     const csv = csv1099(rows, { name: "Acme", tin: "12-3456789", address: "9 Biz Rd", city: "Austin", state: "TX", zip: "78701" }, 2026).trim().split("\n");
     expect(csv[0]).toContain("Box 1a Nonemployee compensation");
     expect(csv).toHaveLength(1 + rows.filter((r) => r.file).length);
-    expect(csv.some((l) => l.startsWith("2026,1099-NEC,Acme,12-3456789,9 Biz Rd,Austin,TX,78701,,Ana Designer,ssn,123456789,1 Main St,Austin,TX,78701,US,,3000.00"))).toBe(true);
+    expect(
+      csv.some((l) => l.startsWith("2026,1099-NEC,Acme,12-3456789,9 Biz Rd,Austin,TX,78701,,Ana Designer,ssn,123456789,1 Main St,Austin,TX,78701,US,,3000.00")),
+    ).toBe(true);
     const n = nec1099(by("Ana Designer"), { name: "Acme" }, 2026);
     expect(n.recipient).toMatchObject({ name: "Ana Designer", street: "1 Main St", city: "Austin", state: "TX", zip: "78701" });
   });
 });
 
 describe("partnership and S-corporation worksheet", () => {
-  const owners = [{ name: "A", pct: 60, role: "general" as const, guaranteed: 10000 }, { name: "B", pct: 40, role: "limited" as const }];
+  const owners = [
+    { name: "A", pct: 60, role: "general" as const, guaranteed: 10000 },
+    { name: "B", pct: 40, role: "limited" as const },
+  ];
   it("allocates ordinary income by percentage and finds each partner's SE earnings", () => {
     const p = passThrough({ type: "partnership", year: 2026, revenue: 200000, cogs: 20000, deductions: 70000, otherIncome: 0, distributions: 50000, owners });
     expect(p.lines).toMatchObject({ grossProfit: 180000, totalIncome: 180000, guaranteedPayments: 10000, ordinary: 100000 });
-    expect(p.k1.map((k) => [k.name, k.box1, k.box4, k.box14, k.distribution])).toEqual([["A", 60000, 10000, 70000, 30000], ["B", 40000, 0, 0, 20000]]);
+    expect(p.k1.map((k) => [k.name, k.box1, k.box4, k.box14, k.distribution])).toEqual([
+      ["A", 60000, 10000, 70000, 30000],
+      ["B", 40000, 0, 0, 20000],
+    ]);
     expect(p.warnings).toEqual([]);
   });
   it("warns when the percentages are off; an S-corp has no SE earnings and a reasonable-compensation note", () => {
-    const p = passThrough({ type: "s-corp", year: 2026, revenue: 100000, cogs: 0, deductions: 40000, otherIncome: 0, distributions: 0, owners: [{ name: "A", pct: 50 }, { name: "B", pct: 30 }] });
+    const p = passThrough({
+      type: "s-corp",
+      year: 2026,
+      revenue: 100000,
+      cogs: 0,
+      deductions: 40000,
+      otherIncome: 0,
+      distributions: 0,
+      owners: [
+        { name: "A", pct: 50 },
+        { name: "B", pct: 30 },
+      ],
+    });
     expect(p.warnings).toEqual(expect.arrayContaining(["pctNot100", "reasonableComp"]));
     expect(p.k1.every((k) => k.box14 === 0)).toBe(true);
     expect(p.k1[0]!.box1).toBe(30000);
   });
   it("the last owner takes the rounding cent", () => {
-    const p = passThrough({ type: "partnership", year: 2026, revenue: 100, cogs: 0, deductions: 0, otherIncome: 0, distributions: 0, owners: [{ name: "A", pct: 33.33 }, { name: "B", pct: 33.33 }, { name: "C", pct: 33.34 }] });
+    const p = passThrough({
+      type: "partnership",
+      year: 2026,
+      revenue: 100,
+      cogs: 0,
+      deductions: 0,
+      otherIncome: 0,
+      distributions: 0,
+      owners: [
+        { name: "A", pct: 33.33 },
+        { name: "B", pct: 33.33 },
+        { name: "C", pct: 33.34 },
+      ],
+    });
     expect(p.k1.reduce((s, k) => s + k.box1, 0)).toBe(100);
   });
 });
 
 describe("usReturn by business type", () => {
-  const rows = [tx("r1", "2026-02-01", 100000, "revenue:services"), tx("e1", "2026-02-02", -20000, "expense:software"), tx("c1", "2026-02-03", -3000, "expense:contractors", "Ana Designer")];
+  const rows = [
+    tx("r1", "2026-02-01", 100000, "revenue:services"),
+    tx("e1", "2026-02-02", -20000, "expense:software"),
+    tx("c1", "2026-02-03", -3000, "expense:contractors", "Ana Designer"),
+  ];
   const deductions = rows.filter((t) => t.amount < 0).map((t) => ded(t));
   const base = { year: 2026, table: us.table(2026), txns: rows, deductions, nonDeductible: 0, vendors: [{ id: "a", name: "Ana Designer" }] };
   it("sole proprietor: Schedule C, SE, QBI, estimates this year and next, contractors", () => {
@@ -203,7 +310,11 @@ describe("usReturn by business type", () => {
     expect([f.schedC, f.corp, f.contractors, f.notes]).toEqual([null, null, [], ["foreignOwned"]]);
   });
   it("detects the IRS payments in the ledger", () => {
-    const r = usReturn({ ...base, type: "sole-prop", txns: [...rows, tx("i1", "2026-04-15", -2500, "equity:owner", "USATAXPYMT IRS"), tx("i2", "2026-06-15", -2500, "equity:owner", "EFTPS payment")] });
+    const r = usReturn({
+      ...base,
+      type: "sole-prop",
+      txns: [...rows, tx("i1", "2026-04-15", -2500, "equity:owner", "USATAXPYMT IRS"), tx("i2", "2026-06-15", -2500, "equity:owner", "EFTPS payment")],
+    });
     expect(r.paid).toEqual({ count: 2, total: 5000 });
   });
 });

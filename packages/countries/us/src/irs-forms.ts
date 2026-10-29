@@ -16,7 +16,7 @@
 // 1040-ES 2026       Page12 worksheet f12_1..f12_23 (lines 1..15), vouchers: 1 = Page15 f15_29.., 2 = f15_15.., 3 = f15_1.., 4 = Page14 f14_1..
 // 1099-NEC           Copy B: 2026 revision CopyB.LeftCol f2_2.. / RightCol f2_20 (box 1a); 2025 revision payer in one field f2_2, box 1 f2_9.
 import type { SchedCResult } from "./schedc.ts";
-import type { SeResult, QbiResult, Installment } from "./tax.ts";
+import type { SeResult, QbiResult, Installment, PersonalResult, EstimateResult } from "./tax.ts";
 import type { UsProfile } from "./forms.ts";
 import { fields, usd, irsPeriod } from "./irs.ts";
 import { splitCityStateZip, type Nec } from "./contractors.ts";
@@ -80,7 +80,9 @@ export const SCHED_C_PART3: Readonly<Record<string, string>> = {
   "41": "Page2[0].f2_7[0]",
   "42": "Page2[0].f2_8[0]",
 };
-const PART5 = [15, 17, 19, 21, 23, 25, 27, 29, 31].map((n, k) => [`Page2[0].PartVTable[0].Item${k + 1}[0].f2_${n}[0]`, `Page2[0].PartVTable[0].Item${k + 1}[0].f2_${n + 1}[0]`] as const);
+const PART5 = [15, 17, 19, 21, 23, 25, 27, 29, 31].map(
+  (n, k) => [`Page2[0].PartVTable[0].Item${k + 1}[0].f2_${n}[0]`, `Page2[0].PartVTable[0].Item${k + 1}[0].f2_${n + 1}[0]`] as const,
+);
 
 export interface SchedCCtx extends UsProfile {
   year: number;
@@ -203,22 +205,100 @@ export function form8995(d: UsProfile & { qbi: QbiResult }): Readonly<Record<str
   text(`${E}Table[0].Row1i[0].f1_03[0]`, d.legalName || d.business);
   text(`${E}Table[0].Row1i[0].f1_04[0]`, d.ein ? fmtTin(d.ein, "ein") : fmtTin(d.ssn));
   text(`${E}Table[0].Row1i[0].f1_05[0]`, usd(q.line2));
-  const v: Record<string, number> = { "2": q.line2, "4": q.line4, "5": q.line5, "10": q.line10, "11": q.line11, "12": q.line12, "13": q.line13, "14": q.line14, "15": q.deduction };
+  const v: Record<string, number> = {
+    "2": q.line2,
+    "4": q.line4,
+    "5": q.line5,
+    "10": q.line10,
+    "11": q.line11,
+    "12": q.line12,
+    "13": q.line13,
+    "14": q.line14,
+    "15": q.deduction,
+  };
   for (const [l, n] of Object.entries(v)) text(F8995_LINES[l]!, usd(n));
   return out;
 }
 
 // ---------- Form 1040-ES (2026): the estimated tax worksheet and the payment vouchers ----------
 /** Voucher k (1-4) → its field names. Voucher 4 is at the foot of page 14, 3 / 2 / 1 stack on page 15 (top to bottom). */
-export const VOUCHER: Readonly<Record<number, { amount: string; first: string; last: string; ssn: string; address: string; city: string; state: string; zip: string }>> = {
-  1: { amount: "Page15[0].f15_29[0]", first: "Page15[0].f15_30[0]", last: "Page15[0].f15_31[0]", ssn: "Page15[0].f15_32[0]", address: "Page15[0].f15_36[0]", city: "Page15[0].f15_37[0]", state: "Page15[0].f15_38[0]", zip: "Page15[0].f15_39[0]" },
-  2: { amount: "Page15[0].f15_15[0]", first: "Page15[0].f15_16[0]", last: "Page15[0].f15_17[0]", ssn: "Page15[0].f15_18[0]", address: "Page15[0].f15_22[0]", city: "Page15[0].f15_23[0]", state: "Page15[0].f15_24[0]", zip: "Page15[0].f15_25[0]" },
-  3: { amount: "Page15[0].f15_1[0]", first: "Page15[0].f15_2[0]", last: "Page15[0].f15_3[0]", ssn: "Page15[0].f15_4[0]", address: "Page15[0].f15_8[0]", city: "Page15[0].f15_9[0]", state: "Page15[0].f15_10[0]", zip: "Page15[0].f15_11[0]" },
-  4: { amount: "Page14[0].f14_1[0]", first: "Page14[0].f14_2[0]", last: "Page14[0].f14_3[0]", ssn: "Page14[0].f14_4[0]", address: "Page14[0].f14_8[0]", city: "Page14[0].f14_9[0]", state: "Page14[0].f14_10[0]", zip: "Page14[0].f14_11[0]" },
+export const VOUCHER: Readonly<
+  Record<number, { amount: string; first: string; last: string; ssn: string; address: string; city: string; state: string; zip: string }>
+> = {
+  1: {
+    amount: "Page15[0].f15_29[0]",
+    first: "Page15[0].f15_30[0]",
+    last: "Page15[0].f15_31[0]",
+    ssn: "Page15[0].f15_32[0]",
+    address: "Page15[0].f15_36[0]",
+    city: "Page15[0].f15_37[0]",
+    state: "Page15[0].f15_38[0]",
+    zip: "Page15[0].f15_39[0]",
+  },
+  2: {
+    amount: "Page15[0].f15_15[0]",
+    first: "Page15[0].f15_16[0]",
+    last: "Page15[0].f15_17[0]",
+    ssn: "Page15[0].f15_18[0]",
+    address: "Page15[0].f15_22[0]",
+    city: "Page15[0].f15_23[0]",
+    state: "Page15[0].f15_24[0]",
+    zip: "Page15[0].f15_25[0]",
+  },
+  3: {
+    amount: "Page15[0].f15_1[0]",
+    first: "Page15[0].f15_2[0]",
+    last: "Page15[0].f15_3[0]",
+    ssn: "Page15[0].f15_4[0]",
+    address: "Page15[0].f15_8[0]",
+    city: "Page15[0].f15_9[0]",
+    state: "Page15[0].f15_10[0]",
+    zip: "Page15[0].f15_11[0]",
+  },
+  4: {
+    amount: "Page14[0].f14_1[0]",
+    first: "Page14[0].f14_2[0]",
+    last: "Page14[0].f14_3[0]",
+    ssn: "Page14[0].f14_4[0]",
+    address: "Page14[0].f14_8[0]",
+    city: "Page14[0].f14_9[0]",
+    state: "Page14[0].f14_10[0]",
+    zip: "Page14[0].f14_11[0]",
+  },
 };
 export const ES_WORKSHEET: Readonly<Record<string, string>> = Object.fromEntries(
-  ["1", "2a", "2b", "2c", "2d", "3", "4", "5", "6", "7", "8", "9", "10", "11a", "11b", "11c", "12a", "12b", "12c", "13", "14a", "14b", "15"].map((l, k) => [l, `Page12[0].f12_${k + 1}[0]`]),
+  ["1", "2a", "2b", "2c", "2d", "3", "4", "5", "6", "7", "8", "9", "10", "11a", "11b", "11c", "12a", "12b", "12c", "13", "14a", "14b", "15"].map((l, k) => [
+    l,
+    `Page12[0].f12_${k + 1}[0]`,
+  ]),
 );
+/** The 2026 Estimated Tax Worksheet (page 12) from a personal-tax result and the estimate for it: line number → whole dollars. Lines 2c, 5 and 11b (Schedule 1-A, AMT, refundable credits) are not modelled and stay blank. */
+export function esWorksheet(pt: PersonalResult, est: EstimateResult, credits = 0): Record<string, number> {
+  const afterCredits = Math.max(0, pt.incomeTax - Math.max(0, credits));
+  const w: Record<string, number> = {
+    "1": pt.agi,
+    "2a": pt.deduction,
+    "2b": pt.qbi.deduction,
+    "2d": pt.deduction + pt.qbi.deduction,
+    "3": pt.taxable,
+    "4": pt.incomeTax,
+    "6": pt.incomeTax,
+    "7": Math.max(0, credits),
+    "8": afterCredits,
+    "9": pt.se.line12,
+    "10": pt.se.additionalMedicare,
+    "11a": pt.totalTax,
+    "11c": pt.totalTax,
+    "12a": est.currentSafeHarbor,
+    "12c": est.required,
+    "13": pt.withholding,
+    "14a": Math.max(0, est.required - pt.withholding),
+    "14b": Math.max(0, pt.totalTax - pt.withholding),
+    "15": est.installments[0]?.amount ?? 0,
+  };
+  if (est.priorSafeHarbor !== null) w["12b"] = est.priorSafeHarbor;
+  return w;
+}
 export interface Es1040Ctx extends UsProfile {
   /** Worksheet lines: line number → whole dollars (1 expected AGI … 15 first payment). */
   worksheet?: Readonly<Record<string, number>>;
@@ -279,7 +359,11 @@ export function form1099NEC2025(d: Nec): Readonly<Record<string, string>> {
     p = d.payer,
     r = d.recipient;
   text(`${B}PgHeader[0].CalendarYear[0].f2_1[0]`, String(d.year));
-  text(`${B}LeftCol[0].f2_2[0]`, [p.name, [p.address, p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "), p.phone].filter(Boolean).join("\n"), true);
+  text(
+    `${B}LeftCol[0].f2_2[0]`,
+    [p.name, [p.address, p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "), p.phone].filter(Boolean).join("\n"),
+    true,
+  );
   text(`${B}LeftCol[0].f2_3[0]`, fmtTin(p.tin, p.tinType));
   text(`${B}LeftCol[0].f2_4[0]`, fmtTin(r.tin, r.tinType));
   text(`${B}LeftCol[0].f2_5[0]`, r.name);

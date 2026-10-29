@@ -55,7 +55,11 @@ export function booksPl(txns: readonly LedgerRow[], nonDeductible: number) {
   };
 }
 /** The C-corporation's 1120 inputs from the books. */
-export const corpFromBooks = (txns: readonly LedgerRow[], nonDeductible: number, corpRate: number): Pick<CorpInput, "revenue" | "cogs" | "advertising" | "otherDeductions" | "otherIncome" | "corpRate"> => {
+export const corpFromBooks = (
+  txns: readonly LedgerRow[],
+  nonDeductible: number,
+  corpRate: number,
+): Pick<CorpInput, "revenue" | "cogs" | "advertising" | "otherDeductions" | "otherIncome" | "corpRate"> => {
   const b = booksPl(txns, nonDeductible);
   return { revenue: b.revenue, cogs: b.cogs, advertising: b.advertising, otherDeductions: b.otherDeductions, otherIncome: b.otherIncome, corpRate };
 };
@@ -99,7 +103,8 @@ export function usReturn(i: UsReturnInput): UsReturn {
     fed = i.table.fed,
     status = inp.status ?? "single",
     notes: string[] = [],
-    contractors = track === "foreign-owned" ? [] : prepare1099s({ year: i.year, threshold: i.table.nec1099, vendors: i.vendors ?? [], bills: i.bills ?? [], txns: i.txns }),
+    contractors =
+      track === "foreign-owned" ? [] : prepare1099s({ year: i.year, threshold: i.table.nec1099, vendors: i.vendors ?? [], bills: i.bills ?? [], txns: i.txns }),
     paidRows = irsPayments(i.txns, i.year),
     paid = { count: paidRows.length, total: rd(paidRows.reduce((s, t) => s - t.amount, 0)) };
   const base = { track, year: i.year, contractors, needs1099: contractors.some((r) => r.file), paid, notes };
@@ -128,9 +133,23 @@ export function usReturn(i: UsReturnInput): UsReturn {
       ...base,
       schedC,
       personal,
-      estimates: estimatedTaxes(fed, { year: i.year, status, expectedTax: personal.totalTax, withholding: inp.withholding, priorTax: inp.priorTax ?? null, priorAgi: inp.priorAgi ?? null }),
+      estimates: estimatedTaxes(fed, {
+        year: i.year,
+        status,
+        expectedTax: personal.totalTax,
+        withholding: inp.withholding,
+        priorTax: inp.priorTax ?? null,
+        priorAgi: inp.priorAgi ?? null,
+      }),
       // next year: this year's tax is the projection and, to the dollar, the 100% / 110% safe harbor
-      nextEstimates: estimatedTaxes(nextFed, { year: i.year + 1, status, expectedTax: personal.totalTax, withholding: inp.withholding, priorTax: personal.totalTax, priorAgi: personal.agi }),
+      nextEstimates: estimatedTaxes(nextFed, {
+        year: i.year + 1,
+        status,
+        expectedTax: personal.totalTax,
+        withholding: inp.withholding,
+        priorTax: personal.totalTax,
+        priorAgi: personal.agi,
+      }),
       corp: null,
       passThrough: null,
     };
@@ -157,7 +176,16 @@ export function usReturn(i: UsReturnInput): UsReturn {
       estimates: null,
       nextEstimates: null,
       corp: null,
-      passThrough: passThrough({ type: track, year: i.year, revenue: b.revenue, cogs: b.cogs, deductions: b.opexAllowed, otherIncome: b.otherIncome, distributions: dist, owners: inp.owners ?? [] }),
+      passThrough: passThrough({
+        type: track,
+        year: i.year,
+        revenue: b.revenue,
+        cogs: b.cogs,
+        deductions: b.opexAllowed,
+        otherIncome: b.otherIncome,
+        distributions: dist,
+        owners: inp.owners ?? [],
+      }),
     };
   }
   notes.push("foreignOwned");

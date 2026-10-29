@@ -50,14 +50,34 @@ async function fill(id: IrsPdf["id"], values: Readonly<Record<string, string>>, 
     }
   }
   const back = Object.fromEntries(
-    form.getFields().flatMap((f) => (f instanceof PDFTextField && f.getText() ? [[f.getName().slice(IRS_PREFIX.length), f.getText()!]] : f instanceof PDFCheckBox && f.isChecked() ? [[f.getName().slice(IRS_PREFIX.length), "X"]] : [])),
+    form
+      .getFields()
+      .flatMap((f) =>
+        f instanceof PDFTextField && f.getText()
+          ? [[f.getName().slice(IRS_PREFIX.length), f.getText()!]]
+          : f instanceof PDFCheckBox && f.isChecked()
+            ? [[f.getName().slice(IRS_PREFIX.length), "X"]]
+            : [],
+      ),
   );
   void page;
   return { doc, back };
 }
 
 // ---------- full contexts: every field each hook can write ----------
-const profile = { taxpayerName: "Jane Q Doe", ssn: "123456789", legalName: "Doe Design", ein: "12-3456789", business: "Graphic design", naics: "541430", address: "1 Main St", cityStateZip: "Austin, TX 78701", state: "TX", formed: "2026-02-01", phone: "5125550100" };
+const profile = {
+  taxpayerName: "Jane Q Doe",
+  ssn: "123456789",
+  legalName: "Doe Design",
+  ein: "12-3456789",
+  business: "Graphic design",
+  naics: "541430",
+  address: "1 Main St",
+  cityStateZip: "Austin, TX 78701",
+  state: "TX",
+  formed: "2026-02-01",
+  phone: "5125550100",
+};
 const lines = Object.fromEntries(Object.keys(SCHED_C_LINES).map((l, k) => [l, 1000 + k]));
 const full: SchedCResult = {
   year: 2026,
@@ -98,7 +118,11 @@ async function geometry(id: IrsPdf["id"], names: readonly string[]) {
     refs = doc.getPages().map((p) => String(p.ref)),
     out: Record<string, { p: number; x: number; y: number; w: number }> = {};
   for (const n of names) {
-    const w = (doc.getForm().getField(IRS_PREFIX + n) as { acroField: { getWidgets(): { getRectangle(): { x: number; y: number; width: number; height: number }; P(): unknown }[] } }).acroField.getWidgets()[0]!;
+    const w = (
+      doc.getForm().getField(IRS_PREFIX + n) as {
+        acroField: { getWidgets(): { getRectangle(): { x: number; y: number; width: number; height: number }; P(): unknown }[] };
+      }
+    ).acroField.getWidgets()[0]!;
     const r = w.getRectangle(),
       p = refs.indexOf(String(w.P())) + 1,
       h = doc.getPage(p - 1).getHeight();
@@ -110,14 +134,36 @@ async function geometry(id: IrsPdf["id"], names: readonly string[]) {
 function labels(file: string, g: Record<string, { p: number; x: number; y: number; w: number }>) {
   const html = execFileSync("pdftotext", ["-bbox", new URL(file, dir).pathname, "-"], { maxBuffer: 1 << 28 }).toString();
   const pages = [...html.matchAll(/<page width="[\d.]+" height="[\d.]+">([\s\S]*?)<\/page>/g)].map((m) =>
-    [...m[1]!.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([\s\S]*?)<\/word>/g)].map((w) => ({ x0: +w[1]!, y0: +w[2]!, x1: +w[3]!, y1: +w[4]!, t: w[5]!.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">") })),
+    [...m[1]!.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([\s\S]*?)<\/word>/g)].map((w) => ({
+      x0: +w[1]!,
+      y0: +w[2]!,
+      x1: +w[3]!,
+      y1: +w[4]!,
+      t: w[5]!
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">"),
+    })),
   );
   return Object.fromEntries(
     Object.entries(g).map(([n, f]) => {
       const ws = pages[f.p - 1]!,
         mid = f.y + 6;
-      const left = ws.filter((x) => Math.abs((x.y0 + x.y1) / 2 - mid) < 6 && x.x1 <= f.x + 2).sort((a, b) => a.x0 - b.x0).map((x) => x.t).filter((t) => !/^\.+$/.test(t)).slice(-9).join(" ");
-      const above = ws.filter((x) => x.y1 <= f.y + 1 && x.y1 > f.y - 14 && x.x0 <= f.x + f.w && x.x1 >= f.x - 2).sort((a, b) => a.x0 - b.x0).map((x) => x.t).join(" ").slice(0, 70);
+      const left = ws
+        .filter((x) => Math.abs((x.y0 + x.y1) / 2 - mid) < 6 && x.x1 <= f.x + 2)
+        .sort((a, b) => a.x0 - b.x0)
+        .map((x) => x.t)
+        .filter((t) => !/^\.+$/.test(t))
+        .slice(-9)
+        .join(" ");
+      const above = ws
+        .filter((x) => x.y1 <= f.y + 1 && x.y1 > f.y - 14 && x.x0 <= f.x + f.w && x.x1 >= f.x - 2)
+        .sort((a, b) => a.x0 - b.x0)
+        .map((x) => x.t)
+        .join(" ")
+        .slice(0, 70);
       return [n, { ...f, label: `${left} || ${above}`.replace(/\.{2,}/g, "") }];
     }),
   );

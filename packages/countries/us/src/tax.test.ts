@@ -1,12 +1,33 @@
 import { describe, expect, it } from "vite-plus/test";
-import { corpEstimates, estimatedTaxes, estimateDates, incomeTax, mileageDeduction, nextBusinessDay, personalTax, qbiDeduction, seTax, us, usDeadlines } from "./index.ts";
+import {
+  corpEstimates,
+  esWorksheet,
+  estimatedTaxes,
+  estimateDates,
+  incomeTax,
+  mileageDeduction,
+  nextBusinessDay,
+  personalTax,
+  qbiDeduction,
+  seTax,
+  us,
+  usDeadlines,
+} from "./index.ts";
 
 const T25 = us.table(2025).fed,
   T26 = us.table(2026).fed;
 
 describe("federal brackets match the IRS rate tables (Rev. Proc. 2025-32 / 2024-40, 'plus' amounts)", () => {
   it("2026 single, at each bracket top", () => {
-    for (const [income, tax] of [[12400, 1240], [50400, 5800], [105700, 17966], [201775, 41024], [256225, 58448], [640600, 192979]] as const) expect(incomeTax(T26, "single", income)).toBe(tax);
+    for (const [income, tax] of [
+      [12400, 1240],
+      [50400, 5800],
+      [105700, 17966],
+      [201775, 41024],
+      [256225, 58448],
+      [640600, 192979],
+    ] as const)
+      expect(incomeTax(T26, "single", income)).toBe(tax);
     expect(incomeTax(T26, "single", 100000)).toBe(16712);
   });
   it("2026 joint, head of household and separate", () => {
@@ -16,7 +37,15 @@ describe("federal brackets match the IRS rate tables (Rev. Proc. 2025-32 / 2024-
     expect(incomeTax(T26, "mfs", 384350)).toBe(103292); // 103,291.75
   });
   it("2025", () => {
-    for (const [income, tax] of [[11925, 1193], [48475, 5579], [103350, 17651], [197300, 40199], [250525, 57231], [626350, 188770]] as const) expect(incomeTax(T25, "single", income)).toBe(tax); // 1,192.50 / 5,578.50 / 188,769.75 round
+    for (const [income, tax] of [
+      [11925, 1193],
+      [48475, 5579],
+      [103350, 17651],
+      [197300, 40199],
+      [250525, 57231],
+      [626350, 188770],
+    ] as const)
+      expect(incomeTax(T25, "single", income)).toBe(tax); // 1,192.50 / 5,578.50 / 188,769.75 round
     expect(incomeTax(T25, "mfj", 96950)).toBe(11157);
     expect(incomeTax(T25, "hoh", 64850)).toBe(7442);
   });
@@ -131,14 +160,23 @@ describe("estimated tax (1040-ES)", () => {
   it("withholding counts; under $1,000 owed or a zero prior year needs nothing; the last payment takes the rounding", () => {
     const w = estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: 10000, withholding: 4000 });
     expect(w.total).toBe(5000);
-    expect(estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: 4999, withholding: 4000 })).toMatchObject({ exempt: true, total: 0, basis: "none" });
+    expect(estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: 4999, withholding: 4000 })).toMatchObject({
+      exempt: true,
+      total: 0,
+      basis: "none",
+    });
     expect(estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: 9000, priorTax: 0 }).exempt).toBe(true);
     const odd = estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: 11112 });
     expect(odd.installments.reduce((s, x) => s + x.amount, 0)).toBe(odd.total);
   });
   it("C-corporation 1120-W: 15th of the 4th, 6th, 9th and 12th months; none under $500", () => {
     const c = corpEstimates(T26, 2026, 12000, null);
-    expect(c.installments.map((x) => [x.due, x.amount])).toEqual([["2026-04-15", 3000], ["2026-06-15", 3000], ["2026-09-15", 3000], ["2026-12-15", 3000]]);
+    expect(c.installments.map((x) => [x.due, x.amount])).toEqual([
+      ["2026-04-15", 3000],
+      ["2026-06-15", 3000],
+      ["2026-09-15", 3000],
+      ["2026-12-15", 3000],
+    ]);
     expect(corpEstimates(T26, 2026, 499, null).exempt).toBe(true);
     expect(corpEstimates(T26, 2026, 12000, 8000).required).toBe(8000);
   });
@@ -146,13 +184,25 @@ describe("estimated tax (1040-ES)", () => {
 
 describe("standard mileage uses the rate of each trip's date", () => {
   it("2026: 72.5 cents to June 30, 76 cents from July 1", () => {
-    const m = mileageDeduction(T26, [{ date: "2026-06-30", miles: 1000 }, { date: "2026-07-01", miles: 1000 }, { date: "2026-12-31", miles: 100 }]);
+    const m = mileageDeduction(T26, [
+      { date: "2026-06-30", miles: 1000 },
+      { date: "2026-07-01", miles: 1000 },
+      { date: "2026-12-31", miles: 100 },
+    ]);
     expect(m.miles).toBe(2100);
     expect(m.amount).toBe(725 + 760 + 76);
-    expect(m.bands).toEqual([{ cents: 72.5, miles: 1000, amount: 725 }, { cents: 76, miles: 1100, amount: 836 }]);
+    expect(m.bands).toEqual([
+      { cents: 72.5, miles: 1000, amount: 725 },
+      { cents: 76, miles: 1100, amount: 836 },
+    ]);
   });
   it("2025: 70 cents; bad trips are ignored", () => {
-    expect(mileageDeduction(T25, [{ date: "2025-03-01", miles: 500 }, { date: "2025-03-02", miles: -5 }]).amount).toBe(350);
+    expect(
+      mileageDeduction(T25, [
+        { date: "2025-03-01", miles: 500 },
+        { date: "2025-03-02", miles: -5 },
+      ]).amount,
+    ).toBe(350);
   });
 });
 
@@ -170,9 +220,14 @@ describe("deadlines in a calendar year", () => {
     ]);
   });
   it("foreign-owned LLC, with Delaware and Wyoming dates when the state is known, FBAR when asked", () => {
-    expect(ids(2027, { businessType: "llc-disregarded" })).toEqual([["2027-04-15", "us.5472.2026"], ["2027-10-15", "us.5472.2026.ext"]]);
+    expect(ids(2027, { businessType: "llc-disregarded" })).toEqual([
+      ["2027-04-15", "us.5472.2026"],
+      ["2027-10-15", "us.5472.2026.ext"],
+    ]);
     expect(ids(2027, { businessType: "llc-disregarded", state: "DE" }).map((x) => x[1])).toContain("us.de.llc");
-    expect(usDeadlines(2027, { businessType: "llc-disregarded", state: "WY", formed: "2024-08-19" }).find((d) => d.id === "us.wy.annual")?.date).toBe("2027-08-01");
+    expect(usDeadlines(2027, { businessType: "llc-disregarded", state: "WY", formed: "2024-08-19" }).find((d) => d.id === "us.wy.annual")?.date).toBe(
+      "2027-08-01",
+    );
     expect(usDeadlines(2027, { businessType: "llc-disregarded" }).some((d) => d.id === "us.wy.annual")).toBe(false);
     expect(usDeadlines(2027, { businessType: "sole-prop", foreignAccountsOver10k: true }).find((d) => d.id === "us.fbar.2026")?.date).toBe("2027-04-15");
   });
@@ -189,5 +244,21 @@ describe("deadlines in a calendar year", () => {
       expect(new Set(ds.map((d) => d.id)).size).toBe(ds.length);
       for (const d of ds) expect([d.title.en, d.title.he, d.source].every(Boolean)).toBe(true);
     }
+  });
+});
+
+describe("1040-ES worksheet", () => {
+  it("lines follow the printed worksheet and agree with the estimate", () => {
+    const pt = personalTax(T26, { year: 2026, status: "single", netProfit: 80000, withholding: 1000, credits: 500 }),
+      est = estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: pt.totalTax, withholding: 1000, priorTax: 9000, priorAgi: 70000 }),
+      w = esWorksheet(pt, est, 500);
+    expect(w["2d"]).toBe(w["2a"]! + w["2b"]!);
+    expect(w["1"]! - w["2d"]!).toBe(w["3"]);
+    expect(w["8"]).toBe(w["4"]! - 500);
+    expect(w["11c"]).toBe(w["8"]! + w["9"]! + w["10"]!);
+    expect(w["12c"]).toBe(Math.min(w["12a"]!, w["12b"]!));
+    expect(w["14a"]).toBe(w["12c"]! - 1000);
+    expect(w["15"]).toBe(est.installments[0]!.amount);
+    expect(esWorksheet(pt, estimatedTaxes(T26, { year: 2026, status: "single", expectedTax: pt.totalTax }), 0)["12b"]).toBeUndefined(); // no prior-year figure given
   });
 });

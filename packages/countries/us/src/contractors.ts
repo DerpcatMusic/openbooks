@@ -65,7 +65,11 @@ const nameOf = (a: string) => a.slice(a.indexOf(":") + 1);
 const reportable = (account: string) => (account.startsWith("expense:") || account.startsWith("cogs:")) && NEC_ACCOUNTS.has(nameOf(account));
 const NETWORK = /\b(paypal|venmo|cash ?app|stripe|square|zelle pay?)\b/i;
 const CARD_KIND = /card/i;
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export type Via = "bank" | "card" | "network" | "unknown";
@@ -216,7 +220,9 @@ export function csv1099(rows: readonly Row1099[], payer: Payer, year: number): s
   const out = [head.map(csv).join(",")];
   for (const r of rows.filter((x) => x.file)) {
     const v = r.vendor,
-      a = v?.city ? { city: v.city, state: v.state ?? "", zip: v.zip ?? "" } : splitCityStateZip(v?.address?.includes(",") ? v.address.slice(v.address.indexOf(",") + 1) : "");
+      a = v?.city
+        ? { city: v.city, state: v.state ?? "", zip: v.zip ?? "" }
+        : splitCityStateZip(v?.address?.includes(",") ? v.address.slice(v.address.indexOf(",") + 1) : "");
     out.push(
       [
         year,
@@ -253,11 +259,22 @@ export function csv1099(rows: readonly Row1099[], payer: Payer, year: number): s
 /** Box values for one recipient's 1099-NEC (a plain data object for the PDF field map). */
 export function nec1099(r: Row1099, payer: Payer, year: number) {
   const v = r.vendor!,
-    a = v.city ? { city: v.city, state: v.state ?? "", zip: v.zip ?? "" } : splitCityStateZip(v.address?.includes(",") ? v.address.slice(v.address.indexOf(",") + 1) : "");
+    a = v.city
+      ? { city: v.city, state: v.state ?? "", zip: v.zip ?? "" }
+      : splitCityStateZip(v.address?.includes(",") ? v.address.slice(v.address.indexOf(",") + 1) : "");
   return {
     year,
     payer: { ...payer, name: ascii(payer.name) },
-    recipient: { name: v.name, tin: v.tin ?? "", tinType: (v.tinType ?? "ssn") as TinType, street: (v.address ?? "").split(",")[0]!.trim(), city: a.city, state: a.state, zip: a.zip, country: v.country ?? "" },
+    recipient: {
+      name: v.name,
+      tin: v.tin ?? "",
+      tinType: (v.tinType ?? "ssn") as TinType,
+      street: (v.address ?? "").split(",")[0]!.trim(),
+      city: a.city,
+      state: a.state,
+      zip: a.zip,
+      country: v.country ?? "",
+    },
     box1a: Math.round(r.total * 100) / 100,
   };
 }

@@ -43,7 +43,17 @@ export interface K1 {
 export interface PassThrough {
   type: "partnership" | "s-corp";
   /** Return lines: gross receipts, COGS, gross profit, other income, total income, guaranteed payments, deductions, ordinary business income. */
-  lines: { grossReceipts: number; cogs: number; grossProfit: number; otherIncome: number; totalIncome: number; guaranteedPayments: number; deductions: number; totalDeductions: number; ordinary: number };
+  lines: {
+    grossReceipts: number;
+    cogs: number;
+    grossProfit: number;
+    otherIncome: number;
+    totalIncome: number;
+    guaranteedPayments: number;
+    deductions: number;
+    totalDeductions: number;
+    ordinary: number;
+  };
   k1: K1[];
   pctTotal: number;
   warnings: string[];
@@ -79,7 +89,17 @@ export function passThrough(i: PassThroughInput): PassThrough {
   });
   return {
     type: i.type,
-    lines: { grossReceipts: rd(i.revenue), cogs: rd(i.cogs), grossProfit, otherIncome: rd(i.otherIncome), totalIncome, guaranteedPayments: gp, deductions: ded, totalDeductions: gp + ded, ordinary },
+    lines: {
+      grossReceipts: rd(i.revenue),
+      cogs: rd(i.cogs),
+      grossProfit,
+      otherIncome: rd(i.otherIncome),
+      totalIncome,
+      guaranteedPayments: gp,
+      deductions: ded,
+      totalDeductions: gp + ded,
+      ordinary,
+    },
     k1,
     pctTotal,
     warnings,
