@@ -37,6 +37,8 @@ export interface Column<R = Record<string, unknown>> {
   hideLabel?: boolean;
   class?: string;
   value?: (row: R) => unknown;
+  /** Header becomes a sort button (the Table needs `onsort`). */
+  sortable?: boolean;
 }
 
 export interface MenuItem {

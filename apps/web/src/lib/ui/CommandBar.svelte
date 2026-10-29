@@ -67,6 +67,8 @@
       ["/home", "nav.home", "home"],
       ["/transactions", "nav.transactions", "list"],
       ["/invoices", us ? "nav.invoices" : "nav.bills", "file"],
+      ["/bills", "nav.payableBills", "calendar"],
+      ["/vendors", "nav.vendors", "users"],
       ["/review", "nav.review", "sparkle"],
       ["/reports", "nav.reports", "report"],
       ["/counterparties", "nav.counterparties", "users"],

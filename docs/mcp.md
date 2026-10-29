@@ -66,6 +66,7 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `suggest_category` | Likely ledger accounts for a transaction |
 | `add_journal_entry` | **Writes.** A balanced manual journal entry |
 | `list_invoices` / `create_invoice` | Invoices; `create_invoice` **writes** a draft (never numbered or issued) |
+| `list_bills` / `draft_bill` | Bills payable (what you owe vendors); `draft_bill` **writes** a draft (never approved or paid) |
 | `tax_summary` | Israeli osek zair estimate, or US LLC Form 5472 / 1120 checklist |
 | `bank_status` / `bank_sync` | Bank connection status; `bank_sync` **writes** new statements from connected banks (the only tool that reaches the internet) |
 

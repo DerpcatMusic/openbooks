@@ -5,7 +5,9 @@
   // header can't stick, because a horizontal scroll container also clips vertical stickiness.
   // Cells: the `cell` snippet (row, column), else column.value(row), else row[column.key]. `onrowclick` makes rows focusable
   // buttons (Enter/Space). `foot` renders <tfoot> rows (totals); `empty` shows when there are no rows.
+  // Sorting is the caller's: a `sortable` column's header is a button that calls `onsort(key)`; `sort` marks the active one.
   import type { Snippet } from "svelte";
+  import Icon from "./Icon.svelte";
   import type { Column } from "./types.ts";
   let {
     columns,
@@ -18,6 +20,8 @@
     onrowclick,
     selected,
     maxHeight,
+    sort,
+    onsort,
     class: cls = "",
   }: {
     columns: Column<R>[];
@@ -30,6 +34,8 @@
     onrowclick?: (row: R) => void;
     selected?: (row: R) => boolean;
     maxHeight?: string;
+    sort?: { key: string; dir: "asc" | "desc" } | null;
+    onsort?: (key: string) => void;
     class?: string;
   } = $props();
   const read = (r: R, c: Column<R>) => (c.value ? c.value(r) : (r as Record<string, unknown>)[c.key]);
@@ -44,8 +50,15 @@
     <thead>
       <tr>
         {#each columns as c (c.key)}
-          <th scope="col" class={["sticky top-0 z-[1] h-9 border-b border-line bg-panel font-normal text-[13px] whitespace-nowrap text-sub", pad, c.numeric ? "text-end" : "text-start", c.class]}>
-            {#if c.hideLabel}<span class="sr-only">{c.label}</span>{:else}{c.label}{/if}
+          <th
+            scope="col"
+            aria-sort={c.sortable && onsort ? (sort?.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : "none") : undefined}
+            class={["sticky top-0 z-[1] h-9 border-b border-line bg-panel font-normal text-[13px] whitespace-nowrap text-sub", pad, c.numeric ? "text-end" : "text-start", c.class]}>
+            {#if c.sortable && onsort}
+              <button type="button" onclick={() => onsort(c.key)} class="inline-flex items-center gap-1 rounded outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/50">
+                {c.label}<Icon name="sort" size={12} class={sort?.key === c.key ? "text-ink" : "text-faint"} />
+              </button>
+            {:else if c.hideLabel}<span class="sr-only">{c.label}</span>{:else}{c.label}{/if}
           </th>
         {/each}
       </tr>
