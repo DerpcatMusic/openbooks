@@ -191,7 +191,7 @@ export default {
   "dep.title": "Depreciation (Form 1342)",
   "dep.intro": "Equipment bought for the business is deducted over several years at rates set by regulation, not all at once. This is the 1342 appendix, built from the assets in your books.",
   "dep.empty": "No assets yet",
-  "dep.emptyText": "Purchases marked as equipment in your books show up here.",
+  "dep.emptyText": "Purchases filed under Equipment, or tagged with the equipment and depreciation rule, show up here.",
   "dep.col.asset": "Asset",
   "dep.col.date": "Bought",
   "dep.col.class": "Class",
