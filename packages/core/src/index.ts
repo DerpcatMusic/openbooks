@@ -17,3 +17,4 @@ export * from "./accrual.ts";
 export * from "./insights.ts";
 export * from "./trips.ts";
 export * from "./basis.ts";
+export * from "./xlsx.ts";

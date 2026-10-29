@@ -7,13 +7,14 @@
   import { agingReport, basisBridge, inPeriod, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
   import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
   import { apSources, arSources, basis, ledgerRows } from "#lib/stores/basis.svelte.ts";
-  import { t, bidi } from "#lib/i18n.svelte.ts";
+  import { t, bidi, I } from "#lib/i18n.svelte.ts";
   import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
   import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
   import Aging from "#lib/reports/Aging.svelte";
   import { go } from "#lib/reports/go.ts";
+  import { agingSheet, ledgerSheet, saveXlsx, statementSheet, titleRows } from "#lib/reports/xlsx.ts";
   import { activeMonths, agingCsv, bsStatement, cfIndirect, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
 
   const us = $derived(isUS());
@@ -139,6 +140,27 @@
     }
     download(file(TABS.find((x) => x.key === tab)!.label), csv);
   }
+  /** The same tab as an .xlsx workbook: real numbers with number formats, bold totals, indented lines. */
+  async function exportXlsx() {
+    const rtl = I.lang === "he",
+      entity = ent().short ?? "books",
+      tabLabel = TABS.find((x) => x.key === tab)!.label,
+      basisText = t(accrual ? "gaps3.basis.accrual" : "gaps2.books.cash"),
+      file = `${entity} ${tabLabel} ${aging ? agDate : periodLabel(p)}`;
+    if (aging && ag) {
+      const bucket = (i: number) => (i === 0 ? t("aging.current") : t("aging.days", { range: ag.buckets[i]!.label }));
+      const top = titleRows(entity, t(`aging.title.${kind}`), mdy(agDate));
+      return saveXlsx(file, [agingSheet(tabLabel, top, ag, agView === "source" ? "source" : "party", t, bucket, { party: t(`aging.party.${kind}`), ref: t(`aging.ref.${kind}`), none: t(`aging.noParty.${kind}`) }, rtl)]);
+    }
+    const top = titleRows(entity, tabLabel, `${tab === "bs" ? mdy(asOf[0]!) : periodLabel(p)} · ${basisText}`);
+    if (tab === "gl")
+      return saveXlsx(file, [
+        ledgerSheet(tabLabel, top, gl, { date: t("common.date"), description: t("common.description"), account: t("common.account"), ledger: t("common.ledgerAccount"), amount: t("common.amount"), balance: t("reports.balance") }, rtl),
+      ]);
+    const [first, lines, head] =
+      tab === "bs" ? [t("common.account"), bs!.lines, asOf.map(mdy)] : tab === "cf" ? [t("reports.activity"), cfLines, cols.head] : [t("common.ledgerAccount"), plLines, cols.head];
+    return saveXlsx(file, [statementSheet(tabLabel, top, first, head, lines, rtl)]);
+  }
   function download(base: string, csv: string) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
@@ -157,7 +179,7 @@
         {#if tags.length && tab !== "bs" && !aging}
           <Select variant="pill" icon="tag" label={t("tags.filter")} value={tag} onchange={(v) => (tagPick = v)} options={[{ value: "", label: t("tags.allTags") }, ...tags.map((g) => ({ value: g.id, label: g.name }))]} />
         {/if}
-        {#if !tooLong}<Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>{/if}
+        {#if !tooLong}<Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button><Button icon="download" onclick={() => void exportXlsx()}>{t("reports.exportXlsx")}</Button>{/if}
       {/if}
       <Button icon="printer" onclick={() => print()}>{t("common.print")}</Button>
     </div>

@@ -114,6 +114,7 @@ export default {
   "trips.why.us274c": "Foreign trip over 7 days with 25% or more personal time (§274(c)): fares by business days, {v} of {w}.",
   "trips.why.us274cExempt": "Foreign trip of {v} days: the §274(c) allocation doesn't apply, so fares are in full.",
   "trips.why.mainPersonal": "Personal days outweigh business days ({v} of {w}): the fare isn't deductible.",
+  "reports.exportXlsx": "Export Excel",
   // ---------- accounting basis ----------
   "reports.subAccrual": "{entity} · {period} · accrual basis",
   "reports.cf.dAr": "Change in accounts receivable",

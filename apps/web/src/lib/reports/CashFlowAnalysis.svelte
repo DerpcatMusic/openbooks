@@ -3,8 +3,9 @@
   // year and month chips, then the table: starting balances, movement per ledger account, ending balances (the math: cashflow.ts).
   // The year is the app's tax year (S.year), so a click on a row drills into the same year's transactions.
   import { S, ent, banks, catLabel, mon } from "#lib/stores/books.svelte.ts";
-  import { ledgerRows } from "#lib/stores/basis.svelte.ts";
-  import { t } from "#lib/i18n.svelte.ts";
+  import { basis, ledgerRows } from "#lib/stores/basis.svelte.ts";
+  import { saveXlsx, statementSheet, titleRows } from "./xlsx.ts";
+  import { t, I } from "#lib/i18n.svelte.ts";
   import { Area, Bars, Button, EmptyState, Segmented, Select } from "#lib/ui/index.ts";
   import { cashFlow, cfaLines, spans, type Gran, type Span } from "./cashflow.ts";
   import { saveCsv } from "./download.ts";
@@ -42,6 +43,10 @@
 
   const drill = (l: Line) => l.key && go("transactions", l.key === "ask" || l.key.startsWith("account:") ? l.key : `cat:${l.key}`);
 
+  const exportXlsx = () =>
+    saveXlsx(`${ent().short ?? "books"} ${t("reports.tab.cfa")} ${year}`, [
+      statementSheet(t("reports.tab.cfa"), titleRows(ent().short ?? "books", t("reports.tab.cfa"), `${year} · ${t(basis() === "accrual" ? "gaps3.basis.accrual" : "gaps2.books.cash")}`), t("cfa.account"), head, lines, I.lang === "he"),
+    ]);
   const exportCsv = () => saveCsv(`${ent().short ?? "books"} ${t("reports.tab.cfa")} ${year}`, toCsv([t("cfa.account"), ...head], lines));
   const chip = "num h-7 rounded-full px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-40";
 </script>
@@ -63,6 +68,7 @@
     onchange={(v) => ((S.year = +v), (S.period = null))} />
   <span class="flex-1"></span>
   <Button icon="download" onclick={exportCsv} disabled={idle}>{t("reports.exportCsv")}</Button>
+  <Button icon="download" onclick={() => void exportXlsx()} disabled={idle}>{t("reports.exportXlsx")}</Button>
 </div>
 <div class="mt-3 flex flex-wrap gap-1.5 print:hidden" role="group" aria-label={t("cfa.months")}>
   {#each Array.from({ length: 12 }, (_, i) => i + 1) as m (m)}
