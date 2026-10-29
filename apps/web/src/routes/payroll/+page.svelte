@@ -81,7 +81,7 @@
       return { ...r, payments: [...r.payments, ...add] };
     });
     await saveDoc("payroll", next);
-    toast(t("payroll.matchedAll", { n, runs: found.size }));
+    toast(t("payroll.matchedAll", { n }));
   }
 
   // ---------- editor ----------

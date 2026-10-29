@@ -38,7 +38,7 @@ export default {
   "fus.in.priorTax": "Last year's total tax",
   "fus.in.priorAgi": "Last year's AGI",
   "fus.in.paidEstimates": "Estimated tax already paid",
-  "fus.in.paidHint": "Blank = the {n} IRS payments found in your bank ({amount}).",
+  "fus.in.paidHint": { one: "Blank = the {n} IRS payment found in your bank ({amount}).", other: "Blank = the {n} IRS payments found in your bank ({amount})." },
   "fus.in.stateRate": "State income tax rate (%)",
   "fus.in.stateHint": "A flat rate you enter; state returns are not prepared.",
   "fus.status.single": "Single",
@@ -75,12 +75,12 @@ export default {
   // forms
   "fus.ind.autoTitle": "{y} forms filled from your books",
   "fus.ind.autoText": "Schedule C, Schedule SE, Form 8995 and the 1040-ES payment vouchers, as the IRS blanks. Check them, sign, and file with your Form 1040.",
-  "fus.ind.autoMissing": "{n} of your details are missing; the forms will have blanks until you add them.",
+  "fus.ind.autoMissing": { one: "{n} of your details is missing; the forms will have a blank until you add it.", other: "{n} of your details are missing; the forms will have blanks until you add them." },
   "fus.ind.packet": "Schedule C + SE + 8995",
   "fus.pdf.noYear": "The IRS has not published the {y} Schedule C, SE and 8995 yet (they come out in December). The numbers below are still computed.",
 
   // results
-  "fus.warn.uncategorized": "{v} transactions are uncategorized and left out. Review them first.",
+  "fus.warn.uncategorized": { one: "{v} transaction is uncategorized and left out. Review it first.", other: "{v} transactions are uncategorized and left out. Review them first." },
   "fus.warn.equipment179": "{v} of equipment: the books deduct it at once; Schedule C line 13 and Form 4562 (section 179) are yours to complete.",
   "fus.warn.vehicleLedgerIgnored": "{v} of car expenses in the books are not counted: you chose the standard mileage rate.",
   "fus.warn.noTrips": "Standard mileage chosen but no trips are logged.",
@@ -145,7 +145,7 @@ export default {
   "fus.est.nextNote":
     "Planned from this year's numbers, which make the {y} prior-year safe harbor. Replace it with a fresh estimate once {y} income is clearer.",
   "fus.est.borrowed": "The IRS figures for {y} are not in the app yet; {from}'s brackets and limits are used.",
-  "fus.est.paidFound": "{n} IRS payments found in your bank, {amount}.",
+  "fus.est.paidFound": { one: "{n} IRS payment found in your bank, {amount}.", other: "{n} IRS payments found in your bank, {amount}." },
   "fus.est.paidNone": "No IRS payments found in your bank yet.",
   "fus.est.paidSet": "You entered {amount} as paid.",
 

@@ -107,7 +107,7 @@ export default {
   "gaps2.journal.rows": { one: "Row {rows}", other: "Rows {rows}" },
   "gaps2.journal.row": "Row {row}",
   "gaps2.journal.importN": { one: "Add {n} entry", other: "Add {n} entries" },
-  "gaps2.journal.importSome": "Add {n} valid, skip {skipped} rows",
+  "gaps2.journal.importSome": { one: "Add {n} valid row, skip {skipped}", other: "Add {n} valid rows, skip {skipped}" },
   "gaps2.journal.imported": { one: "Added {n} draft entry: review it, then Save", other: "Added {n} draft entries: review them, then Save" },
   "gaps2.journal.archivedGroup": "Archived account",
   "gaps2.journal.archivedMark": "(archived)",

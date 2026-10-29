@@ -162,7 +162,7 @@
       {#if sc.warnings.length || pt.qbi.above || missing.length}
         <ul class="space-y-1 rounded-2xl border border-warn/30 bg-warn/6 px-4 py-3 text-[13px] text-ink sm:px-5">
           {#if missing.length}<li>{t("taxUS.missing", { list: missing.join(", ") })}</li>{/if}
-          {#each sc.warnings as w (w.k)}<li>{t(`fus.warn.${w.k}`, { v: w.k === "uncategorized" || w.k === "homeOver300" ? (w.v ?? 0) : fmt(w.v ?? 0) })}</li>{/each}
+          {#each sc.warnings as w (w.k)}<li>{t(`fus.warn.${w.k}`, { v: w.k === "uncategorized" || w.k === "homeOver300" ? (w.v ?? 0) : fmt(w.v ?? 0), n: w.v ?? 0 })}</li>{/each}
           {#if pt.qbi.above}<li>{t("fus.warn.qbiAbove")}</li>{/if}
         </ul>
       {/if}

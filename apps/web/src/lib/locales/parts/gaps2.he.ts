@@ -109,7 +109,7 @@ export default {
   "gaps2.journal.rows": { one: "שורה {rows}", two: "שורות {rows}", other: "שורות {rows}" },
   "gaps2.journal.row": "שורה {row}",
   "gaps2.journal.importN": { one: "הוספת פקודה אחת", two: "הוספת שתי פקודות", other: "הוספת {n} פקודות" },
-  "gaps2.journal.importSome": "הוספת {n} תקינות, דילוג על {skipped} שורות",
+  "gaps2.journal.importSome": { one: "הוספת שורה תקינה אחת, דילוג על {skipped}", two: "הוספת שתי שורות תקינות, דילוג על {skipped}", other: "הוספת {n} שורות תקינות, דילוג על {skipped}" },
   "gaps2.journal.imported": {
     one: "נוספה טיוטה אחת: בודקים ואז שומרים",
     two: "נוספו שתי טיוטות: בודקים ואז שומרים",

@@ -5,10 +5,12 @@ import {
   splitCityStateZip,
   untreatedMealsHalf,
   usReturn,
+  usOwned,
   usTrack,
   type CorpInput,
   type IrsInput,
   type Payer,
+  type UsDeadlineFacts,
   type UsInputs,
   type UsReturn,
   type UsTable,
@@ -62,6 +64,32 @@ export function saveUsInputs(y: number, patch: Partial<UsInputs>) {
   return saveDoc("taxus", { ...all, [y]: next });
 }
 
+// ---------- the saved facts the deadlines read (doc "profile": the same ones the filled forms use) ----------
+type Facts = Record<string, string | number | boolean | undefined>;
+const profile = () => (S.data?.profile ?? {}) as Facts;
+/** The legal form for the Delaware fee: an LLC (also an LLC taxed as a corporation) or a corporation. Saved as profile.entityForm; else from the business type. */
+export const entityForm = (type: string): "llc" | "corporation" => {
+  const f = profile().entityForm;
+  return f === "llc" || f === "corporation" ? f : type === "llc-ccorp" ? "llc" : "corporation";
+};
+/** A C-corp's owner is foreign (it then attaches Form 5472): profile.foreignOwned when set, else the owner's country not being the US. */
+export const foreignOwned = (type: string): boolean => {
+  const p = profile();
+  return typeof p.foreignOwned === "boolean" ? p.foreignOwned : usTrack(type) === "c-corp" && !usOwned(String(p.ownerCountry ?? ""));
+};
+/** Everything the US pack's deadlines() reads for a business type, from the saved profile. One place for the tax page and the filings hub. */
+export function usFacts(type: string): UsDeadlineFacts {
+  const p = profile();
+  return {
+    businessType: type,
+    state: String(p.state ?? ""),
+    formed: String(p.formed ?? ""),
+    foreignAccountsOver10k: p.foreignAccounts === true,
+    entityForm: entityForm(type),
+    foreignOwned: foreignOwned(type),
+  };
+}
+
 /** The whole US return for year y from the open books: one run feeds the page, the PDFs and (same maths) the MCP tools. */
 export function usNow(y = S.year): UsReturn {
   const r = result(y);
@@ -73,7 +101,8 @@ export function usNow(y = S.year): UsReturn {
     txns: yearTxns(y) as never,
     deductions: (r?.rows ?? []).map((x) => ({ id: x.id, category: x.category, gross: x.gross, deductible: x.deductible, rule: x.rule })),
     nonDeductible: r?.totals.nonDeductible ?? 0,
-    inputs: usInputs(y),
+    // the state estimate: the flat rate saved with the filing settings, else the per-year rate older books entered on this page
+    inputs: { ...usInputs(y), ...(typeof profile().stateRate === "number" ? { stateRate: profile().stateRate as number } : {}) },
     vendors: doc<Vendor1099[]>("vendors"),
     bills: doc<unknown[]>("bills").map((b) => migrateBill(b as never)) as never, // the same migration routes/bills/bills.ts readBills does
   });

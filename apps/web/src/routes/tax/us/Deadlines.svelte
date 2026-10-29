@@ -1,29 +1,19 @@
 <script lang="ts">
   // The federal (and state fee) deadlines of this business that are still ahead, from the US pack's deadlines(): each moved to the next
   // business day by the rules in the pack, with the form and the IRS page it comes from.
-  import { usOwned, usDeadlines } from "@openbooks/country-us";
-  import { S, bizType, mdy } from "#lib/stores/books.svelte.ts";
+  import { usDeadlines } from "@openbooks/country-us";
+  import { bizType, mdy } from "#lib/stores/books.svelte.ts";
   import { lang, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card } from "#lib/ui/index.ts";
-  import { track } from "#lib/ustax/books.ts";
+  import { usFacts } from "#lib/ustax/books.ts";
 
   let { y }: { y: number } = $props();
-  const p = $derived((S.data?.profile ?? {}) as Record<string, string | boolean | undefined>);
   const type = $derived(bizType(y) ?? "");
   const now = new Date().toLocaleDateString("sv");
   let all = $state(false);
   const list = $derived(
     [y, y + 1]
-      .flatMap((cal) =>
-        usDeadlines(cal, {
-          businessType: type,
-          state: String(p.state ?? ""),
-          formed: String(p.formed ?? ""),
-          foreignAccountsOver10k: p.foreignAccounts === true,
-          entityForm: type === "llc-ccorp" ? "llc" : "corporation",
-          foreignOwned: track(y) === "c-corp" && !usOwned(String(p.ownerCountry ?? "")),
-        }),
-      )
+      .flatMap((cal) => usDeadlines(cal, usFacts(type)))
       .sort((a, b) => (a.date < b.date ? -1 : 1)),
   );
   const shown = $derived(all ? list : list.filter((d) => d.date >= now).slice(0, 8));

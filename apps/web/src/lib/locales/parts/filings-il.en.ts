@@ -24,6 +24,7 @@ export default {
   "filings.filedOn": "Filed {d}",
   "filings.confirmation": "Confirmation",
   "filings.daysLate": { one: "1 day late", other: "{n} days late" },
+  "filings.dueToday": "Due today",
   "filings.inDays": { one: "Tomorrow", other: "In {n} days" },
   "filings.undo": "Undo",
   "filings.markFiled": "Mark filed",

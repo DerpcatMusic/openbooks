@@ -19,6 +19,7 @@ import type { Period } from "@openbooks/country-il";
 import { isBiz } from "@openbooks/core";
 import { S, bizType, doc, ent, family, pack, saveDoc, taxTable } from "./stores/books.svelte.ts";
 import { resultOf } from "./taxtags.svelte.ts";
+import { usFacts } from "./ustax/books.ts";
 
 export const filings = (): FilingsDoc => readFilings(doc<unknown>("filings", null));
 export const saveFilings = (d: FilingsDoc) => saveDoc("filings", d);
@@ -41,7 +42,7 @@ export function calendar(year: number, today: string): FilingRow[] {
   const facts = (y: number) => {
     const type = bizType(y);
     if (!type) return null;
-    return isIL() ? { businessType: type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances } : { businessType: type };
+    return isIL() ? { businessType: type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances } : usFacts(type);
   };
   return filingRows(dueInYear(p, year, facts), f, today);
 }

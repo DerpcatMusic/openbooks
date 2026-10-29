@@ -98,6 +98,7 @@
                   {#if r.unverified}<Badge size="sm" tone="warn">{t("filings.unverified")}</Badge>{/if}
                   {#if r.done}<span>{t("filings.filedOn", { d: mdy(r.done.on) })}{r.done.confirmation ? ` · ${t("filings.confirmation")} ${r.done.confirmation}` : ""}</span>
                   {:else if r.status === "overdue"}<span>{t("filings.daysLate", { n: -r.days })}</span>
+                  {:else if r.days === 0}<span>{t("filings.dueToday")}</span>
                   {:else}<span>{t("filings.inDays", { n: r.days })}</span>{/if}
                 </div>
               </div>

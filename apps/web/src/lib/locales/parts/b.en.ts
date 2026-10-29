@@ -188,7 +188,7 @@ export default {
   "connections.csvIntro":
     "Export transactions from your bank's website as CSV, then tell the app which column is which once. The mapping is saved, so later exports from the same bank are read automatically when you add them to Documents.",
   "connections.chooseCsv": "Choose a CSV file",
-  "connections.csvInfo": "{n} lines · split on {sep} · highlighted row is the header",
+  "connections.csvInfo": { one: "{n} line · split on {sep} · highlighted row is the header", other: "{n} lines · split on {sep} · highlighted row is the header" },
   "connections.tabs": "tabs",
   "connections.headerRow": "Header row",
   "connections.rowN": "Row {n}: {cells}",

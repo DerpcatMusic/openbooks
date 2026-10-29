@@ -17,5 +17,7 @@ const region = (code: string) => {
 export function whyText(w: { k: string; v?: number; w?: string }, fmt: (n: number, d?: number) => string) {
   const key = w.k.startsWith("trip.") ? `trips.why.${w.k.slice(5)}` : `taxtags.why.${w.k}`;
   const word = w.w && /^[A-Z]{2}$/.test(w.w) ? region(w.w) : PER.has(w.k) && w.w ? t(`taxtags.per.${w.w}`) : bidi(w.w ?? "");
-  return t(key, { v: w.v === undefined ? "" : MONEY.has(w.k) ? fmt(w.v, 2) : String(w.v), w: word });
+  // plural-aware strings count days: the first number, or the second where that one is the total (business days of N)
+  const n = w.k === "trip.mainPurpose" ? Number(w.w) : (w.v ?? 0);
+  return t(key, { v: w.v === undefined ? "" : MONEY.has(w.k) ? fmt(w.v, 2) : String(w.v), w: word, n });
 }
