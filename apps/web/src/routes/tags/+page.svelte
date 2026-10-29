@@ -160,7 +160,7 @@
               {@render cellOf(g, "status")}
             </div>
             <div class="flex flex-wrap items-center gap-2">{@render cellOf(g, "group")}{@render cellOf(g, "color")}</div>
-            {#if hasRules()}{@render cellOf(g, "tax")}{/if}
+            {#if hasRules()}<div><div class="text-[12px] text-sub">{t("taxtags.col")}</div>{@render cellOf(g, "tax")}</div>{/if}
             <div class="flex items-center justify-between gap-2">
               <span class="text-[13px] text-sub">{t("tags.used")} {@render cellOf(g, "n")}</span>
               {@render cellOf(g, "act")}

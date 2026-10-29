@@ -87,7 +87,7 @@ export default {
   "taxtags.noEffect.zair":
     "No effect on tax on the osek zair track: you are taxed on 70% of turnover whatever the receipts say. Keep them in case you switch to actual expenses.",
   "taxtags.noEffect.noEci":
-    "No US tax effect: a foreign-owned LLC with no US trade or business has no US deductions to claim. Home-country rules decide what counts.",
+    "No US tax effect: a foreign-owned LLC with no US trade or business has no US deductions to claim, and home-country rules decide what counts. If the owner is a US person, say so on the Taxximizer page.",
   "taxtags.why.tagRule": "The tag's rule decides.",
   "taxtags.why.accountRule": "The account's default rule decides.",
   "taxtags.why.usePct": "Times {v}% business use.",

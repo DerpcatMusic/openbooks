@@ -211,6 +211,7 @@ const ROUTES: Route[] = [
   ...both("/reports/pl", reports("pl")),
   { e: "acme", path: "/reports/bs", ...reports("bs") },
   ...both("/reports/cf", reports("cf")),
+  ...both("/reports/cfa", reports("cfa")),
   ...both("/reports/gl", reports("gl")),
   ...both("/reports/ar", { opens: [["drill", click("main tbody td button")]] }),
   ...both("/reports/ap", { opens: [["drill", click("main tbody td button")]] }),
@@ -222,6 +223,9 @@ const ROUTES: Route[] = [
     ],
   }),
   ...both("/accounts"),
+  ...both("/tags"),
+  ...both("/reconciliation"),
+  ...both("/vendors", { opens: [["drawer", click(ROW)]] }),
   ...both("/journal", { opens: [["entry", click("main section button")]] }),
   ...both("/documents"),
   ...both("/connections", {

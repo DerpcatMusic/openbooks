@@ -130,6 +130,12 @@
     const ks = new Set(selected.map(payerOf));
     return pickable.filter((x) => ks.has(payerOf(x)));
   });
+  // the bulk bar's height lifts toasts above it (Toaster reads --toast-lift)
+  let barH = $state(0);
+  $effect(() => {
+    document.documentElement.style.setProperty("--toast-lift", selected.length ? `${barH + 8}px` : "0px");
+    return () => document.documentElement.style.removeProperty("--toast-lift");
+  });
   // ---------- tags: filter, column, bulk add/remove ----------
   const tg = $derived($state.snapshot(tagsDoc()) as TagsDoc);
   // deactivated tags leave the pickers (a filter that is already on one keeps it)
@@ -248,7 +254,7 @@
     ...(multi ? [{ key: "account", label: t("common.account"), class: "text-sub max-sm:hidden" }] : []),
     { key: "cat", label: t("common.ledgerAccount") },
     { key: "desc", label: t("common.description"), wrap: true },
-    ...(tg.tags.length ? [{ key: "tags", label: t("tags.col"), class: "max-md:hidden" }] : []),
+    ...(tg.tags.length ? [{ key: "tags", label: t("tags.col"), class: "max-xl:hidden" }] : []),
     { key: "amount", label: t("common.amount"), numeric: true },
   ]);
   const why = (x: Txn) => (x.why === "manual" ? t("txns.why.manual") : x.why === "split" ? t("gaps2.why.split") : x.why ? t("txns.why.rule", { rule: bidi(x.why) }) : t("txns.why.none"));
@@ -320,6 +326,7 @@
         {:else if c.key === "desc"}
           <div class="ui-align text-ink [overflow-wrap:anywhere]" dir="auto">
             {#if marks[baseId(x.id)]}<span title={t("gaps2.reviewed")} class="me-1 inline-block align-middle text-good"><Icon name="check" size={13} /><span class="sr-only">{t("gaps2.reviewed")}</span></span>{/if}{x.memo && x.why === "split" ? `${x.who ?? x.desc} · ${x.memo}` : (x.who ?? x.desc)}
+          {#if x.tags?.length}<span class="mt-1 flex flex-wrap gap-1 xl:hidden">{#each x.tags as id (id)}{@const g = tagOf(id)}{#if g}<TagChip name={g.name} color={g.color} />{/if}{/each}</span>{/if}
           </div>
         {:else if c.key === "tags"}
           <span class="flex flex-wrap gap-1">
@@ -349,6 +356,7 @@
 
 {#if selected.length}
   <div
+    bind:clientHeight={barH}
     role="region"
     aria-label={t("txns.bulk")}
     class="fixed inset-x-4 bottom-4 z-30 mx-auto flex w-fit max-w-[calc(100vw-32px)] flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-3xl border border-line bg-panel py-2 ps-5 pe-2 text-[14px] shadow-[var(--shadow)] md:start-[256px]">
