@@ -7,11 +7,13 @@ import playbook from "../playbook.json";
 import deductions from "../tables/deductions.json";
 import en from "../strings/en.json";
 import he from "../strings/he.json";
+import t2025 from "../tables/2025.json";
 import t2026 from "../tables/2026.json";
 import { manifest } from "./manifest.ts";
 import { UsTable } from "./schema.ts";
 
-const tables: Record<number, UsTable> = { 2026: Schema.decodeUnknownSync(UsTable)(t2026) };
+const decode = Schema.decodeUnknownSync(UsTable);
+const tables: Record<number, UsTable> = { 2025: decode(t2025), 2026: decode(t2026) };
 
 export const us: CountryPack<UsTable> = {
   manifest,
@@ -26,3 +28,4 @@ export { manifest };
 export * from "./forms.ts";
 export * from "./schema.ts";
 export * from "./irs.ts";
+export * from "./pdfs.ts";
