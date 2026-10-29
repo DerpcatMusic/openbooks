@@ -3,6 +3,7 @@
 import { group, isCard, pl } from "@openbooks/core";
 import type { CorpInput, IrsInput } from "@openbooks/country-us";
 import { balances, bizType, S, taxTable, yearTxns } from "../stores/books.svelte.ts";
+import { disallowed } from "../taxtags.svelte.ts";
 
 export const isCorp = (y = S.year) => bizType(y) === "llc-ccorp";
 /** Transactions with the owner (equity:*): contributions > 0, distributions < 0. */
@@ -30,7 +31,7 @@ export function corpInput(y = S.year): CorpInput {
     revenue: P.revenue,
     cogs: P.cogs,
     advertising,
-    otherDeductions: P.opex - advertising,
+    otherDeductions: Math.max(0, P.opex - advertising - disallowed(y)), // what the US deduction rules disallow (meals 50%, entertainment 0%…) comes off
     otherIncome: P.other,
     corpRate: taxTable(y, "us").corpRate ?? 0.21,
   };

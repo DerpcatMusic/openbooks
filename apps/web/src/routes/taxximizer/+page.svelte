@@ -14,7 +14,9 @@
   import { basePoints, loadPerson, savePerson, typeOf, withFact, answerOf, normalizeFacts, type Person } from "#lib/person.ts";
   import { Badge, Button, Card, Checkbox, Icon, Input, PageHeader, Segmented, Select, Skeleton, Table } from "#lib/ui/index.ts";
   import type { Column } from "#lib/ui/index.ts";
+  import { disallowed } from "#lib/taxtags.svelte.ts";
   import Ask from "./Ask.svelte";
+  import Deductions from "./Deductions.svelte";
 
   type Saved = Partial<{ mode: string; revenue: number; expenses: number; vatExpenses: number; clients: TaxximizeInput["clients"]; points: number; paturOk: boolean; fx: number; costs: Record<string, number | undefined> }>;
   const y = $derived(S.year);
@@ -40,12 +42,15 @@
   const fx = $derived(saved.fx ?? 3.6);
   const P = $derived(pl(yearTxns(y)));
   const toIls = (v: number) => Math.round(isUS() ? v * fx : v);
+  // Israeli books: expenses are what the deduction rules allow (core deductions.ts), not the raw sum. ponytail: a US LLC's books stay raw here: its
+  // profit reaches the Israeli return as attributed income, taxed under Israeli rules, which the US rule table doesn't describe.
+  const cut = $derived(isUS() ? 0 : disallowed(y));
   // two modes: "books" = this year's real numbers (read-only), "whatif" = type any numbers and play
   const mode = $derived(saved.mode ?? "books"),
     whatif = $derived(mode === "whatif");
   const i = $derived({
     revenue: whatif ? (saved.revenue ?? toIls(P.revenue)) : toIls(P.revenue),
-    expenses: whatif ? (saved.expenses ?? toIls(P.cogs + P.opex)) : toIls(P.cogs + P.opex),
+    expenses: whatif ? (saved.expenses ?? toIls(P.cogs + P.opex - cut)) : toIls(P.cogs + P.opex - cut),
     clients: saved.clients ?? (isUS() ? "foreign" : "business"),
     points: saved.points ?? 2.25,
     paturOk: saved.paturOk ?? true,
@@ -200,6 +205,7 @@
           <dl class="space-y-1.5 text-[14px]">
             <div class="flex gap-3"><dt class="flex-1 text-sub">{t("taxximizer.revenueY", { y })}</dt><dd class="num text-ink">{ils(i.revenue)}</dd></div>
             <div class="flex gap-3"><dt class="flex-1 text-sub">{t("taxximizer.expensesY", { y })}</dt><dd class="num text-ink">{ils(i.expenses)}</dd></div>
+            {#if cut > 0}<div class="text-[12px] text-sub">{t("taxtags.tx.cutNote", { amount: ils(toIls(cut)) })} <a class="text-accent-ink hover:underline" href="#deductions">{t("taxtags.tx.title")}</a></div>{/if}
             {#if P.uncat}<div class="text-[12px] text-warn">{t("taxximizer.uncat", { amount: ils(Math.abs(toIls(P.uncat))) })}</div>{/if}
             {#if isUS()}<div class="text-[12px] text-faint">{t("taxximizer.dollarBooks", { fx: ltr(String(fx)) })}</div>{/if}
           </dl>
@@ -307,6 +313,8 @@
             </div>
           {/if}
         </Card>
+
+        <Deductions {y} revenue={P.revenue} points={i.points} T={isUS() ? null : T} />
 
         <section class="panel min-w-0 overflow-hidden" role="presentation" onpointerover={hoverRow} onpointerleave={() => (hoverKey = null)}>
           <Table caption={t("taxximizer.title")} {columns} {rows} key={(x) => x.key} selected={(x) => x.key === hoverKey}>

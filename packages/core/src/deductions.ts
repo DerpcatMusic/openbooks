@@ -126,6 +126,9 @@ const POOL: Readonly<Record<string, "mobile" | "car" | "landline">> = {
   "il.parking-tolls": "car",
 };
 
+/** The rule has its own year-level formula, so a tag's business-use % is not applied to it. */
+export const hasFormula = (ruleId: string) => ruleId in POOL;
+
 /** Deductible share (0-100) of a rule with a tag's business-use pct; undefined while a share is needed and missing. */
 function share(rule: DeductionRule, pct: number | undefined) {
   if (rule.incomeTaxPct === null) return pct;

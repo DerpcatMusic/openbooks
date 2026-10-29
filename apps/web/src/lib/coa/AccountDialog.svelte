@@ -7,6 +7,7 @@
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { chart, coa, isBank, isUS, ledgerTypes, rowName, setAccount, suggestedCode, typeLabel } from "#lib/stores/books.svelte.ts";
   import { slug } from "#lib/txns/txns.ts";
+  import { hasRules, ruleName, rulesFor } from "#lib/taxtags.svelte.ts";
 
   let { open = $bindable(false), row = null }: { open?: boolean; row?: CoaRow | null } = $props();
   const formId = $props.id();
@@ -17,6 +18,7 @@
     code = $state(""),
     subtype = $state(""),
     archived = $state(false),
+    taxRule = $state(""),
     tried = $state(false),
     first = ""; // the name when the dialog opened
   $effect(() => {
@@ -28,6 +30,7 @@
       code = row ? String(row.code) : "";
       subtype = row?.subtype ?? "";
       archived = row?.archived ?? false;
+      taxRule = row ? (coa()[row.id]?.taxRule ?? "") : "";
       tried = false;
     });
   });
@@ -51,13 +54,14 @@
   function save() {
     tried = true;
     if (codeErr || nameErr || (!bank && !slug(name))) return;
-    if (!row) void setAccount(id, { name: name.trim(), code: n, subtype: subtype.trim() || undefined });
+    const rule = ["expense", "cogs"].includes(type) && taxRule ? taxRule : undefined;
+    if (!row) void setAccount(id, { name: name.trim(), code: n, subtype: subtype.trim() || undefined, taxRule: rule });
     else {
       const pinned = coa()[row.id]?.code !== undefined;
       void setAccount(row.id, {
         code: n === row.code && !pinned ? undefined : n, // an unchanged default stays a default; an emptied field goes back to it
         subtype: subtype.trim() || undefined,
-        ...(bank ? {} : { archived, ...(name.trim() !== first ? { name: name.trim() || undefined } : {}) }),
+        ...(bank ? {} : { taxRule: rule, archived, ...(name.trim() !== first ? { name: name.trim() || undefined } : {}) }),
       });
     }
     open = false;
@@ -80,6 +84,13 @@
     {/if}
     <Input label={t("coa.code")} bind:value={code} numeric error={codeErr} hint={codeErr || row ? undefined : t("coa.codeHint", { code: suggestedCode(type) })} />
     <Input label={t("coa.subtype")} bind:value={subtype} placeholder={row ? (isBank(row) ? t(row.type === "card" ? "coa.sub.card" : "coa.sub.bank") : typeLabel(row.type)) : typeLabel(type)} />
+    {#if hasRules() && !bank && ["expense", "cogs"].includes(type)}
+      <Select
+        label={t("taxtags.account.rule")}
+        bind:value={taxRule}
+        hint={t("taxtags.account.ruleHint")}
+        options={[{ value: "", label: t("taxtags.account.none") }, ...rulesFor().map((r) => ({ value: r.id, label: ruleName(r) }))]} />
+    {/if}
     {#if row && !bank}
       <Switch label={t("coa.archive")} description={t("coa.archiveHint")} bind:checked={archived} />
       <p class="text-[12px] text-sub">{t("coa.idHint", { id: bidi(row.id) })}</p>
