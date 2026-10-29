@@ -15,3 +15,4 @@ export * from "./country.ts";
 export * from "./accrual.ts";
 export * from "./insights.ts";
 export * from "./zip.ts";
+export * from "./filings.ts";
