@@ -75,6 +75,13 @@ export function dueDate(d: string): string {
   return x;
 }
 
+/** A deadline that falls on a rest day moves to the next day that is not one (no three-rest-days postponement: that rule is VAT / advances only). */
+export function nextWorkday(d: string): string {
+  let x = d;
+  while (isRestDay(x)) x = addDays(x, 1);
+  return x;
+}
+
 export type VatFrequency = "monthly" | "bimonthly";
 export interface Period {
   /** YYYY-MM of the first month; unique per period in a year. */
