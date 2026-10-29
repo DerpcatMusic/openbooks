@@ -107,6 +107,9 @@ export interface Row1099 {
   file: boolean;
 }
 
+/** The kind of a payee's tax ID: what the vendor says, else by the way it is written (12-3456789 is an EIN, 123-45-6789 an SSN). */
+export const tinKind = (v: Pick<Vendor1099, "tin" | "tinType">): TinType => v.tinType ?? (/^\s*\d{2}-\d{7}\s*$/.test(v.tin ?? "") ? "ein" : "ssn");
+
 export function splitCityStateZip(s: string | undefined) {
   const m = /^\s*(.+?),?\s+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/.exec(s ?? "");
   return m ? { city: m[1]!, state: m[2]!.toUpperCase(), zip: m[3]! } : { city: (s ?? "").trim(), state: "", zip: "" };
@@ -235,7 +238,7 @@ export function csv1099(rows: readonly Row1099[], payer: Payer, year: number): s
         payer.zip,
         payer.phone,
         r.name,
-        v?.tinType ?? "",
+        v?.tin ? tinKind(v) : "",
         v?.tin ?? "",
         v?.address?.split(",")[0] ?? "",
         a.city,
@@ -268,7 +271,7 @@ export function nec1099(r: Row1099, payer: Payer, year: number) {
     recipient: {
       name: v.name,
       tin: v.tin ?? "",
-      tinType: (v.tinType ?? "ssn") as TinType,
+      tinType: tinKind(v),
       street: (v.address ?? "").split(",")[0]!.trim(),
       city: a.city,
       state: a.state,

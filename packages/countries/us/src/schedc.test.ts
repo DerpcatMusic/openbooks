@@ -5,6 +5,7 @@ import {
   passThrough,
   prepare1099s,
   scheduleC,
+  tinKind,
   us,
   usReturn,
   viaOf,
@@ -332,5 +333,14 @@ describe("usReturn by business type", () => {
       txns: [...rows, tx("i1", "2026-04-15", -2500, "equity:owner", "USATAXPYMT IRS"), tx("i2", "2026-06-15", -2500, "equity:owner", "EFTPS payment")],
     });
     expect(r.paid).toEqual({ count: 2, total: 5000 });
+  });
+});
+
+describe("payee tax ID kind", () => {
+  it("is what the vendor says, else read off the format", () => {
+    expect(tinKind({ tin: "12-3456789" })).toBe("ein");
+    expect(tinKind({ tin: "123-45-6789" })).toBe("ssn");
+    expect(tinKind({ tin: "123456789" })).toBe("ssn");
+    expect(tinKind({ tin: "12-3456789", tinType: "ssn" })).toBe("ssn");
   });
 });
