@@ -49,6 +49,8 @@ export interface TxnLike {
 export interface Payer {
   name?: string;
   tin?: string;
+  /** The payer's TIN is an EIN (default for a business) or the owner's SSN. */
+  tinType?: TinType;
   address?: string;
   city?: string;
   state?: string;
@@ -255,7 +257,7 @@ export function nec1099(r: Row1099, payer: Payer, year: number) {
   return {
     year,
     payer: { ...payer, name: ascii(payer.name) },
-    recipient: { name: v.name, tin: v.tin ?? "", street: (v.address ?? "").split(",")[0]!.trim(), city: a.city, state: a.state, zip: a.zip, country: v.country ?? "" },
+    recipient: { name: v.name, tin: v.tin ?? "", tinType: (v.tinType ?? "ssn") as TinType, street: (v.address ?? "").split(",")[0]!.trim(), city: a.city, state: a.state, zip: a.zip, country: v.country ?? "" },
     box1a: Math.round(r.total * 100) / 100,
   };
 }

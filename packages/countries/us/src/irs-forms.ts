@@ -22,10 +22,12 @@ import { fields, usd, irsPeriod } from "./irs.ts";
 import { splitCityStateZip, type Nec } from "./contractors.ts";
 
 const digits = (s: string | undefined) => (s ?? "").replace(/\D/g, "");
-/** "12-3456789" / "123-45-6789" as printed: a TIN without separators gets them from its length. */
-export function fmtTin(s: string | undefined) {
-  const d = digits(s);
-  return d.length === 9 ? (/^\d{2}-?\d{7}$/.test((s ?? "").trim()) ? `${d.slice(0, 2)}-${d.slice(2)}` : `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`) : (s ?? "").trim();
+/** A TIN as printed: 9 bare digits get the separators of their kind (SSN/ITIN 123-45-6789, EIN 12-3456789); anything already formatted stays as typed. */
+export function fmtTin(s: string | undefined, kind: "ssn" | "ein" = "ssn") {
+  const raw = (s ?? "").trim(),
+    d = digits(raw);
+  if (d.length !== 9 || /[-\s]/.test(raw)) return raw;
+  return kind === "ein" ? `${d.slice(0, 2)}-${d.slice(2)}` : `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }
 export const taxpayer = (p: UsProfile) => p.taxpayerName || "";
 
@@ -149,7 +151,7 @@ export const SCHED_SE_LINES: Readonly<Record<string, string>> = {
   "4a": `${E}f1_7[0]`,
   "4c": `${E}f1_9[0]`,
   "6": `${E}f1_12[0]`,
-  "8a": `${E}f1_14[0]`,
+  "8a": `${E}Line8a_ReadOrder[0].f1_14[0]`,
   "8d": `${E}f1_17[0]`,
   "9": `${E}f1_18[0]`,
   "10": `${E}f1_19[0]`,
@@ -183,7 +185,7 @@ export function formScheduleSE(d: UsProfile & { se: SeResult }): Readonly<Record
 
 // ---------- Form 8995 ----------
 export const F8995_LINES: Readonly<Record<string, string>> = {
-  "2": `${E}f1_18[0]`,
+  "2": `${E}Line2_ReadOrder[0].f1_18[0]`,
   "4": `${E}f1_20[0]`,
   "5": `${E}f1_21[0]`,
   "10": `${E}f1_26[0]`,
@@ -199,7 +201,7 @@ export function form8995(d: UsProfile & { qbi: QbiResult }): Readonly<Record<str
   text(`${E}f1_01[0]`, taxpayer(d));
   text(`${E}f1_02[0]`, fmtTin(d.ssn));
   text(`${E}Table[0].Row1i[0].f1_03[0]`, d.legalName || d.business);
-  text(`${E}Table[0].Row1i[0].f1_04[0]`, fmtTin(d.ein || d.ssn));
+  text(`${E}Table[0].Row1i[0].f1_04[0]`, d.ein ? fmtTin(d.ein, "ein") : fmtTin(d.ssn));
   text(`${E}Table[0].Row1i[0].f1_05[0]`, usd(q.line2));
   const v: Record<string, number> = { "2": q.line2, "4": q.line4, "5": q.line5, "10": q.line10, "11": q.line11, "12": q.line12, "13": q.line13, "14": q.line14, "15": q.deduction };
   for (const [l, n] of Object.entries(v)) text(F8995_LINES[l]!, usd(n));
@@ -254,15 +256,15 @@ export function form1099NEC2026(d: Nec): Readonly<Record<string, string>> {
   const { out, text } = fields(),
     p = d.payer,
     r = d.recipient;
-  text(`${B}PgHeader[0].CalendarYear[0].f2_1[0]`, String(d.year).slice(2));
+  text(`${B}PgHeader[0].CalendarYear[0].f2_1[0]`, String(d.year));
   text(`${B}LeftCol[0].f2_2[0]`, p.name);
   text(`${B}LeftCol[0].f2_3[0]`, p.address);
   text(`${B}LeftCol[0].f2_5[0]`, p.city);
   text(`${B}LeftCol[0].f2_6[0]`, p.phone);
   text(`${B}LeftCol[0].f2_7[0]`, p.state);
   text(`${B}LeftCol[0].f2_9[0]`, p.zip);
-  text(`${B}LeftCol[0].f2_10[0]`, fmtTin(p.tin));
-  text(`${B}LeftCol[0].f2_11[0]`, fmtTin(r.tin));
+  text(`${B}LeftCol[0].f2_10[0]`, fmtTin(p.tin, p.tinType));
+  text(`${B}LeftCol[0].f2_11[0]`, fmtTin(r.tin, r.tinType));
   text(`${B}LeftCol[0].f2_12[0]`, r.name);
   text(`${B}LeftCol[0].f2_13[0]`, r.street);
   text(`${B}LeftCol[0].f2_15[0]`, r.city);
@@ -271,15 +273,15 @@ export function form1099NEC2026(d: Nec): Readonly<Record<string, string>> {
   text(`${B}RightCol[0].f2_20[0]`, money(d.box1a));
   return out;
 }
-/** Rev. April 2025 (reporting year 2025): box 1 is nonemployee compensation; the payer's whole block is one field. */
+/** Rev. April 2025 (reporting year 2025): box 1 is nonemployee compensation; the payer's whole block is one multi-line field (lines joined with \n: the writer turns multiline on). */
 export function form1099NEC2025(d: Nec): Readonly<Record<string, string>> {
   const { out, text } = fields(),
     p = d.payer,
     r = d.recipient;
-  text(`${B}PgHeader[0].CalendarYear[0].f2_1[0]`, String(d.year).slice(2));
-  text(`${B}LeftCol[0].f2_2[0]`, [p.name, [p.address, p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "), p.phone].filter(Boolean).join("\n"));
-  text(`${B}LeftCol[0].f2_3[0]`, fmtTin(p.tin));
-  text(`${B}LeftCol[0].f2_4[0]`, fmtTin(r.tin));
+  text(`${B}PgHeader[0].CalendarYear[0].f2_1[0]`, String(d.year));
+  text(`${B}LeftCol[0].f2_2[0]`, [p.name, [p.address, p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "), p.phone].filter(Boolean).join("\n"), true);
+  text(`${B}LeftCol[0].f2_3[0]`, fmtTin(p.tin, p.tinType));
+  text(`${B}LeftCol[0].f2_4[0]`, fmtTin(r.tin, r.tinType));
   text(`${B}LeftCol[0].f2_5[0]`, r.name);
   text(`${B}LeftCol[0].f2_6[0]`, r.street);
   text(`${B}LeftCol[0].f2_7[0]`, [r.city, [r.state, r.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "));

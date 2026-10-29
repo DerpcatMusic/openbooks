@@ -104,8 +104,9 @@ export function fields() {
   const out: Record<string, string> = {};
   return {
     out,
-    text: (name: string, v: string | number | null | undefined) => {
-      if (has(v)) out[name] = ascii(v);
+    /** `lines`: keep line breaks (a multi-line field; the writer turns multiline on for values that contain one). */
+    text: (name: string, v: string | number | null | undefined, lines = false) => {
+      if (has(v)) out[name] = lines ? String(v).split("\n").map(ascii).join("\n") : ascii(v);
     },
     check: (name: string, on = true) => {
       if (on) out[name] = "X";
