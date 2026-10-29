@@ -66,6 +66,18 @@ function run(y: number) {
   }
   return memo;
 }
+const perYear = new Map<number, { key: unknown[]; res: DeductionResult }>();
+/** Deductions of any year (own memo per year, so the filings can read several years without evicting the open year's run). */
+export function resultOf(y: number): DeductionResult | null {
+  const d = S.data;
+  if (!d || !bizType(y) || !table()) return null;
+  const key = [d.txns, d.docs, d.attachments, d.profile, y, personNow()?.facts, S.e];
+  const hit = perYear.get(y);
+  if (hit && !hit.key.some((k, i) => k !== key[i])) return hit.res;
+  const res = deductions(inputFor(y)!);
+  perYear.set(y, { key, res });
+  return res;
+}
 /** The year's deductions for the open books (null when the business has no rule table). */
 export const result = (y = S.year): DeductionResult | null => run(y)?.res ?? null;
 export const input = (y = S.year) => run(y)?.inp ?? null;

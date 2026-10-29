@@ -1,6 +1,6 @@
 // The filings hub's data and logic, country-agnostic: the "filings" doc (done marks + per-country settings), a deadline's status, the upcoming
 // list across years, and the .ics export. The deadlines themselves come from the country pack (CountryPack.deadlines).
-import type { FilingDeadline } from "./country.ts";
+import type { CountryPack, FilingDeadline } from "./country.ts";
 
 export interface FilingDone {
   /** Date the user filed or paid (YYYY-MM-DD). */
@@ -95,4 +95,14 @@ export function icsCalendar(rows: readonly FilingRow[], opts: { name: string; la
   }
   L.push("END:VCALENDAR");
   return L.map(fold).join("\r\n") + "\r\n";
+}
+
+/** Deadlines that fall due in calendar `year`: the returns of the year before and the periods of this one. `factsFor` gives the entity's facts for a tax year (null = no business type then). */
+export function dueInYear(pack: CountryPack, year: number, factsFor: (taxYear: number) => Parameters<NonNullable<CountryPack["deadlines"]>>[1] | null): FilingDeadline[] {
+  const out = new Map<string, FilingDeadline>();
+  for (const y of [year - 1, year]) {
+    const f = factsFor(y);
+    if (f) for (const d of pack.deadlines?.(y, f) ?? []) if (d.date.startsWith(String(year))) out.set(d.id, d);
+  }
+  return [...out.values()];
 }

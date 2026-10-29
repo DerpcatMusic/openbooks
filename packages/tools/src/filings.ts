@@ -2,7 +2,7 @@
 // (OPENFRMT) file. Built by a factory so they share tools.ts's entity/ledger helpers without importing it (tools.ts lists them).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deductions, filingRows, readFilings, zip, type CountryPack, type DeductionInput, type FilingDeadline, type FilingsDoc } from "@openbooks/core";
+import { deductions, dueInYear, filingRows, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
 import {
   ilSettings,
   iso88598,
@@ -44,16 +44,6 @@ const DATE = S.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/u)).annotate({ descri
 const MONTH = S.check(Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])$/u)).annotate({ description: "YYYY-MM" });
 const nullable = <T extends Schema.Top>(s: T) => Schema.NullOr(s);
 const today = () => new Date().toLocaleDateString("sv");
-
-/** Deadlines due in calendar `year` for the entity: the returns of the year before and the periods of this year. */
-export function dueInYear(pack: CountryPack, year: number, factsFor: (taxYear: number) => Parameters<NonNullable<CountryPack["deadlines"]>>[1] | null): FilingDeadline[] {
-  const out = new Map<string, FilingDeadline>();
-  for (const y of [year - 1, year]) {
-    const f = factsFor(y);
-    if (f) for (const d of pack.deadlines?.(y, f) ?? []) if (d.date.startsWith(String(year))) out.set(d.id, d);
-  }
-  return [...out.values()];
-}
 
 export function filingTools(h: Helpers): Tool[] {
   const factsOf = (settings: Record<string, unknown>, pack: CountryPack, e: Entity) => (y: number) => {
