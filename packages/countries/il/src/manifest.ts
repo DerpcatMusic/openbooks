@@ -27,10 +27,8 @@ export const manifest: Manifest = {
   legacyKinds: { "il-osek-zair": "osek-zair" },
   taxYear: { start: "01-01" }, // filing date: not set until sourced (playbook-style), see docs/architecture.md open items
   accounts: [
-    "business:paypal",
-    "business:youtube",
-    "business:music",
     "business:client",
+    "business:sales",
     "business:other",
     "expense:advertising",
     "expense:software",
@@ -45,8 +43,6 @@ export const manifest: Manifest = {
     "expense:vehicle",
     "expense:office",
     "expense:contractors",
-    "capital:child-savings",
-    "exempt:idf-salary",
     "personal:family",
     "personal:friends",
     "personal:refund",
