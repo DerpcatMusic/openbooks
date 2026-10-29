@@ -90,6 +90,14 @@ export function usFacts(type: string): UsDeadlineFacts {
   };
 }
 
+/** The flat state income tax rate in percent the owner entered with the filing settings (profile.stateRate); older books kept it per year with the other inputs. */
+export const stateRate = (y = S.year): number | undefined => {
+  const r = profile().stateRate;
+  return typeof r === "number" ? r : usInputs(y).stateRate;
+};
+/** The state the owner pays income tax to, as typed (shown in the estimate's labels). */
+export const stateName = () => String(profile().stateName ?? "").trim();
+
 /** The whole US return for year y from the open books: one run feeds the page, the PDFs and (same maths) the MCP tools. */
 export function usNow(y = S.year): UsReturn {
   const r = result(y);
@@ -101,8 +109,7 @@ export function usNow(y = S.year): UsReturn {
     txns: yearTxns(y) as never,
     deductions: (r?.rows ?? []).map((x) => ({ id: x.id, category: x.category, gross: x.gross, deductible: x.deductible, rule: x.rule })),
     nonDeductible: r?.totals.nonDeductible ?? 0,
-    // the state estimate: the flat rate saved with the filing settings, else the per-year rate older books entered on this page
-    inputs: { ...usInputs(y), ...(typeof profile().stateRate === "number" ? { stateRate: profile().stateRate as number } : {}) },
+    inputs: { ...usInputs(y), stateRate: stateRate(y) },
     vendors: doc<Vendor1099[]>("vendors"),
     bills: doc<unknown[]>("bills").map((b) => migrateBill(b as never)) as never, // the same migration routes/bills/bills.ts readBills does
   });

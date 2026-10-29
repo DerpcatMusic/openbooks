@@ -3,12 +3,13 @@
   // date and the confirmation number), links to each generator, and an .ics file for your calendar. Israeli settings (VAT number and
   // frequency, advance rates) are at the bottom. Data: doc "filings". Logic: @openbooks/core filings.ts, lib/filings.svelte.ts.
   import { icsCalendar, type FilingRow } from "@openbooks/core";
-  import { S, mdy, toast } from "#lib/stores/books.svelte.ts";
+  import { S, mdy, setProfile, toast } from "#lib/stores/books.svelte.ts";
   import { lang, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Dialog, EmptyState, Input, PageHeader, Select, Stat, Switch } from "#lib/ui/index.ts";
   import type { Tone } from "#lib/ui/index.ts";
   import { calendar, download, hasCalendar, il, isIL, markFiled, patchIl, unmarkFiled, vatBooks } from "#lib/filings.svelte.ts";
   import { bizType } from "#lib/stores/books.svelte.ts";
+  import { entityForm, foreignOwned, numOf, stateName, stateRate, textOf, track } from "#lib/ustax/books.ts";
 
   const todayIso = () => new Date().toLocaleDateString("sv");
   const now = new Date();
@@ -55,6 +56,10 @@
 
   const s = $derived(il());
   const hasType = $derived(!!bizType());
+  // US settings: the saved profile the deadlines read (the same facts the forms are filled from)
+  const up = $derived((S.data?.profile ?? {}) as Record<string, string | number | boolean | undefined>);
+  const tr = $derived(track(year));
+  const corp = $derived(tr === "c-corp" || tr === "s-corp");
 </script>
 
 <PageHeader title={t("filings.title")} sub={t("filings.sub")}>
@@ -136,6 +141,31 @@
             {/if}
             <Select label={t("filings.taxAdvanceFrequency")} value={s.taxAdvanceFrequency} options={[{ value: "monthly", label: t("filings.monthly") }, { value: "bimonthly", label: t("filings.bimonthly") }, { value: "none", label: t("filings.noAdvances") }]} onchange={(v) => patchIl({ taxAdvanceFrequency: v as "monthly" | "bimonthly" | "none" })} />
             <Switch label={t("filings.blAdvances")} description={t("filings.blAdvancesHint")} checked={s.blAdvances} onchange={(v) => patchIl({ blAdvances: v })} />
+          </div>
+        </Card>
+      </div>
+    {:else}
+      <div class="grid gap-4 lg:grid-cols-2">
+        <Card title={t("filings.tools")}>
+          <div class="flex flex-wrap gap-2">
+            <Button href="/tax/us" icon="form">{t("filings.open.us")}</Button>
+          </div>
+        </Card>
+        <Card title={t("filings.us.settings")} description={t("filings.us.settingsHint")}>
+          <div class="space-y-3">
+            <Input label={t("filings.us.state")} hint={t("filings.us.stateHint")} value={String(up.state ?? "")} onchange={(e: Event) => setProfile({ state: textOf(e) })} />
+            <Input label={t("taxUS.f.formed")} hint={t("filings.us.formedHint")} type="date" dir="ltr" value={String(up.formed ?? "")} onchange={(e: Event) => setProfile({ formed: textOf(e) })} />
+            {#if corp}
+              <Select label={t("filings.us.form")} hint={t("filings.us.formHint")} value={entityForm(bizType(year) ?? "")} options={[{ value: "llc", label: t("filings.us.llc") }, { value: "corporation", label: t("filings.us.corporation") }]} onchange={(v) => setProfile({ entityForm: v })} />
+            {/if}
+            {#if tr === "c-corp"}
+              <Switch label={t("filings.us.foreignOwned")} description={t("filings.us.foreignOwnedHint")} checked={foreignOwned(bizType(year) ?? "")} onchange={(v) => setProfile({ foreignOwned: v })} />
+            {/if}
+            <Switch label={t("fus.you.fbar")} description={t("fus.you.fbarSub")} checked={up.foreignAccounts === true} onchange={(v) => setProfile({ foreignAccounts: v })} />
+            {#if tr === "individual"}
+              <Input label={t("fus.f.stateName")} value={stateName()} onchange={(e: Event) => setProfile({ stateName: textOf(e) })} />
+              <Input label={t("fus.in.stateRate")} hint={t("fus.in.stateHint")} numeric value={stateRate(year) ?? ""} onchange={(e: Event) => setProfile({ stateRate: numOf(e) ?? 0 })} />
+            {/if}
           </div>
         </Card>
       </div>

@@ -6,7 +6,7 @@
   import { S, catLabel, ent, fmt, mdy, setProfile, taxTable, toast } from "#lib/stores/books.svelte.ts";
   import { bidi, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Icon, IconButton, Input, Money, Segmented, Select, Stat, Switch, Table, type Column } from "#lib/ui/index.ts";
-  import { numOf, saveUsInputs, textOf, usInputs, usNow } from "#lib/ustax/books.ts";
+  import { numOf, saveUsInputs, stateName as stateNameOf, stateRate as stateRateOf, textOf, usInputs, usNow } from "#lib/ustax/books.ts";
   import Contractors from "./Contractors.svelte";
   import Deadlines from "./Deadlines.svelte";
 
@@ -52,6 +52,15 @@
   ]);
   const paid = $derived(inp.paidEstimates ?? ret.paid.total);
   const stateTax = $derived(pt.state.tax);
+  const stateName = $derived(stateNameOf() || t("fus.state.generic"));
+  const stateRate = $derived(stateRateOf(y));
+  const taxRows = $derived<[string, number][]>([
+    ["se", pt.se.line12], ["half", -pt.se.line13], ["agi", pt.agi], ["deduction", pt.deduction], ["qbi", -pt.qbi.deduction], ["taxable", pt.taxable],
+    ["income", pt.incomeTax], ["addl", pt.se.additionalMedicare], ["total", pt.totalTax], ["withheld", -pt.withholding], ["due", pt.afterWithholding],
+    ...(pt.state.rate > 0 ? ([["state", stateTax]] as [string, number][]) : []),
+  ]);
+  // state estimated payments go to the state, not on the 1040-ES vouchers: about a quarter of the year's estimate each
+  const stateQuarter = $derived(Math.round(stateTax / 4));
   const nextTableYear = $derived((taxTable(y + 1, "us") as { year?: number }).year);
   const hasQbi = $derived(pt.qbi.deduction > 0 && !pt.qbi.above);
 
@@ -134,6 +143,7 @@
       {#if e.highIncome}<li>{t("fus.est.high")}</li>{/if}
       {#if !e.exempt}<li>{t("fus.est.skip", { date: mdy(e.skipLast) })}</li>{/if}
       {#if next}<li>{t("fus.est.nextNote", { y: yr })}</li>{#if nextTableYear && nextTableYear < yr}<li>{t("fus.est.borrowed", { y: yr, from: nextTableYear })}</li>{/if}{/if}
+      {#if stateTax > 0}<li>{t("fus.est.state", { state: bidi(stateName), amount: fmt(stateQuarter), rate: pt.state.rate })}</li>{/if}
       {#if !next}<li>{ret.paid.count ? t("fus.est.paidFound", { n: ret.paid.count, amount: fmt(ret.paid.total) }) : t("fus.est.paidNone")}{inp.paidEstimates !== undefined ? ` ${t("fus.est.paidSet", { amount: fmt(paid) })}` : ""}</li>{/if}
     </ul>
   </Card>
@@ -188,9 +198,9 @@
 
       <Card title={t("fus.tax.title", { y })} description={t("fus.tax.sub")} flush>
         <ul class="divide-y divide-line">
-          {#each [["se", pt.se.line12], ["half", -pt.se.line13], ["agi", pt.agi], ["deduction", pt.deduction], ["qbi", -pt.qbi.deduction], ["taxable", pt.taxable], ["income", pt.incomeTax], ["addl", pt.se.additionalMedicare], ["total", pt.totalTax], ["withheld", -pt.withholding], ["due", pt.afterWithholding], ["state", stateTax]] as const as [k, v] (k)}
+          {#each taxRows as [k, v] (k)}
             <li class="flex items-baseline gap-3 px-4 py-2.5 sm:px-5">
-              <span class="min-w-0 flex-1 text-[14px] {k === 'total' || k === 'due' ? 'text-ink' : 'text-sub'}">{t(`fus.tax.${k}`, { used: pt.usedItemized ? t("fus.tax.itemized") : t("fus.tax.standard") })}</span>
+              <span class="min-w-0 flex-1 text-[14px] {k === 'total' || k === 'due' ? 'text-ink' : 'text-sub'}">{t(`fus.tax.${k}`, { used: pt.usedItemized ? t("fus.tax.itemized") : t("fus.tax.standard"), state: bidi(stateName), rate: pt.state.rate })}</span>
               <Money value={v} currency={cur} class={k === "total" || k === "due" ? "text-ink" : ""} />
             </li>
           {/each}
@@ -212,6 +222,8 @@
           {#each FIELDS as [k, type, dir] (k)}
             <Input label={t(`fus.f.${k}`)} {type} {dir} value={String(p[k] ?? "")} required={REQUIRED.has(k) && !p[k]} onchange={(e: Event) => setProfile({ [k]: textOf(e) })} />
           {/each}
+          <Input label={t("fus.f.stateName")} value={String(p.stateName ?? "")} onchange={(e: Event) => setProfile({ stateName: textOf(e) })} />
+          <Input label={t("fus.in.stateRate")} hint={t("fus.in.stateHint")} numeric value={stateRate ?? ""} onchange={(e: Event) => setProfile({ stateRate: numOf(e) ?? 0 })} />
           <Switch label={t("fus.you.fbar")} description={t("fus.you.fbarSub")} checked={p.foreignAccounts === true} onchange={(v) => setProfile({ foreignAccounts: v })} />
         </div>
       </Card>
@@ -223,7 +235,6 @@
             <Input label={t(`fus.in.${k}`)} numeric value={inp[k] ?? ""} onchange={(e: Event) => set({ [k]: numOf(e) })} />
           {/each}
           <Input label={t("fus.in.paidEstimates")} hint={t("fus.in.paidHint", { n: ret.paid.count, amount: fmt(ret.paid.total) })} numeric value={inp.paidEstimates ?? ""} onchange={(e: Event) => set({ paidEstimates: numOf(e) })} />
-          <Input label={t("fus.in.stateRate")} hint={t("fus.in.stateHint")} numeric value={inp.stateRate ?? ""} onchange={(e: Event) => set({ stateRate: numOf(e) })} />
         </div>
       </Card>
 
