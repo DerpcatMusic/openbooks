@@ -50,6 +50,43 @@
     { key: "title", label: t("fus.sc.title"), wrap: true },
     { key: "amount", label: t("common.amount"), numeric: true, class: "w-32" },
   ]);
+  // Schedule SE and Form 8995 line values (the lines the filled forms carry), for typing into blanks the IRS has not published yet or into tax software
+  const SE_TITLE: Record<string, string> = {
+    "2": "Net profit from Schedule C",
+    "3": "Combined net profit",
+    "4a": "92.35% of line 3",
+    "4c": "Line 4a: stop if under $400",
+    "6": "Net earnings from self-employment",
+    "8d": "Wages already subject to Social Security tax",
+    "9": "Social Security wage base left",
+    "10": "Social Security tax (12.4%)",
+    "11": "Medicare tax (2.9%)",
+    "12": "Self-employment tax",
+    "13": "Deduction for half of SE tax",
+  };
+  const Q_TITLE: Record<string, string> = {
+    "2": "Total qualified business income",
+    "4": "Total qualified business income, not below zero",
+    "5": "Qualified business income component (20%)",
+    "10": "QBI deduction before the income limit",
+    "11": "Taxable income before the QBI deduction",
+    "12": "Net capital gain",
+    "13": "Line 11 less line 12",
+    "14": "Income limitation (20% of line 13)",
+    "15": "Qualified business income deduction",
+  };
+  const seRows = $derived.by<[string, number][]>(() => {
+    const s = pt.se,
+      all: [string, number][] = [["2", s.line2], ["3", s.line3], ["4a", s.line4a], ["4c", s.line4c]];
+    return s.owes ? [...all, ["6", s.line6], ...(s.line8d ? ([["8d", s.line8d]] as [string, number][]) : []), ["9", s.line9], ["10", s.line10], ["11", s.line11], ["12", s.line12], ["13", s.line13]] : all;
+  });
+  const qbiRows = $derived<[string, number][]>(
+    pt.qbi.deduction > 0 && !pt.qbi.above ? (["2", "4", "5", "10", "11", "12", "13", "14"] as const).map((k) => [k, pt.qbi[`line${k}` as "line2"]] as [string, number]).concat([["15", pt.qbi.deduction]]) : [],
+  );
+  const lineBlocks = $derived<{ name: string; rows: [string, number][]; titles: Record<string, string> }[]>([
+    { name: "Schedule SE", rows: seRows, titles: SE_TITLE },
+    { name: "Form 8995", rows: qbiRows, titles: Q_TITLE },
+  ]);
   const paid = $derived(inp.paidEstimates ?? ret.paid.total);
   const stateTax = $derived(pt.state.tax);
   const stateName = $derived(stateNameOf() || t("fus.state.generic"));
@@ -207,6 +244,28 @@
         </ul>
         {#if pt.qbi.minimumApplied}<p class="border-t border-line px-4 py-3 text-[13px] text-sub sm:px-5">{t("fus.tax.qbiMin")}</p>{/if}
         <p class="border-t border-line px-4 py-3 text-[13px] text-sub sm:px-5">{t("fus.tax.note")}</p>
+      </Card>
+
+      <Card title={t("fus.lines.title", { y })} description={avail.c ? t("fus.lines.sub") : t("fus.lines.subNo", { y })} flush>
+        <div class="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:rtl:divide-x-reverse">
+          {#each lineBlocks as { name, rows, titles } (name)}
+            <div class="min-w-0">
+              <div class="px-4 pt-3 text-[13px] text-sub sm:px-5"><bdi>{name}</bdi></div>
+              <ul class="divide-y divide-line">
+                {#each rows as [k, v] (k)}
+                  <li class="flex items-baseline gap-3 px-4 py-2 sm:px-5">
+                    <span class="w-8 shrink-0 text-[13px] text-sub num">{k}</span>
+                    <span class="min-w-0 flex-1 text-[13px] text-ink-2" dir="ltr">{titles[k]}</span>
+                    <Money value={v} currency={cur} />
+                  </li>
+                {:else}
+                  <li class="px-4 py-3 text-[13px] text-sub sm:px-5">{t(name === "Form 8995" ? "fus.lines.noQbi" : "fus.lines.noSe")}</li>
+                {/each}
+              </ul>
+              {#if name === "Schedule SE" && !pt.se.owes}<p class="px-4 pb-3 text-[13px] text-sub sm:px-5">{t("fus.lines.seStop")}</p>{/if}
+            </div>
+          {/each}
+        </div>
       </Card>
 
       {@render estimates(y, ret.estimates!, false)}

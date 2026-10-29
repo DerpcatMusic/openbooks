@@ -80,7 +80,13 @@ export default {
   "fus.ind.autoText": "Schedule C, Schedule SE, Form 8995 and the 1040-ES payment vouchers, as the IRS blanks. Check them, sign, and file with your Form 1040.",
   "fus.ind.autoMissing": { one: "{n} of your details is missing; the forms will have a blank until you add it.", other: "{n} of your details are missing; the forms will have blanks until you add them." },
   "fus.ind.packet": "Schedule C + SE + 8995",
-  "fus.pdf.noYear": "The IRS has not published the {y} Schedule C, SE and 8995 yet (they come out in December). The numbers below are still computed.",
+  "fus.lines.title": "Schedule SE and Form 8995 lines for {y}",
+  "fus.lines.sub": "The figures the filled forms carry, line by line, for checking or for tax software.",
+  "fus.lines.noQbi": "No QBI deduction this year.",
+  "fus.lines.noSe": "Nothing to report.",
+  "fus.lines.seStop": "Line 4c is under $400: stop there, no self-employment tax is due.",
+  "fus.pdf.noYear": "The IRS has not published the {y} Schedule C, SE and 8995 yet (they come out in December), so those buttons stay off until it does. The numbers below are still computed, line by line, for you to type in.",
+  "fus.lines.subNo": "The IRS has not published the {y} forms yet. Type these figures into the blank forms when it does, or into your tax software.",
 
   // results
   "fus.warn.uncategorized": { one: "{v} transaction is uncategorized and left out. Review it first.", other: "{v} transactions are uncategorized and left out. Review them first." },
