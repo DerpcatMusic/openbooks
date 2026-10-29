@@ -295,6 +295,9 @@
             <p class="text-[13px] text-sub">{what(pick)}</p>
             <div class="grid gap-3 sm:grid-cols-2">
               {#each P.fields as x (x.key)}
+                {#if x.key === "env"}
+                  <Select label={x.label} bind:value={f[x.key]} options={[{ value: "", label: "…" }, { value: "sandbox", label: "sandbox" }, { value: "production", label: "production" }]} />
+                {:else}
                 <Input
                   label={x.label}
                   type={x.type}
@@ -305,6 +308,7 @@
                   dir={x.key === "username" || x.key === "userCode" ? "auto" : "ltr"}
                   class={x.mono ? "sm:col-span-2" : ""}
                   bind:value={f[x.key]} />
+                {/if}
               {/each}
             </div>
             <div class="flex flex-wrap justify-end gap-2">
@@ -421,7 +425,9 @@
 
   <div class="space-y-2 text-[13px] text-sub">
     <p class="flex items-start gap-2"><Icon name="shield" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.privacy")}</span></p>
-    <p class="flex items-start gap-2"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.scrapersNote")}</span></p>
+    {#if ent().currency === "ILS" || (P && P.group !== "us")}
+      <p class="flex items-start gap-2"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.scrapersNote")}</span></p>
+    {/if}
   </div>
 </div>
 

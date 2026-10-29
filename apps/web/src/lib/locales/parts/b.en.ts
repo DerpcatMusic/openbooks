@@ -212,7 +212,7 @@ export default {
   "connections.profileLine": "→ {account} · {format} · columns: {cols}",
   "connections.confirmDeleteMapping": "Delete the mapping “{name}”? Files it reads stay in Documents but their transactions leave the books.",
   "connections.privacy":
-    "Logins stay on this computer, in the local books.db (readable only by you). They're never sent to the browser or anywhere but the bank itself.",
+    "Logins stay on this computer, in the local books.db (readable only by you). They're never sent to the browser or anywhere but the bank itself (for Plaid, Plaid).",
   "connections.scrapersNote":
     "Israeli banks and cards connect through the open-source israeli-bank-scrapers, which logs in the way you do on the bank's website (Israel's open-banking APIs are only open to licensed providers). When a bank changes its login, adds a 2FA step or shows a captcha, its connector can break until the library catches up. A CSV export always works.",
 
