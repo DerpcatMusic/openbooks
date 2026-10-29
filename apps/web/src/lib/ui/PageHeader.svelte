@@ -1,10 +1,12 @@
 <script lang="ts">
   // Page header: title (+ badge and subtitle) at the start, actions at the end; wraps on phones instead of truncating.
-  // children render below (tabs, toolbars).
+  // children render below (tabs, toolbars). Also sets the tab title, so no page keeps the previous page's.
   import type { Snippet } from "svelte";
   import Badge from "./Badge.svelte";
   let { title, badge = "", sub = "", actions, children }: { title: string; badge?: string; sub?: string; actions?: Snippet; children?: Snippet } = $props();
 </script>
+
+<svelte:head><title>{title} · OpenBooks</title></svelte:head>
 
 <header data-ui="page-header" class="px-4 pt-5 sm:px-8">
   <div class="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2">

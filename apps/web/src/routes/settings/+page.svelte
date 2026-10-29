@@ -120,8 +120,6 @@
   const section = "space-y-3";
 </script>
 
-<svelte:head><title>{t("settings.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("settings.title")} sub="{ent().flag ?? ''} {ent().name ?? ''}" />
 
 <div class="max-w-3xl space-y-8 px-4 pt-5 pb-16 sm:px-8">

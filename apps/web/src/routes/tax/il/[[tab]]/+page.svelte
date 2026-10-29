@@ -27,8 +27,6 @@
   }
 </script>
 
-<svelte:head><title>{t("tax.titleIL")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("tax.titleIL")} sub={t("tax.subIL", { biz: bizLabel() })}>
   {#snippet actions()}
     <Select

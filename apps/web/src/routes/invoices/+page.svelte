@@ -254,8 +254,6 @@
   const TERMS = $derived([[t("invoices.term.now"), 0], [t("invoices.term.net", { n: 15 }), 15], [t("invoices.term.net", { n: 30 }), 30]] as [string, number][]);
 </script>
 
-<svelte:head><title>{title} · OpenBooks</title></svelte:head>
-
 <PageHeader {title} {sub}>
   {#snippet actions()}
     {#if !us}<Button icon="plus" onclick={() => create({ kind: "receipt", due: null, method: METHODS[0] })}>{t("invoices.newReceipt")}</Button>{/if}

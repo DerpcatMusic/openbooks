@@ -218,8 +218,6 @@
   }
 </script>
 
-<svelte:head><title>{t("bills.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("bills.title")} sub={t("bills.sub")}>
   {#snippet actions()}
     <Button variant="primary" icon="plus" onclick={() => create()}>{t("bills.new")}</Button>

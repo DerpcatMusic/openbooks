@@ -188,8 +188,6 @@
   const listBtn = "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[14px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 </script>
 
-<svelte:head><title>{t("connections.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("connections.title")} sub={t("connections.sub", { flag: ent().flag ?? "", name: bidi(ent().name ?? "") })}>
   {#snippet actions()}
     {#if conns.some((c) => c.connected)}<Button variant="primary" icon="download" onclick={() => sync()} disabled={S.busy}>{S.busy ? t("connections.syncing") : t("connections.syncAll")}</Button>{/if}

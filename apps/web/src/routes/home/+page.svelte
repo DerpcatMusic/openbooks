@@ -130,6 +130,8 @@
   const thisMonth = new Date().toISOString().slice(0, 7);
 </script>
 
+<svelte:head><title>{t("nav.home")} · OpenBooks</title></svelte:head>
+
 <div class="px-4 pt-6 pb-10 sm:px-8">
   <div class="flex flex-wrap items-end gap-3">
     <div class="min-w-0 flex-1 basis-60">

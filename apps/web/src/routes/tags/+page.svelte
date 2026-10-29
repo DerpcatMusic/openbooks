@@ -81,8 +81,6 @@
   }
 </script>
 
-<svelte:head><title>{t("tags.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("tags.title")} sub={t("tags.sub")} />
 
 <div class="{hasRules() ? 'max-w-5xl' : 'max-w-3xl'} space-y-8 px-4 pt-5 pb-16 sm:px-8">

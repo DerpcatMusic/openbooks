@@ -64,8 +64,6 @@
   ]);
 </script>
 
-<svelte:head><title>{t("recon.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("recon.title")} sub={t("recon.sub")}>
   {#snippet actions()}
     <Button icon="download" onclick={exportCsv} disabled={!month}>{t("recon.csv")}</Button>

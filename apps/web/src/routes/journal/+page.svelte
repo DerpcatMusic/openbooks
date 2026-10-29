@@ -97,8 +97,6 @@
 </script>
 
 <svelte:window onkeydown={keys} />
-<svelte:head><title>{t("journal.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("journal.title")} sub={t("journal.sub")}>
   {#snippet actions()}
     {#if dirty}<Button variant="ghost" onclick={() => (dirty = false)}>{t("journal.discard")}</Button>{/if}
