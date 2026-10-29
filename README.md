@@ -5,7 +5,7 @@
 **Bookkeeping and tax that live on your computer.**<br>
 Bank sync, invoices, reports and tax forms for freelancers, Israeli osek and US LLCs. No account, no cloud, no subscription.
 
-[**Live demo →**](https://derpcatmusic.github.io/openbooks/demo/) · [Website](https://derpcatmusic.github.io/openbooks/) · [Download](https://github.com/DerpcatMusic/openbooks/releases/latest)
+[**Live demo →**](https://derpcatmusic.github.io/openbooks/demo/) · [**Use it in your browser →**](https://derpcatmusic.github.io/openbooks/app/) · [Website](https://derpcatmusic.github.io/openbooks/) · [Download](https://github.com/DerpcatMusic/openbooks/releases/latest)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="site/img/home-dark.webp">
@@ -94,7 +94,7 @@ Details in [docs/mcp.md](docs/mcp.md).
 bun install
 bun run test && bun run check && bun run typecheck
 bun apps/server/build.ts          # single binary → dist/
-bun scripts/demo/build.ts         # website + demo → _site/
+bun scripts/demo/build.ts         # website + demo + browser-only app → _site/
 ```
 
 Bun · SvelteKit · Tailwind 4 · Effect · SQLite. Architecture: [docs/architecture.md](docs/architecture.md).

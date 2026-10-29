@@ -5,29 +5,9 @@ import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-import {
-  accountProblem,
-  canon,
-  checkBooks,
-  classify as classifyCore,
-  cleanRules,
-  journalProblem,
-  ledger,
-  movedBefore,
-  payrollProblem,
-  splitProblem,
-  tripProblem,
-  type BooksDoc,
-  type Coa,
-  type JournalProblem,
-  type LedgerExtras,
-  type PayrollProblem,
-  type PayrollRun,
-  type SplitProblem,
-  type Trip,
-  type TripProblem,
-} from "@openbooks/core";
-import type { CsvProfile, EntityMeta, JournalEntry, RuleInput, SplitsDoc, StatementCheck, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
+import { classify as classifyCore, cleanRules } from "@openbooks/core";
+import type { CsvProfile, EntityMeta, RuleInput, StatementCheck, StoredTxn, Txn } from "@openbooks/schema";
+import { docRefusal, ledgerOf, ledgerRefusal, type BooksView, type Change, type Closed, type Refusal } from "./guard.ts";
 import { Changes, type Topic } from "./changes.ts";
 import { isEntityId, ls, migrate, openDb, pySorted } from "./db.ts";
 import { ingest, type Read } from "./ingest.ts";
@@ -38,49 +18,6 @@ export class BadInput extends Data.TaggedError("BadInput")<{ message: string }> 
 export class UnknownEntity extends Data.TaggedError("UnknownEntity")<{ entity: string }> {}
 /** The write would change something dated on or before the books' close date (HTTP 409; the message says which date). */
 export class ClosedPeriod extends Data.TaggedError("ClosedPeriod")<{ message: string }> {}
-
-const JOURNAL: Record<JournalProblem, string> = {
-  date: "has no valid date",
-  beforeStart: "is dated before the books' entries start date",
-  empty: "has no line with an amount",
-  account: "has a line with an amount but no ledger account",
-  archived: "uses an archived ledger account",
-  noDebit: "needs at least one debit line",
-  noCredit: "needs at least one credit line",
-  unbalanced: "has debits that do not equal credits",
-};
-const SPLIT: Record<SplitProblem, string> = {
-  lines: "needs at least two lines",
-  amount: "has a line without an amount",
-  account: "has a line without a usable ledger account (missing or archived)",
-  sum: "lines do not add up to the transaction amount to the cent",
-};
-const TRIP: Record<TripProblem, string> = {
-  name: "needs a name",
-  dates: "needs real dates with the last day on or after the first",
-  country: "needs a destination country (two capital letters, e.g. DE)",
-  nights: "has more nights than days",
-  businessDays: "has more business days than days",
-  fx: "needs an exchange rate above zero",
-  carDays: "has more car days than days",
-};
-const PAYROLL: Record<PayrollProblem, string> = {
-  period: "needs a period",
-  payDate: "needs a real pay date",
-  provider: "needs a provider",
-  amount: "needs gross pay above zero and no negative or missing figure",
-  net: "has net pay that is not gross pay less withholding and benefits",
-  over: "has payments above what the run costs (gross pay plus employer taxes)",
-};
-const BOOKS = {
-  date: "The close date and the entries start date must be real dates (YYYY-MM-DD).",
-  closeFuture: "The close date can't be in the future.",
-  closeBeforeStart: "The close date can't be before the entries start date.",
-  startLater: "The entries start date can only move earlier, never later: that would drop history the books already counted.",
-  basis: "The accounting basis is cash or accrual.",
-} as const;
-/** The machine's date, YYYY-MM-DD (the screens use the same clock). */
-const localToday = () => new Date().toLocaleDateString("sv");
 
 type Listed = { id: string } & EntityMeta;
 
@@ -160,130 +97,18 @@ export const makeBooks = (opts: BooksOptions) =>
         .query<{ match: string; category: string }, [string]>("select match, category from rule where entity = ? order by pos")
         .all(e)
         .map((r) => [r.match, r.category] as const);
-    // books.py tolerates entries without lines or memo (je.get("lines", []))
-    const journal = (e: string) => getDoc<JournalEntry[]>(e, "journal", []).map((je) => ({ ...je, lines: je.lines ?? [] }));
-    // ---------- close date: doc "books" = { closeDate }. Anything dated on or before it is refused (docs/architecture.md) ----------
-    const closeDate = (e: string) => getDoc<{ closeDate?: string | null }>(e, "books", {}).closeDate || null;
-    const refuse = (close: string, n: number) =>
-      Effect.fail(
-        new ClosedPeriod({
-          message: `The books are closed through ${close}: this would change ${n} ${n === 1 ? "entry" : "entries"} dated on or before it. Move the close date to change them.`,
-        }),
-      );
+    const view = (e: string): BooksView => ({ doc: (name, fallback) => getDoc(e, name, fallback), rules: () => getRules(e), stored: () => storedTxns(e) });
     const storedTxns = (e: string) =>
       db
         .query<{ data: string }, [string]>("select data from txn where entity = ? order by date, rowid")
         .all(e)
         .map((r) => JSON.parse(r.data) as StoredTxn);
-    /** The ledger rows as the close check compares them: id, date and ledger account. */
-    const accountsOf = (ts: readonly Txn[]) => ts.map((t) => ({ id: t.id, date: t.date, category: t.category }));
-    /** What besides rules/overrides/journal shapes the ledger: splits, the chart (archived accounts) and the entries start date. */
-    const extras = (e: string): LedgerExtras => ({
-      splits: getDoc<SplitsDoc>(e, "splits", {}),
-      coa: getDoc<Coa>(e, "coa", {}),
-      from: getDoc<BooksDoc>(e, "books", {}).startDate,
-    });
-    type Change = { rules?: readonly RuleInput[]; overrides?: Record<string, string>; journal?: JournalEntry[] } & LedgerExtras;
-    const rowsOf = (e: string, c: Change = {}) =>
-      ledger(storedTxns(e), c.overrides ?? getDoc(e, "overrides", {}), c.rules ?? getRules(e), c.journal ?? journal(e), undefined, { ...extras(e), ...c });
-    /** Refuse a change (new rules/overrides/splits/chart/start date) that would move a ledger row dated on or before the close date. */
-    const guardLedger = (e: string, change: Change) =>
-      Effect.suspend(() => {
-        const close = closeDate(e);
-        if (!close) return Effect.void;
-        const moved = movedBefore(accountsOf(rowsOf(e)), accountsOf(rowsOf(e, change)), close);
-        return moved.length ? refuse(close, moved.length) : Effect.void;
-      });
-    const bad = (message: string) => Effect.fail(new BadInput({ message }));
-    /** Items of a list or map whose canonical JSON differs between the stored doc and the new value (added, changed). */
-    const changedIn = <T>(before: Record<string, T>, after: Record<string, T>) => Object.keys(after).filter((k) => canon(before[k]) !== canon(after[k]));
-    /**
-     * Refuse a write to a doc that shapes the ledger: the close date first (journal, reconciliations, review marks, splits, chart, books),
-     * then the doc's own rules (a journal entry must balance, a split must add up, the books' dates must make sense). Only entries that
-     * differ from what is stored are validated, so books saved before a rule existed still open and save.
-     */
-    const guardDoc = (e: string, name: string, value: unknown) =>
-      Effect.suspend(() => {
-        if (isPseudo(e)) return Effect.void;
-        const close = closeDate(e);
-        const months = (v: unknown) =>
-          Object.entries((v ?? {}) as Record<string, Record<string, unknown>>).flatMap(([acct, ms]) =>
-            Object.entries(ms ?? {}).map(([ym, rec]) => ({ id: `${acct}|${ym}`, date: `${ym}-01`, rec })),
-          );
-        const entries = (v: unknown) => (Array.isArray(v) ? (v as JournalEntry[]) : []);
-        const closed = (n: number) => (close && n ? refuse(close, n) : Effect.void);
-        switch (name) {
-          case "reconciliations":
-            return close ? closed(movedBefore(months(getDoc(e, name, {})), months(value), close).length) : Effect.void;
-          case "journal": {
-            const after = entries(value),
-              ctx = { coa: getDoc<Coa>(e, "coa", {}), from: getDoc<BooksDoc>(e, "books", {}).startDate };
-            return Effect.gen(function* () {
-              if (close) yield* closed(movedBefore(entries(getDoc(e, name, [])), after, close).length);
-              const before = new Map(entries(getDoc(e, name, [])).map((x) => [x.id, x]));
-              for (const x of after)
-                if (canon(before.get(x.id)) !== canon(x)) {
-                  const p = journalProblem({ date: x.date, lines: x.lines ?? [] }, ctx);
-                  if (p) return yield* bad(`Journal entry ${x.memo ? `“${x.memo}” ` : ""}${x.date} ${JOURNAL[p]}.`);
-                }
-            });
-          }
-          case "splits": {
-            const after = (value ?? {}) as SplitsDoc,
-              before = getDoc<SplitsDoc>(e, name, {}),
-              amounts = new Map(storedTxns(e).map((t) => [t.id, t.amount])),
-              coa = getDoc<Coa>(e, "coa", {});
-            return Effect.gen(function* () {
-              for (const id of changedIn(before, after)) {
-                const amount = amounts.get(id);
-                if (amount === undefined) return yield* bad(`Split of ${id}: no such transaction.`);
-                const p = splitProblem(amount, after[id]!, (a) => !accountProblem(a, coa));
-                if (p) return yield* bad(`Split of ${id} ${SPLIT[p]}.`);
-              }
-              yield* guardLedger(e, { splits: after });
-            });
-          }
-          case "coa":
-            return guardLedger(e, { coa: (value ?? {}) as Coa });
-          case "books": {
-            const next = (value ?? {}) as BooksDoc,
-              p = checkBooks(getDoc<BooksDoc>(e, name, {}), next, localToday());
-            return p ? bad(BOOKS[p]) : guardLedger(e, { from: next.startDate });
-          }
-          case "trips": {
-            // a trip changes what the Taxximizer counts, not the ledger: only its own shape is checked, and only for the trips that changed
-            const before = new Map(((getDoc<Trip[] | null>(e, name, []) ?? []) as Trip[]).map((x) => [x.id, x])),
-              list = Array.isArray(value) ? (value as Trip[]) : [];
-            for (const x of list)
-              if (canon(before.get(x.id)) !== canon(x)) {
-                const p = tripProblem(x);
-                if (p) return bad(`Trip ${x.name ? `“${x.name}” ` : ""}${TRIP[p]}.`);
-              }
-            return Effect.void;
-          }
-          case "payroll": {
-            // a run is the provider's figures, checked against each other (no tax is calculated): only the runs that changed are checked
-            const before = new Map(((getDoc<PayrollRun[] | null>(e, name, []) ?? []) as PayrollRun[]).map((x) => [x.id, x])),
-              list = Array.isArray(value) ? (value as PayrollRun[]) : [];
-            for (const x of list)
-              if (canon(before.get(x.id)) !== canon(x)) {
-                const p = payrollProblem(x);
-                if (p) return bad(`Payroll run ${x.period ? `“${x.period}” ` : ""}${PAYROLL[p]}.`);
-              }
-            return Effect.void;
-          }
-          case "reviewed": {
-            if (!close) return Effect.void;
-            // a review mark is bookkeeping, not an amount, but a closed period is closed: its marks stay as they were
-            const dates = new Map(storedTxns(e).map((t) => [t.id, t.date])),
-              marks = (v: unknown) =>
-                Object.entries((v ?? {}) as Record<string, unknown>).flatMap(([id, on]) => (dates.has(id) ? [{ id, date: dates.get(id)!, on: !!on }] : []));
-            return closed(movedBefore(marks(getDoc(e, name, {})), marks(value), close).length);
-          }
-          default:
-            return Effect.void;
-        }
-      });
+    const closed = (r: Closed | null) => (r ? Effect.fail(new ClosedPeriod({ message: r.closed })) : Effect.void);
+    const fail = (r: Refusal | null): Effect.Effect<void, ClosedPeriod | BadInput> =>
+      r && "bad" in r ? Effect.fail(new BadInput({ message: r.bad })) : closed(r);
+    // ---------- close date (doc "books" = { closeDate }) and each doc's own rules: guard.ts, shared with the browser-only store ----------
+    const guardLedger = (e: string, change: Change) => Effect.suspend(() => closed(ledgerRefusal(view(e), change)));
+    const guardDoc = (e: string, name: string, value: unknown) => Effect.suspend(() => (isPseudo(e) ? Effect.void : fail(docRefusal(view(e), name, value))));
     /** The raw writes: no guard, no publish. */
     const writeDoc = (e: string, name: string, value: unknown) =>
       db
@@ -323,11 +148,7 @@ export const makeBooks = (opts: BooksOptions) =>
     const ledgerE = (e: string) =>
       Effect.andThen(ingestE(e), () =>
         on(e, () => {
-          const stored = db
-            .query<{ data: string }, [string]>("select data from txn where entity = ? order by date, rowid")
-            .all(e)
-            .map((r) => JSON.parse(r.data) as StoredTxn);
-          return ledger(stored, getDoc(e, "overrides", {}), getRules(e), journal(e), getDoc<TagsDoc | null>(e, "tags", null) ?? undefined, extras(e));
+          return ledgerOf(view(e));
         }),
       );
 

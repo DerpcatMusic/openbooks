@@ -22,3 +22,4 @@ export * from "./xlsx.ts";
 export * from "./payroll.ts";
 export * from "./zip.ts";
 export * from "./filings.ts";
+export * from "./sha1.ts";

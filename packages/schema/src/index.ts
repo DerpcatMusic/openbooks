@@ -70,6 +70,8 @@ export const Rule = Schema.Struct({
 export type Rule = typeof Rule.Type;
 /** What the `rule` table / doc "rules" holds and tools accept: legacy tuples and rule objects side by side, in order. */
 export const RuleInput = Schema.Union([LegacyRule, Rule]);
+/** A [match, account] tuple or a { when, then } rule (what /api/rules accepts). */
+export const isRuleInput = Schema.is(RuleInput);
 export type RuleInput = typeof RuleInput.Type;
 
 /** What a tag means for tax (Taxximizer): a deduction rule id from the country pack's tables/deductions.json, a business-use share (0-100) and a note. */
