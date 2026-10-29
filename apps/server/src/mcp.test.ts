@@ -219,6 +219,7 @@ describe("openbooks mcp (stdio)", () => {
     expect(b.cash).toBe(1430);
     expect((await s.tool("chart_of_accounts")).accounts).toContainEqual({
       account: "expense:software",
+      code: 60002, // the 2nd expense account of the chart
       label: "Software and Subscriptions",
       type: "expense",
       pl: "expense",

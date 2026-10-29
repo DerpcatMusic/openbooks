@@ -1,7 +1,16 @@
 import { expect, test } from "vite-plus/test";
 import { chartOfAccounts, nextCode } from "./coa.ts";
 
-const ledger = ["revenue:sales", "revenue:royalties", "cogs:hosting", "expense:software", "expense:travel", "equity:owner", "transfer:internal", "other-income:cashback"];
+const ledger = [
+  "revenue:sales",
+  "revenue:royalties",
+  "cogs:hosting",
+  "expense:software",
+  "expense:travel",
+  "equity:owner",
+  "transfer:internal",
+  "other-income:cashback",
+];
 const banks = ["Mercury Checking", "Mercury Credit"];
 const code = (rows: ReturnType<typeof chartOfAccounts>, id: string) => rows.find((r) => r.id === id)!.code;
 
@@ -39,6 +48,13 @@ test("a stored code wins and is never reused by a default; names, subtypes and a
   expect(rows.find((r) => r.id === "revenue:royalties")).toMatchObject({ name: "Royalties", subtype: "Music", archived: false });
   expect(rows.find((r) => r.id === "expense:travel")!.archived).toBe(true); // archived stays in the chart (history is kept)
   expect(chartOfAccounts(ledger, banks, { "cogs:hosting": { code: 1.5 } }).find((r) => r.id === "cogs:hosting")!.code).toBe(50001); // junk ignored
+});
+
+test("pinning an account's code leaves the other defaults where they were", () => {
+  const rows = chartOfAccounts(ledger, banks, { "revenue:sales": { code: 40010 } });
+  expect(code(rows, "revenue:sales")).toBe(40010);
+  expect(code(rows, "revenue:royalties")).toBe(40002); // still 2nd in its block
+  expect(code(chartOfAccounts(ledger, banks, { "revenue:royalties": { code: 40001 } }), "revenue:sales")).toBe(40002); // 1st place is taken: moves up
 });
 
 test("existing defaults don't move when an account is added; nextCode is what the new one would get", () => {

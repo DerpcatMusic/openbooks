@@ -47,7 +47,7 @@ const stored = (e: CoaEntry | undefined) => (e && Number.isInteger(e.code) && e.
 
 /**
  * Every account with its code, sorted by code. `ledger` must be in a stable order (pack chart, then first use, then added): a default
- * code is its block (1 assets … 8 other: ×10000) plus the account's place in its block, skipping codes the user set elsewhere.
+ * code is its block (1 assets … 8 other: ×10000) plus the account's place in its block, moving up past codes already taken.
  * ponytail: a default follows first use; set a code on an account to pin it.
  */
 export function chartOfAccounts(ledger: readonly string[], banks: readonly string[], coa: Coa): CoaRow[] {
@@ -56,10 +56,11 @@ export function chartOfAccounts(ledger: readonly string[], banks: readonly strin
   const rows = [...banks.map((id) => [id, isCard(id) ? "card" : "bank"] as const), ...ledger.map((id) => [id, group(id)] as const)].map(([id, type]) => {
     const [klass, side, block] = kindOf(type),
       e = coa[id];
+    const place = (seen[block] = (seen[block] ?? 0) + 1); // pinned accounts hold their place, so pinning one never renumbers the rest
     let code = stored(e);
     if (!code) {
-      do code = block * 10000 + (seen[block] = (seen[block] ?? 0) + 1);
-      while (taken.has(code));
+      code = block * 10000 + place;
+      while (taken.has(code)) code++;
       taken.add(code);
     }
     return { id, type, klass, side, code, ...(e?.name ? { name: e.name } : {}), ...(e?.subtype ? { subtype: e.subtype } : {}), archived: !!e?.archived };

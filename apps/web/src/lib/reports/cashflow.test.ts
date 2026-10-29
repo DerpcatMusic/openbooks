@@ -67,11 +67,30 @@ test("quarters bucket three months; MTD cuts the open period at today", () => {
 
 test("statement rows: starting, movement, ending sections with totals", () => {
   const cols = cashFlow(rows, banks, spans(2026, "monthly", "2026-05-10")).slice(0, 2);
-  const lines = cfaLines(cols, banks, (k) => k, (k) => k);
+  const lines = cfaLines(
+    cols,
+    banks,
+    (k) => k,
+    (k) => k,
+  );
   expect(lines.map((l) => l.kind)).toEqual([
-    "head", "line", "line", "line", "sum",
-    "head", "line", "line", "line", "line", "line", "sum",
-    "head", "line", "line", "line", "total",
+    "head",
+    "line",
+    "line",
+    "line",
+    "sum",
+    "head",
+    "line",
+    "line",
+    "line",
+    "line",
+    "line",
+    "sum",
+    "head",
+    "line",
+    "line",
+    "line",
+    "total",
   ]);
   const by = (label: string) => lines.find((l) => l.label === label)!.v;
   expect(by("cfa.totalStarting")).toEqual([1000, 750]);

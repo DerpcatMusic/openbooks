@@ -60,7 +60,7 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `get_transaction` | One transaction, its source statement and attachments |
 | `profit_and_loss` | Cash-basis P&L by ledger account or by month (with a chart in clients that support MCP Apps) |
 | `balances` | Bank and card balances on a date |
-| `chart_of_accounts` | Account types and ledger accounts in use |
+| `chart_of_accounts` | Account types and ledger accounts in use, with ledger codes and renamed labels |
 | `classify` | **Writes.** Set a ledger account on transactions, optionally as a rule |
 | `list_rules` / `set_rules` | Categorization rules (`set_rules` **writes**, replacing all rules) |
 | `suggest_category` | Likely ledger accounts for a transaction |

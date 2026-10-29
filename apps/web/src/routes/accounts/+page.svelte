@@ -1,12 +1,17 @@
 <script lang="ts">
   // Chart of accounts (port of web/src/views/Accounts.svelte): the bank/card accounts that feed the books with their statement
-  // reconciliation, then every ledger account by type with where it reports and its activity in the period (click to drill in).
-  import { group, isCard, TYPES } from "@openbooks/core";
-  import { S, ent, isUS, allCats, catLabel, typeLabel, balances, accounts, periodTxns, periodLabel, fmt, mdy } from "#lib/stores/books.svelte.ts";
+  // reconciliation, then the chart: every account with its ledger code, type, subtype and normal side, its activity in the period
+  // (click the amount to drill in). Click a row to edit it (name, code, subtype, archive); add accounts; filter; export CSV.
+  // The ids ("type:slug") never change; the edits are an overlay in the "coa" doc (books.svelte.ts).
+  import { isCard, type CoaRow, type Klass } from "@openbooks/core";
+  import { S, ent, isUS, balances, accounts, chart, isBank, rowName, typeLabel, periodTxns, periodLabel, fmt, mdy } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Card, EmptyState, Icon, Money, PageHeader, Table, type Column } from "#lib/ui/index.ts";
+  import { Badge, Button, Card, EmptyState, Icon, IconButton, Money, PageHeader, Search, Select, Table, Tabs, type Column } from "#lib/ui/index.ts";
   import { go } from "#lib/reports/go.ts";
+  import { saveCsv } from "#lib/reports/download.ts";
+  import { csv } from "#lib/reports/statements.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
+  import AccountDialog from "#lib/coa/AccountDialog.svelte";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
@@ -29,28 +34,60 @@
     { key: "period", label: t("accounts.period") },
   ]);
 
-  // ledger accounts by type, in the chart's type order
-  type Acct = { key: string; n: number; v: number };
-  const used = $derived([...new Set([...allCats(), ...txns.map((x) => x.category)])]);
-  const types = $derived(
-    Object.keys(TYPES)
-      .map((g) => ({
-        g,
-        rows: used
-          .filter((c) => group(c) === g)
-          .map((c): Acct => {
-            const xs = ts.filter((x) => x.category === c);
-            return { key: c, n: xs.length, v: xs.reduce((a, x) => a + x.amount, 0) };
-          }),
-      }))
-      .filter((x) => x.rows.length),
+  // the chart: every account with its code, class and activity in the period; tabs by class, search and status filters
+  const TABS = ["all", "assets", "liabilities", "equity", "revenues", "expenses"] as const;
+  const KLASS: Record<string, Klass> = { assets: "asset", liabilities: "liability", equity: "equity", revenues: "revenue", expenses: "expense" };
+  type Acct = CoaRow & { label: string; sub: string; n: number; v: number };
+  let tab = $state("all"),
+    q = $state(""),
+    status = $state("active"),
+    editing = $state<CoaRow | null>(null),
+    dialog = $state(false);
+  const activity = $derived.by(() => {
+    const m = new Map<string, { n: number; v: number }>();
+    for (const x of ts)
+      for (const k of [x.category, x.account]) {
+        const a = m.get(k) ?? { n: 0, v: 0 };
+        (a.n++, (a.v += x.amount), m.set(k, a));
+      }
+    return m;
+  });
+  const all = $derived<Acct[]>(
+    chart().map((r) => ({
+      ...r,
+      label: rowName(r),
+      sub: r.subtype ?? (isBank(r) ? t(r.type === "card" ? "coa.sub.card" : "coa.sub.bank") : typeLabel(r.type)),
+      ...(activity.get(r.id) ?? { n: 0, v: 0 }),
+    })),
   );
+  const filtered = $derived.by(() => {
+    const s = q.trim().toLowerCase();
+    return all.filter(
+      (r) => (status === "all" || (status === "archived") === r.archived) && (!s || [r.label, r.sub, r.id, String(r.code)].some((x) => x.toLowerCase().includes(s))),
+    );
+  });
+  const rows = $derived(filtered.filter((r) => tab === "all" || r.klass === KLASS[tab]));
+  const tabs = $derived(TABS.map((key) => ({ key, label: t(`coa.tab.${key}`), count: filtered.filter((r) => key === "all" || r.klass === KLASS[key]).length })));
   const acctCols = $derived<Column<Acct>[]>([
-    { key: "name", label: `${t("common.name")} · ${t("accounts.code")}`, wrap: true },
-    { key: "n", label: t("accounts.txns"), numeric: true },
-    { key: "v", label: t("common.amount"), numeric: true },
+    { key: "code", label: t("coa.col.code") },
+    { key: "name", label: t("common.ledgerAccount"), wrap: true },
+    { key: "klass", label: t("common.type") },
+    { key: "sub", label: t("coa.col.subtype") },
+    { key: "side", label: t("coa.col.side") },
+    { key: "v", label: t("reports.activity"), numeric: true },
+    { key: "edit", label: t("coa.edit"), hideLabel: true },
   ]);
-  const reportOf = (g: string) => t(TYPES[g] ? "accounts.pl" : g === "equity" ? "accounts.bs" : "accounts.notOnReports");
+  const edit = (r: CoaRow | null) => ((editing = r), (dialog = true));
+  const side = (r: CoaRow) => (r.side ? t(`coa.side.${r.side}`) : "—");
+  const drill = (r: Acct) => go("transactions", isBank(r) ? `account:${r.id}` : r.id === "ask" ? "ask" : `cat:${r.id}`);
+  const exportCsv = () =>
+    saveCsv(
+      `${ent().short ?? "books"} ${t("accounts.title")}`,
+      csv([
+        [t("coa.col.code"), t("common.ledgerAccount"), t("coa.col.id"), t("common.type"), t("coa.col.subtype"), t("coa.col.side"), t("coa.status")],
+        ...rows.map((r) => [String(r.code), r.label, r.id, t(`coa.klass.${r.klass}`), r.sub, r.side ? t(`coa.side.${r.side}`) : "", t(r.archived ? "coa.status.archived" : "coa.status.active")]),
+      ]),
+    );
   const [h1, h2] = $derived(t("accounts.addHint").split("{code}"));
 </script>
 
@@ -84,21 +121,49 @@
   </Card>
 
   <div>
-    <h2 class="text-[15px] text-ink">{t("accounts.ledger")} <span class="text-[13px] text-sub">{t("accounts.activityIn", { period: periodLabel() })}</span></h2>
-    <div class="mt-3 space-y-4">
-      {#each types as { g, rows } (g)}
-        <Card title={typeLabel(g)} description={`${t("accounts.report")}: ${reportOf(g)}`} level={3} flush>
-          <Table columns={acctCols} {rows} key={(r) => r.key} caption={typeLabel(g)} onrowclick={(r) => go("transactions", r.key === "ask" ? "ask" : `cat:${r.key}`)}>
-            {#snippet cell(r, c)}
-              {#if c.key === "name"}<bdi class="block text-ink">{catLabel(r.key)}</bdi><bdi dir="ltr" class="block font-mono text-[12px] break-all text-sub">{r.key}</bdi>
-              {:else if c.key === "n"}<span class={r.n ? "" : "text-faint"}>{r.n}</span>
-              {:else if r.n}<Money value={r.v} currency={cur} />
-              {:else}<span class="text-faint">—</span>{/if}
-            {/snippet}
-          </Table>
-        </Card>
-      {/each}
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <h2 class="min-w-0 flex-1 basis-48 text-[15px] text-ink">{t("accounts.ledger")} <span class="text-[13px] text-sub">{t("accounts.activityIn", { period: periodLabel() })}</span></h2>
+      <Button size="sm" icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>
+      <Button size="sm" variant="primary" icon="plus" onclick={() => edit(null)}>{t("coa.add")}</Button>
     </div>
+    <Card flush class="mt-3">
+      <Tabs items={tabs} value={tab} onchange={(k) => (tab = k)} label={t("accounts.title")} class="px-4 sm:px-5" />
+      <div role="group" aria-label={t("coa.filters")} class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5">
+        <span class="inline-flex items-center gap-1.5 text-[13px] text-sub"><Icon name="filter" size={15} />{t("coa.filters")}</span>
+        <Search bind:value={q} label={t("coa.search")} class="w-56 max-w-full" />
+        <Select
+          variant="pill"
+          label={t("coa.status")}
+          value={status}
+          options={["active", "archived", "all"].map((k) => ({ value: k, label: t(`coa.status.${k}`) }))}
+          onchange={(v) => (status = v)} />
+      </div>
+      <Table columns={acctCols} {rows} key={(r) => r.id} caption={t("accounts.title")} onrowclick={edit}>
+        {#snippet cell(r, c)}
+          {#if c.key === "code"}<span class="num text-ink">{r.code}</span>
+          {:else if c.key === "name"}
+            <span class="flex flex-wrap items-center gap-x-2 gap-y-1"><bdi class="text-ink">{r.label}</bdi>{#if r.archived}<Badge size="sm">{t("coa.archived")}</Badge>{/if}</span>
+            {#if !isBank(r)}<bdi dir="ltr" class="block font-mono text-[12px] break-all text-sub">{r.id}</bdi>{/if}
+          {:else if c.key === "klass"}{t(`coa.klass.${r.klass}`)}
+          {:else if c.key === "sub"}<bdi>{r.sub}</bdi>
+          {:else if c.key === "side"}<span class={r.side ? "" : "text-faint"}>{side(r)}</span>
+          {:else if c.key === "v"}
+            {#if r.n}
+              <button
+                type="button"
+                title={t("common.transactions", { n: r.n })}
+                onclick={(e) => (e.stopPropagation(), drill(r))}
+                class="rounded-md outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50"><Money value={r.v} currency={cur} /></button>
+            {:else}<span class="text-faint">—</span>{/if}
+          {:else}
+            <IconButton icon="edit" label={t("coa.edit")} size="sm" variant="ghost" onclick={(e) => (e.stopPropagation(), edit(r))} />
+          {/if}
+        {/snippet}
+        {#snippet empty()}<EmptyState icon="report" title={t("coa.empty")} text={t("coa.emptyHint")} compact />{/snippet}
+      </Table>
+    </Card>
     <p class="mt-4 text-[13px] text-sub">{h1}<span class="font-mono whitespace-nowrap" dir="ltr">type:name</span>{h2}</p>
   </div>
 </div>
+
+<AccountDialog bind:open={dialog} row={editing} />

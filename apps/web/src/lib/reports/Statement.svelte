@@ -3,8 +3,10 @@
   // grand total, one numeric column per entry of `cols`. Same look as the kit's Table, plus what it can't do: full-width
   // section rows and a sticky label column, so wide monthly statements scroll inside their own container on a phone.
   // `change` adds a "change" column comparing column 0 with column 1 (period comparison).
+  // Section heads (▸/▾) fold their lines away, leaving the section's subtotal; "Collapse all" / "Expand all" does every section.
+  // Folded lines come back when printing.
   import { t } from "#lib/i18n.svelte.ts";
-  import { Money } from "#lib/ui/index.ts";
+  import { Button, Icon, Money } from "#lib/ui/index.ts";
   import { change as rel, type Line } from "./statements.ts";
 
   let {
@@ -30,7 +32,23 @@
   const pad = "px-3 first:ps-4 last:pe-4 sm:first:ps-5 sm:last:pe-5";
   const pct = (l: Line) => rel(l.v[0] ?? 0, l.v[1] ?? 0);
   const open = (l: Line) => (onopen && l.kind === "line" && l.key ? () => onopen(l) : undefined);
+
+  let shut = $state<Record<string, boolean>>({});
+  const heads = $derived(lines.flatMap((l) => (l.kind === "head" ? [l.label] : [])));
+  const allShut = $derived(heads.length > 0 && heads.every((h) => shut[h]));
+  /** the section head each row sits under */
+  const under = $derived.by(() => {
+    let h = "";
+    return lines.map((l) => (l.kind === "head" ? (h = l.label) : h));
+  });
 </script>
+
+{#if heads.length}
+  <div class="flex justify-end px-3 pt-2 print:hidden">
+    <Button variant="ghost" size="sm" icon={allShut ? "chevron-down" : "chevron-up"} onclick={() => (shut = allShut ? {} : Object.fromEntries(heads.map((h) => [h, true])))}
+      >{allShut ? t("reports.expandAll") : t("reports.collapseAll")}</Button>
+  </div>
+{/if}
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex (a scrollable region must be keyboard-focusable to scroll) -->
 <div data-ui="table" class="st max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label={caption} tabindex="0">
@@ -48,12 +66,24 @@
         {@const click = open(l)}
         {#if l.kind === "head"}
           <tr class="head">
-            <th scope="colgroup" class="sticky start-0 z-[1] h-9 border-b border-line text-start font-medium text-ink {pad}">{l.label}</th>
+            <th scope="colgroup" class="sticky start-0 z-[1] h-9 border-b border-line text-start font-medium text-ink {pad}">
+              <button
+                type="button"
+                aria-expanded={!shut[l.label]}
+                onclick={() => (shut[l.label] = !shut[l.label])}
+                class="-mx-1.5 inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-start outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+                <Icon name="chevron-right" size={13} class="transition-transform {shut[l.label] ? '' : 'rotate-90 rtl:-rotate-90'}" />{l.label}
+              </button>
+            </th>
             <td colspan={cols.length + (change ? 1 : 0)} class="h-9 border-b border-line {pad}"></td>
           </tr>
         {:else}
           <tr
-            class={[l.kind, click && "cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent/60"]}
+            class={[
+              l.kind,
+              click && "cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent/60",
+              l.kind === "line" && shut[under[r]!] && "hidden print:table-row",
+            ]}
             tabindex={click ? 0 : undefined}
             onclick={click}
             onkeydown={click && ((e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), click()))}>
