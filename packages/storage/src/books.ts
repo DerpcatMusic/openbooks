@@ -14,12 +14,15 @@ import {
   journalProblem,
   ledger,
   movedBefore,
+  payrollProblem,
   splitProblem,
   tripProblem,
   type BooksDoc,
   type Coa,
   type JournalProblem,
   type LedgerExtras,
+  type PayrollProblem,
+  type PayrollRun,
   type SplitProblem,
   type Trip,
   type TripProblem,
@@ -60,6 +63,14 @@ const TRIP: Record<TripProblem, string> = {
   businessDays: "has more business days than days",
   fx: "needs an exchange rate above zero",
   carDays: "has more car days than days",
+};
+const PAYROLL: Record<PayrollProblem, string> = {
+  period: "needs a period",
+  payDate: "needs a real pay date",
+  provider: "needs a provider",
+  amount: "needs gross pay above zero and no negative or missing figure",
+  net: "has net pay that is not gross pay less withholding and benefits",
+  over: "has payments above what the run costs (gross pay plus employer taxes)",
 };
 const BOOKS = {
   date: "The close date and the entries start date must be real dates (YYYY-MM-DD).",
@@ -247,6 +258,17 @@ export const makeBooks = (opts: BooksOptions) =>
               if (canon(before.get(x.id)) !== canon(x)) {
                 const p = tripProblem(x);
                 if (p) return bad(`Trip ${x.name ? `“${x.name}” ` : ""}${TRIP[p]}.`);
+              }
+            return Effect.void;
+          }
+          case "payroll": {
+            // a run is the provider's figures, checked against each other (no tax is calculated): only the runs that changed are checked
+            const before = new Map(((getDoc<PayrollRun[] | null>(e, name, []) ?? []) as PayrollRun[]).map((x) => [x.id, x])),
+              list = Array.isArray(value) ? (value as PayrollRun[]) : [];
+            for (const x of list)
+              if (canon(before.get(x.id)) !== canon(x)) {
+                const p = payrollProblem(x);
+                if (p) return bad(`Payroll run ${x.period ? `“${x.period}” ` : ""}${PAYROLL[p]}.`);
               }
             return Effect.void;
           }

@@ -326,4 +326,25 @@ describe("Books", () => {
     expect(r.nights).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("more nights than days") });
     expect(r.saved).toHaveLength(2);
   });
+
+  test('doc "payroll": figures that do not tie are refused, a good run is kept; unchanged old runs never block a save', async () => {
+    const home = books();
+    const pay = { id: "r1", period: "2026-03", payDate: "2026-03-31", gross: 10000, employerTaxes: 900, employeeWithholding: 2000, benefits: 500, net: 7500, provider: "Gusto", payments: [] };
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const net = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, net: 7000 }]));
+        const date = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, payDate: "2026-02-30" }]));
+        const over = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, payments: [{ id: "p", txn: null, amount: 20000, date: "2026-04-01" }] }]));
+        yield* b.putDoc("acme", "payroll", [pay]);
+        yield* b.putDoc("acme", "payroll", [pay, { ...pay, id: "r2", period: "2026-04", payDate: "2026-04-30" }]);
+        return { net, date, over, saved: (yield* b.state("acme")).docs.payroll };
+      }),
+    );
+    expect(r.net).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("not gross pay less withholding") });
+    expect(r.date).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("real pay date") });
+    expect(r.over).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("above what the run costs") });
+    expect(r.saved).toHaveLength(2);
+  });
 });
