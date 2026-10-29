@@ -2,7 +2,7 @@
 // S corp), the 1099-NEC section, deadlines, and the vendor tax fields. Form line names (Schedule C lines…) stay as the IRS prints them.
 export default {
   // navigation and page headers
-  "nav.taxIndividual": "Schedule C · SE · 1040-ES",
+  "nav.taxIndividual": "Schedule C · SE",
   "nav.taxPartnership": "Form 1065 · K-1",
   "nav.taxScorp": "Form 1120-S · K-1",
   "fus.sub.individual": "Sole proprietor or US-owned LLC · profit, self-employment tax and quarterly estimates",

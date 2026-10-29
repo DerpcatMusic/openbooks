@@ -1,6 +1,6 @@
 // הגשות פדרליות בארה"ב: עמוד המס לכל סוג עסק, חלק טופס 1099-NEC, מועדים ושדות המס של ספק. שמות שורות הטפסים (Schedule C…) נשארים כפי שה-IRS מדפיס.
 export default {
-  "nav.taxIndividual": "Schedule C · SE · 1040-ES",
+  "nav.taxIndividual": "Schedule C · SE",
   "nav.taxPartnership": "טופס 1065 · K-1",
   "nav.taxScorp": "טופס 1120-S · K-1",
   "fus.sub.individual": 'עצמאי או LLC בבעלות אזרח/תושב ארה"ב · רווח, מס עצמאים ומקדמות רבעוניות',

@@ -167,7 +167,7 @@
         </ul>
       {/if}
 
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <Card><Stat size="md" label={t("fus.stat.profit")} value={sc.netProfit} currency={cur} hint={t("fus.stat.profitHint")} /></Card>
         <Card><Stat size="md" label={t("fus.stat.se")} value={pt.se.line12} currency={cur} hint={t("fus.stat.seHint")} /></Card>
         <Card><Stat size="md" label={t("fus.stat.tax")} value={pt.incomeTax} currency={cur} hint={t("fus.stat.taxHint", { rate: Math.round(pt.marginal * 100) })} /></Card>
