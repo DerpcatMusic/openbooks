@@ -26,6 +26,15 @@ export interface Form1301Input {
   disallowed?: number;
   /** ISO date to price the refund's linkage and interest at (the site uses the day it calculates). */
   today?: string;
+  /**
+   * VAT-registered books (osek murshe, Ltd): the return takes turnover and expenses WITHOUT VAT. `turnover`: the year's sales before VAT (the
+   * VAT reports' taxable + zero-rated sales); `reclaimed`: all input VAT reclaimed in the year, taken off the expenses.
+   */
+  vat?: { turnover: number; reclaimed: number };
+  /** Equipment: its cost (before reclaimed VAT) was in the expenses when paid; it is deducted as depreciation instead (appendix 1342). */
+  capital?: { cost: number; depreciation: number };
+  /** Income-tax advances paid for the year (they come off the balance; the site takes them from the Tax Authority's records). */
+  advances?: number;
 }
 
 /** Per-bracket breakdown for the Tax page: [{ rate, part, tax }] for brackets that hold income. */
@@ -46,10 +55,16 @@ export function form1301Auto({
   type,
   profile: p = {},
   disallowed = 0,
-}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed">): Record<string, string> {
-  const turnover = txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
+  vat,
+  capital,
+}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed" | "vat" | "capital">): Record<string, string> {
+  const turnover = vat ? vat.turnover : txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const zair = type === "osek-zair",
-    expenses = -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) - disallowed;
+    expenses =
+      -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) -
+      disallowed -
+      (vat?.reclaimed ?? 0) -
+      (capital ? capital.cost - capital.depreciation : 0);
   return {
     last: p.last ?? "",
     first: p.first ?? "",
@@ -107,7 +122,7 @@ export function form1301(i: Form1301Input) {
     T = i.T;
   const v = (k: string) => f[k] ?? auto[k] ?? "";
   const n = (k: string) => +String(v(k)).replace(/,/g, "") || 0;
-  const turnover = i.txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
+  const turnover = i.vat ? i.vat.turnover : i.txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const capital = i.txns.filter((t) => group(t.category) === "capital");
   const sum = (ks: readonly string[]) => ks.reduce((a, k) => a + n(k), 0);
   const ord = sum(ORDINARY),
@@ -134,7 +149,8 @@ export function form1301(i: Form1301Input) {
   const creditsAvailable = resident * T.point + Math.min(soldier * T.point, personalTax),
     credits = Math.min(creditsAvailable, ordTax),
     due = Math.round(ordTax - credits) + Math.round(capTax),
-    withheld = sum(WITHHELD);
+    withheld = sum(WITHHELD),
+    advances = Math.round(i.advances ?? 0);
   return {
     fields: { ...auto, ...Object.fromEntries(Object.entries(f).filter(([, x]) => x != null)) } as Record<string, string>,
     turnover,
@@ -158,9 +174,32 @@ export function form1301(i: Form1301Input) {
     creditsAvailable,
     due,
     withheld,
-    balance: due - withheld, // > 0 pay, < 0 refund
+    /** Income-tax advances paid for the year (Filings > Advances). */
+    advances,
+    balance: due - withheld - advances, // > 0 pay, < 0 refund
     /** What the site adds to a refund for linkage and interest as of `today` (0 when there's tax to pay). */
-    indexation: i.today && due < withheld ? refundIndexation(withheld - due, i.y, i.today) : 0,
+    indexation: i.today && due < withheld + advances ? refundIndexation(withheld + advances - due, i.y, i.today) : 0,
     ask: i.txns.filter((t) => t.category === "ask"),
   };
+}
+
+/**
+ * Return boxes the books can fill from their tagged expenses (deduction engine byRule rows): donations (037), study fund (136, after its cap),
+ * life insurance (036) and loss-of-work-capacity insurance (112). The site applies the credit / deduction rules; these are the amounts to type.
+ * Boxes without tagged spending are left out so they stay editable.
+ */
+export function form1301FromBooks(byRule: readonly { rule: string; gross: number; deductible: number }[]): Record<string, string> {
+  const BOX: Readonly<Record<string, { no: string; use: "gross" | "deductible" }>> = {
+    "il.donations": { no: "037", use: "gross" },
+    "il.keren-hishtalmut": { no: "136", use: "deductible" },
+    "il.insurance.life-credit": { no: "036", use: "gross" },
+    "il.insurance.disability": { no: "112", use: "gross" },
+  };
+  const out: Record<string, string> = {};
+  for (const r of byRule) {
+    const b = BOX[r.rule];
+    const v = b ? Math.round(r[b.use]) : 0;
+    if (b && v > 0) out[b.no] = String((+out[b.no]! || 0) + v);
+  }
+  return out;
 }
