@@ -3,6 +3,7 @@
   // year and month chips, then the table: starting balances, movement per ledger account, ending balances (the math: cashflow.ts).
   // The year is the app's tax year (S.year), so a click on a row drills into the same year's transactions.
   import { S, ent, banks, catLabel, mon } from "#lib/stores/books.svelte.ts";
+  import { ledgerRows } from "#lib/stores/basis.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { Area, Bars, Button, EmptyState, Segmented, Select } from "#lib/ui/index.ts";
   import { cashFlow, cfaLines, spans, type Gran, type Span } from "./cashflow.ts";
@@ -24,7 +25,7 @@
   // a quarter stays while any of its months is on
   const cols = $derived(
     cashFlow(
-      S.data!.txns,
+      ledgerRows(),
       bk,
       spans(year, gran, today).filter((s) => s.months.some((m) => !off[m])),
     ),

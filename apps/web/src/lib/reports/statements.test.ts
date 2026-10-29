@@ -2,8 +2,9 @@ import { checkDictionaries } from "@openbooks/core";
 import { expect, test } from "vite-plus/test";
 import en from "../locales/parts/3-3.en.ts";
 import he from "../locales/parts/3-3.he.ts";
-import { agingReport, billSources, invoiceSources, openAt } from "@openbooks/core";
-import { activeMonths, agingCsv, bsStatement, cfStatement, ledgerGroups, plStatement, toCsv } from "./statements.ts";
+import { accrualRows, agingReport, billSources, invoiceSources, openAt, pl } from "@openbooks/core";
+import type { Txn } from "@openbooks/schema";
+import { activeMonths, agingCsv, bsStatement, cfIndirect, cfStatement, ledgerGroups, plStatement, toCsv } from "./statements.ts";
 
 const t = (k: string) => k,
   cat = (k: string) => k;
@@ -173,4 +174,58 @@ test("aging CSV: bucket columns, overdue, totals and percent rows; by document",
   expect(docs[0]).toBe("Customer,Invoice,common.date,bills.col.dueDate,aging.pastDue,aging.bucket,aging.outstanding");
   expect(docs.slice(1)).toEqual(["Client,,2025-12-01,2025-12-31,60,31-60 days,400.00", "Client,,2026-01-20,2026-02-20,9,1-30 days,750.00"]); // most overdue first
   expect(agingCsv(agingReport([], "2026-03-01"), "party", t, bucket, label).trimEnd().split("\r\n")).toHaveLength(2); // header + zero totals
+});
+
+// ---------- the accrual basis through the statements ----------
+const row = (id: string, date: string, amount: number, category: string, account = "Mercury Checking"): Txn => ({ id, date, amount, category, desc: id, source: "bank", account, file: "", page: 0, why: "" });
+const cashRows: Txn[] = [
+  row("s1", "2026-01-12", 800, "revenue:sales"),
+  row("pay", "2026-02-10", 1000, "revenue:services"), // pays invoice a1
+  row("sw", "2026-02-15", -120, "expense:software"),
+  row("rent", "2026-04-05", -400, "expense:rent"), // pays bill b1
+  row("own", "2026-03-01", 2000, "equity:contribution"),
+];
+const a1 = invoiceSources([{ id: "a1", kind: "invoice", customer: "c1", items: [{ qty: 1, price: 1000 }], issued: "2026-01-05", status: "open", payments: [{ id: "p", txn: "pay", amount: 1000, date: "2026-02-10" }] }], () => "Client");
+const b1 = billSources([{ id: "b1", vendor: "v1", date: "2026-03-01", lines: [{ amount: 400, account: "expense:rent" }], status: "open", payments: [{ id: "q", txn: "rent", amount: 400, date: "2026-04-05" }] }], () => "Landlord");
+const acc = accrualRows(cashRows, a1, b1, { revenue: "revenue:sales", expense: "expense:other" });
+
+test("accrual cash flow (indirect): net income ± receivable and payable = cash from operations; the sections add up to the change in cash", () => {
+  const q1 = acc.filter((x) => x.date <= "2026-03-31");
+  const rows = cfIndirect([q1], t, cat);
+  const by = (label: string) => rows.find((r) => r.label === label)!.v[0]!;
+  expect(by("reports.netIncome")).toBe(800 + 1000 - 120 - 400); // revenue of Jan (incl. the invoice), software, the March bill
+  expect(by("reports.cf.dAr")).toBe(0); // invoiced Jan 5, paid Feb 10: settled inside the quarter
+  expect(by("reports.cf.dAp")).toBe(400); // approved Mar 1, unpaid at Mar 31
+  expect(by("reports.cfNet.operating")).toBe(800 + 1000 - 120); // cash from operations: the bill is not paid yet
+  expect(by("reports.cfNet.financing")).toBe(2000);
+  const total = rows.at(-1)!;
+  expect(total.v[0]).toBe(800 + 1000 - 120 + 2000); // = the bank rows of the quarter
+  expect(rows.filter((r) => r.kind === "sum").reduce((a, r) => a + r.v[0]!, 0)).toBe(total.v[0]);
+  // a period with a receivable still open: income without cash
+  const jan = cfIndirect([acc.filter((x) => x.date <= "2026-01-31")], t, cat);
+  expect(jan.find((r) => r.label === "reports.cf.dAr")!.v).toEqual([-1000]);
+  expect(jan.find((r) => r.label === "reports.cfNet.operating")!.v).toEqual([800]);
+});
+
+test("accrual cash flow: money settled outside the books is not cash", () => {
+  const out = accrualRows([], invoiceSources([{ id: "o", kind: "invoice", items: [{ qty: 1, price: 300 }], issued: "2026-01-02", status: "open", payments: [{ id: "x", txn: null, amount: 100, date: "2026-01-20" }] }], () => ""), [], { revenue: "revenue:sales", expense: "expense:other" });
+  const rows = cfIndirect([out], t, cat);
+  expect(rows.find((r) => r.label === "reports.cf.outside")!.v).toEqual([-100]);
+  expect(rows.find((r) => r.label === "reports.cfNet.operating")!.v).toEqual([0]); // 300 income - 200 still receivable - 100 settled elsewhere
+  expect(rows.at(-1)!.v).toEqual([0]);
+});
+
+test("P&L on accrual rows: the invoice is Jan revenue, the paying row leaves the P&L; and it reconciles with the balance sheet's current-year earnings", () => {
+  const q1 = plStatement([acc.filter((x) => x.date <= "2026-01-31")], true, t, cat);
+  expect(q1.find((r) => r.key === "revenue:services")!.v).toEqual([1000]); // filed where the payment was filed
+  expect(plStatement([acc.filter((x) => x.date >= "2026-02-01" && x.date <= "2026-02-28")], true, t, cat).find((r) => r.key === "revenue:services")).toBeUndefined();
+  // balance sheet with the cash rows + open documents (accrual on) vs the P&L of the accrual rows: same current-year earnings
+  const open = (iso: string) => ({ ar: openAt(a1, iso), ap: openAt(b1, iso) });
+  for (const iso of ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"]) {
+    const upto = cashRows.filter((x) => x.date <= iso);
+    const bal = { "Mercury Checking": upto.reduce((a, x) => a + x.amount, 0) };
+    const { lines, totals } = bsStatement([{ iso, balances: bal, upto, open: open(iso) }], t, true);
+    expect(lines.find((l) => l.label === "reports.currentYear")!.v[0], iso).toBeCloseTo(pl(acc.filter((x) => x.date <= iso)).net, 2);
+    expect(totals[0]!.assets).toBeCloseTo(totals[0]!.liab + totals[0]!.equity, 2);
+  }
 });

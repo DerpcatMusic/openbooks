@@ -1,11 +1,13 @@
 <script lang="ts">
   // Settings: appearance (language, theme, font), security (vault), business (names, structure per tax year), tax years,
   // tax tables (edits are overrides: POST /api/taxtables → doc(_app, "taxtables")), AI, and a summary of these books.
-  // "Books details" holds the business name, the accounting basis (cash only), the entries start date and the close date.
+  // "Books details" holds the business name, the accounting basis (cash or accrual), the entries start date and the close date.
   import { goto } from "#lib/nav.ts";
   import { S, ent, family, isUS, bizType, bizTypes, bizLabel, setBizType, setMeta, setTheme, addYear, removeYear, saveTaxTable, closeDate, setCloseDate, startDate, setStartDate, mdy, fmt, toast, type Theme } from "#lib/stores/books.svelte.ts";
   import { t, I, setLang, type Lang } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Dialog, IconButton, Input, PageHeader, Segmented, Select, Table } from "#lib/ui/index.ts";
+  import { basis, setBasis } from "#lib/stores/basis.svelte.ts";
+  import type { Basis } from "@openbooks/core";
   import VaultPanel from "#lib/vault/VaultPanel.svelte";
   import AiSetup from "./AiSetup.svelte";
   import { bracketsText, parseBrackets, FIELDS } from "./tables.ts";
@@ -191,11 +193,18 @@
       <Input label={t("gaps2.books.name")} value={ent().name ?? ""} onchange={(e) => setMeta({ name: e.currentTarget.value.trim() || ent().name })} class="max-w-md" />
 
       <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-[14px] text-ink">{t("gaps2.books.basis")}</span>
-          <Badge tone="accent">{t("gaps2.books.cash")}</Badge>
-        </div>
-        <p class="mt-1 text-[13px] text-sub">{t("gaps2.books.basisHelp")}</p>
+        <div class="text-[14px] text-ink">{t("gaps2.books.basis")}</div>
+        <p class="mt-0.5 mb-2 text-[13px] text-sub">{t(basis() === "accrual" ? "gaps3.basis.accrualHelp" : "gaps3.basis.cashHelp")}</p>
+        <Segmented
+          value={basis()}
+          onchange={(k) => void setBasis(k as Basis)}
+          label={t("gaps2.books.basis")}
+          items={[
+            { key: "cash", label: t("gaps2.books.cash") },
+            { key: "accrual", label: t("gaps3.basis.accrual") },
+          ]} />
+        <p class="mt-2 text-[13px] text-sub">{t(family() === "il" ? "gaps3.basis.taxIl" : "gaps3.basis.taxUs")}</p>
+        {#if closeDate()}<p class="mt-1 text-[13px] text-warn" role="status">{t("gaps3.basis.closed")}</p>{/if}
       </div>
 
       <div id="start-date" class="scroll-mt-4">

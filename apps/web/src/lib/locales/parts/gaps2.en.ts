@@ -135,8 +135,6 @@ export default {
   "gaps2.books.name": "Business name",
   "gaps2.books.basis": "Accounting basis",
   "gaps2.books.cash": "Cash",
-  "gaps2.books.basisHelp":
-    "These books are kept on a cash basis: income and expenses count on the day money moves. Accrual accounting (receivables and payables on the balance sheet) is not supported, and the basis can't be changed.",
   "gaps2.books.start": "Entries start date",
   "gaps2.books.startDate": "Start date",
   "gaps2.books.startThrough": "Books start on {date}.",

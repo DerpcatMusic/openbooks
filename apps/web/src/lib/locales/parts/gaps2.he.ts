@@ -141,8 +141,6 @@ export default {
   "gaps2.books.name": "שם העסק",
   "gaps2.books.basis": "בסיס חשבונאי",
   "gaps2.books.cash": "מזומן",
-  "gaps2.books.basisHelp":
-    "הספרים מנוהלים על בסיס מזומן: הכנסות והוצאות נספרות ביום שבו הכסף זז. חשבונאות מצטברת (לקוחות וספקים במאזן) אינה נתמכת, ואי אפשר לשנות את הבסיס.",
   "gaps2.books.start": "תאריך פתיחת הספרים",
   "gaps2.books.startDate": "תאריך פתיחה",
   "gaps2.books.startThrough": "הספרים נפתחים ב־{date}.",

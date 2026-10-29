@@ -36,8 +36,10 @@ export interface BooksDoc {
   closeDate?: string | null | undefined;
   /** Transactions and journal entries dated before it are left out of the books. Once set it can only move earlier. */
   startDate?: string | null | undefined;
+  /** Accounting basis of the reports (basis.ts). Absent = cash, which the ledger is by nature; tax screens always read the cash ledger. */
+  basis?: "cash" | "accrual" | null | undefined;
 }
-export type BooksProblem = "date" | "closeFuture" | "closeBeforeStart" | "startLater";
+export type BooksProblem = "date" | "closeFuture" | "closeBeforeStart" | "startLater" | "basis";
 
 const isoOk = (s: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
@@ -51,6 +53,7 @@ export function checkBooks(prev: BooksDoc | null | undefined, next: BooksDoc | n
     start = next?.startDate || null,
     wasClose = prev?.closeDate || null,
     was = prev?.startDate || null;
+  if (next?.basis && next.basis !== "cash" && next.basis !== "accrual") return "basis";
   if ((close && close !== wasClose && !isoOk(close)) || (start && start !== was && !isoOk(start))) return "date";
   if (close && close !== wasClose && close > today) return "closeFuture"; // an old value saved before this check stays as it is
   if (start && was && start > was) return "startLater";

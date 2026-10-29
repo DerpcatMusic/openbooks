@@ -47,3 +47,10 @@ test("checkBooks: close date not in the future or before the start date; the sta
   // moving the close date back stays allowed (it unlocks the period)
   expect(checkBooks({ closeDate: "2026-09-30" }, { closeDate: "2026-01-31" }, today)).toBeNull();
 });
+
+test("checkBooks: the basis is cash or accrual, and either can be switched at any time", () => {
+  expect(checkBooks({}, { basis: "accrual" }, "2026-10-29")).toBeNull();
+  expect(checkBooks({ basis: "accrual" }, { basis: null }, "2026-10-29")).toBeNull();
+  expect(checkBooks({}, { basis: "cash" }, "2026-10-29")).toBeNull();
+  expect(checkBooks({}, { basis: "hybrid" as never }, "2026-10-29")).toBe("basis");
+});

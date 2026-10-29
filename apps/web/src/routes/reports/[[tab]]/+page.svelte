@@ -4,18 +4,17 @@
   // length (at most 5 years); lines drill into the transactions; CSV export and print. The aging tabs have their own as-of date and no period.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
-  import { agingReport, billSources, invoiceSources, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
-  import { S, doc, ent, isUS, period, periodLabel, periodTxns, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
+  import { agingReport, basisBridge, inPeriod, openAt, pl, priorPeriod, withTag } from "@openbooks/core";
+  import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
+  import { apSources, arSources, basis, ledgerRows } from "#lib/stores/basis.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
-  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Switch, Tabs } from "#lib/ui/index.ts";
+  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
   import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
   import Aging from "#lib/reports/Aging.svelte";
-  import type { Invoice } from "../../invoices/invoices.ts";
-  import type { Bill } from "../../bills/bills.ts";
   import { go } from "#lib/reports/go.ts";
-  import { activeMonths, agingCsv, bsStatement, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
+  import { activeMonths, agingCsv, bsStatement, cfIndirect, cfStatement, change, ledgerGroups, plStatement, toCsv, csv as toCsvRows, type Line } from "#lib/reports/statements.ts";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
@@ -42,8 +41,11 @@
   const tags = $derived(tagsDoc().tags);
   const tag = $derived(tags.some((g) => g.id === tagPick) ? tagPick : "");
   const scoped = <T extends { tags?: readonly string[] | undefined }>(xs: T[]) => (tag ? withTag(xs, tag) : xs);
-  const ts = $derived(scoped(periodTxns(p))),
-    priorTs = $derived(scoped(periodTxns(prior)));
+  // the books' basis: cash rows as they are, or the accrual rows (invoices and bills by their dates, payments clearing receivable / payable)
+  const accrual = $derived(basis() === "accrual");
+  const rows = $derived(ledgerRows());
+  const ts = $derived(scoped(rows.filter((x) => inPeriod(x, p)))),
+    priorTs = $derived(scoped(rows.filter((x) => inPeriod(x, prior))));
   const months = $derived(activeMonths(monthsIn(p), ts));
   const ml = (m: string) => `${mon(+m.slice(5) - 1)} ${m.slice(2, 4)}`;
   const byMonth = $derived(months.map((m) => ts.filter((x) => x.date.startsWith(m))));
@@ -57,7 +59,7 @@
         : { head: [t("common.total")], ts: [ts] },
   );
   const plLines = $derived(plStatement(cols.ts, us, t, catLabel));
-  const cfLines = $derived(cfStatement(cols.ts, t, catLabel));
+  const cfLines = $derived(accrual ? cfIndirect(cols.ts, t, catLabel) : cfStatement(cols.ts, t, catLabel));
   // headline numbers, this period vs the prior one (revenue includes other income, as the old view did)
   const P = $derived([ts, priorTs].map(pl));
   const plStats = $derived([
@@ -65,7 +67,9 @@
     { label: t(us ? "reports.revenue" : "reports.businessIncome"), v: P.map((x) => x.revenue + x.other), invert: false },
     ...(us ? [{ label: t("reports.expenses"), v: P.map((x) => x.cogs + x.opex), invert: true }] : []),
   ]);
-  const cfNet = $derived([ts, priorTs].map((xs) => xs.reduce((a, x) => a + x.amount, 0)));
+  const cfNet = $derived([ts, priorTs].map((xs) => xs.filter((x) => x.source !== "invoice" && x.source !== "bill").reduce((a, x) => a + x.amount, 0)));
+  // cash net income to accrual net income, for the period shown
+  const bridge = $derived(accrual && !tag ? basisBridge(S.data?.txns ?? [], rows, `${p.from}-01`, `${p.to}-31`) : null);
 
   // P&L chart: revenue / expenses per month (+ net line for US books)
   const chartRows = $derived(
@@ -78,11 +82,9 @@
   // Balance sheet at the end of the period (and of the prior one)
   const endOf = (ym: string) => `${ym}-${String(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).padStart(2, "0")}`;
   const asOf = $derived(v === "compare" ? [endOf(p.to), endOf(prior.to)] : [endOf(p.to)]);
-  // open invoices (AR) and bills (AP): a memo under the cash-basis sheet, or part of it with the accrual switch
-  let accrual = $state(false);
-  const name = (docName: string) => (id: string | null) => (id ? (doc<{ id: string; name?: string }[]>(docName).find((x) => x.id === id)?.name ?? "") : "");
-  const arSrc = $derived(invoiceSources(doc<Invoice[]>("invoices"), name("customers"))),
-    apSrc = $derived(billSources(doc<Bill[]>("bills"), name("vendors")));
+  // open invoices (AR) and bills (AP): a memo under the cash-basis sheet, or part of it on the accrual basis
+  const arSrc = $derived(arSources()),
+    apSrc = $derived(apSources());
   const bs = $derived(
     us && tab === "bs" && !tooLong
       ? bsStatement(asOf.map((iso) => ({ iso, balances: balances(iso), upto: S.data!.txns.filter((x) => x.date <= iso), open: { ar: openAt(arSrc, iso), ap: openAt(apSrc, iso) } })), t, accrual)
@@ -113,6 +115,8 @@
   const gl = $derived(ledgerGroups(ts, catLabel));
   const allOpen = $derived(gl.length > 0 && gl.every((g) => open[g.key]));
 
+  /** A ledger row opens its transaction; an invoice or bill row opens its page; the payment part of a row (id^ar) opens its transaction. */
+  const openRow = (tx: { id: string; source: string }) => (tx.source === "invoice" ? void goto("/invoices") : tx.source === "bill" ? void goto("/bills") : (S.drawer = tx.id.split("^")[0]!));
   const drill = (l: Line) => l.key && go("transactions", l.key === "ask" ? "ask" : l.key.startsWith("type:") ? l.key : `cat:${l.key}`);
 
   function exportCsv() {
@@ -145,7 +149,7 @@
   const pad = "px-3 first:ps-4 last:pe-4 sm:first:ps-5 sm:last:pe-5";
 </script>
 
-<PageHeader title={t("reports.title")} sub={aging ? t(`aging.title.${kind}`) : t("reports.sub", { entity: bidi(ent().short ?? ""), period: periodLabel(p) })}>
+<PageHeader title={t("reports.title")} sub={aging ? t(`aging.title.${kind}`) : t(accrual ? "reports.subAccrual" : "reports.sub", { entity: bidi(ent().short ?? ""), period: periodLabel(p) })}>
   {#snippet actions()}
     <div class="contents print:hidden">
       {#if tab !== "cfa"}
@@ -199,6 +203,18 @@
     <div class="panel mt-4 overflow-hidden">
       <Statement lines={plLines} cols={cols.head} first={t("common.ledgerAccount")} caption={t("reports.tab.pl")} currency={cur} change={v === "compare"} onopen={drill} />
     </div>
+    {#if bridge}
+      <div class="panel mt-4 p-4 sm:p-5" data-testid="basis-bridge">
+        <h3 class="text-[14px] text-ink">{t("reports.bridge.title")}</h3>
+        <p class="text-[13px] text-sub">{t("reports.bridge.sub", { period: periodLabel(p) })}</p>
+        <dl class="mt-3 space-y-1.5 text-[14px]">
+          {#each [["cash", bridge.cashNet], ["ar", bridge.dAr], ["ap", -bridge.dAp], ...(Math.abs(bridge.outside) > 0.004 ? [["outside", bridge.outside]] : []), ...(Math.abs(bridge.rest) > 0.004 ? [["rest", bridge.rest]] : [])] as [string, number][] as [k, n] (k)}
+            <div class="flex flex-wrap justify-between gap-x-3"><dt class="text-ink-2">{t(`reports.bridge.${k}`)}</dt><dd><Money value={n} currency={cur} /></dd></div>
+          {/each}
+          <div class="flex flex-wrap justify-between gap-x-3 border-t border-line pt-2"><dt class="text-ink">{t("reports.bridge.accrual")}</dt><dd><Money value={bridge.accrualNet} currency={cur} class="text-ink" /></dd></div>
+        </dl>
+      </div>
+    {/if}
   {:else if tab === "bs" && bs}
     <section class="flex flex-wrap items-end gap-x-10 gap-y-4">
       <div class="w-full text-[14px] text-ink-2">{t("reports.asOf", { date: mdy(asOf[0]!) })}</div>
@@ -206,7 +222,6 @@
         <Stat {label} value={bs.totals[0]![k]} delta={v === "compare" ? change(bs.totals[0]![k], bs.totals[1]![k]) : null} invert={k === "liab"} currency={cur} size="md" />
       {/each}
       <span class="flex-1"></span>
-      <Switch label={t("reports.accrual")} description={t("reports.accrualHint")} bind:checked={accrual} class="max-w-xs print:hidden" />
       <Segmented value={v} onchange={(k) => (view = k as View)} items={VIEWS} label={t("reports.tab.bs")} class="print:hidden" />
     </section>
     <div class="panel mt-5 overflow-hidden">
@@ -264,8 +279,8 @@
                   <tr
                     class="cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent/60"
                     tabindex="0"
-                    onclick={() => (S.drawer = tx.id)}
-                    onkeydown={(e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), (S.drawer = tx.id))}>
+                    onclick={() => openRow(tx)}
+                    onkeydown={(e) => (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget && (e.preventDefault(), openRow(tx))}>
                     <td class="h-11 border-b border-line whitespace-nowrap text-sub tabular-nums {pad} ps-8! sm:ps-10!">{mdy(tx.date)}</td>
                     <td class="ui-align h-11 max-w-0 min-w-48 truncate border-b border-line text-ink-2 {pad}" dir="auto" title={tx.desc}>{tx.who ? `${tx.who} · bit` : tx.desc}</td>
                     {#if us}<td class="ui-align h-11 border-b border-line whitespace-nowrap text-sub {pad}" dir="auto">{tx.account}</td>{/if}

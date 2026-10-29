@@ -36,8 +36,6 @@ export default {
   "reports.tooLong": "This range is too long",
   "reports.tooLongHint": "Reports cover up to 5 years at a time. Pick a shorter range.",
   "reports.totalOtherIncome": "Total other income",
-  "reports.accrual": "Include open invoices and bills",
-  "reports.accrualHint": "Adds accounts receivable and payable and the earnings they imply (accrual view).",
   "reports.ar": "Accounts receivable",
   "reports.ap": "Accounts payable",
   "reports.currentYear": "Current-year earnings",

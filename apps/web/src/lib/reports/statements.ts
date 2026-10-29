@@ -1,7 +1,7 @@
 // Financial statements as rows × columns, for the Reports page (port of web/src/views/Reports.svelte). Pure: callers pass the
 // transactions of each column (months, the period total, or this period vs the prior one) and the label functions.
 // Each column is computed independently, so the same builder serves the monthly view, the total and the period comparison.
-import { group, isCard, pl, plOf, type AgingReport, type PL } from "@openbooks/core";
+import { group, isCard, isPayable, isReceivable, pl, plOf, type AgingReport, type PL } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 
 type Row = Pick<Txn, "date" | "amount" | "category">;
@@ -70,6 +70,38 @@ export function cfStatement(cols: readonly (readonly Row[])[], t: Tr, cat: Tr): 
     });
   }
   out.push({ kind: "total", label: t("reports.netChange"), v: cols.map(sum) });
+  return out;
+}
+
+/** Cash flow on the accrual basis, indirect: net income, the change in receivables and payables (and money settled outside the books, which moved
+ *  no cash) = cash from operations; then the sections that are not income (financing, other, transfers) as the direct statement shows them.
+ *  `cols` are accrual rows (core basis.ts); the last line is the change in cash, which the sections add up to. */
+export function cfIndirect(cols: readonly (readonly Row[])[], t: Tr, cat: Tr): Line[] {
+  type R = Row & { source?: string; why?: string };
+  const rs = cols as readonly (readonly R[])[];
+  const doc = (x: R) => x.source === "invoice" || x.source === "bill";
+  const out: Line[] = [{ kind: "head", label: t("reports.cf.operating"), v: [] }];
+  const net = rs.map((c) => pl(c).net),
+    ar = rs.map((c) => sum(c.filter((x) => isReceivable(x.category)))),
+    ap = rs.map((c) => sum(c.filter((x) => isPayable(x.category)))),
+    gone = rs.map((c) => -sum(c.filter((x) => x.why === "outside")));
+  out.push(
+    { kind: "line", label: t("reports.netIncome"), v: net },
+    { kind: "line", label: t("reports.cf.dAr"), v: ar, key: "ar:accounts-receivable" },
+    { kind: "line", label: t("reports.cf.dAp"), v: ap, key: "ap:accounts-payable" },
+    ...(gone.some((x) => Math.abs(x) > 0.005) ? [{ kind: "line" as const, label: t("reports.cf.outside"), v: gone }] : []),
+    { kind: "sum", label: t("reports.cfNet.operating"), v: net.map((n, i) => n + ar[i]! + ap[i]! + gone[i]!) },
+  );
+  const all = rs.flat();
+  for (const s of ["financing", "other", "transfers"] as const) {
+    const keys = [...new Set(all.filter((x) => !isReceivable(x.category) && !isPayable(x.category) && cfSection(x.category) === s).map((x) => x.category))];
+    if (!keys.length) continue;
+    const lines = keys
+      .map((key): Line => ({ kind: "line", label: cat(key), key, v: rs.map((c) => of(c, key)) }))
+      .sort((a, b) => b.v.reduce((x, y) => x + y, 0) - a.v.reduce((x, y) => x + y, 0));
+    out.push({ kind: "head", label: t(`reports.cf.${s}`), v: [] }, ...lines, { kind: "sum", label: t(`reports.cfNet.${s}`), v: rs.map((_, i) => lines.reduce((a, l) => a + l.v[i]!, 0)) });
+  }
+  out.push({ kind: "total", label: t("reports.netChange"), v: rs.map((c) => sum(c.filter((x) => !doc(x)))) });
   return out;
 }
 

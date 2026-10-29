@@ -66,6 +66,7 @@ const BOOKS = {
   closeFuture: "The close date can't be in the future.",
   closeBeforeStart: "The close date can't be before the entries start date.",
   startLater: "The entries start date can only move earlier, never later: that would drop history the books already counted.",
+  basis: "The accounting basis is cash or accrual.",
 } as const;
 /** The machine's date, YYYY-MM-DD (the screens use the same clock). */
 const localToday = () => new Date().toLocaleDateString("sv");

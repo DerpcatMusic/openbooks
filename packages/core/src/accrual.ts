@@ -71,7 +71,12 @@ export interface AgingSource {
   date: string;
   due: string | null;
   gross: number;
-  payments: readonly Pick<Payment, "amount" | "date">[];
+  /** Payments by date; `txn` (the paying ledger row) is what the accrual basis (basis.ts) clears against. */
+  payments: readonly (Pick<Payment, "amount" | "date"> & { txn?: string | null })[];
+  /** Invoices: the revenue ledger account (basis.ts falls back to where the payment was filed, then to a default). */
+  account?: string | undefined;
+  /** Bills: the lines by expense ledger account. */
+  lines?: readonly { account: string; amount: number }[] | undefined;
 }
 export interface AgingSourceRow {
   id: string;
@@ -200,6 +205,9 @@ interface InvoiceLike {
   status?: string;
   payments?: readonly Payment[];
   paidDate?: string | null;
+  paidTxn?: string | null;
+  /** Revenue ledger account for the accrual basis. */
+  account?: string;
 }
 /** What the customer pays: items plus VAT (the same total as the Invoices page). */
 export const invoiceTotal = (i: Pick<InvoiceLike, "items" | "vat">) => {
@@ -221,11 +229,14 @@ export function invoiceSources(invoices: readonly InvoiceLike[], customer: (id: 
         date: i.issued!,
         due: i.due ?? null,
         gross,
-        payments: i.payments ?? (i.status === "paid" ? [{ amount: gross, date: i.paidDate ?? i.issued! }] : []),
+        // an invoice marked paid the old way is one payment of the whole total, against its paidTxn when it has one
+        payments: i.payments ?? (i.status === "paid" || i.paidTxn ? [{ txn: i.paidTxn ?? null, amount: gross, date: i.paidDate ?? i.issued! }] : []),
+        ...(i.account ? { account: i.account } : {}),
       };
     });
 }
 interface BillLike extends LegacyBill {
+  lines?: readonly { amount?: unknown; account?: string }[];
   number?: string;
   vendor?: string | null;
   due?: string | null;
@@ -244,6 +255,7 @@ export function billSources(bills: readonly BillLike[], vendor: (id: string | nu
       due: b.due ?? null,
       gross: billTotal(b),
       payments: b.payments,
+      lines: (b.lines ?? []).map((l) => ({ account: (l as { account?: string }).account ?? "", amount: +(l.amount as number) || 0 })),
     }));
 }
 

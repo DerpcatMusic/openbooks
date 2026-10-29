@@ -36,8 +36,6 @@ export default {
   "reports.tooLong": "טווח התאריכים ארוך מדי",
   "reports.tooLongHint": "דוחות מכסים עד 5 שנים בכל פעם. בחרו טווח קצר יותר.",
   "reports.totalOtherIncome": "סה״כ הכנסות אחרות",
-  "reports.accrual": "כולל חשבוניות וחשבונות פתוחים",
-  "reports.accrualHint": "מוסיף חייבים וספקים ואת הרווח שהם מרמזים עליו (תצוגת מצטבר).",
   "reports.ar": "חייבים (לקוחות)",
   "reports.ap": "ספקים",
   "reports.currentYear": "רווח השנה הנוכחית",
