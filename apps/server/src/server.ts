@@ -3,7 +3,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { classify } from "@openbooks/core";
 import { csvPreview, handle, read } from "@openbooks/importers";
 import type { EntityMeta, Rule, StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
@@ -372,13 +371,7 @@ export async function startServer(o: ServerOptions) {
         const ids = b.ids as string[],
           category = String(b.category);
         if (!Array.isArray(ids)) throw new Reply({ error: "bad request" }, 400);
-        await books((bs) =>
-          Effect.gen(function* () {
-            const r = classify(ids, category, yield* bs.rules(e), yield* bs.doc(e, "overrides", {}), (b.rule as string) || undefined);
-            if (b.rule) yield* bs.setRules(e, r.rules);
-            yield* bs.putDoc(e, "overrides", r.overrides);
-          }),
-        );
+        await books((bs) => bs.classify(e, ids, category, (b.rule as string) || undefined));
         break;
       }
       case "/api/rules":
@@ -504,6 +497,7 @@ export async function startServer(o: ServerOptions) {
         if (tag === "VaultLocked") return json({ error: "unlock OpenBooks in the app first" }, 423);
         if (tag === "AIError") return json({ error: (err as Error).message }, 400);
         if (tag === "UnknownEntity") return json({ error: "unknown entity" }, 404);
+        if (tag === "ClosedPeriod") return json({ error: (err as Error).message }, 409); // the books' close date refuses the write
         console.error(`${req.method} ${u.pathname}: ${(err as Error)?.name ?? "error"}`); // never the message: it could carry request data
         return json({ error: "internal error" }, 500);
       }

@@ -12,6 +12,7 @@ import p38 from "./parts/3-8.he.ts";
 import p310 from "./parts/3-10.he.ts";
 import bills from "./parts/bills.he.ts";
 import cfa from "./parts/cfa.he.ts";
+import recon from "./parts/recon.he.ts";
 export default {
   ...a,
   ...b,
@@ -26,6 +27,7 @@ export default {
   ...p310,
   ...bills,
   ...cfa,
+  ...recon,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",
