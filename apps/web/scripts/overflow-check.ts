@@ -47,12 +47,12 @@ function audit(): string[] {
     if (hidden(el) || el.closest(".form-page")) continue; // the 1301 form overlay is a fixed-size printed page
     const cs = getComputedStyle(el);
     if (cs.display === "inline" || cs.display === "contents") continue;
-    if (!/auto|scroll/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1)
+    if (!/auto|scroll/.test(cs.overflowX) && cs.textOverflow !== "ellipsis" && el.scrollWidth > el.clientWidth + 1)
       bad.push(`${name(el)}: content ${el.scrollWidth}px wider than box ${el.clientWidth}px`);
     const fixedH = cs.height !== "auto" && /^(button|a)$/i.test(el.tagName) ? true : el.matches("[data-ui=badge], [role=tab], [role=radio]");
     if (fixedH && !/auto|scroll/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1)
       bad.push(`${name(el)}: text spills vertically (${el.scrollHeight} > ${el.clientHeight})`);
-    if (el.matches("[data-ui=badge]") && el.getBoundingClientRect().height > 1.8 * (parseFloat(cs.lineHeight) || 20)) bad.push(`${name(el)}: badge wraps`);
+    if (el.matches("[data-ui=badge]") && el.getBoundingClientRect().height > 2.4 * (parseFloat(cs.fontSize) || 12)) bad.push(`${name(el)}: badge wraps`);
     const r = el.getBoundingClientRect();
     if ((r.right > innerWidth + 1 || r.left < -1) && !inScroller(el))
       bad.push(`${name(el)}: outside the viewport (${Math.round(r.left)}..${Math.round(r.right)} of ${innerWidth})`);

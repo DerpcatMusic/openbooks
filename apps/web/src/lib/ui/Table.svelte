@@ -104,7 +104,7 @@
       clip-path: inset(50%);
     }
     .stack tr {
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 0.625rem; /* td adds 0.375rem back: inline controls use -mx-1.5 */
       border-bottom: 1px solid var(--color-line);
     }
     .stack td {
@@ -117,10 +117,19 @@
       max-width: none;
       height: auto;
       border: 0;
-      padding: 0.25rem 0;
+      padding: 0.25rem 0.375rem;
       white-space: normal;
       text-align: end;
       overflow-wrap: anywhere;
+    }
+    .stack td > :global(:not([data-ui="badge"])) {
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .stack td > :global(button) {
+      height: auto;
+      min-height: 1.75rem;
+      white-space: normal;
     }
     .stack td[data-label]::before {
       content: attr(data-label);
