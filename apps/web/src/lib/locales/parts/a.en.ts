@@ -88,7 +88,7 @@ export default {
   "accounts.newHint": "New ledger accounts: pick “+ New ledger account…” in any account picker and name it {code}.",
 
   "rules.title": "Rules",
-  "rules.sub": "When a transaction's description, bank memo or [Mercury category] contains the text, it gets the ledger account. First match wins.",
+  "rules.sub": "If all of a rule's conditions hold, it sets the ledger account and/or adds tags. The first matching rule that sets an account wins, and a choice you made by hand always beats rules. Rules apply to past and new transactions.",
   "rules.discard": "Discard",
   "rules.new": "New rule",
   "rules.save": "Save rules",

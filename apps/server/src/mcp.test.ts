@@ -176,6 +176,14 @@ describe("openbooks mcp (stdio)", () => {
     const rules = (await s.tool("list_rules")).rules;
     expect(await s.tool("set_rules", { rules }, false)).toContain("confirm: true");
     expect((await s.tool("set_rules", { rules, confirm: true })).rules).toEqual(rules);
+    // rule objects ("If … Then …") next to the legacy tuples: listed back as written, validated like tuples
+    const v2 = { when: [{ field: "description", op: "startsWith", value: "card" }, { field: "amount", op: "between", value: 1, to: 99 }], then: { account: "expense:equipment", tags: ["shop"] } };
+    expect((await s.tool("set_rules", { rules: [v2, ...rules], confirm: true })).rules).toEqual([v2, ...rules]);
+    expect((await s.tool("list_rules")).rules[0]).toEqual(v2);
+    await s.tool("set_rules", { rules: [{ when: [], then: { account: "expense:equipment" } }], confirm: true }, false); // no condition
+    await s.tool("set_rules", { rules: [{ ...v2, then: { account: "nonsense" } }], confirm: true }, false); // not a ledger account
+    await s.tool("set_rules", { rules: [{ ...v2, then: {} }], confirm: true }, false); // nothing to do
+    expect((await s.tool("set_rules", { rules, confirm: true })).rules).toEqual(rules);
     const many = Array(21).fill(host[1]!.id);
     expect((await s.call("classify", { ids: many, category: "expense:software" })).isError).toBe(true); // no elicitation capability
     const el = { _meta: META({ elicitation: {} }) };

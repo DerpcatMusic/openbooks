@@ -14,7 +14,7 @@ export default {
   "rules34.empty": "No rules yet",
   "rules34.emptyText": "Add one here, or choose “Create rule” after categorizing a transaction.",
   "rules34.previewTitle": "Matches for “{rule}”",
-  "rules34.previewHelp": "These transactions land on this rule (it's the first one that matches them) and go to {cat}.",
+  "rules34.previewHelp": "Transactions this rule matches. The first matching rule that sets a ledger account decides a transaction's account.",
   "rules34.unmatchedTitle": "Matched by no rule",
   "rules34.unmatchedHelp": "No rule matches these. Rows you categorized by hand aren't counted.",
   "rules34.draft": "Includes your unsaved changes.",

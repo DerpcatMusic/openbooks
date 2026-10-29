@@ -1,9 +1,9 @@
 // The books store: one reactive State from the server (GET /api/state and every write's answer), the open entity, year, period,
 // theme, toasts, and the formatters every screen uses. Pure ledger math lives in @openbooks/core; this file only binds it to S.
 // Live updates: one EventSource on /api/events; a change for the open entity (or entity: null) re-fetches the whole state.
-import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest } from "@openbooks/core";
+import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest, emptyTags, normalizeRule } from "@openbooks/core";
 import { bankAccounts, chartOfAccounts, closedOn, group, inPeriod, monthsIn, nextCode, type Coa, type CoaEntry, type Period } from "@openbooks/core";
-import type { Txn } from "@openbooks/schema";
+import type { RuleInput, TagsDoc, Txn } from "@openbooks/schema";
 import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
@@ -133,7 +133,7 @@ export const catLabel = (c: string) =>
   coa()[c]?.name || (has(`cat.${c}`) ? t(`cat.${c}`) : c.split(":")[1] || c).replace(/-/g, " ").replace(/^./, (m) => m.toUpperCase());
 /** Ledger accounts in a stable order (the pack's chart, then in order of first use, then added in the chart): default codes follow it. */
 function ledgerList() {
-  const used = S.data ? S.data.txns.map((x) => x.category).concat(S.data.rules.map((r) => r[1].trim())) : [];
+  const used = S.data ? S.data.txns.map((x) => x.category).concat(S.data.rules.map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account.trim()] : []))) : [];
   const base = pack()?.manifest.accounts ?? PACKS.find((p) => p.manifest.id === "us")!.manifest.accounts;
   const added = Object.keys(coa()).filter((c) => (TYPE_KEYS as readonly string[]).includes(group(c)));
   return [...new Set([...base, ...used, ...added])].filter((c) => c !== "ask");
@@ -222,15 +222,18 @@ function accept(d: State | NoBooks) {
   if (!d.years.includes(S.year)) S.year = d.years.at(-1) ?? new Date().getFullYear();
 }
 /**
- * Run a request for the current entity; drop the answer if the user switched entity meanwhile. A refused write (`write`) re-reads
- * the books: saveDoc already showed the new value locally. 409 = the close date refused it (see `closeDate`).
+ * Run a request for the current entity. Only the newest request's answer is accepted: a reload that was asked before a write must not
+ * land after it and put the old state back (the next write would then save that stale doc over the new one). A refused write (`write`)
+ * re-reads the books: saveDoc already showed the new value locally. 409 = the close date refused it (see `closeDate`).
  */
+let latest = 0;
 async function run(req: (e: string) => Promise<State | NoBooks>, write = false) {
-  const e = S.e;
+  const e = S.e,
+    mine = ++latest;
   S.busy = true;
   try {
     const d = await req(e);
-    if (e === S.e) accept(d);
+    if (e === S.e && mine === latest) accept(d);
   } catch (x) {
     const close = closeDate();
     toast(x instanceof ApiError && x.status === 409 && close ? t("close.refused", { date: mdy(close) }) : String((x as Error).message || x));
@@ -273,7 +276,7 @@ export async function createEntity(meta: Entity) {
   }
 }
 export const classify = (ids: readonly string[], category: string, rule?: string) => call("/api/category", { ids, category, rule });
-export const saveRules = (rules: readonly (readonly [string, string])[]) => call("/api/rules", { rules });
+export const saveRules = (rules: readonly RuleInput[]) => call("/api/rules", { rules });
 export const setForm = (values: Record<string, string | null>, year = S.year) => call("/api/form", { year, values });
 export const setProfile = (p: Record<string, unknown>) => call("/api/profile", p);
 /** Connections: /api/connect | /api/sync | /api/disconnect with the provider's body. */
@@ -304,6 +307,9 @@ export const closeDate = (): string | null => doc<{ closeDate?: string | null }>
 export const setCloseDate = (date: string | null) => saveDoc("books", date ? { closeDate: date } : null);
 /** True for a date on or before the close date. */
 export const closed = (date: string) => closedOn(date, closeDate());
+/** Tags (doc "tags": tags, tag groups, hand-made assignments; pure edits in @openbooks/core tags.ts). Txn.tags has hand-made + rule tags. */
+export const tagsDoc = () => doc<TagsDoc>("tags", emptyTags());
+export const saveTags = (next: TagsDoc) => saveDoc("tags", next);
 export const attachmentsOf = (id: string) => S.data?.attachments?.[id] ?? [];
 export async function attach(id: string, files: File[]) {
   for (const f of files) await run((e) => api.attach(e, id, f));

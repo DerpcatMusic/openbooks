@@ -4,10 +4,10 @@
   // length; lines drill into the transactions; CSV export and print.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
-  import { pl, priorPeriod } from "@openbooks/core";
-  import { S, ent, isUS, period, periodLabel, periodTxns, monthsIn, balances, catLabel, mon, mdy } from "#lib/stores/books.svelte.ts";
+  import { pl, priorPeriod, withTag } from "@openbooks/core";
+  import { S, ent, isUS, period, periodLabel, periodTxns, monthsIn, balances, catLabel, mon, mdy, tagsDoc } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
-  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Stat, Tabs } from "#lib/ui/index.ts";
+  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
   import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
@@ -31,8 +31,13 @@
 
   const p = $derived(period()),
     prior = $derived(priorPeriod(p));
-  const ts = $derived(periodTxns(p)),
-    priorTs = $derived(periodTxns(prior));
+  // report on the activity of one tag: P&L, cash flow and the ledger use only its transactions (the balance sheet is of the whole books)
+  let tagPick = $state("");
+  const tags = $derived(tagsDoc().tags);
+  const tag = $derived(tags.some((g) => g.id === tagPick) ? tagPick : "");
+  const scoped = <T extends { tags?: readonly string[] | undefined }>(xs: T[]) => (tag ? withTag(xs, tag) : xs);
+  const ts = $derived(scoped(periodTxns(p))),
+    priorTs = $derived(scoped(periodTxns(prior)));
   const months = $derived(activeMonths(monthsIn(p), ts));
   const ml = (m: string) => `${mon(+m.slice(5) - 1)} ${m.slice(2, 4)}`;
   const byMonth = $derived(months.map((m) => ts.filter((x) => x.date.startsWith(m))));
@@ -103,6 +108,9 @@
     <div class="contents print:hidden">
       {#if tab !== "cfa"}
         <PeriodPicker />
+        {#if tags.length && tab !== "bs"}
+          <Select variant="pill" icon="tag" label={t("tags.filter")} value={tag} onchange={(v) => (tagPick = v)} options={[{ value: "", label: t("tags.allTags") }, ...tags.map((g) => ({ value: g.id, label: g.name }))]} />
+        {/if}
         <Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button>
       {/if}
       <Button icon="printer" onclick={() => print()}>{t("common.print")}</Button>

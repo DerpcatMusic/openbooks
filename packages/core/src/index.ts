@@ -1,5 +1,7 @@
 export * from "./close.ts";
 export * from "./ledger.ts";
+export * from "./rules.ts";
+export * from "./tags.ts";
 export * from "./reports.ts";
 export * from "./coa.ts";
 export * from "./py.ts";

@@ -268,4 +268,37 @@ describe("Books", () => {
     expect(r.es.map((e) => e.id)).toEqual(["acme", "new-co", "noa"]);
     expect(statSync(join(home, "new-co/inbox")).isDirectory()).toBe(true);
   });
+
+  test("rules v2: the legacy rule table is read until rules are saved, then doc \"rules\" (table untouched); rule and hand tags reach the ledger", async () => {
+    const home = books();
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const legacy = yield* b.rules("acme");
+        const openai = (yield* b.ledger("acme")).find((t) => t.desc === "OpenAI")!;
+        yield* b.putDoc("acme", "tags", {
+          groups: [],
+          tags: [
+            { id: "ads", name: "Ads" },
+            { id: "big", name: "Big" },
+          ],
+          on: { [openai.id]: ["big", "deleted"] },
+        });
+        const mine = { when: [{ field: "description", op: "contains", value: "meta" }, { field: "direction", op: "out" }], then: { account: "expense:advertising", tags: ["ads"] } } as const;
+        yield* b.setRules("acme", [mine, ...legacy]);
+        return { legacy, after: yield* b.rules("acme"), led: yield* b.ledger("acme"), st: yield* b.state("acme") };
+      }),
+    );
+    expect(r.legacy).toContainEqual(["Stripe", "revenue:plugin-sales"]);
+    expect(r.after).toHaveLength(r.legacy.length + 1);
+    expect(r.after.slice(1)).toEqual(r.legacy); // legacy tuples stay tuples
+    expect(sql(home, "select count(*) from rule where entity = 'acme'")).toEqual([[r.legacy.length]]); // the books.py table is never rewritten
+    expect(r.st.rules).toEqual(r.after);
+    expect(Object.keys(r.st.docs)).toEqual(["invoices", "journal", "tags"]); // "rules" has its own field, like form/profile/overrides
+    const by = (d: string) => r.led.find((t) => t.desc === d);
+    expect(by("Meta Ads")).toMatchObject({ category: "expense:advertising", why: "description contains meta · direction out", tags: ["ads"] });
+    expect(by("OpenAI")).toMatchObject({ category: "cogs:ai-models", why: "OpenAI", tags: ["big"] }); // "deleted" is not a tag any more
+    expect(by("Stripe")).not.toHaveProperty("tags");
+  });
 });

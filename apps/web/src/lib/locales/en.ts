@@ -14,6 +14,7 @@ import p310 from "./parts/3-10.en.ts";
 import bills from "./parts/bills.en.ts";
 import cfa from "./parts/cfa.en.ts";
 import recon from "./parts/recon.en.ts";
+import tags from "./parts/tags.en.ts";
 export default {
   ...a,
   ...b,
@@ -29,6 +30,7 @@ export default {
   ...bills,
   ...cfa,
   ...recon,
+  ...tags,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

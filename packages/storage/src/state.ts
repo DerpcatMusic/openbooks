@@ -4,7 +4,7 @@ import { statSync } from "node:fs";
 import { join } from "node:path";
 import { il } from "@openbooks/country-il";
 import { us } from "@openbooks/country-us";
-import type { EntityMeta, Rule, StatementCheck, Txn } from "@openbooks/schema";
+import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 import { ls, pySorted } from "./db.ts";
 
 export interface Connection {
@@ -26,7 +26,7 @@ export interface State {
   checks: StatementCheck[];
   form: Record<string, unknown>;
   profile: Record<string, unknown>;
-  rules: Rule[];
+  rules: RuleInput[];
   years: number[];
   proofs: Record<string, string[]>;
   unreadable: string[];
@@ -37,8 +37,8 @@ export interface State {
   connections: Connection[];
 }
 
-/** Docs with their own endpoints, left out of state.docs. */
-export const RESERVED = new Set(["form", "profile", "overrides"]);
+/** Docs with their own endpoints (or their own field in the state), left out of state.docs. */
+export const RESERVED = new Set(["form", "profile", "overrides", "rules"]);
 
 /** connectors.status(e): the non-secret view of each connection. A vault-sealed row counts as connected. */
 export function connections(db: Database, e: string): Connection[] {

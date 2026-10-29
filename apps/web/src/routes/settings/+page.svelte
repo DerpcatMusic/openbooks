@@ -125,6 +125,10 @@
     </div>
   </Card>
 
+  <Card title={t("settings.tags")} description={t("settings.tagsHint")}>
+    <Button icon="tag" href="/tags">{t("settings.openTags")}</Button>
+  </Card>
+
   <section id="security" class="scroll-mt-4">
     <Card title={t("vault.section")} description={t("vault.sectionHint")}>
       <VaultPanel />

@@ -33,8 +33,8 @@ export const StoredTxn = Schema.Struct({ ...StatementRow.fields, key: Schema.opt
 export type StoredTxn = typeof StoredTxn.Type;
 
 export const Why = Schema.String; // "manual" | "journal" | "" (ask) | the matching rule text
-/** A ledger row: a stored transaction (or a journal line) with its ledger account. */
-export const Txn = Schema.Struct({ ...StoredTxn.fields, category: Schema.String, why: Why });
+/** A ledger row: a stored transaction (or a journal line) with its ledger account and, when it has any, its tag ids (by hand + rules). */
+export const Txn = Schema.Struct({ ...StoredTxn.fields, category: Schema.String, why: Why, tags: Schema.optionalKey(Schema.Array(Schema.String)) });
 export type Txn = typeof Txn.Type;
 
 /** Reconciliation line a reader reports (statement table, `checks` column). */
@@ -48,9 +48,37 @@ export const StatementCheck = Schema.Struct({
 });
 export type StatementCheck = typeof StatementCheck.Type;
 
-/** [match text, ledger account]; first match wins. */
-export const Rule = Schema.Tuple([Schema.String, Schema.String]);
+/** Legacy rule [match text, ledger account]: one case-sensitive "contains" over "desc memo [mcat]". Still stored and accepted as is. */
+export const LegacyRule = Schema.Tuple([Schema.String, Schema.String]);
+export type LegacyRule = typeof LegacyRule.Type;
+/** One condition of a rule. "text" is the legacy match; the others are the editor's fields. Amounts compare the absolute value. */
+export const RuleCondition = Schema.Union([
+  Schema.Struct({ field: Schema.Literal("text"), op: Schema.Literal("contains"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("description"), op: Schema.Literals(["contains", "equals", "startsWith"]), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("counterparty"), op: Schema.Literal("contains"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("account"), op: Schema.Literal("is"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("direction"), op: Schema.Literals(["in", "out"]) }),
+  Schema.Struct({ field: Schema.Literal("amount"), op: Schema.Literals(["eq", "gte", "lte"]), value: Schema.Finite }),
+  Schema.Struct({ field: Schema.Literal("amount"), op: Schema.Literal("between"), value: Schema.Finite, to: Schema.Finite }),
+]);
+export type RuleCondition = typeof RuleCondition.Type;
+/** "If every condition holds, Then set the ledger account and/or add tags (tag ids)." Rules are ordered; the first with an account sets it. */
+export const Rule = Schema.Struct({
+  when: Schema.Array(RuleCondition),
+  then: Schema.Struct({ account: Schema.optionalKey(Schema.String), tags: Schema.optionalKey(Schema.Array(Schema.String)) }),
+});
 export type Rule = typeof Rule.Type;
+/** What the `rule` table / doc "rules" holds and tools accept: legacy tuples and rule objects side by side, in order. */
+export const RuleInput = Schema.Union([LegacyRule, Rule]);
+export type RuleInput = typeof RuleInput.Type;
+
+/** doc "tags": tag groups, tags (optional group and colour token), and the tags each transaction id carries by hand (rules add more on read). */
+export const TagsDoc = Schema.Struct({
+  groups: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  tags: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String, group: Schema.optionalKey(Schema.String), color: Schema.optionalKey(Schema.String) })),
+  on: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+});
+export type TagsDoc = typeof TagsDoc.Type;
 
 export const JournalLine = Schema.Struct({
   account: Schema.String,
