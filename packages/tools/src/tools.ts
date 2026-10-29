@@ -1,4 +1,4 @@
-// The 16 tools of mcp_server.py, same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
+// The 16 tools of mcp_server.py (+ list_bills / draft_bill), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
 // against the Python server in apps/server/src/mcp.test.ts). Amounts round like Python (pyRound); labels are the English chart
 // of accounts, as before: tool results feed models and MCP clients, the UI translates on its own.
 import { readdirSync } from "node:fs";
@@ -692,6 +692,114 @@ const create_invoice = defineTool({
     }),
 });
 
+// ---------- bills payable (docs "bills" + "vendors"; apps/web/src/routes/bills/bills.ts is the UI's copy of this logic) ----------
+type Bill = {
+  id: string;
+  number?: string;
+  vendor?: string | null;
+  date?: string;
+  due?: string | null;
+  lines?: { amount?: unknown }[];
+  status?: string;
+  created?: string;
+};
+const billTotal = (b: Bill) => r2(sum((b.lines ?? []).map((l) => num(l.amount))));
+const billState = (b: Bill, now: string) => (b.status === "open" && b.due && b.due < now ? "overdue" : (b.status ?? "draft"));
+
+const list_bills = defineTool({
+  name: "list_bills",
+  title: { en: "List bills", he: "רשימת חשבונות ספקים" },
+  description: "Bills you owe vendors (accounts payable) with vendor name, total, amount due and state (draft, open, overdue, paid, void).",
+  kind: "read",
+  input: input({}),
+  output: Schema.Struct({
+    ...CUR,
+    bills: Schema.Array(Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountDue: N, state: S })),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const vend = new Map((yield* docOf<{ id: string; name?: string }[]>(e, "vendors", [])).map((v) => [v.id, v.name ?? null]));
+      const now = today();
+      const bills = [...(yield* docOf<Bill[]>(e, "bills", []))].sort(
+        (x, y) => (y.date ?? "").localeCompare(x.date ?? "") || (y.created ?? "").localeCompare(x.created ?? ""),
+      );
+      return {
+        currency: e.meta.currency ?? null,
+        bills: bills.map((b) => {
+          const state = billState(b, now),
+            total = billTotal(b);
+          return {
+            ...b,
+            number: b.number ?? null,
+            vendorName: vend.get(b.vendor ?? "") ?? null,
+            date: b.date ?? null,
+            due: b.due ?? null,
+            total,
+            amountDue: state === "open" || state === "overdue" ? total : 0,
+            state,
+          };
+        }),
+      };
+    }),
+});
+
+const draft_bill = defineTool({
+  name: "draft_bill",
+  title: { en: "Draft bill", he: "טיוטת חשבון ספק" },
+  description:
+    "WRITES: save a DRAFT bill from a vendor (money you owe); a new vendor name is added to vendors. It is never approved or marked paid here: the user reviews it in the app (Bills).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: false },
+  input: input({
+    vendor: S.check(Schema.isBetweenLength(1, 200)).annotate({ description: "Vendor name (matched case-insensitively)" }),
+    lines: Schema.Array(Schema.Struct({ desc: S.check(Schema.isMaxLength(500)), amount: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)) })).check(
+      Schema.isBetweenLength(1, 100),
+    ),
+    date: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    due: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default date + the vendor's terms (30 days)")),
+    memo: Schema.optionalKey(S.check(Schema.isMaxLength(2000))),
+  }),
+  output: Schema.Struct({
+    bill: Schema.Struct({ id: S, number: S, status: S, vendorName: S, total: N, date: S, due: S }),
+    note: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const name = a.vendor.trim();
+      if (!name) return yield* fail("vendor name is empty");
+      const lines = a.lines.map((l) => ({ desc: l.desc.trim(), amount: l.amount })).filter((l) => l.desc || l.amount);
+      if (!lines.length) return yield* fail("add at least one line with a description or an amount");
+      const date = yield* isoDate(a.date || today(), "date");
+      const dueIn = a.due ? yield* isoDate(a.due, "due") : null; // validate before the vendor is saved
+      const vendors = yield* docOf<{ id: string; name?: string; account?: string; terms?: number }[]>(e, "vendors", []);
+      let v = vendors.find((x) => (x.name ?? "").toLowerCase() === name.toLowerCase());
+      if (!v) {
+        v = { id: uid8(), name };
+        yield* putDoc(e, "vendors", [...vendors, v]);
+      }
+      const due = dueIn ?? addDays(date, v.terms ?? 30);
+      const bills = yield* docOf<Bill[]>(e, "bills", []);
+      const max = Math.max(0, ...bills.map((b) => +String(b.number ?? "").replace(/\D/g, "") || 0));
+      const bill = {
+        id: uid8(),
+        number: `BILL-${String(max + 1).padStart(4, "0")}`,
+        vendor: v.id,
+        date,
+        due,
+        lines: lines.map((l) => ({ ...l, account: v.account ?? "" })),
+        status: "draft",
+        paidTxn: null,
+        paidDate: null,
+        memo: (a.memo ?? "").trim(),
+        created: new Date().toISOString(),
+      };
+      yield* putDoc(e, "bills", [...bills, bill]);
+      return { bill: { ...bill, vendorName: v.name ?? name, total: billTotal(bill) }, note: "Saved as a draft. Review and approve it in the app (Bills)." };
+    }),
+});
+
 // ---------- tax ----------
 type IlRow = { brackets: [number | null, number][]; point: number; capitalRate?: number; zairCeiling?: number };
 const taxTable = (y: number, country = "il") =>
@@ -858,7 +966,7 @@ const bank_sync = defineTool({
     }),
 });
 
-/** Every tool, in mcp_server.py's order. */
+/** Every tool, in mcp_server.py's order (the bills tools are new in the TypeScript app, after the invoice tools). */
 export const tools: readonly Tool[] = [
   list_entities,
   list_transactions,
@@ -873,6 +981,8 @@ export const tools: readonly Tool[] = [
   add_journal_entry,
   list_invoices,
   create_invoice,
+  list_bills,
+  draft_bill,
   tax_summary,
   bank_status,
   bank_sync,

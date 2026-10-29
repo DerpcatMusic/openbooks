@@ -129,7 +129,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(16);
+    expect(Object.keys(tools)).toHaveLength(18);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -232,6 +232,23 @@ describe("openbooks mcp (stdio)", () => {
     expect(ls).toHaveLength(1);
     expect(ls[0]).toMatchObject({ customerName: "New Customer", state: "draft" });
 
+    const bill = (
+      await s.tool("draft_bill", {
+        vendor: "New Vendor",
+        lines: [
+          { desc: "Hosting", amount: 40 },
+          { desc: "Support", amount: 10 },
+        ],
+        date: "2026-06-01",
+      })
+    ).bill;
+    expect(bill).toMatchObject({ status: "draft", number: "BILL-0001", due: "2026-07-01", total: 50, vendorName: "New Vendor" });
+    const bill2 = (await s.tool("draft_bill", { vendor: "new vendor", lines: [{ desc: "More", amount: 5 }], date: "2026-06-02", due: "2026-06-10" })).bill;
+    expect(bill2).toMatchObject({ number: "BILL-0002", due: "2026-06-10", vendorName: "New Vendor" }); // same vendor, matched case-insensitively
+    const bs = (await s.tool("list_bills")).bills;
+    expect(bs).toHaveLength(2);
+    expect(bs[0]).toMatchObject({ number: "BILL-0002", vendorName: "New Vendor", total: 5, state: "draft", amountDue: 0 }); // newest first
+
     const us = await s.tool("tax_summary", { year: 2026 });
     expect(us.ownerContributions).toEqual({ count: 2, total: 510 }); // 500 wire + 10 journal
     expect(us.obligations[0].due).toBe("2027-04-15");
@@ -331,7 +348,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(16);
+    expect(r!.result.tools).toHaveLength(18);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -368,7 +385,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(16);
+      expect((await c.listTools()).tools).toHaveLength(18);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };

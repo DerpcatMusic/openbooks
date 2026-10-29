@@ -44,7 +44,7 @@
     shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10",
   };
 
-  type Item = { href: string; label: string; icon: string };
+  type Item = { href: string; label: string; icon: string; sub?: boolean };
   const NAV: [string | null, Item[]][] = $derived([
     [
       null,
@@ -52,6 +52,8 @@
         { href: "/home", label: t("nav.home"), icon: "home" },
         { href: "/transactions", label: t("nav.transactions"), icon: "list" },
         { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear())) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
+        { href: "/bills", label: t("nav.payableBills"), icon: "calendar" },
+        { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
         { href: "/review", label: t("nav.review"), icon: "sparkle" },
         { href: "/reports", label: t("nav.reports"), icon: "report" },
         { href: "/counterparties", label: t("nav.counterparties"), icon: "users" },
@@ -318,7 +320,7 @@
         <nav aria-label={t("nav.main")} class="flex gap-0.5 px-3 pt-3 max-md:overflow-x-auto max-md:pb-3 md:flex-col">
           {#each NAV as [section, items], i (i)}
             {#if section}<div class="px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub max-md:hidden">{section}</div>{/if}
-            {#each items as it (it.href)}{@render navLink(it)}{/each}
+            {#each items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
           {/each}
           {@render navLink({ href: "/settings", label: t("nav.settings"), icon: "settings" }, "md:hidden")}
         </nav>
