@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Renders toast() messages at the bottom centre. The live region is always mounted so screen readers announce new toasts.
+  // Renders toast() messages at the bottom centre (above anything fixed down there that sets --toast-lift, like the bulk bar). The live region is always mounted so screen readers announce new toasts.
   // Messages wrap (never truncate); hovering or focusing a toast pauses its timer.
   import { t } from "../i18n.svelte.ts";
   import IconButton from "./IconButton.svelte";
@@ -21,7 +21,7 @@
   };
 </script>
 
-<div data-ui="toaster" role="status" aria-live="polite" class="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4">
+<div data-ui="toaster" role="status" aria-live="polite" class="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+var(--toast-lift,0px))] z-[60] flex flex-col items-center gap-2 px-4">
   {#each toasts as it (it.id)}
     <div
       use:timed={it}

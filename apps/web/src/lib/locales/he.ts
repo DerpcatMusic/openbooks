@@ -10,6 +10,17 @@ import p34 from "./parts/3-4.he.ts";
 import p37 from "./parts/3-7.he.ts";
 import p38 from "./parts/3-8.he.ts";
 import p310 from "./parts/3-10.he.ts";
+import bills from "./parts/bills.he.ts";
+import cfa from "./parts/cfa.he.ts";
+import gaps from "./parts/gaps.he.ts";
+import recon from "./parts/recon.he.ts";
+import tags from "./parts/tags.he.ts";
+import taxtags from "./parts/taxtags.he.ts";
+import gaps2 from "./parts/gaps2.he.ts";
+import gaps3 from "./parts/gaps3.he.ts";
+import filingsIl from "./parts/filings-il.he.ts";
+import filingsUs from "./parts/filings-us.he.ts";
+import qa2 from "./parts/qa2.he.ts";
 export default {
   ...a,
   ...b,
@@ -22,6 +33,17 @@ export default {
   ...p37,
   ...p38,
   ...p310,
+  ...bills,
+  ...cfa,
+  ...gaps,
+  ...recon,
+  ...tags,
+  ...taxtags,
+  ...gaps2,
+  ...gaps3,
+  ...filingsIl,
+  ...filingsUs,
+  ...qa2,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",
@@ -103,6 +125,12 @@ export default {
   "theme.system": "לפי המערכת",
   "theme.dark": "כהה",
   "toast.addedFiles": { one: "נוסף קובץ אחד", two: "נוספו שני קבצים", other: "נוספו {n} קבצים" },
+  "toast.notStatement": {
+    one: "הקובץ {name} אינו דף חשבון ש-OpenBooks מזהה, ולכן נשמר במסמכים ולא יובא. מפו את העמודות כדי לייבא אותו.",
+    two: "שני קבצים לא זוהו כדפי חשבון (מתחיל ב-{name}), ולכן נשמרו במסמכים ולא יובאו. מפו את העמודות כדי לייבא אותם.",
+    other: "{n} קבצים לא זוהו כדפי חשבון (מתחיל ב-{name}), ולכן נשמרו במסמכים ולא יובאו. מפו את העמודות כדי לייבא אותם.",
+  },
+  "toast.mapColumns": "מיפוי עמודות",
 
   // ---- מבנה העסק ----
   "biz.books": "ספרים",
@@ -114,12 +142,18 @@ export default {
   "biz.osek-murshe.sub": "גובה מע״מ · הוצאות בפועל",
   "biz.ltd": "חברה בע״מ",
   "biz.ltd.sub": "מס חברות · משכורת ודיבידנד",
-  "biz.llc-disregarded": "LLC עם בעלים יחיד",
+  "biz.llc-disregarded": "LLC עם בעלים יחיד, בעלים זר",
   "biz.llc-disregarded.sub": "ישות שקופה · 5472 ו-1120 פרופורמה לבעלים זר",
-  "biz.llc-ccorp": "LLC הממוסה כ-C-corp",
-  "biz.llc-ccorp.sub": "21% מס פדרלי · טופס 1120 · ניכוי במקור מדיבידנד",
-  "biz.llc-partnership": "LLC עם כמה בעלים",
+  "biz.llc-ccorp": "תאגיד C (או LLC הממוסה כתאגיד)",
+  "biz.llc-ccorp.sub": "21% מס פדרלי · טופס 1120 · מקדמות 1120-W",
+  "biz.llc-partnership": "שותפות / LLC עם כמה בעלים",
   "biz.llc-partnership.sub": "שותפות · טופס 1065 ו-K-1",
+  "biz.s-corp.sub": "ישות שקופה · טופס 1120-S ו-K-1",
+  "biz.s-corp": "תאגיד S (או LLC הממוסה כ-S)",
+  "biz.llc-us-owner.sub": "ישות שקופה · Schedule C ו-SE כמו עצמאי",
+  "biz.llc-us-owner": "LLC עם בעלים יחיד, בעלים תושב ארה״ב",
+  "biz.sole-prop.sub": "Schedule C ו-SE · ניכוי QBI · מקדמות רבעוניות 1040-ES",
+  "biz.sole-prop": "עצמאי בארה״ב (Sole proprietor)",
 
   // ---- סוגי חשבונות ----
   "type.revenue": "הכנסות",
@@ -141,6 +175,7 @@ export default {
   "cat.business:youtube": "YouTube / Google",
   "cat.business:music": "מפיצים",
   "cat.business:client": "לקוחות",
+  "cat.business:sales": "מכירות",
   "cat.business:other": "הכנסה עסקית אחרת",
   "cat.capital:child-savings": "חיסכון לכל ילד",
   "cat.exempt:idf-salary": "שכר צה״ל",
@@ -155,6 +190,8 @@ export default {
   "cat.revenue:plugin-sales": "מכירת תוספי אודיו",
   "cat.revenue:patreon": "הכנסות ממנויי Patreon",
   "cat.revenue:services": "הכנסות משירותים",
+  "cat.revenue:sales": "הכנסות ממכירות",
+  "cat.revenue:subscriptions": "הכנסות ממנויים",
   "cat.other-income:cashback": "הטבות והחזרים מכרטיסי אשראי",
   "cat.cogs:ai-models": "מודלי AI ועלויות הרצה",
   "cat.cogs:hosting": "אחסון ותשתיות",
@@ -167,6 +204,11 @@ export default {
   "cat.expense:equipment": "ציוד וחומרים",
   "cat.expense:meals": "ארוחות",
   "cat.expense:professional": "שירותים משפטיים ומקצועיים",
+  "cat.expense:rent": "שכירות",
+  "cat.expense:insurance": "ביטוח",
+  "cat.expense:vehicle": "רכב ודלק",
+  "cat.expense:office": "משרד וציוד משרדי",
+  "cat.expense:contractors": "קבלני משנה ופרילנסרים",
   "cat.expense:games": "משחקים ומדיה (פרטי?)",
   "cat.equity:owner": "הפקדות ומשיכות בעלים",
   "cat.transfer:internal": "העברות בין חשבונות",
@@ -198,6 +240,10 @@ export default {
   "home.greet.evening": "ערב טוב",
   "home.ask": { one: "תנועה אחת ממתינה לסיווג", two: "שתי תנועות ממתינות לסיווג", other: "{n} תנועות ממתינות לסיווג" },
   "home.askHint": "בדרך כלל פחות מדקה, עם הצעות וקיצורי מקשים",
+  "home.start.title": "מתחילים מנתוני הבנק",
+  "home.start.text": "גררו דף חשבון או ייצוא CSV לכל מקום בעמוד, או חברו בנק. אחר כך מנקים את התור לסיווג והדוחות מתמלאים.",
+  "home.start.import": "ייבוא דף חשבון",
+  "home.start.connect": "חיבור בנק",
   "home.reviewGo": "לסיווג ←",
   "home.cash": "מזומנים",
   "home.cashShort": "מזומנים",

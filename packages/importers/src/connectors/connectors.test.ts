@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { read } from "../read.ts";
 import { ConnectionStore, ConnectionVault, Scraper, connect, disconnect, handle, mercurySync, scrape, status, sync } from "./index.ts";
 import type { Conn, ScrapeCmd, ScrapeResult } from "./index.ts";
 import { run } from "./scrape.ts";
@@ -332,5 +333,175 @@ describe("Mercury", () => {
     down = true;
     expect(await go(sync("t", "mercury"), s.layer, Scraper.direct)).toEqual({ error: "Mercury API 500 on /accounts" });
     expect(s.rows().mercury!.lastError).toBe("Mercury API 500 on /accounts");
+  });
+});
+
+describe("Plaid", () => {
+  beforeEach(() => void (process.env.OPENBOOKS_PLAID_API = "https://plaid.fake")); // tests only: plaid() posts to this origin
+  afterEach(() => void delete process.env.OPENBOOKS_PLAID_API);
+  type Call = { path: string; body: Record<string, unknown> };
+  /** Fake Plaid: records each POST (path and body) and answers route(path, body); a number is an HTTP status. */
+  function mockPlaid(route: (p: string, body: Record<string, unknown>) => unknown) {
+    const calls: Call[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string) as Record<string, unknown>;
+        const p = new URL(input).pathname;
+        calls.push({ path: p, body });
+        const r = route(p, body);
+        return typeof r === "number" ? new Response("{}", { status: r }) : new Response(JSON.stringify(r), { status: 200 });
+      }),
+    );
+    return calls;
+  }
+  const acct = (id: string, name: string, mask: string) => ({ account_id: id, name, mask, balances: { current: 100 } });
+  const ptx = (id: string, account_id: string, amount: number, extra: Record<string, unknown> = {}) => ({
+    transaction_id: id,
+    account_id,
+    amount,
+    iso_currency_code: "USD",
+    date: "2026-10-20",
+    name: id,
+    merchant_name: null,
+    pending: false,
+    ...extra,
+  });
+  const [CHK, SAV] = [acct("acc1", "Checking", "0001"), acct("acc2", "Savings", "0002")];
+  // /transactions/sync answers by the cursor it is sent: two pages in the first sync, one in the second.
+  const pages: Record<string, unknown> = {
+    "": {
+      accounts: [CHK, SAV],
+      added: [
+        ptx("t1", "acc1", 25.5, { merchant_name: "Blue Bottle" }),
+        ptx("t2", "acc1", -1000, { name: "ACME PAYROLL" }),
+        ptx("t3", "acc1", 9, { pending: true }),
+      ],
+      modified: [],
+      removed: [],
+      next_cursor: "c1",
+      has_more: true,
+    },
+    c1: {
+      accounts: [CHK, SAV],
+      added: [ptx("t4", "acc2", 12, { name: "Transit" }), ptx("t7", "acc2", 40, { pending: true, name: "Hotel hold" })],
+      modified: [ptx("t1", "acc1", 30, { merchant_name: "Blue Bottle" })],
+      removed: [{ transaction_id: "t3" }], // the pending row Plaid replaces once it posts
+      next_cursor: "c2",
+      has_more: false,
+    },
+    c2: { accounts: [CHK, SAV], added: [], modified: [], removed: [{ transaction_id: "t2" }], next_cursor: "c3", has_more: false },
+  };
+  const plaidRoute = (p: string, body: Record<string, unknown>) =>
+    p === "/link/token/create"
+      ? { link_token: "link-1" }
+      : p === "/item/public_token/exchange"
+        ? { access_token: "access-xyz" }
+        : p === "/transactions/sync"
+          ? pages[(body.cursor as string | undefined) ?? ""]
+          : 404;
+  /** What the ingest reader makes of the synced inbox file. */
+  const readRows = () =>
+    read(
+      { name: "plaid-sync.json", bytes: fs.readFileSync(path.join(dir, "inbox", "plaid-sync.json")) },
+      { meta: { name: "t" }, profile: {}, csvProfiles: [], siblingPdfPeriods: () => [] },
+    ).rows.map((r) => [r.desc, r.amount, r.source]);
+
+  it("step 1 checks the keys and env, asks Plaid for a link token, and keeps the keys pending (sealed with the row)", async () => {
+    const s = memStore("unlocked");
+    const L = [s.layer, Scraper.direct] as const;
+    const calls = mockPlaid(plaidRoute);
+    expect(await go(connect("t", { provider: "plaid", credentials: { clientId: "cid", secret: "plaid-secret-xyz", env: "staging" } }), ...L)).toEqual({
+      error: "Environment must be sandbox or production",
+    });
+    expect(await go(connect("t", { provider: "plaid", credentials: { clientId: "cid", env: "sandbox" } }), ...L)).toEqual({
+      error: "Client ID and secret are required",
+    });
+    expect(calls).toEqual([]); // nothing reaches Plaid until the input is valid
+    expect(await go(connect("t", { provider: "plaid", credentials: { clientId: "cid", secret: "plaid-secret-xyz", env: "sandbox" } }), ...L)).toEqual({});
+    expect(calls).toEqual([
+      {
+        path: "/link/token/create",
+        body: {
+          client_id: "cid",
+          secret: "plaid-secret-xyz",
+          user: { client_user_id: "openbooks" },
+          client_name: "OpenBooks",
+          products: ["transactions"],
+          country_codes: ["US", "CA", "GB", "IE", "FR", "ES", "NL", "DE"],
+          language: "en",
+          transactions: { days_requested: 730 },
+        },
+      },
+    ]);
+    const row = s.rows().plaid!;
+    expect(row.linkToken).toBe("link-1"); // not secret-grade: stays readable beside the sealed keys
+    expect(row.pending).toBeUndefined();
+    expect(row.sealed).toBeTruthy();
+    const st = await go(status("t"), ...L);
+    expect(st[0]).toMatchObject({ provider: "plaid", type: "plaid", connected: false, pending: true, linkToken: "link-1" });
+    expect(JSON.stringify(st)).not.toContain("plaid-secret-xyz");
+    const locked = memStore("locked"); // a locked vault hides pending too; the unsealed linkToken still says the row waits for Link
+    locked.set(structuredClone(s.rows()));
+    expect((await go(status("t"), locked.layer, Scraper.direct))[0]).toMatchObject({ connected: false, pending: true, linkToken: "link-1" });
+  });
+
+  it("step 2 exchanges the public token and syncs added, modified and removed rows across pages; the next sync resumes from the cursor", async () => {
+    const s = memStore("unlocked");
+    const L = [s.layer, Scraper.direct] as const;
+    const calls = mockPlaid(plaidRoute);
+    await go(connect("t", { provider: "plaid", credentials: { clientId: "cid", secret: "plaid-secret-xyz", env: "sandbox" } }), ...L);
+    expect(await go(connect("t", { provider: "plaid", publicToken: "public-abc" }), ...L)).toEqual({});
+    expect(calls.find((c) => c.path === "/item/public_token/exchange")?.body).toEqual({
+      client_id: "cid",
+      secret: "plaid-secret-xyz",
+      public_token: "public-abc",
+    });
+    const row = s.rows().plaid!;
+    expect([row.linkToken, row.pending]).toEqual([undefined, undefined]);
+    const st = await go(status("t"), ...L);
+    expect(st[0]).toMatchObject({ provider: "plaid", connected: true, pending: false, accounts: ["Checking ••0001", "Savings ••0002"] });
+    expect(st[0]!.linkToken).toBeUndefined();
+    expect(JSON.stringify(st)).not.toMatch(/plaid-secret-xyz|access-xyz/);
+
+    const file = inbox("plaid-sync.json");
+    expect(file).toMatchObject({ source: "scraper", companyId: "plaid", cursor: "c2" });
+    expect(file.plaidTxns.map((x: { transaction_id: string }) => x.transaction_id)).toEqual(["t1", "t2", "t4", "t7"]); // t3 removed, t1 modified in place
+    expect(file.accounts.map((a: { txns: { identifier: string; chargedAmount: number }[] }) => a.txns.map((x) => [x.identifier, x.chargedAmount]))).toEqual([
+      [
+        ["t1", -30],
+        ["t2", 1000],
+      ],
+      [["t4", -12]], // the pending hold t7 is kept in plaidTxns only
+    ]);
+    // Plaid positive = money out: charges read negative, the payroll credit positive, pending never
+    expect(readRows()).toEqual([
+      ["Blue Bottle", -30, "scraper:plaid"],
+      ["ACME PAYROLL", 1000, "scraper:plaid"],
+      ["Transit", -12, "scraper:plaid"],
+    ]);
+
+    expect(await go(sync("t", "plaid"), ...L)).toEqual({});
+    const syncs = calls.filter((c) => c.path === "/transactions/sync");
+    expect(syncs.map((c) => c.body.cursor)).toEqual([undefined, "c1", "c2"]);
+    expect(syncs.map((c) => c.body.access_token)).toEqual(["access-xyz", "access-xyz", "access-xyz"]);
+    expect(inbox("plaid-sync.json")).toMatchObject({ cursor: "c3" });
+    expect(readRows()).toEqual([
+      ["Blue Bottle", -30, "scraper:plaid"],
+      ["Transit", -12, "scraper:plaid"],
+    ]); // t2 removed
+  });
+
+  it("a refused public token saves nothing: the keys stay pending for another try", async () => {
+    const s = memStore();
+    const L = [s.layer, Scraper.direct] as const;
+    mockPlaid((p) => (p === "/link/token/create" ? { link_token: "link-1" } : 400));
+    await go(connect("t", { provider: "plaid", credentials: { clientId: "cid", secret: "plaid-secret-xyz", env: "sandbox" } }), ...L);
+    expect(await go(connect("t", { provider: "plaid", publicToken: "expired" }), ...L)).toEqual({ error: "Plaid 400 on /item/public_token/exchange" });
+    expect(s.rows().plaid).toMatchObject({ pending: { clientId: "cid", secret: "plaid-secret-xyz", env: "sandbox" }, linkToken: "link-1" });
+    expect(s.rows().plaid!.secret).toBeUndefined();
+    expect(await go(connect("t", { provider: "plaid", publicToken: "x" }), memStore().layer, Scraper.direct)).toEqual({
+      error: "Start again: enter the Plaid keys first",
+    });
   });
 });

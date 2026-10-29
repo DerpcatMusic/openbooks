@@ -2,10 +2,11 @@
   // Mercury-style review queue: uncategorized transactions grouped by counterparty, one card at a time.
   // Keys: 1–5 pick a suggestion · / search all accounts (or create one) · R toggles "remember as a rule" · → or S skips ·
   // ← goes back · Z undoes the last pick. ← / → follow the reading direction; letters use the physical key (e.code), so they
-  // work with a Hebrew keyboard layout too.
-  import { payerOf, suggestRule, haystack, group } from "@openbooks/core";
+  // work with a Hebrew keyboard layout too. Choosing an account here also marks those transactions reviewed (the queue is the review);
+  // Undo takes both back. The Transactions page can filter by the reviewed mark.
+  import { baseId, payerOf, suggestRule, haystack, group, normalizeRule, textOf } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
-  import { S, ent, suggest, catLabel, typeLabel, classify, saveRules, mdy } from "#lib/stores/books.svelte.ts";
+  import { S, ent, suggest, catLabel, typeLabel, classify, saveRules, mdy, reviewedDoc, setReviewed } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { PageHeader, Button, Money, Icon, Badge } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
@@ -37,6 +38,11 @@
   const rule = $derived(cur ? suggestRule(cur.ts) : "");
   const others = $derived(cur && rule ? txns.filter((x) => x.category !== "ask" && haystack(x).includes(rule)).length : 0);
   const left = $derived(queue.reduce((a, g) => a + g.ts.length, 0));
+  /** stored transactions nobody has marked reviewed yet (categorized or not): the Transactions page lists them */
+  const unreviewed = $derived.by(() => {
+    const marks = reviewedDoc();
+    return new Set(txns.filter((x) => x.source !== "journal" && !marks[baseId(x.id)]).map((x) => baseId(x.id))).size;
+  });
   const progress = $derived(start ? Math.min(1, done / start) : 1);
   const money = $derived(ent().currency ?? "ILS");
   const tags = $derived(cur ? [...new Set(cur.ts.flatMap((x) => [x.account, x.mcat && `Mercury: ${x.mcat}`, x.memo]).filter((v): v is string => !!v))].slice(0, 4) : []);
@@ -46,11 +52,10 @@
     if (!g) return;
     const r = remember && rule ? rule : undefined;
     last = { g, c, r };
-    await classify(
-      g.ts.map((x) => x.id),
-      c,
-      r,
-    );
+    const ids = g.ts.map((x) => x.id);
+    await classify(ids, c, r);
+    // only when the books took it (a closed period refuses the write and the row stays in the queue)
+    if (S.data?.txns.find((x) => x.id === ids[0])?.category === c) await setReviewed(ids, true);
     done += g.ts.length;
   }
   function skip() {
@@ -64,12 +69,19 @@
     last = null;
     // a rule came with the pick: dropping it puts the rows back in the queue (the server stores match text trimmed, commas as spaces)
     const m = l.r?.replaceAll(",", " ").trim();
-    if (m) await saveRules(S.data.rules.filter(([k, c]) => !(k === m && c.trim() === l.c)));
+    if (m)
+      await saveRules(
+        S.data.rules.filter((r) => {
+          const n = normalizeRule(r);
+          return !(textOf(n) === m && n.then.account === l.c && !n.then.tags);
+        }),
+      );
     else
       await classify(
         l.g.ts.map((x) => x.id),
         "ask",
       );
+    await setReviewed(l.g.ts.map((x) => x.id), false);
     done = Math.max(0, done - l.g.ts.length);
   }
 
@@ -125,6 +137,7 @@
       <h2 class="display mt-5 text-[22px] text-ink">{t("review.done")}</h2>
       <p class="mt-1 text-[14px] text-sub">{done ? t(remember ? "review.sortedRules" : "review.sorted", { n: done }) : t("review.empty")}</p>
       <div class="mt-6 flex flex-wrap justify-center gap-2">
+        {#if unreviewed}<Button href="/transactions/review:no" icon="check">{t("gaps2.review.open", { n: unreviewed })}</Button>{/if}
         <Button href="/home">{t("review.home")}</Button>
         <Button variant="primary" href="/reports">{t("review.seePl")}</Button>
       </div>

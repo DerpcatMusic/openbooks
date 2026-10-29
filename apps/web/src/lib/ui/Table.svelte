@@ -5,7 +5,10 @@
   // header can't stick, because a horizontal scroll container also clips vertical stickiness.
   // Cells: the `cell` snippet (row, column), else column.value(row), else row[column.key]. `onrowclick` makes rows focusable
   // buttons (Enter/Space). `foot` renders <tfoot> rows (totals); `empty` shows when there are no rows.
+  // `stack`: below 640px each row becomes a card (header hidden, every cell labelled by its column), so no column hides off-screen.
+  // Sorting is the caller's: a `sortable` column's header is a button that calls `onsort(key)`; `sort` marks the active one.
   import type { Snippet } from "svelte";
+  import Icon from "./Icon.svelte";
   import type { Column } from "./types.ts";
   let {
     columns,
@@ -18,6 +21,9 @@
     onrowclick,
     selected,
     maxHeight,
+    sort,
+    onsort,
+    stack = false,
     class: cls = "",
   }: {
     columns: Column<R>[];
@@ -30,6 +36,9 @@
     onrowclick?: (row: R) => void;
     selected?: (row: R) => boolean;
     maxHeight?: string;
+    sort?: { key: string; dir: "asc" | "desc" } | null;
+    onsort?: (key: string) => void;
+    stack?: boolean;
     class?: string;
   } = $props();
   const read = (r: R, c: Column<R>) => (c.value ? c.value(r) : (r as Record<string, unknown>)[c.key]);
@@ -38,14 +47,21 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex (a scrollable region must be keyboard-focusable to scroll) -->
-<div data-ui="table" class={["max-w-full overflow-auto overscroll-x-contain", cls]} style:max-height={maxHeight} role="region" aria-label={caption} tabindex={caption ? 0 : undefined}>
+<div data-ui="table" class={["max-w-full overflow-auto overscroll-x-contain", stack && "stack", cls]} style:max-height={maxHeight} role="region" aria-label={caption} tabindex={caption ? 0 : undefined}>
   <table class="w-full border-separate border-spacing-0 text-[14px]">
     {#if caption}<caption class="sr-only">{caption}</caption>{/if}
     <thead>
       <tr>
         {#each columns as c (c.key)}
-          <th scope="col" class={["sticky top-0 z-[1] h-9 border-b border-line bg-panel font-normal text-[13px] whitespace-nowrap text-sub", pad, c.numeric ? "text-end" : "text-start", c.class]}>
-            {#if c.hideLabel}<span class="sr-only">{c.label}</span>{:else}{c.label}{/if}
+          <th
+            scope="col"
+            aria-sort={c.sortable && onsort ? (sort?.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : "none") : undefined}
+            class={["sticky top-0 z-[1] h-9 border-b border-line bg-panel font-normal text-[13px] whitespace-nowrap text-sub", pad, c.numeric ? "text-end" : "text-start", c.class]}>
+            {#if c.sortable && onsort}
+              <button type="button" onclick={() => onsort(c.key)} class="inline-flex items-center gap-1 rounded outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/50">
+                {c.label}<Icon name="sort" size={12} class={sort?.key === c.key ? "text-ink" : "text-faint"} />
+              </button>
+            {:else if c.hideLabel}<span class="sr-only">{c.label}</span>{:else}{c.label}{/if}
           </th>
         {/each}
       </tr>
@@ -62,7 +78,7 @@
             onrowclick && "cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent/60",
           ]}>
           {#each columns as c (c.key)}
-            <td class={["h-11 border-b border-line py-2 text-ink-2", pad, align(c)]}>
+            <td data-label={c.hideLabel ? undefined : c.label} class={["h-11 border-b border-line py-2 text-ink-2", pad, align(c)]}>
               {#if cell}{@render cell(r, c)}{:else}{read(r, c) ?? ""}{/if}
             </td>
           {/each}
@@ -74,3 +90,53 @@
     {#if foot}<tfoot class="[&_td]:h-11 [&_td]:px-3 [&_td]:font-medium [&_td]:whitespace-nowrap [&_td]:text-ink [&_td:first-child]:ps-4 [&_td:last-child]:pe-4 sm:[&_td:first-child]:ps-5 sm:[&_td:last-child]:pe-5">{@render foot()}</tfoot>{/if}
   </table>
 </div>
+
+<style>
+  @media (max-width: 639px) {
+    .stack :is(table, tbody, tr, td) {
+      display: block;
+    }
+    .stack thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .stack tr {
+      padding: 0.5rem 0.625rem; /* td adds 0.375rem back: inline controls use -mx-1.5 */
+      border-bottom: 1px solid var(--color-line);
+    }
+    .stack td {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      width: 100%;
+      min-width: 0;
+      max-width: none;
+      height: auto;
+      border: 0;
+      padding: 0.25rem 0.375rem;
+      white-space: normal;
+      text-align: end;
+      overflow-wrap: anywhere;
+    }
+    .stack td > :global(:not([data-ui="badge"])) {
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .stack td > :global(button) {
+      height: auto;
+      min-height: 1.75rem;
+      white-space: normal;
+    }
+    .stack td[data-label]::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      color: var(--color-sub);
+      font-size: 13px;
+      text-align: start;
+    }
+  }
+</style>

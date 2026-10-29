@@ -1,27 +1,57 @@
-// The 16 tools of mcp_server.py, same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
+// The 16 tools of mcp_server.py (+ list_bills / draft_bill / aging_report, + the deduction and split tools), same names, inputs, structuredContent, annotations and confirmation rules (port; parity-tested
 // against the Python server in apps/server/src/mcp.test.ts). Amounts round like Python (pyRound); labels are the English chart
 // of accounts, as before: tool results feed models and MCP clients, the UI translates on its own.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  agingReport,
   balances as coreBalances,
+  accountProblem,
+  baseId,
+  billSources,
+  billTotal as coreBillTotal,
+  chartOfAccounts,
+  type Coa,
+  cleanRule,
   cleanRules,
-  classify as coreClassify,
+  createTag,
+  deductions,
+  emptyTags,
+  displayStatus,
   group,
   haystack,
   inRange,
+  cleanSplit,
+  invoiceSources,
+  invoiceTotal,
   isCard,
+  isLegacy,
+  migrateBill,
+  normalizeRule,
+  paidOf,
   payerOf,
   plOf,
   pyRound,
   pyStr,
+  relevantMoves,
+  remaining,
+  setTag,
+  setTagTax,
+  splitProblem,
+  suggestTags,
+  taggable,
   TYPES,
+  withOverrides,
+  type DeductionInput,
+  type RuleOverrides,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
-import { form1301, type IlTable, type Profile } from "@openbooks/country-il";
-import type { EntityMeta, Txn } from "@openbooks/schema";
+import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
+import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
+import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
+import { filingTools } from "./filings.ts";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
 const fail = (message: string) => Effect.fail(new ToolError({ message }));
@@ -134,10 +164,12 @@ const entityOf$ = ({ id, ...meta }: { id: string } & EntityMeta): Entity => ({ i
 const gone = (e: string) => () => new ToolError({ message: `Unknown entity ${repr(e)}; see list_entities` });
 const ledgerOf = (e: Entity) => Books.use((b) => b.ledger(e.id)).pipe(Effect.mapError(gone(e.id)));
 const docOf = <A>(e: Entity, name: string, fallback: A) => Books.use((b) => b.doc(e.id, name, fallback)).pipe(Effect.mapError(gone(e.id)));
-const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(gone(e.id)));
+/** A write's failure for the client: the close date's own message, else unknown entity. */
+const refused = (e: Entity) => (x: { readonly _tag: string; readonly message?: string }) =>
+  x._tag === "ClosedPeriod" || x._tag === "BadInput" ? new ToolError({ message: x.message! }) : gone(e.id)();
+const putDoc = (e: Entity, name: string, value: unknown) => Books.use((b) => b.putDoc(e.id, name, value)).pipe(Effect.mapError(refused(e)));
 const rulesOf = (e: Entity) => Books.use((b) => b.rules(e.id)).pipe(Effect.mapError(gone(e.id)));
-const setRules = (e: Entity, rs: readonly (readonly [string, string])[]) =>
-  Books.use((b) => b.setRules(e.id, rs as [string, string][])).pipe(Effect.mapError(gone(e.id)));
+const setRules = (e: Entity, rs: readonly RuleInput[]) => Books.use((b) => b.setRules(e.id, rs)).pipe(Effect.mapError(refused(e)));
 const checksOf = (e: Entity) => Books.use((b) => b.checks(e.id)).pipe(Effect.mapError(gone(e.id)));
 
 const slim = (t: Txn) => ({ ...t, amount: r2(t.amount), categoryLabel: label(t.category) });
@@ -174,8 +206,9 @@ export const balancesAt = (e: Entity, iso: string, txns?: readonly Txn[]) =>
     return Object.fromEntries(Object.entries(coreBalances(ts, checks, iso)).map(([k, v]) => [k, r2(v)]));
   });
 
+/** A ledger row by id; the id of a split transaction (which has no row of its own) finds its first line. */
 const findTxn = (e: Entity, id: string, txns: readonly Txn[]) => {
-  const t = txns.find((x) => x.id === id);
+  const t = txns.find((x) => x.id === id) ?? txns.find((x) => x.id === `${id}~0`);
   return t ? Effect.succeed(t) : fail(`No transaction ${repr(id)} in ${e.id}`);
 };
 
@@ -194,7 +227,8 @@ const pattern = (re: RegExp, description?: string) => {
 const ENTITY = { entity: Schema.optionalKey(pattern(/^[a-z0-9-]+$/u, "Entity id from list_entities. Default: the first entity.")) };
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/u;
-const ID = pattern(/^[A-Za-z0-9-]{1,64}$/u);
+/** A ledger row id: a stored transaction's (letters, digits, dashes), or one line of a split (`<id>~1`). */
+const ID = pattern(/^[A-Za-z0-9-]{1,64}(~\d{1,3})?$/u);
 const CAT_DESC = 'Ledger account "type:name", e.g. expense:software (see chart_of_accounts).';
 const CONFIRM = Schema.optionalKey(
   Schema.Boolean.annotate({
@@ -204,7 +238,7 @@ const CONFIRM = Schema.optionalKey(
 );
 const FROM = Schema.optionalKey(pattern(PERIOD_RE, "Start, inclusive: YYYY-MM or YYYY-MM-DD"));
 const TO = Schema.optionalKey(pattern(PERIOD_RE, "End, inclusive: YYYY-MM or YYYY-MM-DD"));
-const input = <F extends Schema.Struct.Fields>(fields: F) => Schema.Struct({ ...fields, ...ENTITY });
+export const input = <F extends Schema.Struct.Fields>(fields: F) => Schema.Struct({ ...fields, ...ENTITY });
 
 // outputs (mcp_server.py OUT): every listed property required unless noted; nullable = Python opt()
 const S = Schema.String,
@@ -215,7 +249,7 @@ const opt = <T extends Schema.Top>(s: T) => Schema.NullOr(s);
 const CUR = { currency: opt(S) };
 const TXN = Schema.Struct({ id: S, date: S, amount: N, desc: S, account: S, source: S, category: S, categoryLabel: S, why: S });
 const PLT = { revenue: N, cogs: N, gross: N, opex: N, operating: N, other: N, uncategorized: N, net: N };
-const RULES = Schema.Array(Schema.Tuple([S, S]));
+const RULES = Schema.Array(RuleInput);
 const CONN = Schema.Struct({
   provider: S,
   type: Schema.optionalKey(S),
@@ -387,12 +421,12 @@ const chart_of_accounts = defineTool({
   name: "chart_of_accounts",
   title: { en: "Chart of accounts", he: "מבנה החשבונות" },
   description:
-    "The account types (with where they land in the P&L) and every ledger account in use or suggested for this kind of entity, with labels and transaction counts.",
+    "The account types (with where they land in the P&L) and every ledger account in use or suggested for this kind of entity, with ledger codes, labels (as renamed in the chart) and transaction counts.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({
     types: Schema.Array(Schema.Struct({ type: S, label: S, pl: opt(S) })),
-    accounts: Schema.Array(Schema.Struct({ account: S, label: S, type: S, pl: opt(S), transactions: I })),
+    accounts: Schema.Array(Schema.Struct({ account: S, code: I, label: S, type: S, pl: opt(S), transactions: I })),
     uncategorized: I,
   }),
   run: (a, ctx) =>
@@ -400,13 +434,22 @@ const chart_of_accounts = defineTool({
       const e = yield* entityOf(a, ctx);
       const n = new Map<string, number>();
       for (const t of yield* ledgerOf(e)) n.set(t.category, (n.get(t.category) ?? 0) + 1);
-      const used = [...(BASE[e.meta.kind ?? ""] ?? []), ...n.keys(), ...(yield* rulesOf(e)).map((r) => r[1])];
+      const coa = yield* docOf<Coa>(e, "coa", {});
       const order = Object.keys(TYPE_LABELS);
+      const used = [
+        ...(BASE[e.meta.kind ?? ""] ?? []),
+        ...n.keys(),
+        ...(yield* rulesOf(e)).map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account] : [])),
+        ...Object.keys(coa).filter((c) => ACCOUNT_TYPES.includes(group(c))),
+      ];
+      const stable = [...new Set(used.filter((c) => c !== "ask"))];
+      const codes = new Map(chartOfAccounts(stable, [], coa).map((r) => [r.id, r.code])); // bank accounts sit in other blocks: no effect on these codes
+      const name = (c: string) => coa[c]?.name || label(c);
       const rank = (c: string) => (order.includes(group(c)) ? order.indexOf(group(c)) : 99);
-      const cats = [...new Set(used.filter((c) => c !== "ask"))].sort((x, y) => rank(x) - rank(y) || (label(x) < label(y) ? -1 : label(x) > label(y) ? 1 : 0));
+      const cats = stable.toSorted((x, y) => rank(x) - rank(y) || (label(x) < label(y) ? -1 : label(x) > label(y) ? 1 : 0));
       return {
         types: Object.entries(TYPE_LABELS).map(([type, l]) => ({ type, label: l, pl: TYPES[type] ?? null })),
-        accounts: cats.map((c) => ({ account: c, label: label(c), type: group(c), pl: plOf(c), transactions: n.get(c) ?? 0 })),
+        accounts: cats.map((c) => ({ account: c, code: codes.get(c)!, label: name(c), type: group(c), pl: plOf(c), transactions: n.get(c) ?? 0 })),
         uncategorized: n.get("ask") ?? 0,
       };
     }),
@@ -433,12 +476,13 @@ const classify = defineTool({
       const e = yield* entityOf(a, ctx);
       const cat = yield* checkCategory(a.category, !a.rule);
       const ts = yield* ledgerOf(e);
-      for (const i of a.ids)
-        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: change the journal entry instead`);
+      for (const i of a.ids) {
+        const t = yield* findTxn(e, i, ts);
+        if (t.source === "journal") return yield* fail(`${i} is a journal line: change the journal entry instead`);
+        if (t.why === "split") return yield* fail(`${i} is part of a split transaction: change it with split_transaction`);
+      }
       const rule = (a.rule ?? "").replaceAll(",", " ").trim() || undefined;
-      const r = coreClassify(a.ids, cat, yield* rulesOf(e), yield* docOf<Record<string, string>>(e, "overrides", {}), rule);
-      if (rule) yield* setRules(e, r.rules);
-      yield* putDoc(e, "overrides", r.overrides);
+      yield* Books.use((b) => b.classify(e.id, a.ids, cat, rule)).pipe(Effect.mapError(refused(e)));
       const after = yield* ledgerOf(e),
         ids = new Set(a.ids);
       const out: { transactions: ReturnType<typeof slim>[]; ruleMatches?: number } = { transactions: after.filter((t) => ids.has(t.id)).map(slim) };
@@ -447,29 +491,42 @@ const classify = defineTool({
     }),
 });
 
-const RULE_NOTE = 'First match wins. A rule matches if `match` appears in "<description> <memo> [<bank category>]".';
+const RULE_NOTE =
+  'A rule holds when all its conditions do. The first rule that holds and has an account sets the ledger account; tags of every rule that holds are added. A [match, account] tuple is one case-sensitive condition: `match` appears in "<description> <memo> [<bank category>]".';
 const list_rules = defineTool({
   name: "list_rules",
   title: { en: "List rules", he: "כללי סיווג" },
-  description: "The categorization rules, in order: [match text, ledger account]. First match wins.",
+  description:
+    "The categorization rules, in order. Each is either [match text, ledger account] (legacy) or { when: [conditions], then: { account?, tags? } }. First matching rule with an account sets the account.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({ rules: RULES, note: S }),
   run: (a, ctx) => Effect.map(Effect.flatMap(entityOf(a, ctx), rulesOf), (rules) => ({ rules, note: RULE_NOTE })),
 });
 
-const checkRules = (rules: readonly (readonly string[])[]) =>
-  Effect.forEach(rules, ([m = "", c = ""]) => (m.trim() ? checkCategory(c.trim()) : fail("every rule needs a non-empty match text")), { discard: true });
-const RULE_ITEM = Schema.Tuple([S.check(Schema.isMaxLength(200)), S.check(Schema.isMaxLength(200))]);
+const checkRules = (rules: readonly RuleInput[]) =>
+  Effect.forEach(
+    rules,
+    (r) => {
+      if (isLegacy(r)) return r[0].trim() ? checkCategory(r[1].trim()) : fail("every rule needs a non-empty match text");
+      if (!cleanRule(r)) return fail("every rule needs at least one condition (with text, where it takes text) and a ledger account or a tag");
+      return r.then.account ? checkCategory(r.then.account.trim()) : Effect.succeed("");
+    },
+    { discard: true },
+  );
+const RULE_ITEM = Schema.Union([Schema.Tuple([S.check(Schema.isMaxLength(200)), S.check(Schema.isMaxLength(200))]), Rule]);
 const set_rules = defineTool({
   name: "set_rules",
   title: { en: "Set rules", he: "החלפת כללי סיווג" },
   description:
-    "WRITES: replace ALL categorization rules with this ordered list (first match wins). Read list_rules first and send the full list back. Needs the user's confirmation (see `confirm`).",
+    "WRITES: replace ALL categorization rules with this ordered list (first match with an account wins). Read list_rules first and send the full list back; [match, account] tuples and { when, then } rules both work. Needs the user's confirmation (see `confirm`).",
   kind: "write",
   annotations: { destructive: true, idempotent: true },
   input: input({
-    rules: Schema.Array(RULE_ITEM).check(Schema.isMaxLength(2000)).annotate({ description: '[[match text, "type:name"], ...]' }),
+    rules: Schema.Array(RULE_ITEM).check(Schema.isMaxLength(2000)).annotate({
+      description:
+        '[[match text, "type:name"], ...] or { when: [{ field, op, value }], then: { account?: "type:name", tags?: [tag ids] } }. Fields: text|description|counterparty (contains, description also equals|startsWith), account (is), direction (in|out), amount (eq|gte|lte|between with `to`).',
+    }),
     confirm: CONFIRM,
   }),
   output: Schema.Struct({ rules: RULES }),
@@ -590,29 +647,41 @@ const add_journal_entry = defineTool({
 
 type Invoice = {
   id: string;
+  number?: string | null;
   customer?: string;
   items?: { qty?: unknown; price?: unknown }[];
+  vat?: number;
   status?: string;
   kind?: string;
   due?: string;
   issued?: string;
   created?: string;
+  payments?: { id: string; txn: string | null; amount: number; date: string }[];
+  paidDate?: string | null;
 };
 const num = (v: unknown) => {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
 };
-const invTotal = (inv: Invoice) => r2(sum((inv.items ?? []).map((i) => num(i.qty || 0) * num(i.price || 0))));
-const invStatus = (inv: Invoice, now: string) =>
-  inv.status === "draft" ? "draft" : inv.status === "paid" || inv.kind === "receipt" ? "paid" : inv.due && inv.due < now ? "overdue" : "unpaid";
+const invTotal = (inv: Invoice) => invoiceTotal(inv);
+/** Paid so far: the payments applied, else the whole total when it was marked paid the old way. */
+const invPaid = (inv: Invoice) => (inv.payments?.length ? paidOf(inv.payments) : inv.status === "paid" ? invTotal(inv) : 0);
+/** draft | unpaid | partial | overdue | paid: the Invoices page's status (partly paid wins over overdue). A receipt documents a payment. */
+const invStatus = (inv: Invoice, now: string) => {
+  if (inv.status === "draft") return "draft";
+  if (inv.kind === "receipt") return "paid";
+  const s = displayStatus(inv.status ?? "open", invTotal(inv), invPaid(inv), inv.due ?? null, now);
+  return s === "open" ? "unpaid" : s;
+};
 
 const list_invoices = defineTool({
   name: "list_invoices",
   title: { en: "List invoices", he: "רשימת חשבוניות" },
-  description: "Invoices (US) or bills/receipts (Israel) with customer name, total and state (draft, unpaid, overdue, paid).",
+  description:
+    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid). Payments can be applied in part: partial = some paid, some owed.",
   kind: "read",
   input: input({}),
-  output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, state: S })) }),
+  output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, amountDue: N, state: S })) }),
   run: (a, ctx) =>
     Effect.gen(function* () {
       const e = yield* entityOf(a, ctx);
@@ -626,7 +695,17 @@ const list_invoices = defineTool({
       });
       return {
         currency: e.meta.currency ?? null,
-        invoices: invs.map((i) => ({ ...i, customerName: cust.get(i.customer ?? "") ?? null, total: invTotal(i), state: invStatus(i, now) })),
+        invoices: invs.map((i) => {
+          const state = invStatus(i, now),
+            total = invTotal(i);
+          return {
+            ...i,
+            customerName: cust.get(i.customer ?? "") ?? null,
+            total,
+            amountDue: state === "draft" || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
+            state,
+          };
+        }),
       };
     }),
 });
@@ -689,6 +768,204 @@ const create_invoice = defineTool({
       };
       yield* putDoc(e, "invoices", [...(yield* docOf<unknown[]>(e, "invoices", [])), inv]);
       return { invoice: { ...inv, customerName: c.name!, total: invTotal(inv) }, note: "Saved as a draft. Review and issue it in the app (Invoices)." };
+    }),
+});
+
+// ---------- bills payable (docs "bills" + "vendors"; apps/web/src/routes/bills/bills.ts is the UI's copy of this logic) ----------
+// Stored status is draft | open | cancelled and payments are applications ({ id, txn, amount, date }); paid, partial and overdue are derived.
+// Bills saved the old way (status paid | void, one paidTxn) are migrated on read by core's migrateBill.
+type Bill = {
+  id: string;
+  number?: string;
+  vendor?: string | null;
+  date?: string;
+  due?: string | null;
+  lines?: { amount?: unknown }[];
+  status?: string;
+  payments?: { id: string; txn: string | null; amount: number; date: string }[];
+  paidTxn?: string | null;
+  paidDate?: string | null;
+  created?: string;
+};
+const billTotal = (b: Bill) => coreBillTotal({ lines: b.lines ?? [] });
+const readBill = (b: Bill) => migrateBill({ ...b, date: b.date ?? "" });
+const billPaid = (b: Bill) => paidOf(readBill(b).payments);
+const billState = (b: Bill, now: string) => displayStatus(readBill(b).status, billTotal(b), billPaid(b), b.due ?? null, now);
+
+const list_bills = defineTool({
+  name: "list_bills",
+  title: { en: "List bills", he: "רשימת חשבונות ספקים" },
+  description:
+    "Bills you owe vendors (accounts payable) with vendor name, total, amount paid and due, and state (draft, open, partial, overdue, paid, cancelled). A bill can be paid by several payments; partial = some paid, some owed.",
+  kind: "read",
+  input: input({}),
+  output: Schema.Struct({
+    ...CUR,
+    bills: Schema.Array(
+      Schema.Struct({ id: S, number: opt(S), vendorName: opt(S), date: opt(S), due: opt(S), total: N, amountPaid: N, amountDue: N, state: S }),
+    ),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const vend = new Map((yield* docOf<{ id: string; name?: string }[]>(e, "vendors", [])).map((v) => [v.id, v.name ?? null]));
+      const now = today();
+      const bills = [...(yield* docOf<Bill[]>(e, "bills", []))].sort(
+        (x, y) => (y.date ?? "").localeCompare(x.date ?? "") || (y.created ?? "").localeCompare(x.created ?? ""),
+      );
+      return {
+        currency: e.meta.currency ?? null,
+        bills: bills.map((b) => {
+          const m = readBill(b),
+            state = billState(b, now),
+            total = billTotal(b),
+            paid = billPaid(b);
+          return {
+            ...m,
+            number: b.number ?? null,
+            vendorName: vend.get(b.vendor ?? "") ?? null,
+            date: b.date ?? null,
+            due: b.due ?? null,
+            total,
+            amountPaid: paid,
+            amountDue: m.status === "open" ? Math.max(0, r2(total - paid)) : 0,
+            state,
+          };
+        }),
+      };
+    }),
+});
+
+const draft_bill = defineTool({
+  name: "draft_bill",
+  title: { en: "Draft bill", he: "טיוטת חשבון ספק" },
+  description:
+    "WRITES: save a DRAFT bill from a vendor (money you owe); a new vendor name is added to vendors. It is never approved or marked paid here: the user reviews it in the app (Bills).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: false },
+  input: input({
+    vendor: S.check(Schema.isBetweenLength(1, 200)).annotate({ description: "Vendor name (matched case-insensitively)" }),
+    lines: Schema.Array(Schema.Struct({ desc: S.check(Schema.isMaxLength(500)), amount: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)) })).check(
+      Schema.isBetweenLength(1, 100),
+    ),
+    date: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    due: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default date + the vendor's terms (30 days)")),
+    memo: Schema.optionalKey(S.check(Schema.isMaxLength(2000))),
+  }),
+  output: Schema.Struct({
+    bill: Schema.Struct({ id: S, number: S, status: S, vendorName: S, total: N, date: S, due: S }),
+    note: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const name = a.vendor.trim();
+      if (!name) return yield* fail("vendor name is empty");
+      const lines = a.lines.map((l) => ({ desc: l.desc.trim(), amount: l.amount })).filter((l) => l.desc || l.amount);
+      if (!lines.length) return yield* fail("add at least one line with a description or an amount");
+      const date = yield* isoDate(a.date || today(), "date");
+      const dueIn = a.due ? yield* isoDate(a.due, "due") : null; // validate before the vendor is saved
+      const vendors = yield* docOf<{ id: string; name?: string; account?: string; terms?: number }[]>(e, "vendors", []);
+      let v = vendors.find((x) => (x.name ?? "").toLowerCase() === name.toLowerCase());
+      if (!v) {
+        v = { id: uid8(), name };
+        yield* putDoc(e, "vendors", [...vendors, v]);
+      }
+      const due = dueIn ?? addDays(date, v.terms ?? 30);
+      const bills = yield* docOf<Bill[]>(e, "bills", []);
+      const max = Math.max(0, ...bills.map((b) => +String(b.number ?? "").replace(/\D/g, "") || 0));
+      const bill = {
+        id: uid8(),
+        number: `BILL-${String(max + 1).padStart(4, "0")}`,
+        vendor: v.id,
+        date,
+        due,
+        lines: lines.map((l) => ({ ...l, account: v.account ?? "" })),
+        status: "draft",
+        payments: [],
+        memo: (a.memo ?? "").trim(),
+        created: new Date().toISOString(),
+      };
+      yield* putDoc(e, "bills", [...bills, bill]);
+      return { bill: { ...bill, vendorName: v.name ?? name, total: billTotal(bill) }, note: "Saved as a draft. Review and approve it in the app (Bills)." };
+    }),
+});
+
+const aging_report = defineTool({
+  name: "aging_report",
+  title: { en: "Aging report", he: "דוח גיול" },
+  description:
+    "Accounts receivable (issued invoices not yet paid) or accounts payable (approved bills not yet paid) aged by due date as of a day: current (not yet due), then 30-day buckets past due (1-30, 31-60, 61-90 by default) and an open-ended last one, per customer or vendor, with totals, the overdue sum and each bucket's share. A document without a due date ages from its issue date; payments made after the as-of day do not count.",
+  kind: "read",
+  input: input({
+    type: Schema.Literals(["receivable", "payable"]).annotate({ description: "receivable = invoices customers owe you; payable = bills you owe vendors" }),
+    as_of: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    periods: Schema.optionalKey(
+      I.check(Schema.isBetween({ minimum: 1, maximum: 12 })).annotate({ default: 3, description: "Number of past-due buckets before the open-ended last one" }),
+    ),
+    days: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 365 })).annotate({ default: 30, description: "Days per bucket" })),
+  }),
+  output: Schema.Struct({
+    ...CUR,
+    type: S,
+    asOf: S,
+    buckets: Schema.Array(Schema.Struct({ label: S, min: opt(N), max: opt(N) })),
+    parties: Schema.Array(Schema.Struct({ id: opt(S), name: opt(S), buckets: Schema.Array(N), overdue: N, total: N, documents: I, oldestDaysPastDue: I })),
+    documents: Schema.Array(
+      Schema.Struct({ id: S, party: opt(S), partyName: opt(S), number: opt(S), date: S, due: opt(S), total: N, outstanding: N, daysPastDue: I, bucket: S }),
+    ),
+    totals: Schema.Struct({ buckets: Schema.Array(N), percents: Schema.NullOr(Schema.Array(N)), overdue: N, total: N, documents: I, parties: I }),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const asOf = a.as_of ? yield* isoDate(a.as_of, "as_of") : today();
+      const receivable = a.type === "receivable";
+      const names = new Map(
+        (yield* docOf<{ id: string; name?: string }[]>(e, receivable ? "customers" : "vendors", [])).map((x) => [x.id, x.name ?? ""] as const),
+      );
+      const who = (id: string | null) => (id ? (names.get(id) ?? "") : "");
+      const sources = receivable
+        ? invoiceSources(yield* docOf<Invoice[]>(e, "invoices", []), who)
+        : billSources(yield* docOf<Bill[]>(e, "bills", []).pipe(Effect.map((bs) => bs.map((b) => ({ ...b, date: b.date ?? "" })))), who);
+      const r = agingReport(sources, asOf, { ...(a.periods ? { periods: a.periods } : {}), ...(a.days ? { days: a.days } : {}) });
+      const label = (i: number) => (i === 0 ? "current" : r.buckets[i]!.label);
+      const fin = (n: number) => (Number.isFinite(n) ? n : null);
+      return {
+        currency: e.meta.currency ?? null,
+        type: a.type,
+        asOf,
+        buckets: r.buckets.map((b) => ({ label: b.key === "current" ? "current" : b.label, min: fin(b.min), max: b.max })),
+        parties: r.parties.map((p) => ({
+          id: p.party,
+          name: p.name || null,
+          buckets: p.buckets,
+          overdue: p.overdue,
+          total: p.total,
+          documents: p.count,
+          oldestDaysPastDue: p.oldest,
+        })),
+        documents: r.sources.map((s) => ({
+          id: s.id,
+          party: s.party,
+          partyName: s.name || null,
+          number: s.ref || null,
+          date: s.date,
+          due: s.due,
+          total: s.gross,
+          outstanding: s.outstanding,
+          daysPastDue: Math.max(0, s.days),
+          bucket: label(s.bucket),
+        })),
+        totals: {
+          buckets: r.totals.buckets,
+          percents: r.totals.percents,
+          overdue: r.totals.overdue,
+          total: r.totals.total,
+          documents: r.totals.count,
+          parties: r.totals.parties,
+        },
+      };
     }),
 });
 
@@ -819,6 +1096,524 @@ const tax_summary = defineTool({
     }),
 });
 
+// ---------- deductions (smart tax tags: tag.tax = { rule, pct }, rules from the country pack's tables/deductions.json) ----------
+/** The business type in force in year y (latest `types` entry on or before it, else the legacy kind's default) and its pack. */
+function packFor(m: EntityMeta, y: number) {
+  const from = Object.keys(m.types ?? {})
+      .filter((k) => +k <= y)
+      .sort()
+      .at(-1),
+    packs = [il, us],
+    type = from ? m.types![from] : m.kind ? packs.find((p) => m.kind! in p.manifest.legacyKinds)?.manifest.legacyKinds[m.kind] : undefined;
+  const pack = type ? packs.find((p) => p.manifest.businessTypes.some((b) => b.key === type)) : undefined;
+  return type && pack?.deductions ? { type, pack, table: pack.deductions } : undefined;
+}
+/** Everything the engine needs for one entity-year, read from the books (tags, account defaults, per-books rule edits, receipts, facts). */
+const dedCtx = (e: Entity, y: number) =>
+  Effect.gen(function* () {
+    const p = packFor(e.meta, y);
+    if (!p) return yield* fail(`${e.id} has no deduction rules: its business type is not set or its country has no table. Set the business type in the app.`);
+    const [txns, tags, coa, edits, profile, person, home] = [
+      yield* ledgerOf(e),
+      yield* docOf<TagsDoc>(e, "tags", emptyTags()),
+      yield* docOf<Coa>(e, "coa", {}),
+      yield* docOf<RuleOverrides>(e, "taxrules", {}),
+      yield* docOf<Record<string, unknown>>(e, "profile", {}),
+      yield* Books.use((b) => b.doc<{ facts?: Record<string, unknown> } | null>("_app", "person", null)).pipe(Effect.orDie),
+      yield* Books.use((b) => Effect.succeed(b.home)),
+    ];
+    const attachments: Record<string, string[]> = {};
+    try {
+      for (const d of readdirSync(join(home, e.id, "attachments"))) attachments[d] = readdirSync(join(home, e.id, "attachments", d));
+    } catch {
+      /* none */
+    }
+    const vat = (p.pack.table(y) as { vatRate?: number }).vatRate;
+    const car = Number(person?.facts?.carPrice);
+    const inp: DeductionInput = {
+      txns,
+      tags,
+      rules: withOverrides(p.table.rules, edits),
+      accountRules: Object.fromEntries(Object.entries(coa).flatMap(([k, v]) => (v.taxRule ? [[k, v.taxRule]] : []))),
+      type: p.type,
+      year: y,
+      currency: e.meta.currency ?? (p.pack.manifest.currency as string),
+      attachments,
+      ...(p.pack.manifest.id === "il" ? { vatRate: vat ?? 0.18 } : {}),
+      facts: { ...(car > 0 ? { carPrice: car } : {}), usTrade: profile.usTrade === true },
+    };
+    return { inp, table: p.table, country: p.pack.manifest.id };
+  });
+const ruleLabel = (rules: readonly { id: string; label: { en: string } }[], id: string) => rules.find((r) => r.id === id)?.label.en ?? id;
+const YEAR = I.check(Schema.isBetween({ minimum: 1990, maximum: 2100 }));
+const BUCKET = Schema.Struct({ count: I, gross: N, deductible: N });
+
+const deduction_summary = defineTool({
+  name: "deduction_summary",
+  title: { en: "Deduction summary", he: "סיכום ניכויים" },
+  description:
+    "What is deductible for a year (Taxximizer): expenses by deduction rule from the transactions' tags and accounts, how much of each receipt is deductible (full / partial / none / untreated), the VAT that can be reclaimed, ceilings used, receipts missing for deductible money, and money left on the table (untagged expenses and uncategorized outflows that look deductible). Says when the deductions do not change tax (osek zair, foreign-owned US LLC without a US trade). Rules are sourced research tables; each rule's confidence is in the app. Not tax advice.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    businessType: S,
+    taxEffect: B,
+    note: opt(S),
+    totals: Schema.Struct({ gross: N, deductible: N, nonDeductible: N, vatReclaimable: N }),
+    buckets: Schema.Struct({ full: BUCKET, partial: BUCKET, none: BUCKET, untreated: BUCKET }),
+    byRule: Schema.Array(Schema.Struct({ rule: S, label: S, count: I, gross: N, deductible: N, vatReclaimable: N })),
+    ceilings: Schema.Array(Schema.Struct({ rule: S, label: S, per: S, amount: N, used: N, exhausted: I })),
+    biggestLosses: Schema.Array(Schema.Struct({ id: S, date: S, desc: S, gross: N, deductible: N, rule: opt(S) })),
+    missingReceipts: Schema.Struct({ count: I, deductible: N }),
+    leftOnTheTable: Schema.Struct({ suggestions: I, transactions: I, potentialDeduction: N }),
+    moves: Schema.Array(Schema.Struct({ id: S, title: S, effect: S })),
+    disclaimer: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, table } = yield* dedCtx(e, a.year);
+      const r = deductions(inp),
+        sg = suggestTags(inp),
+        lbl = (id: string) => ruleLabel(table.rules, id);
+      const uncl = sg.filter((x) => x.kind === "uncategorized");
+      const b = (k: keyof typeof r.byBucket) => ({ count: r.byBucket[k].n, gross: r2(r.byBucket[k].gross), deductible: r2(r.byBucket[k].deductible) });
+      const lost = r.rows.filter((x) => x.gross - x.deductible > 0.005).sort((x, y) => y.gross - y.deductible - (x.gross - x.deductible));
+      const miss = r.rows.filter((x) => x.receipt);
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        businessType: inp.type,
+        taxEffect: r.taxEffect,
+        note:
+          r.effect === "zair"
+            ? "Osek zair is taxed on 70% of turnover whatever the receipts say: these deductions do not change the tax, but keep the receipts if you may switch to actual expenses."
+            : r.effect === "noEci"
+              ? "Foreign-owned disregarded LLC with no US trade or business: US deductions have no US tax effect. Home-country (Israeli) rules decide what counts."
+              : null,
+        totals: {
+          gross: r2(r.totals.gross),
+          deductible: r2(r.totals.deductible),
+          nonDeductible: r2(r.totals.nonDeductible),
+          vatReclaimable: r2(r.totals.vatReclaimable),
+        },
+        buckets: { full: b("full"), partial: b("partial"), none: b("none"), untreated: b("untreated") },
+        byRule: r.byRule.map((x) => ({
+          rule: x.rule,
+          label: lbl(x.rule),
+          count: x.n,
+          gross: r2(x.gross),
+          deductible: r2(x.deductible),
+          vatReclaimable: r2(x.vatReclaimable),
+        })),
+        ceilings: r.caps.map((c) => ({ rule: c.rule, label: lbl(c.rule), per: c.per, amount: c.amount, used: r2(c.used), exhausted: c.over })),
+        biggestLosses: lost
+          .slice(0, 10)
+          .map((x) => ({ id: x.id, date: x.date, desc: x.desc, gross: r2(x.gross), deductible: r2(x.deductible), rule: x.rule ?? null })),
+        missingReceipts: { count: miss.length, deductible: r2(miss.reduce((s, x) => s + x.deductible, 0)) },
+        leftOnTheTable: {
+          suggestions: sg.length,
+          transactions: sg.reduce((s, x) => s + x.ids.length, 0),
+          potentialDeduction: r2(uncl.reduce((s, x) => s + (x.deductible ?? 0), 0)),
+        },
+        moves: relevantMoves(table.moves, inp.type, new Set([...r.byRule.map((x) => x.rule), ...sg.map((x) => x.rule)])).relevant.map((m) => ({
+          id: m.id,
+          title: m.title.en,
+          effect: m.effect,
+        })),
+        disclaimer: table.disclaimer,
+      };
+    }),
+});
+
+// ---------- US federal filings (Schedule C / SE / QBI / 1040-ES, 1120, K-1s, 1099-NEC): the same maths the US tax page runs ----------
+const EST = Schema.Struct({
+  required: N,
+  basis: S,
+  exempt: B,
+  total: N,
+  installments: Schema.Array(Schema.Struct({ n: I, due: S, amount: N })),
+});
+const us_tax_estimate = defineTool({
+  name: "us_tax_estimate",
+  title: { en: "US tax estimate", he: 'אומדן מס בארה"ב' },
+  description:
+    "US federal tax for a year from the books, by business type. Sole proprietor / US-owned LLC: Schedule C from the ledger and the deduction rules (applied once), self-employment tax, QBI deduction, federal income tax estimate with the owner's inputs (doc 'taxus' in the app), flat state tax, and the four 1040-ES payments with safe harbor, plus the next year's plan. C-corp: 21% corporate tax and the 1120-W installments. Partnership / S corp: ordinary income and each owner's K-1 figures. Foreign-owned disregarded LLC: no income tax estimate (Form 5472 and pro forma 1120 are in tax_summary). Whole dollars like the IRS forms. Not tax advice.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    businessType: S,
+    track: S,
+    summary: Schema.Struct({
+      netProfit: opt(N),
+      selfEmploymentTax: opt(N),
+      qbiDeduction: opt(N),
+      federalIncomeTax: opt(N),
+      totalFederalTax: opt(N),
+      stateTax: opt(N),
+      stillToPay: opt(N),
+    }),
+    scheduleC: Schema.NullOr(Schema.Struct({ lines: Schema.Record(S, N), warnings: Schema.Array(Schema.Struct({ k: S, v: Schema.optionalKey(N) })) })),
+    estimates: Schema.NullOr(EST),
+    nextYearEstimates: Schema.NullOr(EST),
+    corporation: Schema.NullOr(Schema.Struct({ taxable: N, tax: N, estimates: EST })),
+    passThrough: Schema.NullOr(
+      Schema.Struct({
+        ordinaryIncome: N,
+        warnings: Schema.Array(S),
+        k1: Schema.Array(Schema.Struct({ name: S, pct: N, box1: N, box4: N, box14: N, distribution: N })),
+      }),
+    ),
+    ownerInputsMissing: Schema.Array(S),
+    notes: Schema.Array(S),
+    disclaimer: S,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, country } = yield* dedCtx(e, a.year);
+      if (country !== "us") return yield* fail(`${e.id} is not a US business (type ${inp.type}).`);
+      const track = usTrack(inp.type);
+      const r = deductions(inp),
+        taxus = (yield* docOf<Record<string, UsInputs>>(e, "taxus", {}))[String(a.year)] ?? {},
+        vendors = yield* docOf<Vendor1099[]>(e, "vendors", []),
+        bills = yield* docOf<unknown[]>(e, "bills", []),
+        ledger = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(a.year)));
+      const R = usReturn({
+        year: a.year,
+        type: inp.type,
+        table: us.table(a.year) as UsTable,
+        nextTable: us.table(a.year + 1) as UsTable,
+        txns: ledger,
+        deductions: r.rows.map((x) => ({ id: x.id, category: x.category, gross: x.gross, deductible: x.deductible, ...(x.rule ? { rule: x.rule } : {}) })),
+        nonDeductible: r.totals.nonDeductible,
+        inputs: taxus,
+        vendors,
+        bills: bills.map((b) => migrateBill(b as never)) as never,
+      });
+      const est = (x: typeof R.estimates) =>
+        x ? { required: x.required, basis: x.basis, exempt: x.exempt, total: x.total, installments: x.installments } : null;
+      const pt = R.personal,
+        pass = R.passThrough;
+      const ownerInputsMissing =
+        track === "individual"
+          ? [
+              ...(taxus.status ? [] : ["filing status (single assumed)"]),
+              ...(taxus.priorTax === undefined ? ["last year's total tax (only the 90% rule is used)"] : []),
+              ...(taxus.w2SsWages === undefined && taxus.otherIncome === undefined ? ["other income / W-2 wages (none assumed)"] : []),
+            ]
+          : track === "partnership" || track === "s-corp"
+            ? taxus.owners?.length
+              ? []
+              : ["owners and their percentages"]
+            : [];
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        businessType: inp.type,
+        track,
+        summary: {
+          netProfit: R.schedC?.netProfit ?? null,
+          selfEmploymentTax: pt?.se.line12 ?? null,
+          qbiDeduction: pt?.qbi.deduction ?? null,
+          federalIncomeTax: pt?.incomeTax ?? null,
+          totalFederalTax: pt?.totalTax ?? R.corp?.tax ?? null,
+          stateTax: pt?.state.tax ?? null,
+          stillToPay: pt?.afterWithholding ?? null,
+        },
+        scheduleC: R.schedC ? { lines: R.schedC.lines, warnings: R.schedC.warnings } : null,
+        estimates: est(R.estimates),
+        nextYearEstimates: est(R.nextEstimates),
+        corporation: R.corp
+          ? {
+              taxable: R.corp.taxable,
+              tax: R.corp.tax,
+              estimates: {
+                required: R.corp.estimates.required,
+                basis: R.corp.estimates.exempt ? "none" : "current",
+                exempt: R.corp.estimates.exempt,
+                total: R.corp.estimates.required,
+                installments: R.corp.estimates.installments,
+              },
+            }
+          : null,
+        passThrough: pass
+          ? {
+              ordinaryIncome: pass.lines.ordinary,
+              warnings: pass.warnings,
+              k1: pass.k1.map((k) => ({ name: k.name, pct: k.pct, box1: k.box1, box4: k.box4, box14: k.box14, distribution: k.distribution })),
+            }
+          : null,
+        ownerInputsMissing,
+        notes:
+          track === "foreign-owned"
+            ? ["Foreign-owned disregarded LLC: no US income tax estimate. See tax_summary for Form 5472 and the pro forma 1120."]
+            : R.notes,
+        disclaimer: "A worksheet from the books and the inputs saved in the app, not a filed return or tax advice.",
+      };
+    }),
+});
+
+const mask = (tin: string | undefined) => (tin ? `***${tin.replace(/\D/g, "").slice(-4)}` : null);
+const prepare_1099s = defineTool({
+  name: "prepare_1099s",
+  title: { en: "Prepare 1099-NECs", he: "הכנת טפסי 1099-NEC" },
+  description:
+    "Who needs a Form 1099-NEC for a year: payments for services to non-corporate US payees at or over the threshold ($600 up to 2025, $2,000 from 2026), by bank, check or cash. Card and PayPal/Venmo/Stripe payments are excluded (the payment company reports them on 1099-K); corporations are exempt except legal services. Lists each payee with the total, status and what is missing (tax ID, address, W-9). Tax IDs are masked here; the CSV and the filled Copy B forms are downloaded in the app (Tax → Contractors). Cannot e-file: the IRS IRIS portal or an authorised e-file provider does that. Not available for a foreign-owned disregarded LLC.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    threshold: N,
+    dueDate: S,
+    payerMissing: Schema.Array(S),
+    toFile: I,
+    total: N,
+    payees: Schema.Array(
+      Schema.Struct({ name: S, status: S, file: B, total: N, excludedCardOrNetwork: N, tin: opt(S), vendorSaved: B, issues: Schema.Array(S) }),
+    ),
+    note: opt(S),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        pk = packFor(e.meta, a.year);
+      if (!pk || pk.pack.manifest.id !== "us") return yield* fail(`${e.id} is not a US business.`);
+      const profile = yield* docOf<Record<string, string | undefined>>(e, "profile", {}),
+        vendors = yield* docOf<Vendor1099[]>(e, "vendors", []),
+        bills = yield* docOf<unknown[]>(e, "bills", []),
+        ledger = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(a.year)));
+      const foreign = usTrack(pk.type) === "foreign-owned",
+        threshold = (us.table(a.year) as UsTable).nec1099,
+        rows = foreign ? [] : prepare1099s({ year: a.year, threshold, vendors, bills: bills.map((b) => migrateBill(b as never)) as never, txns: ledger });
+      const payerMissing = [
+        !(profile.legalName || profile.taxpayerName) && "name",
+        !(profile.ein || profile.ssn) && "tax ID",
+        !profile.address && "address",
+      ].filter(Boolean) as string[];
+      return {
+        entity: e.id,
+        year: a.year,
+        threshold,
+        dueDate: us.deadlines!(a.year + 1, { businessType: pk.type }).find((d) => d.id === `us.1099nec.${a.year}`)?.date ?? `${a.year + 1}-01-31`,
+        payerMissing,
+        toFile: rows.filter((r) => r.file).length,
+        total: r2(sum(rows.filter((r) => r.file).map((r) => r.total))),
+        payees: rows.map((r) => ({
+          name: r.name,
+          status: r.status,
+          file: r.file,
+          total: r2(r.total),
+          excludedCardOrNetwork: r2(r.excluded),
+          tin: mask(r.vendor?.tin),
+          vendorSaved: !!r.vendor,
+          issues: r.issues,
+        })),
+        note: foreign
+          ? "A foreign-owned disregarded LLC is assumed to have no US trade or business: 1099-NECs are not prepared. Tell the app if that is wrong."
+          : null,
+      };
+    }),
+});
+
+const suggest_tax_tags = defineTool({
+  name: "suggest_tax_tags",
+  title: { en: "Suggest tax tags", he: "הצעות לתיוג מס" },
+  description:
+    "Untagged transactions whose text matches a deduction rule, grouped by rule, with the money at stake: `expense` = already counted as an expense but with no tax meaning yet (tagging can lower an over-claim, e.g. café coffee is 0% in Israel); `uncategorized` = an outflow with no ledger account that looks deductible (money not claimed yet). Apply with apply_tax_tag using the ids and rule. Suggestions are keyword matches: read the rule's conditions before applying.",
+  kind: "read",
+  input: input({ year: YEAR }),
+  output: Schema.Struct({
+    entity: S,
+    year: I,
+    ...CUR,
+    suggestions: Schema.Array(
+      Schema.Struct({
+        rule: S,
+        label: S,
+        kind: S,
+        percent: opt(N),
+        count: I,
+        ids: Schema.Array(S),
+        gross: N,
+        deductible: opt(N),
+        confidence: S,
+        unverified: B,
+        existingTag: opt(S),
+      }),
+    ),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        { inp, table } = yield* dedCtx(e, a.year);
+      return {
+        entity: e.id,
+        year: a.year,
+        currency: e.meta.currency ?? null,
+        suggestions: suggestTags(inp).map((s) => {
+          const r = table.rules.find((x) => x.id === s.rule)!;
+          return {
+            rule: s.rule,
+            label: r.label.en,
+            kind: s.kind,
+            percent: r.incomeTaxPct,
+            count: s.ids.length,
+            ids: s.ids.slice(0, 100),
+            gross: r2(s.gross),
+            deductible: s.deductible === null ? null : r2(s.deductible),
+            confidence: r.confidence,
+            unverified: (r.unverified?.length ?? 0) > 0,
+            existingTag: inp.tags.tags.find((g) => g.tax?.rule === s.rule)?.id ?? null,
+          };
+        }),
+      };
+    }),
+});
+
+/** The tag a call names (id or name, any case) with the rule/pct the call gives it, else a new one when the call carries them. */
+const tagFor = (d: TagsDoc, name: string, rule: string | undefined, pct: number | undefined, rules: readonly DeductionRule[], type: string) => {
+  const key = name.trim().toLowerCase(),
+    found = d.tags.find((g) => g.id === name || g.name.trim().toLowerCase() === key),
+    r = rule ? rules.find((x) => x.id === rule) : undefined;
+  if (rule && (!r || !taggable(r, type)))
+    return fail(`Rule ${repr(rule)} does not exist or does not apply to ${type}; see suggest_tax_tags / deduction_summary for rule ids`);
+  if (found) {
+    const was = found.tax;
+    if ((rule && was?.rule && was.rule !== rule) || (pct !== undefined && was?.pct !== undefined && was.pct !== pct))
+      return fail(
+        `Tag ${repr(found.name)} already means ${was?.rule ?? "a business-use share"}${was?.pct !== undefined ? ` at ${was.pct}%` : ""}: change it in the app (Tags) or use another tag`,
+      );
+    const tax = { ...was, ...(rule ? { rule } : {}), ...(pct !== undefined ? { pct } : {}) };
+    return Effect.succeed({ doc: Object.keys(tax).length ? setTagTax(d, found.id, tax) : d, id: found.id, created: false });
+  }
+  if (!rule && pct === undefined) return fail(`No tag ${repr(name)}: pass \`rule\` (and optionally \`pct\`) to create it with a tax meaning`);
+  const made = createTag(d, name, undefined, { ...(rule ? { rule } : {}), ...(pct !== undefined ? { pct } : {}) });
+  return Effect.succeed({ doc: made, id: made.tags.at(-1)!.id, created: true });
+};
+const apply_tax_tag = defineTool({
+  name: "apply_tax_tag",
+  title: { en: "Apply tax tag", he: "החלת תג מס" },
+  description:
+    "WRITES: put a tag on transactions; the tag's tax meaning (a deduction rule id from suggest_tax_tags / deduction_summary, and optionally pct = business-use share 0-100) decides how much of each is deductible. `tag` is an existing tag's id or name, or a new name: a new tag is created with `rule`/`pct`. Does not change ledger accounts. Always needs the user's confirmation (see `confirm`).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: true },
+  input: input({
+    ids: Schema.Array(ID).check(Schema.isBetweenLength(1, 500)),
+    tag: S.check(Schema.isBetweenLength(1, 80)).annotate({ description: "Tag id or name (created when new and `rule` or `pct` is given)" }),
+    rule: Schema.optionalKey(S.check(Schema.isBetweenLength(1, 80)).annotate({ description: 'Deduction rule id, e.g. "il.refreshments" or "us.meals"' })),
+    pct: Schema.optionalKey(
+      N.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({
+        description: "Business-use share in percent; multiplies the rule's own deductible share",
+      }),
+    ),
+    confirm: CONFIRM,
+  }),
+  output: Schema.Struct({ tag: Schema.Struct({ id: S, name: S, rule: opt(S), pct: opt(N) }), created: B, tagged: I }),
+  confirm: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        ts = yield* ledgerOf(e);
+      for (const i of a.ids)
+        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      return `Tag ${a.ids.length} transaction${a.ids.length === 1 ? "" : "s"} “${a.tag}”${a.rule ? ` (tax rule ${a.rule}${a.pct !== undefined ? `, ${a.pct}% business use` : ""})` : ""}?`;
+    }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        p = packFor(e.meta, new Date().getFullYear());
+      const ts = yield* ledgerOf(e);
+      for (const i of a.ids)
+        if ((yield* findTxn(e, i, ts)).source === "journal") return yield* fail(`${i} is a journal line: tag the bank transaction instead`);
+      const d = yield* docOf<TagsDoc>(e, "tags", emptyTags());
+      const made = yield* tagFor(d, a.tag, a.rule, a.pct, p?.table.rules ?? [], p?.type ?? "");
+      yield* putDoc(e, "tags", setTag(made.doc, a.ids, made.id, true));
+      const g = made.doc.tags.find((x) => x.id === made.id)!;
+      return { tag: { id: g.id, name: g.name, rule: g.tax?.rule ?? null, pct: g.tax?.pct ?? null }, created: made.created, tagged: a.ids.length };
+    }),
+});
+
+const SPLIT_LINE = Schema.Struct({
+  account: S.annotate({ description: CAT_DESC }),
+  amount: Schema.Finite.annotate({
+    description:
+      "This line's share, in the same direction as the transaction (a $40 line of a $100 payment is 40, not -40). A negative share goes the other way (a refund inside the payment). Shares must add up to the transaction's amount to the cent.",
+  }),
+  memo: Schema.optionalKey(S.check(Schema.isMaxLength(200))),
+  tags: Schema.optionalKey(
+    Schema.Array(S).annotate({ description: "Tag ids for this line (one per tag group); they are added to the tags the transaction already has" }),
+  ),
+});
+const split_transaction = defineTool({
+  name: "split_transaction",
+  title: { en: "Split transaction", he: "פיצול תנועה" },
+  description:
+    "WRITES: allocate one bank transaction to several ledger accounts (a $100 supplies run: $60 equipment, $40 meals). `lines` are the shares, at least two, adding up to the transaction's amount to the cent; the transaction then becomes one ledger row per line (ids `<id>~0`, `<id>~1`…) and reports, tags and deductions follow. Send `lines: []` to unsplit. Replaces any earlier split of the same transaction. Always needs the user's confirmation (see `confirm`).",
+  kind: "write",
+  annotations: { destructive: false, idempotent: true },
+  input: input({
+    id: ID.annotate({ description: "The transaction's id from list_transactions; a split line's id (`<id>~1`) means its transaction" }),
+    lines: Schema.Array(SPLIT_LINE).check(Schema.isMaxLength(50)),
+    confirm: CONFIRM,
+  }),
+  output: Schema.Struct({ id: S, split: B, amount: N, transactions: Schema.Array(TXN) }),
+  confirm: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        t = yield* findTxn(e, baseId(a.id), yield* ledgerOf(e));
+      return a.lines.length
+        ? `Split “${t.desc}” (${r2(a.lines.reduce((x, l) => x + l.amount, 0))}) into ${a.lines.length} lines: ${a.lines.map((l) => `${l.account} ${l.amount}`).join(", ")}?`
+        : `Remove the split of “${t.desc}”?`;
+    }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx),
+        ts = yield* ledgerOf(e),
+        id = baseId(a.id);
+      const first = yield* findTxn(e, id, ts);
+      if (first.source === "journal") return yield* fail(`${a.id} is a journal line: change the journal entry instead`);
+      const total = r2(ts.filter((x) => baseId(x.id) === id).reduce((x, y) => x + y.amount, 0)); // a split's lines add up to the transaction
+      const splits = yield* docOf<SplitsDoc>(e, "splits", {});
+      const next = { ...splits };
+      if (!a.lines.length) delete next[id];
+      else {
+        const coa = yield* docOf<Coa>(e, "coa", {}),
+          known = new Set((yield* docOf<TagsDoc>(e, "tags", emptyTags())).tags.filter((g) => !g.inactive).map((g) => g.id));
+        const sign = total < 0 ? -1 : 1;
+        for (const l of a.lines) {
+          yield* checkCategory(l.account);
+          if (accountProblem(l.account, coa)) return yield* fail(`${l.account} is archived or unknown; pick an account from chart_of_accounts`);
+          for (const g of l.tags ?? []) if (!known.has(g)) return yield* fail(`No active tag ${repr(g)}; tags are managed in the app (Tags)`);
+        }
+        const lines = cleanSplit(a.lines.map((l) => ({ ...l, amount: sign * l.amount })));
+        const p = splitProblem(total, lines);
+        if (p === "sum") {
+          const rem = remaining(total, lines);
+          return yield* fail(
+            `The lines add up to ${r2(total - rem)} but the transaction is ${total}: ${r2(Math.abs(rem))} ${rem * sign > 0 ? "left to allocate" : "too much"}`,
+          );
+        }
+        if (p)
+          return yield* fail(
+            { lines: "A split needs at least two lines", amount: "Every line needs a non-zero amount", account: "Every line needs a ledger account" }[p],
+          );
+        next[id] = lines;
+      }
+      yield* putDoc(e, "splits", Object.keys(next).length ? next : null);
+      const after = yield* ledgerOf(e);
+      return { id, split: a.lines.length > 0, amount: total, transactions: after.filter((x) => baseId(x.id) === id).map(slim) };
+    }),
+});
+
 // ---------- bank connections (status and sync only: credentials are entered in the app, never here) ----------
 const locked = () => new ToolError({ message: "unlock OpenBooks in the app first" });
 const statusOf = (e: Entity) => connectorStatus(e.id);
@@ -858,7 +1653,7 @@ const bank_sync = defineTool({
     }),
 });
 
-/** Every tool, in mcp_server.py's order. */
+/** Every tool, in mcp_server.py's order (the bills tools are new in the TypeScript app, after the invoice tools). */
 export const tools: readonly Tool[] = [
   list_entities,
   list_transactions,
@@ -873,9 +1668,28 @@ export const tools: readonly Tool[] = [
   add_journal_entry,
   list_invoices,
   create_invoice,
+  list_bills,
+  draft_bill,
+  aging_report,
   tax_summary,
+  us_tax_estimate,
+  prepare_1099s,
+  deduction_summary,
+  suggest_tax_tags,
+  apply_tax_tag,
+  split_transaction,
   bank_status,
   bank_sync,
+  ...filingTools({
+    entityOf,
+    ledgerOf,
+    docOf,
+    dedCtx,
+    packFor,
+    home: Books.use((b) => Effect.succeed(b.home)).pipe(Effect.orDie),
+    input,
+    label,
+  } as never),
 ];
 export { UI_URI };
 

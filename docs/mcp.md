@@ -60,16 +60,27 @@ Every tool has annotations (read-only, destructive, idempotent, open-world) and 
 | `get_transaction` | One transaction, its source statement and attachments |
 | `profit_and_loss` | Cash-basis P&L by ledger account or by month (with a chart in clients that support MCP Apps) |
 | `balances` | Bank and card balances on a date |
-| `chart_of_accounts` | Account types and ledger accounts in use |
+| `chart_of_accounts` | Account types and ledger accounts in use, with ledger codes and renamed labels |
 | `classify` | **Writes.** Set a ledger account on transactions, optionally as a rule |
 | `list_rules` / `set_rules` | Categorization rules (`set_rules` **writes**, replacing all rules) |
 | `suggest_category` | Likely ledger accounts for a transaction |
 | `add_journal_entry` | **Writes.** A balanced manual journal entry |
-| `list_invoices` / `create_invoice` | Invoices; `create_invoice` **writes** a draft (never numbered or issued) |
+| `list_invoices` / `create_invoice` | Invoices with total (VAT included), amount due and state (draft, unpaid, partial, overdue, paid); `create_invoice` **writes** a draft (never numbered or issued) |
+| `list_bills` / `draft_bill` | Bills payable (what you owe vendors) with amount paid and due; a bill can be paid in part by several payments. `draft_bill` **writes** a draft (never approved or paid) |
+| `aging_report` | Accounts receivable (issued invoices) or payable (approved bills) aged by due date as of a day: current, 1-30, 31-60, 61-90, 91+ days past due, per customer or vendor, with totals and shares |
+| `deduction_summary` | What is deductible for a year: expense total vs deductible, full / partial / zero buckets, caps used, receipts missing, "left on the table", and the tax moves that fit the books. From tags and account defaults, using the country's sourced rule table; each rule says how firm it is |
+| `suggest_tax_tags` | Untagged expenses and uncategorized outflows whose text matches a deduction rule, grouped by rule with the money at stake. Keyword matches: read the rule's conditions first |
+| `apply_tax_tag` | **Writes.** Tag transactions with a tag whose tax meaning is a deduction rule (and optionally a business-use %). Creates the tag if new. Always needs the user's yes. Never changes ledger accounts |
+| `split_transaction` | **Writes.** Allocate one bank transaction to several ledger accounts (shares must add up to the amount to the cent); the transaction becomes one ledger row per line (`<id>~0`, `<id>~1`…). `lines: []` unsplits. Always needs the user's yes |
+| `filing_calendar` | Filings and payments due in a calendar year for the entity's country and business type (Israel: VAT reports, income-tax and Bituach Leumi advances, the annual return), each with its status today (done / overdue / soon / upcoming), days left, form, source, and whether the date is unverified. "Done" is what the user marked filed in the app (date and confirmation number) |
+| `vat_report` | Israeli VAT periodic report for one period (osek murshe, Ltd), as the form's fields in whole shekels: taxable sales, VAT on sales, zero-rated and exempt sales, VAT on other and equipment inputs, amount to pay or receive, due dates, and the problems found. The PCN874 file is downloaded in the app |
+| `export_uniform_file` | Writes the Israeli uniform-structure files (OPENFRMT 1.31: INI.TXT, BKMVDATA.TXT, README.TXT in a zip) for a date range into the books' `exports` folder and returns the path, record counts and problems. OpenBooks is not a registered program of the Tax Authority |
 | `tax_summary` | Israeli osek zair estimate, or US LLC Form 5472 / 1120 checklist |
+| `us_tax_estimate` | US federal tax for a year by business type, from the books and the inputs saved in the app: Schedule C (deduction rules applied once), self-employment tax, QBI deduction, income tax estimate and the 1040-ES payments with safe harbor and the next year's plan (sole proprietor / US-owned LLC); 21% tax and the 1120-W installments (C-corp); ordinary income and each owner's K-1 figures (partnership, S corp). Whole dollars. Says which owner inputs are missing. A foreign-owned disregarded LLC gets none (use `tax_summary`) |
+| `prepare_1099s` | Who needs a Form 1099-NEC for a year: payments for services at or over the threshold ($600 up to 2025, $2,000 from 2026), by bank, check or cash; card and PayPal/Venmo/Stripe payments are the payment company's 1099-K and are left out; corporations are exempt except legal services. Per payee: total, status, what is missing (tax ID, address, W-9). Tax IDs are masked; the CSV and the filled Copy B PDFs are downloaded in the app. Does not e-file |
 | `bank_status` / `bank_sync` | Bank connection status; `bank_sync` **writes** new statements from connected banks (the only tool that reaches the internet) |
 
-**Confirmation.** `set_rules`, and `classify` on more than 20 transactions, need the user's yes. Clients that support
+**Confirmation.** `set_rules`, `apply_tax_tag` and `split_transaction` (always), and `classify` on more than 20 transactions, need the user's yes. Clients that support
 elicitation (2026-07-28, form mode) get a confirmation form from the server. Other clients must pass `confirm: true`
 after asking the user; without it the call fails and says so.
 

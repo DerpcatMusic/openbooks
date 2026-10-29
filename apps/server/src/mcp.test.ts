@@ -129,7 +129,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(16);
+    expect(Object.keys(tools)).toHaveLength(28);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -176,6 +176,20 @@ describe("openbooks mcp (stdio)", () => {
     const rules = (await s.tool("list_rules")).rules;
     expect(await s.tool("set_rules", { rules }, false)).toContain("confirm: true");
     expect((await s.tool("set_rules", { rules, confirm: true })).rules).toEqual(rules);
+    // rule objects ("If … Then …") next to the legacy tuples: listed back as written, validated like tuples
+    const v2 = {
+      when: [
+        { field: "description", op: "startsWith", value: "card" },
+        { field: "amount", op: "between", value: 1, to: 99 },
+      ],
+      then: { account: "expense:equipment", tags: ["shop"] },
+    };
+    expect((await s.tool("set_rules", { rules: [v2, ...rules], confirm: true })).rules).toEqual([v2, ...rules]);
+    expect((await s.tool("list_rules")).rules[0]).toEqual(v2);
+    await s.tool("set_rules", { rules: [{ when: [], then: { account: "expense:equipment" } }], confirm: true }, false); // no condition
+    await s.tool("set_rules", { rules: [{ ...v2, then: { account: "nonsense" } }], confirm: true }, false); // not a ledger account
+    await s.tool("set_rules", { rules: [{ ...v2, then: {} }], confirm: true }, false); // nothing to do
+    expect((await s.tool("set_rules", { rules, confirm: true })).rules).toEqual(rules);
     const many = Array(21).fill(host[1]!.id);
     expect((await s.call("classify", { ids: many, category: "expense:software" })).isError).toBe(true); // no elicitation capability
     const el = { _meta: META({ elicitation: {} }) };
@@ -219,6 +233,7 @@ describe("openbooks mcp (stdio)", () => {
     expect(b.cash).toBe(1430);
     expect((await s.tool("chart_of_accounts")).accounts).toContainEqual({
       account: "expense:software",
+      code: 60002, // the 2nd expense account of the chart
       label: "Software and Subscriptions",
       type: "expense",
       pl: "expense",
@@ -232,11 +247,102 @@ describe("openbooks mcp (stdio)", () => {
     expect(ls).toHaveLength(1);
     expect(ls[0]).toMatchObject({ customerName: "New Customer", state: "draft" });
 
+    const bill = (
+      await s.tool("draft_bill", {
+        vendor: "New Vendor",
+        lines: [
+          { desc: "Hosting", amount: 40 },
+          { desc: "Support", amount: 10 },
+        ],
+        date: "2026-06-01",
+      })
+    ).bill;
+    expect(bill).toMatchObject({ status: "draft", number: "BILL-0001", due: "2026-07-01", total: 50, vendorName: "New Vendor" });
+    const bill2 = (await s.tool("draft_bill", { vendor: "new vendor", lines: [{ desc: "More", amount: 5 }], date: "2026-06-02", due: "2026-06-10" })).bill;
+    expect(bill2).toMatchObject({ number: "BILL-0002", due: "2026-06-10", vendorName: "New Vendor" }); // same vendor, matched case-insensitively
+    const bs = (await s.tool("list_bills")).bills;
+    expect(bs).toHaveLength(2);
+    expect(bs[0]).toMatchObject({ number: "BILL-0002", vendorName: "New Vendor", total: 5, state: "draft", amountDue: 0 }); // newest first
+    const ag = await s.tool("aging_report", { type: "payable", as_of: "2026-06-30" });
+    expect(ag.totals).toMatchObject({ total: 0, documents: 0, percents: null }); // drafts are not owed yet
+    expect(ag.buckets.map((b: J) => b.label)).toEqual(["current", "1-30", "31-60", "61-90", "91+"]);
+    expect(await s.tool("aging_report", { type: "receivable", as_of: "2026-02-30" }, false)).toContain("as_of");
+
     const us = await s.tool("tax_summary", { year: 2026 });
     expect(us.ownerContributions).toEqual({ count: 2, total: 510 }); // 500 wire + 10 journal
     expect(us.obligations[0].due).toBe("2027-04-15");
     const il = await s.tool("tax_summary", { entity: "zz-il", year: 2026 });
     expect(il).toMatchObject({ turnover: 10000, taxable: 7000, grossTax: 700, credits: 700, due: 0 });
+
+    // deductions: a tag carries a tax rule; apply_tax_tag needs the user's yes; the summary counts the tagged expense by that rule
+    const dedTx = host[0]!.id;
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Cloud", rule: "us.software" }, false)).toContain("confirm: true");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Cloud", rule: "us.software", confirm: true })).toEqual({
+      tag: { id: "cloud", name: "Cloud", rule: "us.software", pct: null },
+      created: true,
+      tagged: 1,
+    });
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "cloud", rule: "us.meals", confirm: true }, false)).toContain("already means us.software");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "Nope", confirm: true }, false)).toContain("pass `rule`");
+    expect(await s.tool("apply_tax_tag", { ids: [dedTx], tag: "X", rule: "il.gifts", confirm: true }, false)).toContain("does not exist or does not apply");
+    expect((await s.tool("list_transactions", { search: "cloud" })).transactions.find((t: J) => t.id === dedTx).tags).toEqual(["cloud"]);
+    // split_transaction: always needs the user's yes; shares must add up to the cent; unsplitting puts the row back (Card Shop, -30)
+    const shop = (await s.tool("list_transactions", { search: "card shop" })).transactions[0].id as string;
+    expect(
+      await s.tool(
+        "split_transaction",
+        {
+          id: shop,
+          lines: [
+            { account: "expense:meals", amount: 10 },
+            { account: "expense:other", amount: 20 },
+          ],
+        },
+        false,
+      ),
+    ).toContain("confirm: true");
+    expect(
+      await s.tool(
+        "split_transaction",
+        {
+          id: shop,
+          lines: [
+            { account: "expense:meals", amount: 10 },
+            { account: "expense:other", amount: 19.99 },
+          ],
+          confirm: true,
+        },
+        false,
+      ),
+    ).toContain("0.01 left to allocate");
+    const sp = await s.tool("split_transaction", {
+      id: shop,
+      lines: [
+        { account: "expense:meals", amount: 10.01, memo: "lunch" },
+        { account: "expense:other", amount: 19.99 },
+      ],
+      confirm: true,
+    });
+    expect(sp).toMatchObject({ id: shop, split: true, amount: -30 });
+    expect(sp.transactions.map((t: J) => [t.id, t.amount, t.category, t.why])).toEqual([
+      [`${shop}~0`, -10.01, "expense:meals", "split"],
+      [`${shop}~1`, -19.99, "expense:other", "split"],
+    ]);
+    expect(await s.tool("classify", { ids: [`${shop}~0`], category: "expense:meals" }, false)).toContain("split_transaction");
+    expect((await s.tool("split_transaction", { id: shop, lines: [], confirm: true })).transactions.map((t: J) => t.amount)).toEqual([-30]);
+    const ded = await s.tool("deduction_summary", { year: 2026 });
+    expect(ded).toMatchObject({
+      businessType: "llc-disregarded",
+      taxEffect: false,
+      totals: { gross: 60, deductible: 60, nonDeductible: 0 },
+      buckets: { full: { count: 1 } },
+    }); // the tagged 20, a second Cloud Host and a journal line
+    expect(ded.note).toContain("no US trade");
+    expect(ded.byRule).toEqual([
+      { rule: "us.software", label: "Software subscriptions / SaaS / cloud hosting", count: 1, gross: 20, deductible: 20, vatReclaimable: 0 },
+    ]);
+    expect(ded.missingReceipts).toEqual({ count: 3, deductible: 60 });
+    expect((await s.tool("suggest_tax_tags", { year: 2026 })).suggestions).toBeInstanceOf(Array);
 
     expect((await s.tool("bank_status")).connections).toEqual([]);
     expect(await s.tool("bank_sync", {}, false)).toContain("No connected bank");
@@ -331,7 +437,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(16);
+    expect(r!.result.tools).toHaveLength(28);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -368,7 +474,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(16);
+      expect((await c.listTools()).tools).toHaveLength(28);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };

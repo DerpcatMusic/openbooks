@@ -268,4 +268,94 @@ describe("Books", () => {
     expect(r.es.map((e) => e.id)).toEqual(["acme", "new-co", "noa"]);
     expect(statSync(join(home, "new-co/inbox")).isDirectory()).toBe(true);
   });
+
+  test('rules v2: the legacy rule table is read until rules are saved, then doc "rules" (table untouched); rule and hand tags reach the ledger', async () => {
+    const home = books();
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const legacy = yield* b.rules("acme");
+        const openai = (yield* b.ledger("acme")).find((t) => t.desc === "OpenAI")!;
+        yield* b.putDoc("acme", "tags", {
+          groups: [],
+          tags: [
+            { id: "ads", name: "Ads" },
+            { id: "big", name: "Big" },
+          ],
+          on: { [openai.id]: ["big", "deleted"] },
+        });
+        const mine = {
+          when: [
+            { field: "description", op: "contains", value: "meta" },
+            { field: "direction", op: "out" },
+          ],
+          then: { account: "expense:advertising", tags: ["ads"] },
+        } as const;
+        yield* b.setRules("acme", [mine, ...legacy]);
+        return { legacy, after: yield* b.rules("acme"), led: yield* b.ledger("acme"), st: yield* b.state("acme") };
+      }),
+    );
+    expect(r.legacy).toContainEqual(["Stripe", "revenue:plugin-sales"]);
+    expect(r.after).toHaveLength(r.legacy.length + 1);
+    expect(r.after.slice(1)).toEqual(r.legacy); // legacy tuples stay tuples
+    expect(sql(home, "select count(*) from rule where entity = 'acme'")).toEqual([[r.legacy.length]]); // the books.py table is never rewritten
+    expect(r.st.rules).toEqual(r.after);
+    expect(Object.keys(r.st.docs)).toEqual(["invoices", "journal", "tags"]); // "rules" has its own field, like form/profile/overrides
+    const by = (d: string) => r.led.find((t) => t.desc === d);
+    expect(by("Meta Ads")).toMatchObject({ category: "expense:advertising", why: "description contains meta · direction out", tags: ["ads"] });
+    expect(by("OpenAI")).toMatchObject({ category: "cogs:ai-models", why: "OpenAI", tags: ["big"] }); // "deleted" is not a tag any more
+    expect(by("Stripe")).not.toHaveProperty("tags");
+  });
+
+  test('doc "trips": a trip with impossible dates or counts is refused, a good one is kept; unchanged old trips never block a save', async () => {
+    const home = books();
+    const trip = { id: "t1", name: "Berlin", start: "2026-03-01", end: "2026-03-10", country: "DE", nights: 9, businessDays: 10, purpose: "Conference" };
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const bad = yield* Effect.flip(b.putDoc("acme", "trips", [{ ...trip, end: "2026-02-01" }]));
+        const nights = yield* Effect.flip(b.putDoc("acme", "trips", [{ ...trip, nights: 11 }]));
+        yield* b.putDoc("acme", "trips", [trip]);
+        yield* b.putDoc("acme", "trips", [trip, { ...trip, id: "t2", name: "Paris", country: "FR" }]);
+        return { bad, nights, saved: (yield* b.state("acme")).docs.trips };
+      }),
+    );
+    expect(r.bad).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("real dates") });
+    expect(r.nights).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("more nights than days") });
+    expect(r.saved).toHaveLength(2);
+  });
+
+  test('doc "payroll": figures that do not tie are refused, a good run is kept; unchanged old runs never block a save', async () => {
+    const home = books();
+    const pay = {
+      id: "r1",
+      period: "2026-03",
+      payDate: "2026-03-31",
+      gross: 10000,
+      employerTaxes: 900,
+      employeeWithholding: 2000,
+      benefits: 500,
+      net: 7500,
+      provider: "Gusto",
+      payments: [],
+    };
+    const r = await run(
+      home,
+      Effect.gen(function* () {
+        const b = yield* Books;
+        const net = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, net: 7000 }]));
+        const date = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, payDate: "2026-02-30" }]));
+        const over = yield* Effect.flip(b.putDoc("acme", "payroll", [{ ...pay, payments: [{ id: "p", txn: null, amount: 20000, date: "2026-04-01" }] }]));
+        yield* b.putDoc("acme", "payroll", [pay]);
+        yield* b.putDoc("acme", "payroll", [pay, { ...pay, id: "r2", period: "2026-04", payDate: "2026-04-30" }]);
+        return { net, date, over, saved: (yield* b.state("acme")).docs.payroll };
+      }),
+    );
+    expect(r.net).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("not gross pay less withholding") });
+    expect(r.date).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("real pay date") });
+    expect(r.over).toMatchObject({ _tag: "BadInput", message: expect.stringContaining("above what the run costs") });
+    expect(r.saved).toHaveLength(2);
+  });
 });

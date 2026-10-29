@@ -3,20 +3,21 @@
   // Israeli books (osek murshe, ltd) in the issue year, חשבונית מס with VAT at that year's rate. Data: docs "invoices" + "customers".
   // Port of web/src/views/Invoices.svelte. Logic: ./invoices.ts. Printable document: ./[id]/doc.
   import { goto } from "#lib/nav.ts";
+  import { page } from "$app/state";
   import { payerOf } from "@openbooks/core";
-  import { S, doc, saveDoc, ent, isUS, mdy, toast, bizType, taxTable } from "#lib/stores/books.svelte.ts";
+  import { S, doc, saveDoc, ent, isUS, mdy, toast, bizType, taxTable, fmt } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Drawer, EmptyState, Field, Icon, IconButton, Input, Money, PageHeader, Search, Segmented, Select, Stat, Switch, Table, Tabs } from "#lib/ui/index.ts";
   import type { Column, Tone } from "#lib/ui/index.ts";
   import type { Txn } from "@openbooks/schema";
-  import { today, addDays, uid, total, net, vatOf, status, nextNumber, candidates, unmatched, kindsFor } from "./invoices.ts";
+  import { today, addDays, uid, total, net, vatOf, status, nextNumber, candidates, unmatched, kindsFor, owedOf, paidAmount, isLate, applied, apply, remaining } from "./invoices.ts";
   import { vatRegistered } from "@openbooks/country-il";
   import type { Invoice, Customer, Kind, Status } from "./invoices.ts";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? (us ? "USD" : "ILS"));
   const METHODS = ["העברה בנקאית", "ביט", "PayPal", "מזומן", "צ'ק", "כרטיס אשראי"];
-  const STATUS: Record<Status, Tone> = { draft: "neutral", unpaid: "accent", overdue: "bad", paid: "good" };
+  const STATUS: Record<Status, Tone> = { draft: "neutral", unpaid: "accent", partial: "warn", overdue: "bad", paid: "good" };
   const kindLabel = (k: Kind) => t(`invoices.kind.${k}`);
 
   // VAT follows the business type in force in the document's year (an osek zair who became murshe in 2026 charges VAT from 2026).
@@ -30,18 +31,19 @@
   const customers = $derived(doc<Customer[]>("customers"));
   const custOf = (inv: Invoice) => customers.find((c) => c.id === inv.customer);
   const nameOf = (inv: Invoice) => custOf(inv)?.name ?? "—";
-  type Row = { inv: Invoice; st: Status; amt: number };
+  type Row = { inv: Invoice; st: Status; amt: number; owed: number; late: boolean };
   const all = $derived(
     invoices
-      .map((inv): Row => ({ inv, st: status(inv), amt: total(inv) }))
+      .map((inv): Row => ({ inv, st: status(inv), amt: total(inv), owed: owedOf(inv), late: isLate(inv) }))
       .sort((a, b) => (b.inv.issued ?? "").localeCompare(a.inv.issued ?? "") || (b.inv.created ?? "").localeCompare(a.inv.created ?? "")),
   );
 
   // ---- stats ----
   const year = String(new Date().getFullYear());
   const sumOf = (rs: readonly Row[]) => rs.reduce((a, r) => a + r.amt, 0);
-  const open = $derived(all.filter((r) => r.st === "unpaid" || r.st === "overdue"));
-  const overdue = $derived(all.filter((r) => r.st === "overdue"));
+  const sumOwed = (rs: readonly Row[]) => rs.reduce((a, r) => a + r.owed, 0);
+  const open = $derived(all.filter((r) => r.st === "unpaid" || r.st === "overdue" || r.st === "partial"));
+  const overdue = $derived(all.filter((r) => r.late));
   /** A bill / tax invoice and the receipt made from it point at the same payment: count it once. */
   const hasReceipt = (inv: Invoice) => invoices.some((x) => x.kind === "receipt" && x.status !== "draft" && x.ref === inv.number && (x.refKind ?? "bill") === inv.kind);
   const paidYear = $derived(all.filter((r) => r.st === "paid" && (r.inv.paidDate ?? r.inv.issued ?? "").startsWith(year) && !(r.inv.kind !== "receipt" && hasReceipt(r.inv))));
@@ -49,12 +51,14 @@
   // ---- list ----
   let tab = $state("all"),
     q = $state("");
-  const count = (k: Status) => all.filter((r) => r.st === k).length;
-  const TABS = $derived([{ key: "all", label: t("invoices.tab.all"), count: all.length }, ...(["draft", "unpaid", "overdue", "paid"] as const).map((k) => ({ key: k, label: t(`invoices.status.${k}`), count: count(k) }))]);
+  /** The overdue tab holds every invoice past due that still owes money, a partly paid one too. */
+  const inTab = (r: Row, k: string) => (k === "all" ? true : k === "overdue" ? r.late : r.st === k);
+  const count = (k: Status) => all.filter((r) => inTab(r, k)).length;
+  const TABS = $derived([{ key: "all", label: t("invoices.tab.all"), count: all.length }, ...(["draft", "unpaid", "partial", "overdue", "paid"] as const).map((k) => ({ key: k, label: t(`invoices.status.${k}`), count: count(k) }))]);
   const rows = $derived(
     all.filter(
       (r) =>
-        (tab === "all" || r.st === tab) &&
+        inTab(r, tab) &&
         (!q || `${r.inv.number ?? ""} ${nameOf(r.inv)} ${r.inv.notes ?? ""} ${r.inv.items.map((i) => i.desc).join(" ")} ${r.amt}`.toLowerCase().includes(q.toLowerCase())),
     ),
   );
@@ -74,8 +78,10 @@
     custName = $state(""),
     custEmail = $state(""),
     custAddress = $state(""),
+    custVatId = $state(""),
     paying = $state(false),
-    paidOn = $state(today());
+    paidOn = $state(today()),
+    applyAmt = $state<string | number>("");
   const saved = $derived(!!draft && invoices.some((i) => i.id === draft!.id));
   const locked = $derived(!!draft && draft.status !== "draft"); // issued documents keep their content; only payment changes
   /** VAT on the open document: frozen once issued, else the issue year's rate (unless zero-rated). */
@@ -85,8 +91,12 @@
   const dVat = $derived(draft ? vatOf({ items: draft.items, vat: vatNow }) : 0);
   const dTotal = $derived(draft ? total({ items: draft.items, vat: vatNow }) : 0);
   const showsVat = $derived(!!draft && (vatNow > 0 || (!locked && registeredIn(draft.issued)) || (locked && draft.vat !== undefined && draft.kind === "tax")));
-  const taken = $derived(new Set(invoices.filter((i) => i.id !== draft?.id && !(draft?.kind === "receipt" && i.kind !== "receipt" && i.number === draft?.ref)).map((i) => i.paidTxn).filter((x): x is string => !!x)));
-  const cands = $derived(draft && paying ? candidates({ ...draft, vat: vatNow }, S.data?.txns ?? [], taken, custName).slice(0, 8) : []);
+  /** How much of each bank transaction the other documents took (a receipt shares its bill's payment, so it doesn't count against it). */
+  const taken = $derived(applied(invoices, (i) => (draft?.kind === "receipt" && i.kind !== "receipt" && i.number === draft?.ref)));
+  const dPaid = $derived(draft ? paidAmount(draft) : 0);
+  const dOwed = $derived(draft ? Math.max(0, Math.round((dTotal - dPaid) * 100) / 100) : 0);
+  const cands = $derived(draft && paying ? candidates({ ...draft, vat: vatNow }, dOwed, S.data?.txns ?? [], taken, custName).slice(0, 8) : []);
+  const txnOf = (id: string | null) => (id ? S.data?.txns.find((x) => x.id === id) : undefined);
   const paidTxn = $derived(draft?.paidTxn ? S.data?.txns.find((x) => x.id === draft!.paidTxn) : undefined);
   const who = (x: Txn) => x.who ?? payerOf(x);
 
@@ -101,10 +111,22 @@
     custName = c?.name ?? "";
     custEmail = c?.email ?? "";
     custAddress = c?.address ?? "";
+    custVatId = c?.vatId ?? "";
     paying = false;
     paidOn = today();
+    applyAmt = "";
     drawer = true;
   }
+  // a link from a report (/invoices?open=<id>) opens that invoice once
+  let opened = "";
+  $effect(() => {
+    const id = page.url.searchParams.get("open");
+    const inv = id && id !== opened ? invoices.find((x) => x.id === id) : undefined;
+    if (inv) {
+      opened = id!;
+      edit(inv);
+    }
+  });
   function create({ customerName = "", ...over }: Partial<Invoice> & { customerName?: string } = {}) {
     const d = over.issued ?? today();
     const kind: Kind = us ? "invoice" : registeredIn(d) ? "tax" : "bill";
@@ -119,6 +141,7 @@
     if (c) {
       custEmail = c.email ?? "";
       custAddress = c.address ?? "";
+      custVatId = c.vatId ?? "";
     }
   }
   function setKind(k: string) {
@@ -132,8 +155,9 @@
     const name = custName.trim();
     if (name) {
       const c = customers.find((c) => c.name.toLowerCase() === name.toLowerCase());
-      const rec = { ...(c ?? { id: uid() }), name, email: custEmail.trim(), address: custAddress.trim() };
-      if (!c || c.name !== rec.name || (c.email ?? "") !== rec.email || (c.address ?? "") !== rec.address)
+      const rec = { ...(c ?? { id: uid() }), name, email: custEmail.trim(), address: custAddress.trim(), ...(custVatId.trim() ? { vatId: custVatId.trim() } : {}) };
+      if (!custVatId.trim()) delete (rec as Customer).vatId;
+      if (!c || c.name !== rec.name || (c.email ?? "") !== rec.email || (c.address ?? "") !== rec.address || (c.vatId ?? "") !== (rec.vatId ?? ""))
         await saveDoc("customers", c ? customers.map((x) => (x.id === c.id ? rec : x)) : [...customers, rec]);
       next.customer = rec.id;
     }
@@ -159,12 +183,32 @@
     await save();
     toast(t("invoices.issued", { doc: t(`invoices.doc.${draft.kind}`), number: draft.number }));
   }
+  /** Apply a transaction (whole, or `applyAmt` of it) or, with x null, money received outside the books on `paidOn`. The invoice is marked paid
+   *  (paidTxn / paidDate: what the receipt flow reads) once the payments cover it. */
   async function markPaid(x: Txn | null) {
     if (!draft) return;
-    draft.status = "paid";
-    draft.paidTxn = x?.id ?? null;
-    draft.paidDate = x?.date ?? paidOn;
-    paying = false;
+    const next = apply(draft, dOwed, x, +applyAmt || Infinity, paidOn, taken, uid());
+    if (next.length === (draft.payments?.length ?? 0)) return toast(t("invoices.applyNone"));
+    draft.payments = next;
+    applyAmt = "";
+    const last = next.at(-1)!;
+    if (next.reduce((a, p) => a + p.amount, 0) >= dTotal - 0.005) {
+      draft.status = "paid";
+      draft.paidTxn = last.txn;
+      draft.paidDate = last.date;
+      paying = false;
+    }
+    await save();
+  }
+  /** Take one payment off; the invoice is open again if what is left no longer covers it. */
+  async function unapplyPayment(id: string) {
+    if (!draft) return;
+    draft.payments = (draft.payments ?? []).filter((p) => p.id !== id);
+    if (dTotal - draft.payments.reduce((a, p) => a + p.amount, 0) > 0.005) {
+      draft.status = "open";
+      draft.paidTxn = null;
+      draft.paidDate = null;
+    }
     await save();
   }
   async function markUnpaid() {
@@ -172,6 +216,7 @@
     draft.status = "open";
     draft.paidTxn = null;
     draft.paidDate = null;
+    delete draft.payments;
     await save();
   }
   async function remove() {
@@ -188,6 +233,7 @@
     });
     custEmail = c?.email ?? "";
     custAddress = c?.address ?? "";
+    custVatId = c?.vatId ?? "";
   }
   function openTxn(id: string) {
     drawer = false;
@@ -213,8 +259,6 @@
   const TERMS = $derived([[t("invoices.term.now"), 0], [t("invoices.term.net", { n: 15 }), 15], [t("invoices.term.net", { n: 30 }), 30]] as [string, number][]);
 </script>
 
-<svelte:head><title>{title} · OpenBooks</title></svelte:head>
-
 <PageHeader {title} {sub}>
   {#snippet actions()}
     {#if !us}<Button icon="plus" onclick={() => create({ kind: "receipt", due: null, method: METHODS[0] })}>{t("invoices.newReceipt")}</Button>{/if}
@@ -224,8 +268,8 @@
 
 <div class="px-4 sm:px-8">
   <div class="panel mt-4 grid gap-6 p-5 sm:grid-cols-3 sm:p-6">
-    <Stat label={t("invoices.outstanding")} value={sumOf(open)} currency={cur} hint={t("invoices.openN", { n: open.length })} />
-    <Stat label={t("invoices.status.overdue")} value={sumOf(overdue)} currency={cur} class={overdue.length ? "[&_.display]:text-bad" : ""} hint={t("invoices.pastDueN", { n: overdue.length })} />
+    <Stat label={t("invoices.outstanding")} value={sumOwed(open)} currency={cur} hint={t("invoices.openN", { n: open.length })} />
+    <Stat label={t("invoices.status.overdue")} value={sumOwed(overdue)} currency={cur} class={overdue.length ? "[&_.display]:text-bad" : ""} hint={t("invoices.pastDueN", { n: overdue.length })} />
     <Stat label={t("invoices.paidIn", { year })} value={sumOf(paidYear)} currency={cur} hint={t("invoices.paidN", { n: paidYear.length })} />
   </div>
 
@@ -239,7 +283,7 @@
 <div class="sm:px-8">
   <div class="panel overflow-hidden max-sm:rounded-none">
     {#if rows.length}
-    <Table {columns} {rows} key={(r) => r.inv.id} caption={t("invoices.list")} onrowclick={(r) => edit(r.inv)} selected={(r) => drawer && draft?.id === r.inv.id}>
+    <Table {columns} {rows} key={(r) => r.inv.id} caption={t("invoices.list")} stack onrowclick={(r) => edit(r.inv)} selected={(r) => drawer && draft?.id === r.inv.id}>
       {#snippet cell(r, c)}
         {#if c.key === "number"}
           <span class="inline-flex items-center gap-1.5">
@@ -254,6 +298,7 @@
           <span class="num text-sub">{r.inv.due && r.inv.kind !== "receipt" ? mdy(r.inv.due) : ""}</span>
         {:else if c.key === "amount"}
           <Money value={r.amt} currency={cur} class="text-ink" />
+          {#if r.st === "partial"}<span class="block text-[12px] text-sub">{t("invoices.leftN", { amount: fmt(r.owed, 2) })}</span>{/if}
         {:else if c.key === "status"}
           <Badge tone={STATUS[r.st]}>{t(`invoices.status.${r.st}`)}</Badge>
         {:else}
@@ -331,6 +376,12 @@
         <Input label={t("invoices.email")} bind:value={custEmail} disabled={locked} type="email" dir="ltr" />
         <Input label={us ? t("invoices.address") : t("invoices.addressId")} bind:value={custAddress} disabled={locked} />
       </div>
+      {#if !us && registeredIn(draft.issued)}
+        <div class="grid gap-3 sm:grid-cols-2">
+          <Input label={t("invoices.vatId")} bind:value={custVatId} disabled={locked} dir="ltr" inputmode="numeric" placeholder="514290543" />
+          {#if draft.kind === "tax"}<Input label={t("invoices.alloc")} bind:value={() => draft!.alloc ?? "", (v) => (draft!.alloc = String(v).trim() || undefined)} disabled={locked} dir="ltr" inputmode="numeric" />{/if}
+        </div>
+      {/if}
     </div>
 
     <div class="border-t border-line px-4 py-4 sm:px-5">
@@ -387,27 +438,54 @@
     {#if draft.status !== "draft" && draft.kind !== "receipt"}
       <div class="border-t border-line px-4 py-4 sm:px-5">
         <div class="text-[13px] text-ink-2">{t("invoices.payment")}</div>
+        {#if draft.payments?.length}
+          <ul class="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line">
+            {#each draft.payments as p (p.id)}
+              {@const tx = txnOf(p.txn)}
+              <li class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-[13px]">
+                <Icon name="check" size={14} class="shrink-0 text-good" />
+                <span class="num w-24 shrink-0 text-sub">{mdy(p.date)}</span>
+                <span class="min-w-0 flex-1 basis-24 truncate text-ink-2" dir="auto">{tx ? who(tx) : t("invoices.paidOutsideShort")}</span>
+                <Money value={p.amount} currency={cur} class="text-good" />
+                {#if tx}<Button size="sm" variant="ghost" onclick={() => openTxn(tx.id)}>{t("invoices.openTxn")}</Button>{/if}
+                <Button size="sm" variant="ghost" onclick={() => unapplyPayment(p.id)}>{t("invoices.unapply")}</Button>
+              </li>
+            {/each}
+          </ul>
+          {#if dPaid && dOwed > 0}
+            <dl class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
+              <div class="flex items-baseline gap-1.5"><dt class="text-sub">{t("invoices.paidSoFar")}</dt><dd><Money value={dPaid} currency={cur} class="text-good" /></dd></div>
+              <div class="flex items-baseline gap-1.5"><dt class="text-sub">{t("invoices.col.due")}</dt><dd><Money value={dOwed} currency={cur} class="text-ink" /></dd></div>
+            </dl>
+          {/if}
+        {/if}
         {#if draft.status === "paid"}
+          {#if !draft.payments?.length}
           <div class="mt-2 flex items-center gap-2 text-[14px]">
             <Icon name="check" size={16} class="shrink-0 text-good" />
             <span class="min-w-0 flex-1 truncate text-ink-2" dir="auto">{paidTxn ? t("invoices.paidFrom", { date: mdy(draft.paidDate ?? paidTxn.date), who: bidi(who(paidTxn)) }) : t("invoices.paidOutside", { date: mdy(draft.paidDate ?? draft.issued) })}</span>
             {#if paidTxn}<Money value={paidTxn.amount} currency={cur} class="text-good" />{/if}
           </div>
+          {/if}
           <div class="mt-3 flex flex-wrap gap-2">
-            {#if paidTxn}<Button size="sm" onclick={() => openTxn(paidTxn.id)}>{t("invoices.openTxn")}</Button>{/if}
+            {#if paidTxn && !draft.payments?.length}<Button size="sm" onclick={() => openTxn(paidTxn.id)}>{t("invoices.openTxn")}</Button>{/if}
             {#if !us && !hasReceipt(draft)}<Button size="sm" variant="primary" onclick={() => receiptFrom(draft!)}>{t("invoices.receiptFromBill")}</Button>{/if}
             <Button size="sm" variant="ghost" onclick={markUnpaid}>{t("invoices.markUnpaid")}</Button>
           </div>
         {:else if paying}
           <p class="mt-1 text-[12px] text-sub">{t("invoices.candHint", { date: mdy(draft.issued) })}</p>
+          <Input label={t("invoices.applyAmount")} hint={t("invoices.applyHint", { amount: fmt(dOwed, 2) })} bind:value={applyAmt} numeric type="number" min="0" step="0.01" class="mt-2 w-44" />
           <div class="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line">
-            {#each cands as { t: tx, amountMatch, sim } (tx.id)}
+            {#each cands as { t: tx, left, exact, amountMatch, sim } (tx.id)}
               <button onclick={() => markPaid(tx)} class="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-start text-[13px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-inset">
                 <span class="num w-24 shrink-0 text-sub">{mdy(tx.date)}</span>
                 <span class="min-w-0 flex-1 basis-24 truncate text-ink-2" dir="auto">{who(tx)}</span>
-                {#if amountMatch}<Badge tone="good" size="sm">{t("invoices.match.amount")}</Badge>{/if}
+                {#if exact}<Badge tone="good" size="sm">{t("invoices.match.exact")}</Badge>{:else if amountMatch}<Badge tone="good" size="sm">{t("invoices.match.amount")}</Badge>{/if}
                 {#if sim >= 0.5}<Badge tone="accent" size="sm">{t("invoices.match.payer")}</Badge>{/if}
-                <Money value={tx.amount} currency={cur} class="text-ink" />
+                <span class="flex flex-col items-end">
+                  <Money value={tx.amount} currency={cur} class="text-ink" />
+                  {#if left < tx.amount}<span class="text-[11px] text-sub">{t("invoices.leftOfPayment", { amount: fmt(left, 2) })}</span>{/if}
+                </span>
               </button>
             {:else}<div class="px-3 py-4 text-center text-[13px] text-sub">{t("invoices.noCands")}</div>{/each}
           </div>
@@ -418,7 +496,7 @@
             <Button variant="ghost" onclick={() => (paying = false)}>{t("common.cancel")}</Button>
           </div>
         {:else}
-          <div class="mt-2"><Button variant="primary" icon="check" onclick={() => (paying = true)}>{t("invoices.markPaid")}</Button></div>
+          <div class="mt-2"><Button variant="primary" icon="check" onclick={() => (paying = true)}>{t(draft.payments?.length ? "invoices.addPayment" : "invoices.markPaid")}</Button></div>
         {/if}
       </div>
     {/if}

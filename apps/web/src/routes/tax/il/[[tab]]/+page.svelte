@@ -9,12 +9,14 @@
   import { ilYear } from "../il.ts";
   import Return from "../Return.svelte";
   import Checks from "../Checks.svelte";
+  import Depreciation from "../Depreciation.svelte";
 
-  const tab = $derived(page.params.tab === "review" ? "review" : "return");
-  const show = (k: string) => goto(k === "review" ? `/tax/il/review${page.url.search}` : `/tax/il${page.url.search}`, { replace: true, reset: false });
+  const tab = $derived(page.params.tab === "review" ? "review" : page.params.tab === "depreciation" ? "depreciation" : "return");
+  const show = (k: string) => goto(k === "review" || k === "depreciation" ? `/tax/il/${k}${page.url.search}` : `/tax/il${page.url.search}`, { replace: true, reset: false });
   const years = $derived(S.data!.years.map((y) => ({ value: String(y), label: t("tax.yearOption", { y }) })).reverse());
   const next = $derived(Math.max(...S.data!.years) + 1);
   const ask = $derived(ilYear(S.year).ask.length);
+  const isDep = $derived(ilYear(S.year).type !== "osek-zair");
   // US books have their own filings page
   $effect(() => {
     if (isUS()) void goto("/tax/us", { replace: true });
@@ -26,8 +28,6 @@
     } else S.year = +v;
   }
 </script>
-
-<svelte:head><title>{t("tax.titleIL")} · OpenBooks</title></svelte:head>
 
 <PageHeader title={t("tax.titleIL")} sub={t("tax.subIL", { biz: bizLabel() })}>
   {#snippet actions()}
@@ -45,9 +45,10 @@
     items={[
       { key: "return", label: t("tax.tabReturn") },
       { key: "review", label: t("tax.tabReview"), count: ask },
+      ...(isDep ? [{ key: "depreciation", label: t("tax.tabDepreciation") }] : []),
     ]}
     value={tab}
     onchange={show} />
 </PageHeader>
 
-{#if tab === "review"}<Checks onreturn={() => show("return")} />{:else}<Return />{/if}
+{#if tab === "review"}<Checks onreturn={() => show("return")} />{:else if tab === "depreciation"}<Depreciation />{:else}<Return />{/if}

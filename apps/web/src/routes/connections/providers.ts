@@ -27,6 +27,8 @@ const F: Record<string, Partial<LoginField>> = {
   id: { inputmode: "numeric" },
   nationalID: { inputmode: "numeric" },
   card6Digits: { inputmode: "numeric" },
+  secret: { type: "password" },
+  env: { placeholder: "production or sandbox" },
 };
 const p = (id: string, group: Group, fields: string, extra: { otp?: boolean } = {}): Provider => ({
   get name() {
@@ -45,6 +47,7 @@ const p = (id: string, group: Group, fields: string, extra: { otp?: boolean } = 
 });
 export const PROVIDERS: Record<string, Provider> = {
   mercury: p("mercury", "us", "token"),
+  plaid: p("plaid", "us", "clientId secret env"),
   onezero: p("onezero", "il-bank", "email password phoneNumber", { otp: true }),
   hapoalim: p("hapoalim", "il-bank", "userCode password"),
   leumi: p("leumi", "il-bank", "username password"),

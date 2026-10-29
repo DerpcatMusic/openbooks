@@ -319,7 +319,8 @@ const bizType = (m: Meta, year: number) => {
     .sort();
   return past.length ? m.types![past.at(-1)!]! : ({ "il-osek-zair": "osek-zair", "us-llc": "llc-disregarded" } as Record<string, string>)[m.kind ?? ""] || "";
 };
-const PAGES = "home, transactions, invoices, review, reports, counterparties, rules, accounts, journal, documents, connections, tax, planner, settings";
+const PAGES =
+  "home, transactions, invoices, bills, vendors, review, reports, counterparties, rules, accounts, reconciliation, journal, documents, connections, tax, planner, settings";
 const ymd = () => new Date().toLocaleDateString("sv-SE");
 
 export function systemPrompt(e: { id: string; meta: Meta }, year: number, lang: Lang) {
@@ -367,6 +368,8 @@ export function describe(name: string, a: Record<string, unknown>, lang: Lang): 
         : `Add a journal entry on ${v("date")}: ${v("memo")} (${n("lines")} lines)`;
     case "create_invoice":
       return he ? `לשמור טיוטת חשבונית עבור ${v("customer")} (${n("items")} פריטים)` : `Save a draft invoice for ${v("customer")} (${n("items")} item(s))`;
+    case "draft_bill":
+      return he ? `לשמור טיוטת חשבון ספק מ-${v("vendor")} (${n("lines")} שורות)` : `Save a draft bill from ${v("vendor")} (${n("lines")} line(s))`;
     case "bank_sync":
       return he ? `לסנכרן את ${v("provider") || "כל הבנקים המחוברים"} (פנייה לבנק)` : `Sync ${v("provider") || "every connected bank"} (contacts the bank)`;
   }

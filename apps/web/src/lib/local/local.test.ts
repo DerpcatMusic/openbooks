@@ -52,9 +52,9 @@ test("upload a statement → txns, then a category + rule reclassify them", asyn
   expect(up.body.txns).toHaveLength(2);
   expect(up.body.inbox).toEqual(["mercury.json"]);
   const wire = up.body.txns.find((t: any) => t.desc.includes("WIRE") || t.desc.includes("Client"));
-  const cat = await call(db, "POST", "/api/category?e=acme", { ids: [wire.id], category: "income", rule: "Client" });
-  expect(cat.body.txns.find((t: any) => t.id === wire.id).category).toBe("income");
-  expect(cat.body.rules[0]).toEqual(["Client", "income"]);
+  const cat = await call(db, "POST", "/api/category?e=acme", { ids: [wire.id], category: "revenue:sales", rule: "Client" });
+  expect(cat.body.txns.find((t: any) => t.id === wire.id).category).toBe("revenue:sales");
+  expect(cat.body.rules[0]).toEqual(["Client", "revenue:sales"]);
   expect((await call(db, "POST", "/api/rules?e=acme", { rules: [] })).body.rules).toEqual([]);
   // the same file again changes nothing (txns dedupe by uid)
   expect((await call(db, "POST", "/api/upload?e=acme&to=inbox&year=2025&name=mercury.json", new Blob([DUMP]))).body.txns).toHaveLength(2);
@@ -104,4 +104,28 @@ test("export → import into a fresh database restores books and files", async (
   expect(b.state("acme")).toEqual(a.state("acme"));
   expect([...(await b.blob("acme/proofs/2025/receipt.pdf"))!]).toEqual([...PDF]);
   await expect(b.import({ nope: 1 } as never)).rejects.toThrow("not an OpenBooks backup");
+});
+
+test("the server's write checks: closed period (409), unbalanced journal (400), rule objects", async () => {
+  const db = await setup();
+  const up = await call(db, "POST", "/api/upload?e=acme&to=inbox&year=2025&name=mercury.json", new Blob([DUMP]));
+  const id = up.body.txns[0].id;
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "books", value: { closeDate: "2025-12-31" } })).status).toBe(200);
+  expect((await call(db, "POST", "/api/category?e=acme", { ids: [id], category: "revenue:sales" })).status).toBe(409);
+  expect(
+    (
+      await call(db, "POST", "/api/rules?e=acme", {
+        rules: [
+          ["Client", "revenue:sales"],
+          ["Interest", "revenue:sales"],
+        ],
+      })
+    ).status,
+  ).toBe(409);
+  const je = { id: "j1", date: "2026-01-05", memo: "x", lines: [{ account: "revenue:sales", debit: 5 }] };
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "journal", value: [je] })).status).toBe(400);
+  expect((await call(db, "POST", "/api/rules?e=acme", { rules: [{ nope: 1 }] })).status).toBe(400);
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "books", value: {} })).status).toBe(200);
+  const obj = { when: [{ field: "text", op: "contains", value: "WIRE" }], then: { account: "revenue:sales" } };
+  expect((await call(db, "POST", "/api/rules?e=acme", { rules: [obj] })).body.rules).toEqual([obj]);
 });

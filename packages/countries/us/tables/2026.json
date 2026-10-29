@@ -15,6 +15,70 @@
   "corpRate": 0.21,
   "treatyDividend": 0.25,
   "costsNote": "ESTIMATES, $/yr: LLC = state fee + registered agent + 5472 prep (500–1,500); C-corp = 1120 prep (1,000–4,000) + Delaware franchise 400 + agent",
+  "fed": {
+    "standardDeduction": {
+      "single": 16100,
+      "mfj": 32200,
+      "hoh": 24150,
+      "mfs": 16100
+    },
+    "brackets": {
+      "single": [[12400, 0.1], [50400, 0.12], [105700, 0.22], [201775, 0.24], [256225, 0.32], [640600, 0.35], [null, 0.37]],
+      "mfj": [[24800, 0.1], [100800, 0.12], [211400, 0.22], [403550, 0.24], [512450, 0.32], [768700, 0.35], [null, 0.37]],
+      "hoh": [[17700, 0.1], [67450, 0.12], [105700, 0.22], [201750, 0.24], [256200, 0.32], [640600, 0.35], [null, 0.37]],
+      "mfs": [[12400, 0.1], [50400, 0.12], [105700, 0.22], [201775, 0.24], [256225, 0.32], [384350, 0.35], [null, 0.37]]
+    },
+    "ssWageBase": 184500,
+    "qbi": {
+      "threshold": {
+        "single": 201750,
+        "mfj": 403500,
+        "hoh": 201750,
+        "mfs": 201775
+      },
+      "phaseIn": {
+        "single": 75000,
+        "mfj": 150000,
+        "hoh": 75000,
+        "mfs": 75000
+      },
+      "minimum": {
+        "amount": 400,
+        "minQbi": 1000
+      }
+    },
+    "mileage": [
+      { "from": "2026-01-01", "cents": 72.5 },
+      { "from": "2026-07-01", "cents": 76 }
+    ],
+    "ssRate": 0.124,
+    "medicareRate": 0.029,
+    "seFactor": 0.9235,
+    "seMinimum": 400,
+    "addlMedicare": {
+      "rate": 0.009,
+      "threshold": {
+        "single": 200000,
+        "mfj": 250000,
+        "hoh": 200000,
+        "mfs": 125000
+      }
+    },
+    "homeOfficeSimplified": {
+      "perSqft": 5,
+      "maxSqft": 300
+    },
+    "deMinimis": 2500,
+    "safeHarbor": {
+      "current": 0.9,
+      "prior": 1,
+      "priorHighAgi": 1.1,
+      "highAgi": 150000,
+      "highAgiMfs": 75000,
+      "minOwe": 1000
+    },
+    "corpEstimateMin": 500
+  },
   "sources": {
     "form5472Penalty": {
       "url": "https://www.irs.gov/instructions/i5472",
@@ -28,6 +92,71 @@
       "url": "https://www.irs.gov/businesses/international-businesses/israel-tax-treaty-documents",
       "effective": "1995-01-01",
       "note": "US–Israel income tax treaty, royalties"
+    },
+    "nec1099": {
+      "url": "https://www.irs.gov/instructions/i1099mec",
+      "effective": "2026-01-01",
+      "note": "OBBBA §70433: $2,000 for payments made after 2025, indexed from 2027"
+    },
+    "delawareTax": {
+      "url": "https://corp.delaware.gov/alt-entitytaxinstructions/",
+      "effective": "2026-01-01",
+      "note": "Delaware LLC/LP/GP annual tax, due June 1 (read 2026-10-29)"
+    },
+    "wyomingMin": {
+      "url": "https://sos.wyo.gov/faqs.aspx?root=BUS",
+      "effective": "2026-01-01",
+      "note": "greater of $60 or 0.0002 of Wyoming assets; due first day of the formation-anniversary month"
+    },
+    "fed.brackets": {
+      "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "effective": "2026-01-01",
+      "note": "Rev. Proc. 2025-32 sec. 3 tax rate tables (§1(j))"
+    },
+    "fed.standardDeduction": {
+      "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "effective": "2026-01-01",
+      "note": "Rev. Proc. 2025-32 sec. 3.14"
+    },
+    "fed.ssWageBase": {
+      "url": "https://www.ssa.gov/oact/cola/cbb.html",
+      "effective": "2026-01-01",
+      "note": "SSA 2026 COLA fact sheet: $184,500"
+    },
+    "fed.qbi": {
+      "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+      "effective": "2026-01-01",
+      "note": "Rev. Proc. 2025-32 sec. 3.26; OBBBA §70105 widened the phase-in range to $75,000/$150,000 and added the $400 minimum"
+    },
+    "fed.mileage": {
+      "url": "https://www.irs.gov/tax-professionals/standard-mileage-rates",
+      "effective": "2026-01-01",
+      "note": "72.5 cents Jan 1-Jun 30 (IR-2025-128); 76 cents from Jul 1 (IR-2026-29)"
+    },
+    "fed.safeHarbor": {
+      "url": "https://www.irs.gov/pub/irs-pdf/f1040es.pdf",
+      "effective": "2026-01-01",
+      "note": "1040-ES: 90% of current or 100% of prior-year tax (110% if prior AGI > $150,000; $75,000 if MFS); no penalty if you owe < $1,000; IRC §6654"
+    },
+    "fed.addlMedicare": {
+      "url": "https://www.irs.gov/taxtopics/tc560",
+      "effective": "2026-01-01",
+      "note": "IRC §3101(b)(2): 0.9% over $200,000 single / $250,000 MFJ / $125,000 MFS (not indexed); Form 8959"
+    },
+    "fed.homeOfficeSimplified": {
+      "url": "https://www.irs.gov/pub/irs-drop/rp-13-13.pdf",
+      "effective": "2026-01-01",
+      "note": "Rev. Proc. 2013-13: $5 per sq ft, up to 300 sq ft"
+    },
+    "fed.deMinimis": {
+      "url": "https://www.law.cornell.edu/cfr/text/26/1.263(a)-1",
+      "effective": "2026-01-01",
+      "note": "Reg. 1.263(a)-1(f): $2,500 per invoice/item without an applicable financial statement"
+    },
+    "fed.corpEstimateMin": {
+      "url": "https://www.irs.gov/instructions/i1120w",
+      "effective": "2026-01-01",
+      "note": "Form 1120-W: no estimated tax required if tax is under $500"
     }
   }
 }

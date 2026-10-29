@@ -26,6 +26,8 @@
   import IconButton from "./IconButton.svelte";
   import Button from "./Button.svelte";
   import type { IconName } from "./icons.ts";
+  import { navKey } from "../ustax/books.ts";
+  import { vatBooks } from "../filings.svelte.ts";
 
   const uid = $props.id();
   const L = (key: string, vars?: Record<string, string | number>): Label => ({ en: translate(DICTS, "en", key, vars), he: translate(DICTS, "he", key, vars) });
@@ -67,19 +69,27 @@
       ["/home", "nav.home", "home"],
       ["/transactions", "nav.transactions", "list"],
       ["/invoices", us ? "nav.invoices" : "nav.bills", "file"],
+      ["/bills", "nav.payableBills", "calendar"],
+      ["/vendors", "nav.vendors", "users"],
       ["/review", "nav.review", "sparkle"],
       ["/reports", "nav.reports", "report"],
       ["/counterparties", "nav.counterparties", "users"],
       ["/rules", "nav.rules", "rules"],
+      ["/tags", "nav.tags", "tag"],
       ["/accounts", "nav.accounts", "bank"],
+      ["/reconciliation", "nav.reconciliation", "check"],
       ["/journal", "nav.journal", "file"],
+      ["/payroll", "nav.payroll", "users"],
       ["/documents", "nav.documents", "folder"],
       ["/connections", "nav.connections", "wallet"],
       ...(tax
         ? ([
-            us ? ["/tax/us", "nav.form5472", "form"] : ["/tax/il", "nav.form1301", "form"],
+            ["/filings", "nav.filings", "calendar"],
+            us ? ["/tax/us", navKey(), "form"] : ["/tax/il", "nav.form1301", "form"],
+            ...(us ? [] : ([...(vatBooks() ? [["/filings/vat", "filings.open.vat", "file"]] : []), ["/filings/advances", "adv.title", "wallet"], ["/filings/uniform", "uniform.title", "download"]] as [string, string, IconName][])),
             ["/planner", "nav.planner", "sparkle"],
             ["/taxximizer", "nav.taxximizer", "shield"],
+            ["/trips", "nav.trips", "calendar"],
             ["/you", "nav.you", "user"],
           ] as [string, string, IconName][])
         : []),

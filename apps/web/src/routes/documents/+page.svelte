@@ -41,8 +41,6 @@
   const proofUrl = (name: string) => fileUrl(`${S.year}/${name}`, "proofs").replace("%2F", "/");
 </script>
 
-<svelte:head><title>{t("documents.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("documents.title")} sub={t("documents.sub")}>
   {#snippet actions()}
     {#if !us}

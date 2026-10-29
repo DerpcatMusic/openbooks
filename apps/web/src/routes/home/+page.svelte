@@ -3,13 +3,14 @@
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { group, isCard, pl, priorPeriod, TYPES } from "@openbooks/core";
+  import { burn as burnRate, cashDelta, cashFlow, group, isCard, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import { form1301 } from "@openbooks/country-il";
   import type { IlTable } from "@openbooks/country-il";
   import type { Txn } from "@openbooks/schema";
   import { S, ent, isUS, bizType, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, taxTable, yearTxns, fmt, mdy, mon, monthYear, SERIES } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { Area, BarList, Bars, Button, Icon, Money, Segmented, Stat } from "#lib/ui/index.ts";
+  import Metric from "#lib/reports/Metric.svelte";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import { go } from "#lib/reports/go.ts";
   import { change as delta } from "#lib/reports/statements.ts";
@@ -64,6 +65,15 @@
       }
       return { key: ym, label: ml(ym), sub: monthYear(ym), v };
     });
+
+  // key numbers (docs/mercury-books-spec.md section 11): net cash flow of the period, monthly burn and runway from the last 3 complete months,
+  // net margin and expense ratio when there is revenue (US books: Israeli books are taxed on turnover, expenses aren't the story)
+  const cf = $derived(cashFlow(ts)),
+    cfDelta = $derived(cashDelta(cf.net, cashFlow(prevTs).net));
+  const bn = $derived(burnRate(S.data!.txns, new Date().toLocaleDateString("sv")));
+  const mg = $derived(us ? margins(revenue, expenses) : null);
+  const mo = (n: number | null | undefined) => (n == null ? "—" : n < 1 ? t("home.m.lt1") : t("home.m.mo", { n }));
+  const signed = (n: number) => (n > 0 ? "+" : "") + fmt(n);
 
   // the big chart: each earning (or spending) type per month
   let mode = $state("revenue"),
@@ -120,6 +130,8 @@
   const thisMonth = new Date().toISOString().slice(0, 7);
 </script>
 
+<svelte:head><title>{t("nav.home")} · OpenBooks</title></svelte:head>
+
 <div class="px-4 pt-6 pb-10 sm:px-8">
   <div class="flex flex-wrap items-end gap-3">
     <div class="min-w-0 flex-1 basis-60">
@@ -134,6 +146,17 @@
     </div>
   </div>
 
+  {#if S.data && !S.data.txns.length}
+    <div class="rise mt-5 rounded-2xl border border-line bg-panel p-5">
+      <h2 class="text-[16px] text-ink">{t("home.start.title")}</h2>
+      <p class="mt-1 max-w-[60ch] text-[14px] text-sub">{t("home.start.text")}</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button variant="primary" icon="upload" href="/documents">{t("home.start.import")}</Button>
+        <Button href="/connections">{t("home.start.connect")}</Button>
+      </div>
+    </div>
+  {/if}
+
   {#if ask}
     <a
       href="{BASE}/review"
@@ -144,7 +167,37 @@
     </a>
   {/if}
 
-  <div class="mt-5 grid gap-4 lg:grid-cols-3">
+  <section class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 {us ? 'lg:grid-cols-5' : ''}" aria-label={t("home.m.title")}>
+    <Metric label={t("home.m.netCash")} hint={t("home.m.netCashHint")} class="max-sm:col-span-2">
+      <Money value={cf.net} currency={cur} cents={false} plus class={cf.net < 0 ? "text-bad" : ""} />
+      {#snippet foot()}
+        {#if cfDelta?.kind === "pct"}
+          {@const good = cfDelta.value >= 0}
+          <span dir="ltr" class="num inline-flex h-[22px] shrink-0 items-center gap-0.5 rounded-full px-1.5 whitespace-nowrap {good ? 'bg-good/12 text-good' : 'bg-bad/12 text-bad'}">
+            <Icon name={good ? "arrow-up-right" : "arrow-down-left"} size={12} />{Math.abs(cfDelta.value).toFixed(1)}%
+          </span><span>{t("stat.vsPrior")}</span>
+        {:else if cfDelta}
+          <span>{t("home.m.vsAbs", { amount: signed(cfDelta.value) })}</span>
+        {/if}
+      {/snippet}
+    </Metric>
+    <Metric label={t(bn?.kind === "build" ? "home.m.build" : "home.m.burn")} hint={bn ? t("home.m.burnHint") : t("home.m.needHistory")}>
+      {#if bn}<Money value={Math.abs(bn.avg)} currency={cur} cents={false} class={bn.kind === "build" ? "text-good" : ""} />{:else}<span class="text-faint">—</span>{/if}
+    </Metric>
+    <Metric label={t(bn?.kind === "build" ? "home.m.coverage" : "home.m.runway")} hint={bn?.kind === "build" ? t("home.m.coverageHint") : t("home.m.runwayHint")}>
+      {#if bn}<span class="num">{mo(bn.kind === "build" ? bn.coverage : bn.runway)}</span>{:else}<span class="text-faint">—</span>{/if}
+    </Metric>
+    {#if us}
+      <Metric label={t("home.m.netMargin")} hint={mg ? t("home.m.netMarginHint") : t("home.m.needRevenue")}>
+        {#if mg}<span class="num {mg.net < 0 ? 'text-bad' : ''}">{pctLabel(mg.net)}</span>{:else}<span class="text-faint">—%</span>{/if}
+      </Metric>
+      <Metric label={t("home.m.expenseRatio")} hint={mg ? t("home.m.expenseRatioHint") : t("home.m.needRevenue")}>
+        {#if mg}<span class="num">{pctLabel(mg.expenseRatio)}</span>{:else}<span class="text-faint">—%</span>{/if}
+      </Metric>
+    {/if}
+  </section>
+
+  <div class="mt-4 grid gap-4 lg:grid-cols-3">
     <section class="panel glow rise min-w-0 p-5 sm:p-6">
       {#if us}
         <Stat

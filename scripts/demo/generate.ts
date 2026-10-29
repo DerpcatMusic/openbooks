@@ -179,6 +179,47 @@ CPA,expense:professional
   );
   write("acme/data/invoices.json", invoices);
   write("acme/data/customers.json", customers);
+  // bills payable in every state (stored draft / open / cancelled; paid, partial and overdue come from the payments and due dates)
+  const vendors = [
+    { id: "v-harbor", name: "Harbor Compliance", email: "billing@harbor.example", account: "expense:professional" },
+    { id: "v-cpa", name: "Pine & Co CPA", email: "ar@pineco.example", account: "expense:professional", terms: 15 },
+    { id: "v-thomann", name: "Thomann", account: "expense:equipment" },
+    { id: "v-rent", name: "Sound Rent Co", email: "hello@soundrent.example", account: "expense:equipment" },
+    { id: "v-aws", name: "Amazon Web Services", account: "cogs:hosting" },
+  ];
+  const bill = (
+    n: number,
+    vendor: string,
+    date: string,
+    due: string,
+    amount: number,
+    account: string,
+    status = "open",
+    payments: { amount: number; date: string }[] = [],
+  ) => ({
+    id: `bill-${n}`,
+    number: `BILL-${String(n).padStart(4, "0")}`,
+    vendor,
+    date,
+    due,
+    lines: [{ desc: vendors.find((v) => v.id === vendor)!.name, amount, account }],
+    status,
+    payments: payments.map((p, i) => ({ id: `bill-${n}-p${i + 1}`, txn: null, ...p })),
+    memo: "",
+    created: date,
+  });
+  write("acme/data/vendors.json", vendors);
+  write("acme/data/bills.json", [
+    bill(1, "v-harbor", "2026-03-01", "2026-03-31", 300, "expense:professional", "open", [{ amount: 300, date: "2026-03-14" }]),
+    bill(2, "v-cpa", "2026-04-01", "2026-04-16", 1250, "expense:professional", "open", [{ amount: 1250, date: "2026-04-20" }]),
+    bill(3, "v-thomann", "2026-08-05", "2026-09-04", 1800, "expense:equipment", "open", [{ amount: 600, date: "2026-09-02" }]),
+    bill(4, "v-rent", "2026-08-20", "2026-09-19", 2400, "expense:equipment"),
+    bill(5, "v-aws", "2026-10-01", "2026-10-31", 420, "cogs:hosting"),
+    bill(6, "v-harbor", "2026-10-15", "2026-11-14", 300, "expense:professional"),
+    bill(7, "v-cpa", "2026-10-20", "2026-11-04", 700, "expense:professional", "draft"),
+    bill(8, "v-rent", "2026-06-01", "2026-06-30", 900, "expense:equipment", "cancelled"),
+    bill(9, "v-cpa", "2026-06-10", "2026-06-25", 500, "expense:professional"),
+  ]);
   write("acme/data/profile.json", {
     legalName: "Acme Audio LLC",
     ein: "00-0000000",

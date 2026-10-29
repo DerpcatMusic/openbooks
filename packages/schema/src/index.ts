@@ -33,8 +33,8 @@ export const StoredTxn = Schema.Struct({ ...StatementRow.fields, key: Schema.opt
 export type StoredTxn = typeof StoredTxn.Type;
 
 export const Why = Schema.String; // "manual" | "journal" | "" (ask) | the matching rule text
-/** A ledger row: a stored transaction (or a journal line) with its ledger account. */
-export const Txn = Schema.Struct({ ...StoredTxn.fields, category: Schema.String, why: Why });
+/** A ledger row: a stored transaction (or a journal line) with its ledger account and, when it has any, its tag ids (by hand + rules). */
+export const Txn = Schema.Struct({ ...StoredTxn.fields, category: Schema.String, why: Why, tags: Schema.optionalKey(Schema.Array(Schema.String)) });
 export type Txn = typeof Txn.Type;
 
 /** Reconciliation line a reader reports (statement table, `checks` column). */
@@ -48,9 +48,68 @@ export const StatementCheck = Schema.Struct({
 });
 export type StatementCheck = typeof StatementCheck.Type;
 
-/** [match text, ledger account]; first match wins. */
-export const Rule = Schema.Tuple([Schema.String, Schema.String]);
+/** Legacy rule [match text, ledger account]: one case-sensitive "contains" over "desc memo [mcat]". Still stored and accepted as is. */
+export const LegacyRule = Schema.Tuple([Schema.String, Schema.String]);
+export type LegacyRule = typeof LegacyRule.Type;
+/** One condition of a rule. "text" is the legacy match; the others are the editor's fields. Amounts compare the absolute value. */
+export const RuleCondition = Schema.Union([
+  Schema.Struct({ field: Schema.Literal("text"), op: Schema.Literal("contains"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("description"), op: Schema.Literals(["contains", "equals", "startsWith"]), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("counterparty"), op: Schema.Literal("contains"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("account"), op: Schema.Literal("is"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("direction"), op: Schema.Literals(["in", "out"]) }),
+  Schema.Struct({ field: Schema.Literal("amount"), op: Schema.Literals(["eq", "gte", "lte"]), value: Schema.Finite }),
+  Schema.Struct({ field: Schema.Literal("amount"), op: Schema.Literal("between"), value: Schema.Finite, to: Schema.Finite }),
+]);
+export type RuleCondition = typeof RuleCondition.Type;
+/** "If every condition holds, Then set the ledger account and/or add tags (tag ids)." Rules are ordered; the first with an account sets it. */
+export const Rule = Schema.Struct({
+  when: Schema.Array(RuleCondition),
+  then: Schema.Struct({ account: Schema.optionalKey(Schema.String), tags: Schema.optionalKey(Schema.Array(Schema.String)) }),
+});
 export type Rule = typeof Rule.Type;
+/** What the `rule` table / doc "rules" holds and tools accept: legacy tuples and rule objects side by side, in order. */
+export const RuleInput = Schema.Union([LegacyRule, Rule]);
+/** A [match, account] tuple or a { when, then } rule (what /api/rules accepts). */
+export const isRuleInput = Schema.is(RuleInput);
+export type RuleInput = typeof RuleInput.Type;
+
+/** What a tag means for tax (Taxximizer): a deduction rule id from the country pack's tables/deductions.json, a business-use share (0-100) and a note. */
+export const TagTax = Schema.Struct({
+  rule: Schema.optionalKey(Schema.String),
+  pct: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))),
+  note: Schema.optionalKey(Schema.String),
+});
+export type TagTax = typeof TagTax.Type;
+/** doc "tags": tag groups, tags (optional group and colour token), and the tags each transaction id carries by hand (rules add more on read). */
+export const TagsDoc = Schema.Struct({
+  groups: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  tags: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      group: Schema.optionalKey(Schema.String),
+      color: Schema.optionalKey(Schema.String),
+      tax: Schema.optionalKey(TagTax),
+      /** Deactivated: hidden from pickers and filters, kept on the transactions that already carry it. Absent = active. */
+      inactive: Schema.optionalKey(Schema.Boolean),
+    }),
+  ),
+  on: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+});
+export type TagsDoc = typeof TagsDoc.Type;
+
+/** One line of a split transaction: signed like the transaction (negative = money out), so the lines add up to its amount to the cent. */
+export const SplitLine = Schema.Struct({
+  account: Schema.String,
+  amount: Schema.Finite,
+  memo: Schema.optionalKey(Schema.String),
+  tags: Schema.optionalKey(Schema.Array(Schema.String)),
+});
+export type SplitLine = typeof SplitLine.Type;
+/** doc "splits": stored transaction id -> its lines. The ledger emits one row per line (id `${txnId}~${i}`). */
+export const SplitsDoc = Schema.Record(Schema.String, Schema.Array(SplitLine));
+export type SplitsDoc = typeof SplitsDoc.Type;
 
 export const JournalLine = Schema.Struct({
   account: Schema.String,
@@ -99,6 +158,57 @@ export const TaxTableBase = Schema.Struct({
   /** dotted field path ("brackets", "ltd.corpRate") → source */
   sources: Schema.optionalKey(Schema.Record(Schema.String, Source)),
 });
+
+/** A pack's tables/deductions.json (research tables: docs/tax-research-*.md): per-expense rules and tax moves, each with sources and a confidence. */
+const Bilingual = Schema.Struct({ en: Schema.String, he: Schema.String });
+const Citation = Schema.Struct({ title: Schema.String, url: Schema.String, section: Schema.optionalKey(Schema.String) });
+export const DeductionRule = Schema.Struct({
+  id: Schema.String,
+  label: Bilingual,
+  match: Schema.Struct({ keywords: Schema.Array(Schema.String), mcc: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Finite]))) }), // IL lists them as numbers, US as strings
+  /** % of the expense that is deductible; null = depends on the business-use share. */
+  incomeTaxPct: Schema.NullOr(Schema.Finite),
+  /** % of the input VAT that is reclaimable; null = not determined (treat as not reclaimable). */
+  vatPct: Schema.NullOr(Schema.Finite),
+  cap: Schema.NullOr(
+    Schema.Struct({
+      amount: Schema.NullOr(Schema.Finite),
+      currency: Schema.String,
+      per: Schema.String, // year | day | recipient | trip | invoice | mile | once
+      year: Schema.optionalKey(Schema.NullOr(Schema.Int)),
+      kind: Schema.optionalKey(Schema.String),
+      note: Schema.optionalKey(Schema.String),
+    }),
+  ),
+  appliesTo: Schema.Array(Schema.String),
+  conditions: Schema.Array(Schema.String),
+  evidence: Schema.Array(Schema.String),
+  confidence: Schema.String, // statute | regulation | circular | irs-guidance | practice
+  sources: Schema.Array(Citation),
+  notes: Schema.String,
+  unverified: Schema.optionalKey(Schema.Array(Schema.String)),
+  basis: Schema.optionalKey(Schema.String),
+  tags_default: Schema.optionalKey(Schema.String),
+  values: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+});
+export type DeductionRule = typeof DeductionRule.Type;
+export const DeductionMove = Schema.Struct({
+  id: Schema.String,
+  title: Bilingual,
+  when: Schema.String,
+  effect: Schema.String,
+  sources: Schema.Array(Citation),
+});
+export type DeductionMove = typeof DeductionMove.Type;
+export const DeductionTable = Schema.Struct({
+  country: Schema.String,
+  asOf: Schema.String,
+  years: Schema.Array(Schema.Int),
+  disclaimer: Schema.String,
+  rules: Schema.Array(DeductionRule),
+  moves: Schema.Array(DeductionMove),
+});
+export type DeductionTable = typeof DeductionTable.Type;
 
 // ---------- tool inputs (phase 4 adds the rest; these two are the pattern) ----------
 const Entity = { entity: Schema.optionalKey(Schema.String.annotate({ description: "Entity id; default: the first" })) };

@@ -1,0 +1,2725 @@
+{
+ "country": "us",
+ "asOf": "2026-10-29",
+ "years": [
+  2025,
+  2026
+ ],
+ "disclaimer": "Research output, not tax advice. Compiled from federal primary sources where fetched and from trade-press summaries where flagged in notes ('IRS document not read'). Figures for TY2025/TY2026 federal only; state rules differ. Review with a US tax professional before relying; confidence field shows basis (statute/regulation/irs-guidance/practice).",
+ "rules": [
+  {
+   "id": "us.meals",
+   "label": {
+    "en": "Business meals (client / associate, business discussed)",
+    "he": "ארוחות עסקיות (לקוח / שותף עסקי, עם דיון עסקי)"
+   },
+   "match": {
+    "keywords": [
+     "restaurant",
+     "cafe",
+     "doordash",
+     "ubereats",
+     "grubhub",
+     "lunch",
+     "dinner",
+     "client meal",
+     "business meal"
+    ],
+    "mcc": [
+     "5812",
+     "5813",
+     "5814"
+    ]
+   },
+   "incomeTaxPct": 50,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Ordinary and necessary expense of the trade or business (IRC 162)",
+    "Not lavish or extravagant (IRC 274(k)(1)(A))",
+    "Taxpayer (or an employee) is present at the meal (IRC 274(k)(1)(B))",
+    "Business associate (current/prospective customer, client, consultant, similar) attended and business was discussed (Reg. 1.274-12)",
+    "Food/beverage is stated separately from any entertainment on the bill (Reg. 1.274-11(b)(1)(ii))",
+    "The 100% restaurant-meal rule of 2021-2022 expired 12/31/2022; OBBBA did not revive it"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Names/business relationship of the people present and the business topic discussed",
+    "Itemised receipt (not only the card slip)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(k)"
+    },
+    {
+     "title": "26 U.S.C. §274(n)(1)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(n)(1) 50% limit"
+    },
+    {
+     "title": "26 CFR §1.274-12",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-12",
+     "section": "§1.274-12 business meals"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 2, Meals"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "No change to §274(k)/(n) for 2025-2026"
+    }
+   ],
+   "notes": "No change 2025->2026. Popular belief wrong: the 'meal with myself at a cafe' is NOT a business meal (see us.meals.solo). Tip is part of the meal (50%). Delivery fees/sales tax on the meal follow the meal."
+  },
+  {
+   "id": "us.meals.exceptions-100",
+   "label": {
+    "en": "Meals at 100% (exceptions to the 50% limit)",
+    "he": "ארוחות בניכוי 100% (חריגים למגבלת 50%)"
+   },
+   "match": {
+    "keywords": [
+     "company party",
+     "holiday party",
+     "team event",
+     "picnic",
+     "meals sold to customers",
+     "reimbursed client meal",
+     "taxable to employee"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Food/recreation for employees generally, e.g. holiday party or company picnic (IRC 274(e)(4)) - 100%",
+    "Meal expense treated as compensation and included in the employee's W-2 wages (IRC 274(e)(2)) - 100%",
+    "Meals you pay for and the client separately reimburses (billed at cost): you deduct 100%, the client bears the 50% limit (IRC 274(e)(3))",
+    "Food/drink sold to customers in the ordinary course (IRC 274(e)(8)); items made available to the public (274(e)(7))",
+    "De minimis snacks/coffee for employees: Pub 15-B treats occasional coffee/snacks as de minimis fringes; whether the 274(n) 50% limit still applies is unsettled - treat as 50% unless a CPA confirms"
+   ],
+   "evidence": [
+    "Evidence the event was open to employees generally (not just owners/highly compensated)",
+    "Payroll records showing taxable inclusion, if relying on 274(e)(2)",
+    "Invoice showing separately-billed reimbursed meal"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(e)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(e)"
+    },
+    {
+     "title": "26 U.S.C. §274(n)(2)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(n)(2) exceptions"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 2, 'Meals' 100% exceptions"
+    },
+    {
+     "title": "IRS Publication 15-B (Employer's Tax Guide to Fringe Benefits)",
+     "url": "https://www.irs.gov/publications/p15-B",
+     "section": "de minimis meals"
+    }
+   ],
+   "notes": "Sole proprietors with no employees rarely qualify; the 100% exceptions are employer-side. OBBBA/TCJA: 274(o) (employer on-premises/convenience-of-employer meals, previously 50%) is 0% deductible for amounts paid after 12/31/2025 - see us.meals.employer-premises."
+  },
+  {
+   "id": "us.meals.employer-premises",
+   "label": {
+    "en": "Meals provided to employees at the workplace / for convenience of employer",
+    "he": "ארוחות לעובדים במקום העבודה (נוחות המעסיק)"
+   },
+   "match": {
+    "keywords": [
+     "staff lunch",
+     "employee meals",
+     "office catering",
+     "canteen"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 50,
+   "vatPct": null,
+   "cap": {
+    "amount": 0,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "0% from 2026; 50% in 2025"
+   },
+   "appliesTo": [
+    "c-corp",
+    "schedule-c"
+   ],
+   "conditions": [
+    "2025: still 50% (IRC 274(n)(1) + 119 convenience-of-employer meals)",
+    "Paid or incurred after 12/31/2025: 0% (IRC 274(o), added by TCJA 2017, effective 2026)",
+    "Exceptions that stay 100% (e.g. 274(e) items, meals taxable to the employee)"
+   ],
+   "evidence": [
+    "Employee identity, date and business reason",
+    "Payroll treatment records"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(o)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(o)"
+    },
+    {
+     "title": "26 U.S.C. §119",
+     "url": "https://www.law.cornell.edu/uscode/text/26/119",
+     "section": "§119"
+    },
+    {
+     "title": "26 CFR §1.274-12",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-12",
+     "section": "§1.274-12(b) (2025 treatment)"
+    }
+   ],
+   "notes": "2025->2026 CHANGE: 50% -> 0% for convenience-of-employer / on-premises meals. The app should tag this by date, not by year of filing. Applies only when the business has employees (not owner-only)."
+  },
+  {
+   "id": "us.meals.solo",
+   "label": {
+    "en": "Coffee / meal alone, not traveling (local, working at a cafe)",
+    "he": "קפה / ארוחה לבד, לא בנסיעה (עבודה בבית קפה)"
+   },
+   "match": {
+    "keywords": [
+     "starbucks",
+     "coffee",
+     "cafe",
+     "espresso",
+     "bakery",
+     "lunch alone",
+     "working at cafe"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 0,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Not deductible: a meal eaten alone while working locally is a personal living expense (IRC 262; Reg. 1.262-1(b)(5))",
+    "Becomes 50% only if (a) you are traveling away from home overnight (see us.meals.travel) or (b) a business associate is present and business is discussed (us.meals)",
+    "Buying coffee does not create a 'rental' of workspace; only separately paid coworking fees are deductible (us.office.coworking)"
+   ],
+   "evidence": [
+    "Tag decision: solo vs with-others vs traveling",
+    "If claimed as business meal: name of attendee and topic"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §262",
+     "url": "https://www.law.cornell.edu/uscode/text/26/262",
+     "section": "§262"
+    },
+    {
+     "title": "26 CFR §1.262-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.262-1",
+     "section": "§1.262-1(b)(5)"
+    },
+    {
+     "title": "United States v. Correll, 389 U.S. 299 (1967)",
+     "url": "https://supreme.justia.com/cases/federal/us/389/299/",
+     "section": "meals while not 'away from home' (sleep or rest rule)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1, 'Meals' / Chapter 2"
+    }
+   ],
+   "notes": "Popular belief wrong: 'coffee while I work from a cafe' is not deductible. Smart-tag default should be 0% with a prompt: 'who was with you?' and 'were you traveling overnight?'. Lowest-risk, high-frequency item."
+  },
+  {
+   "id": "us.meals.travel",
+   "label": {
+    "en": "Meals while traveling away from home overnight",
+    "he": "ארוחות בנסיעה עסקית מחוץ לעיר (עם לינה)"
+   },
+   "match": {
+    "keywords": [
+     "hotel restaurant",
+     "airport",
+     "in-flight",
+     "travel meal",
+     "room service",
+     "per diem meal"
+    ],
+    "mcc": [
+     "5812",
+     "5814",
+     "4511"
+    ]
+   },
+   "incomeTaxPct": 50,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Away from home overnight (sleep or rest rule, Correll) for business",
+    "Not lavish; actual cost OR (self-employed) the federal M&IE per diem for meals only (Rev. Proc. 2019-48)",
+    "50% applies to both actual cost and per diem M&IE (IRC 274(n)); first/last travel day M&IE is 75% of the rate before the 50%"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)(2)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)(2)"
+    },
+    {
+     "title": "26 U.S.C. §274(n)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(n)"
+    },
+    {
+     "title": "26 U.S.C. §274(d)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(d)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1, 'Meals' and Chapter 5 'Per diem'"
+    },
+    {
+     "title": "Rev. Proc. 2019-48",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-19-48.pdf",
+     "section": "self-employed may use M&IE per diem for meals"
+    }
+   ],
+   "notes": "Not 'client present' dependent. Hotel breakfast included in the room rate still counts as lodging unless separately stated."
+  },
+  {
+   "id": "us.meals.per-diem",
+   "label": {
+    "en": "M&IE per diem (meals & incidentals) rates",
+    "he": "פר-דיאם לאוכל והוצאות נלוות (M&IE)"
+   },
+   "match": {
+    "keywords": [
+     "per diem",
+     "m&ie"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 50,
+   "vatPct": null,
+   "cap": {
+    "amount": 68,
+    "currency": "USD",
+    "per": "day",
+    "year": 2026,
+    "note": "GSA FY2026 and FY2027 standard CONUS M&IE; $92 max tier for high-cost localities; first/last day 75%"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "c-corp"
+   ],
+   "conditions": [
+    "Only for travel away from home; use the rate of the locality of overnight lodging",
+    "Federal (GSA) CONUS standard M&IE: $68/day FY2025, FY2026 and FY2027 (Oct 1 2026-Sep 30 2027); tiers $68-$92",
+    "Alternative simplified: IRS high-low (Notice 2025-54 for 10/2025-9/2026: $319 high / $225 other, M&IE $86 / $74; Notice 2026-60 from 10/1/2026: $329 / $230, M&IE unchanged); self-employed may NOT use high-low lodging, only M&IE-only",
+    "Incidental-expenses-only rate $5/day; transportation-industry rate $80 CONUS / $86 outside",
+    "Foreign travel: State Department Foreign Per Diem tables"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Travel dates and destination (per diem replaces amount of meals but not time/place/purpose)"
+   ],
+   "confidence": "irs-guidance",
+   "sources": [
+    {
+     "title": "Notice 2025-54",
+     "url": "https://www.irs.gov/pub/irs-drop/n-25-54.pdf",
+     "section": "FY2026 high-low and M&IE rates"
+    },
+    {
+     "title": "Notice 2026-60 (rates reported by Accounting Today; IRS notice itself NOT fetched)",
+     "url": "https://www.accountingtoday.com/news/irs-sets-per-diem-rates-for-travelers-for-2026-2027",
+     "section": "Oct 1 2026 rates"
+    },
+    {
+     "title": "GSA Per Diem Rates",
+     "url": "https://www.gsa.gov/travel/plan-a-trip/per-diem-rates",
+     "section": "FY2027 $68 M&IE std, $113 lodging cap"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 5"
+    }
+   ],
+   "notes": "Unverified: Notice 2026-60 number and rates come from a trade-press summary (the IRS page was not retrieved). GSA FY2027 summary (lodging $113, M&IE $68) also via secondary summaries; confirm at gsa.gov. Per diem M&IE is still hit by the 50% limit."
+  },
+  {
+   "id": "us.entertainment",
+   "label": {
+    "en": "Entertainment (tickets, sports, golf, concerts, client outings)",
+    "he": "בידור (כרטיסים, ספורט, גולף, אירועי לקוחות)"
+   },
+   "match": {
+    "keywords": [
+     "tickets",
+     "stadium",
+     "ticketmaster",
+     "golf",
+     "concert",
+     "theater",
+     "club membership",
+     "skybox",
+     "nightclub"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 0,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Disallowed in full for amounts paid or incurred after 12/31/2017 (IRC 274(a)(1), TCJA); OBBBA did not restore",
+    "Includes club dues and facilities used for entertainment (274(a)(3))",
+    "A meal bought at the same event is 50% only if stated separately from the entertainment (Reg. 1.274-11(b))",
+    "Exceptions (100%): recreation for employees (274(e)(4)), items sold to customers (274(e)(7)/(8)), included in employee/ contractor income (274(e)(2)/(9))"
+   ],
+   "evidence": [
+    "If claiming the separate meal: separate itemised line on the bill"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(a)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(a)"
+    },
+    {
+     "title": "26 CFR §1.274-11",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-11",
+     "section": "§1.274-11"
+    },
+    {
+     "title": "Notice 2018-76",
+     "url": "https://www.irs.gov/pub/irs-drop/n-18-76.pdf",
+     "section": "safe harbor for meals vs entertainment"
+    }
+   ],
+   "notes": "Popular belief wrong: 'client entertainment is 50% deductible' ended with 2017. Tag default 0%; offer to split the food line."
+  },
+  {
+   "id": "us.travel.transport",
+   "label": {
+    "en": "Business travel: airfare, train, rental car, taxi/rideshare, baggage",
+    "he": "נסיעות עסקיות: טיסות, רכבת, השכרת רכב, מוניות"
+   },
+   "match": {
+    "keywords": [
+     "airline",
+     "delta",
+     "united",
+     "american airlines",
+     "southwest",
+     "amtrak",
+     "uber",
+     "lyft",
+     "hertz",
+     "avis",
+     "taxi",
+     "baggage"
+    ],
+    "mcc": [
+     "3000",
+     "4511",
+     "4121",
+     "4112",
+     "7512"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Travel away from home in pursuit of the trade or business (IRC 162(a)(2)); tax home is the regular place of business",
+    "Trip primarily for business (domestic: if the trip is primarily business, transport is 100% deductible even with personal days; if primarily personal, 0% transport)",
+    "Not a commute (local travel from home to a regular workplace is personal)",
+    "Foreign trip: see us.travel.foreign-allocation"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)(2)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)(2)"
+    },
+    {
+     "title": "26 U.S.C. §274(d)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(d)"
+    },
+    {
+     "title": "26 CFR §1.162-2",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.162-2",
+     "section": "§1.162-2"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1"
+    }
+   ],
+   "notes": "Local rideshare to a client meeting: deductible business transport (not subject to overnight rule). Travel expenses must not be lavish or extravagant (IRC 274(m)(1)); first-class vs coach is a facts question."
+  },
+  {
+   "id": "us.travel.lodging",
+   "label": {
+    "en": "Business lodging (hotel, short-term rental) away from home",
+    "he": "לינה בנסיעה עסקית (מלון, Airbnb)"
+   },
+   "match": {
+    "keywords": [
+     "hotel",
+     "marriott",
+     "hilton",
+     "hyatt",
+     "airbnb",
+     "booking.com",
+     "vrbo",
+     "motel"
+    ],
+    "mcc": [
+     "3501",
+     "3502",
+     "7011"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Overnight business trip away from tax home",
+    "Lodging only for the business days (and in-between weekend/holiday days if the stay is cost-effective); personal-only days not deductible (Reg. 1.162-2(b)(2))",
+    "Not lavish or extravagant"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)",
+    "Folio/receipt for every lodging expense regardless of amount"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)(2)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)(2)"
+    },
+    {
+     "title": "26 U.S.C. §274(d)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(d)"
+    },
+    {
+     "title": "26 CFR §1.274-5",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-5",
+     "section": "§1.274-5(c)(2)(iii)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1"
+    }
+   ],
+   "notes": "Lodging for a non-business companion: only the single-occupancy rate is deductible (see us.travel.companion)."
+  },
+  {
+   "id": "us.travel.foreign-allocation",
+   "label": {
+    "en": "Foreign travel (outside North America): allocation of business vs personal days",
+    "he": "נסיעה לחו\"ל: הקצאת ימים עסקיים מול פרטיים"
+   },
+   "match": {
+    "keywords": [
+     "international flight",
+     "abroad",
+     "foreign trip",
+     "trip to"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "IRC 274(c): if the trip is outside the US and outside Mexico/Canada ('North American area' for conventions only) and not wholly business, allocate transport (and lodging/meals) by business days / total days",
+    "NO allocation required if: (1) trip is 7 consecutive days or fewer, not counting the departure day (Reg. 1.274-4(d)(1)); (2) less than 25% of the days were personal; (3) no major control over the arrangements (employee-type); or (4) personal vacation not a major consideration",
+    "Days count: travel days and days of required presence are business days; a weekend between business days counts as business; a day with business activity for >=50% of the working hours counts as a business day",
+    "Meals still 50%; lodging/meals only for business days"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)",
+    "Daily itinerary showing business activity per day",
+    "Calendar of personal-only days"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(c)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(c)"
+    },
+    {
+     "title": "26 CFR §1.274-4",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-4",
+     "section": "§1.274-4"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1, 'Travel outside the United States'"
+    }
+   ],
+   "notes": "The 7-day exception is often mis-stated as '7 days total'; the regulation says 7 consecutive days not counting departure day. Tag should capture trip id + day-by-day purpose."
+  },
+  {
+   "id": "us.travel.mixed",
+   "label": {
+    "en": "Mixed business/vacation trip (domestic)",
+    "he": "נסיעה משולבת עסק/חופשה (בארץ)"
+   },
+   "match": {
+    "keywords": [
+     "vacation",
+     "long weekend",
+     "extended stay",
+     "extra days"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Primary purpose business: transport 100% deductible; lodging/meals only on business days and the days required in between; extra personal days at your own cost",
+    "Primary purpose personal: transport 0%; only expenses at the destination directly attributable to business are deductible",
+    "Primary purpose is facts and circumstances (Reg. 1.162-2(b)): count business vs personal days"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)",
+    "Documentation showing business was the main reason (meeting invites, conference registration)"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "26 CFR §1.162-2",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.162-2",
+     "section": "§1.162-2(b)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1, 'Travel combined with personal'"
+    }
+   ],
+   "notes": "Applies equally to Schedule C; for US-trade-or-business-less foreign LLC, moot."
+  },
+  {
+   "id": "us.travel.companion",
+   "label": {
+    "en": "Spouse / partner / girlfriend / family member traveling with you",
+    "he": "בן/בת זוג או חברה/ה שמלווים בנסיעה"
+   },
+   "match": {
+    "keywords": [
+     "spouse ticket",
+     "partner flight",
+     "girlfriend",
+     "wife",
+     "husband",
+     "companion",
+     "plus one"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 0,
+   "vatPct": null,
+   "cap": {
+    "amount": null,
+    "currency": "USD",
+    "per": "trip",
+    "year": null,
+    "note": "only the single-occupancy lodging rate if the companion is not a bona fide employee: nothing for the companion"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Companion's travel costs deductible only if companion is (1) an employee of the taxpayer, (2) traveling for a bona fide business purpose, and (3) the expense would otherwise be deductible by that companion (IRC 274(m)(3))",
+    "A girlfriend/boyfriend/spouse who is not a bona fide employee with a real business role: NOT deductible; being 'helpful' or social is not a business purpose (Reg. 1.162-2(c))",
+    "If you would have paid the same hotel anyway, a shared room's cost is deductible only up to the single-occupancy rate - you do not lose the room because someone shares it",
+    "Sole proprietor spouse may be hired as an employee only if genuinely performing services, paid W-2 wages, with payroll tax filed"
+   ],
+   "evidence": [
+    "Employment records: job description, timesheets, payroll for the companion",
+    "Business-purpose log for the companion's activities"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(m)(3)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(m)(3)"
+    },
+    {
+     "title": "26 CFR §1.162-2(c)",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.162-2(c)",
+     "section": "§1.162-2(c)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1"
+    }
+   ],
+   "notes": "Popular belief wrong: bringing a spouse/partner does not make their trip deductible just because they 'help'. Tag default 0% for companion tickets; split shared lodging to single rate."
+  },
+  {
+   "id": "us.travel.conventions",
+   "label": {
+    "en": "Conventions, seminars and cruises",
+    "he": "כנסים, סמינרים וקרוזים"
+   },
+   "match": {
+    "keywords": [
+     "convention",
+     "conference",
+     "summit",
+     "expo",
+     "cruise",
+     "seminar",
+     "registration fee"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 2000,
+    "currency": "USD",
+    "per": "year",
+    "year": null,
+    "note": "cruise ship only: per individual per year"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Domestic convention/seminar: ordinary business conference deductible; registration fees 100% (meals included in the fee: allocate/50%)",
+    "Foreign convention (outside North America: US, Canada, Mexico + certain Caribbean/Bermuda under treaty lists): deductible only if reasonable to hold it outside the North American area (IRC 274(h)(1)); attendance statement required",
+    "Cruise ship convention: max $2,000 per person per year, ship must be US-registered and all ports in US/possessions (IRC 274(h)(2)); with a required signed attendance statement and program",
+    "Investment/ financial seminars: never deductible (274(h)(7))"
+   ],
+   "evidence": [
+    "Amount, date, place and business purpose of each expense (IRC 274(d), Reg. 1.274-5T(b)(2))",
+    "Receipt/documentary evidence for any expense of $75 or more, and for all lodging (Reg. 1.274-5(c)(2)(iii))",
+    "Contemporaneous log/record (adequate records or sufficient evidence corroborating own statement)",
+    "Program/agenda showing the business sessions and hours per day (>= 6 hrs/day for cruise per Reg. 1.274-2(g))",
+    "Signed attendance statement for cruises/foreign conventions"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(h)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(h)"
+    },
+    {
+     "title": "26 CFR §1.274-2",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-2",
+     "section": "§1.274-2(g)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 1"
+    }
+   ],
+   "notes": "Cruise is almost never deductible in practice (US-registered ships are rare). Flag as 'highly restricted' in the UI."
+  },
+  {
+   "id": "us.vehicle.mileage",
+   "label": {
+    "en": "Business mileage - standard mileage rate",
+    "he": "קילומטראז' עסקי - תעריף סטנדרטי"
+   },
+   "match": {
+    "keywords": [
+     "mileage",
+     "odometer",
+     "business miles"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 0.7,
+    "currency": "USD",
+    "per": "mile",
+    "year": 2025,
+    "note": "2025: 70c. 2026: 72.5c for Jan 1-Jun 30; 76c for Jul 1-Dec 31 (Announcement 2026-11 / IR-2026-29). Rate per mile in USD"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "c-corp"
+   ],
+   "conditions": [
+    "Standard rate includes depreciation, fuel, insurance, repairs, registration; you add only parking and tolls",
+    "Must elect standard mileage in the FIRST year the car is used in the business; later years can switch to actual only with straight-line depreciation (Rev. Proc. 2019-46)",
+    "Not available if you used MACRS/179 or rented more than 4 cars concurrently",
+    "Only business miles (not commuting from home to a regular place of business; trips from a qualifying home office to clients are business)"
+   ],
+   "evidence": [
+    "Odometer reading at start and end of year",
+    "Mileage log: date, destination, business purpose, miles per trip (contemporaneous or reconstructed with corroboration)",
+    "Total miles of the vehicle for the year (to compute business-use %)"
+   ],
+   "confidence": "irs-guidance",
+   "sources": [
+    {
+     "title": "Notice 2025-5 (2025: 70c)",
+     "url": "https://www.irs.gov/pub/irs-drop/n-25-05.pdf",
+     "section": "business 70c, charity 14c, medical 21c"
+    },
+    {
+     "title": "Notice 2026-10 (2026: 72.5c)",
+     "url": "https://www.irs.gov/pub/irs-drop/n-26-10.pdf",
+     "section": "business 72.5c, medical 20.5c"
+    },
+    {
+     "title": "IRS Standard mileage rates page (76c from 7/1/2026)",
+     "url": "https://www.irs.gov/tax-professionals/standard-mileage-rates",
+     "section": "2026 split rates"
+    },
+    {
+     "title": "Rev. Proc. 2019-46",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-19-46.pdf",
+     "section": "standard mileage rule"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 4"
+    }
+   ],
+   "notes": "IMPORTANT 2026 change: two rates in one year (72.5c H1, 76c H2). The tag engine must price mileage by trip date. Verified on the IRS page this session; the 76c mid-year announcement (IR-2026-29) was not read in full. Foreign-owned DE with no ECI: moot."
+  },
+  {
+   "id": "us.vehicle.actual",
+   "label": {
+    "en": "Vehicle - actual expenses x business-use %",
+    "he": "רכב - הוצאות בפועל כפול אחוז שימוש עסקי"
+   },
+   "match": {
+    "keywords": [
+     "gas",
+     "fuel",
+     "shell",
+     "chevron",
+     "exxon",
+     "bp",
+     "car insurance",
+     "oil change",
+     "auto repair",
+     "car wash",
+     "tires"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "c-corp"
+   ],
+   "conditions": [
+    "Deductible = business-use % (business miles / total miles) x (fuel, oil, repairs, insurance, registration, lease payments, depreciation, garage rent)",
+    "Car depreciation limited by IRC 280F: passenger autos placed in service 2025 first-year $20,200 (with bonus) / $12,200 (without); 2026: $20,300 / $12,300 (then $19,800/$11,900/$7,160)",
+    "Heavy SUV/truck/van (GVWR over 6,000 lb) exempt from 280F caps; 179 cap on SUVs 6,001-14,000 lb: $31,300 (2025), $32,000 (2026)",
+    "Over 50% qualified business use required for MACRS/bonus/179 on listed property (280F(b)(1)); otherwise ADS straight-line",
+    "Commuting and personal use excluded; a vehicle with no personal use needs strong proof"
+   ],
+   "evidence": [
+    "Mileage log (as above) - listed property strict substantiation under 274(d)",
+    "All receipts for actual costs"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §280F",
+     "url": "https://www.law.cornell.edu/uscode/text/26/280F",
+     "section": "§280F"
+    },
+    {
+     "title": "26 U.S.C. §274(d)(4)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(d)(4)"
+    },
+    {
+     "title": "Rev. Proc. 2025-16 (2025 auto caps)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-25-16.pdf",
+     "section": "$20,200 / $12,200"
+    },
+    {
+     "title": "Rev. Proc. 2026-15 (2026 auto caps)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-26-15.pdf",
+     "section": "$20,300 / $12,300 (figures confirmed by 3 secondary sources; IRS PDF not read)"
+    },
+    {
+     "title": "Rev. Proc. 2025-32 (2026 inflation adjustments)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+     "section": "§4.24 (2026 SUV 179 cap $32,000)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 5"
+    }
+   ],
+   "notes": "2025 SUV cap $31,300 from Rev. Proc. 2024-40 (secondary confirmation only). OBBBA 100% bonus applies to vehicles acquired after 1/19/2025 but 280F caps still limit passenger cars."
+  },
+  {
+   "id": "us.vehicle.parking-tolls",
+   "label": {
+    "en": "Parking and tolls (business)",
+    "he": "חניה וכבישי אגרה (עסקיים)"
+   },
+   "match": {
+    "keywords": [
+     "parking",
+     "parkwhiz",
+     "spothero",
+     "toll",
+     "ezpass",
+     "fastrak",
+     "sunpass"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "c-corp",
+    "llc-disregarded"
+   ],
+   "conditions": [
+    "Business parking/tolls are deductible on top of the standard mileage rate or actual method",
+    "Parking at your regular place of business or commuting parking: not deductible",
+    "Employer-provided qualified parking is a fringe (IRC 132(f)); employer deduction for qualified transportation fringe is DISALLOWED (IRC 274(a)(4))"
+   ],
+   "evidence": [
+    "Receipt or toll statement; date, place, business purpose"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(a)(4)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(a)(4)"
+    },
+    {
+     "title": "26 U.S.C. §132(f)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/132",
+     "section": "§132(f)"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 4 'Parking fees and tolls'"
+    }
+   ],
+   "notes": "Ticket fines/penalties never deductible (IRC 162(f))."
+  },
+  {
+   "id": "us.homeoffice",
+   "label": {
+    "en": "Home office (regular and exclusive use)",
+    "he": "משרד ביתי (שימוש סדיר ובלעדי)"
+   },
+   "match": {
+    "keywords": [
+     "rent",
+     "mortgage",
+     "home office",
+     "utilities",
+     "electric",
+     "internet home",
+     "home insurance",
+     "hoa"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 1500,
+    "currency": "USD",
+    "per": "year",
+    "year": null,
+    "note": "Simplified method: $5 x up to 300 sq ft; actual method: business % of home expenses"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Part of the home used regularly AND exclusively for business and (a) your principal place of business (including admin/management if no other fixed location) or (b) a place to meet clients (IRC 280A(c)(1))",
+    "Simplified method: $5 per sq ft, max 300 sq ft = $1,500; no depreciation; Rev. Proc. 2013-13",
+    "Actual method: business % (sq ft office / sq ft home) x rent, mortgage interest, taxes, insurance, utilities, repairs, + depreciation (home 39-year); Form 8829",
+    "Deduction limited to gross income from the business less other expenses (280A(c)(5)); excess carries forward (actual method)",
+    "Employees cannot deduct: the miscellaneous itemized deduction suspension was made permanent by OBBBA (IRC 67(g)); only the self-employed qualify"
+   ],
+   "evidence": [
+    "Floor plan / measurements of home and office",
+    "Photos showing exclusive use",
+    "Utility, rent/mortgage statements for the year"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §280A",
+     "url": "https://www.law.cornell.edu/uscode/text/26/280A",
+     "section": "§280A"
+    },
+    {
+     "title": "Rev. Proc. 2013-13",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-13-13.pdf",
+     "section": "simplified method"
+    },
+    {
+     "title": "IRS Publication 587 (Business Use of Your Home)",
+     "url": "https://www.irs.gov/publications/p587",
+     "section": "Simplified method; Regular method"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70110 (permanent suspension of misc. itemized deductions)"
+    }
+   ],
+   "notes": "Popular belief wrong: working at a kitchen table or a guest room used for guests = no deduction (exclusive use). Renters qualify as well as owners. Foreign owner without ECI: no US return, moot. Not on Schedule C if the owner is an employee of the LLC taxed as a C-corp (accountable plan reimbursement instead)."
+  },
+  {
+   "id": "us.office.coworking",
+   "label": {
+    "en": "Coworking / office rent",
+    "he": "שכירות משרד / Coworking"
+   },
+   "match": {
+    "keywords": [
+     "wework",
+     "regus",
+     "coworking",
+     "office rent",
+     "desk rental",
+     "industrious"
+    ],
+    "mcc": [
+     "6513",
+     "7399"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Rent for space actually used in the trade or business (IRC 162(a)(3)); no exclusive-use test for rented outside space"
+   ],
+   "evidence": [
+    "Lease or membership agreement; invoices"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)(3)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)(3)"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Rent expense"
+    }
+   ],
+   "notes": "Cleaner alternative to the home office for audit-risk; pay via the business account."
+  },
+  {
+   "id": "us.phone",
+   "label": {
+    "en": "Mobile phone and plan",
+    "he": "טלפון נייד וחבילת סלולר"
+   },
+   "match": {
+    "keywords": [
+     "verizon",
+     "at&t",
+     "tmobile",
+     "t-mobile",
+     "mint mobile",
+     "cell phone",
+     "mobile plan"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "c-corp"
+   ],
+   "conditions": [
+    "Deductible only for the business-use percentage; no deduction for the personal share (IRC 262)",
+    "A separate business line is 100%; mixed line: reasonable percentage based on call/data logs",
+    "Cell phones are no longer 'listed property' (Small Business Jobs Act 2010): no strict 274(d) log, but you need a reasonable allocation method"
+   ],
+   "evidence": [
+    "Representative 2-4 week usage sample or itemised bills showing business share",
+    "Receipts / bills"
+   ],
+   "confidence": "irs-guidance",
+   "sources": [
+    {
+     "title": "26 U.S.C. §262",
+     "url": "https://www.law.cornell.edu/uscode/text/26/262",
+     "section": "§262"
+    },
+    {
+     "title": "26 U.S.C. §280F(d)(4)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/280F",
+     "section": "§280F(d)(4) - cell phones removed from listed property (Pub. L. 111-240)"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Telephone"
+    }
+   ],
+   "notes": "Default 50% suggestion needs user confirmation; app should require the user to set the % per tag."
+  },
+  {
+   "id": "us.internet",
+   "label": {
+    "en": "Business internet access",
+    "he": "אינטרנט"
+   },
+   "match": {
+    "keywords": [
+     "comcast",
+     "xfinity",
+     "spectrum",
+     "fiber",
+     "internet",
+     "isp"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "c-corp"
+   ],
+   "conditions": [
+    "Business-use % only when the connection is in the home; 100% if separate business premises",
+    "Prefer the home office actual-method utility allocation OR a direct internet % (do not double count)"
+   ],
+   "evidence": [
+    "Bills; reasonable allocation basis"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Utilities / telephone"
+    },
+    {
+     "title": "IRS Publication 587 (Business Use of Your Home)",
+     "url": "https://www.irs.gov/publications/p587",
+     "section": "Utilities"
+    }
+   ],
+   "notes": "No bright-line IRS percentage; 'practice' confidence."
+  },
+  {
+   "id": "us.software",
+   "label": {
+    "en": "Software subscriptions / SaaS / cloud hosting",
+    "he": "תוכנה, מנויי SaaS ואחסון"
+   },
+   "match": {
+    "keywords": [
+     "adobe",
+     "github",
+     "figma",
+     "notion",
+     "slack",
+     "zoom",
+     "google workspace",
+     "microsoft 365",
+     "aws",
+     "amazon web services",
+     "cloudflare",
+     "openai",
+     "anthropic",
+     "digitalocean",
+     "vercel",
+     "dropbox",
+     "1password",
+     "saas"
+    ],
+    "mcc": [
+     "5734",
+     "7372",
+     "7371"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Subscriptions and cloud services used for the business are currently deductible ordinary expenses (IRC 162)",
+    "Off-the-shelf purchased software: amortise over 36 months (IRC 167(f)(1)) unless 179 / de minimis safe harbor / bonus applied",
+    "Domestic software development (own product): costs are deductible currently under new IRC 174A for tax years beginning after 12/31/2024 (OBBBA); foreign software development: 15-year amortization (still 174)",
+    "Personal-use share not deductible"
+   ],
+   "evidence": [
+    "Invoice or card statement showing vendor, plan, business use"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)"
+    },
+    {
+     "title": "26 U.S.C. §167(f)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/167",
+     "section": "§167(f)"
+    },
+    {
+     "title": "26 U.S.C. §174A",
+     "url": "https://www.law.cornell.edu/uscode/text/26/174A",
+     "section": "§174A (added by OBBBA §70302)"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70302 domestic research expensing"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Software"
+    }
+   ],
+   "notes": "Pre-OBBBA belief that software development must be amortized over 5 years is outdated for domestic work after 2024. Small taxpayers (avg gross receipts <= ~$31M) may elect retroactive 174A treatment for 2022-2024 (OBBBA §70302; IRS guidance Notice 2025-23) - not verified here."
+  },
+  {
+   "id": "us.equipment",
+   "label": {
+    "en": "Equipment & furniture (computers, cameras, desks)",
+    "he": "ציוד וריהוט (מחשבים, מצלמות, שולחנות)"
+   },
+   "match": {
+    "keywords": [
+     "apple store",
+     "best buy",
+     "b&h",
+     "amazon",
+     "macbook",
+     "monitor",
+     "camera",
+     "desk",
+     "chair",
+     "laptop"
+    ],
+    "mcc": [
+     "5732",
+     "5734",
+     "5045"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 2500,
+    "currency": "USD",
+    "per": "invoice",
+    "year": 2025,
+    "note": "de minimis safe harbor per invoice/item (no applicable financial statement); 179 limit $2,500,000 (2025) / $2,560,000 (2026); 100% bonus depreciation permanent"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Item <= $2,500 per invoice or item: expense currently under the de minimis safe harbor if you make the annual election and treat it the same way in your books (Reg. 1.263(a)-1(f)); $5,000 with an AFS",
+    "179 expensing: 2025 limit $2,500,000, phase-out begins at $4,000,000 (OBBBA); 2026: $2,560,000 / $4,090,000 (Rev. Proc. 2025-32); limited to taxable income from active trades/business (179(b)(3)); SUVs 6,001-14,000 lb $32,000 in 2026",
+    "Bonus depreciation (168(k)): 100% permanent for qualified property ACQUIRED after 1/19/2025 (OBBBA §70301); property acquired on or before 1/19/2025 stays on the TCJA phase-out (40% for 2025 placed-in-service, 20% for 2026); taxpayers may elect 40% instead for the first year ending after 1/19/2025",
+    "Otherwise MACRS: computers/cars 5-yr, office furniture & fixtures 7-yr, qualified improvement property 15-yr, nonresidential real property 39-yr; half-year or mid-quarter convention",
+    "Business use above 50% for listed property; business-use % applied to mixed-use equipment"
+   ],
+   "evidence": [
+    "Invoice with date acquired AND date placed in service (acquisition date drives bonus eligibility)",
+    "Asset register: cost, date, class life, business-use %",
+    "Written binding contract date if purchased around 1/19/2025"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §179",
+     "url": "https://www.law.cornell.edu/uscode/text/26/179",
+     "section": "§179"
+    },
+    {
+     "title": "26 U.S.C. §168(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/168",
+     "section": "§168(k)"
+    },
+    {
+     "title": "26 CFR §1.263(a)-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.263(a)-1",
+     "section": "§1.263(a)-1(f) de minimis safe harbor"
+    },
+    {
+     "title": "Notice 2026-11 (bonus depreciation interim guidance)",
+     "url": "https://www.irs.gov/pub/irs-drop/n-26-11.pdf",
+     "section": "applies Reg. 1.168(k)-2 with Jan 19 2025 date"
+    },
+    {
+     "title": "Rev. Proc. 2025-32 (2026 inflation adjustments)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+     "section": "§4.24 (2026 179 limit)"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70301 (bonus), §70306 (179 limits $2.5M/$4M)"
+    },
+    {
+     "title": "IRS Publication 946 (How To Depreciate Property)",
+     "url": "https://www.irs.gov/publications/p946",
+     "section": "Chapter 2; Table B-2"
+    }
+   ],
+   "notes": "Verified: Rev. Proc. 2025-32 states $2,500,000 / $4,000,000 for 2025 and $2,560,000 / $4,090,000 for 2026 (text read this session). 100% bonus permanence and the 1/19/2025 date: read from secondary sources (Baker Tilly/BDO/BerryDunn on Notice 2026-11); the IRS notice PDF was not fetched. 40% election and '60% for long-production-period property' unverified."
+  },
+  {
+   "id": "us.sec179-bonus-choice",
+   "label": {
+    "en": "Section 179 vs bonus vs de minimis: what the Taxximizer should choose",
+    "he": "בחירת 179 / בונוס / מינימום"
+   },
+   "match": {
+    "keywords": [
+     "asset purchase"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Bonus depreciation can create a loss; 179 cannot exceed business taxable income - so for a profitable year either works, for a loss year bonus is better",
+    "State conformity differs (e.g. California does not conform to bonus or the OBBBA 179 limits)",
+    "Recapture on sale or if business use falls to 50% or less"
+   ],
+   "evidence": [
+    "Asset register"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "26 U.S.C. §179(b)(3)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/179",
+     "section": "§179(b)(3)"
+    },
+    {
+     "title": "26 U.S.C. §1245",
+     "url": "https://www.law.cornell.edu/uscode/text/26/1245",
+     "section": "§1245"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70301"
+    }
+   ],
+   "notes": "Move-engine rule, not a tag; see us.move.timing-purchases."
+  },
+  {
+   "id": "us.gifts",
+   "label": {
+    "en": "Business gifts",
+    "he": "מתנות עסקיות"
+   },
+   "match": {
+    "keywords": [
+     "gift",
+     "gift card",
+     "flowers",
+     "wine",
+     "thank you gift",
+     "client gift"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 25,
+    "currency": "USD",
+    "per": "recipient",
+    "year": null,
+    "note": "per recipient per year; excludes incidental cost like engraving, packaging, mailing"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Deduction limited to $25 per person per year (IRC 274(b)(1)); not indexed",
+    "Gifts to employees: can be deductible without the $25 limit if they are taxable compensation; employee achievement awards 274(j): up to $400 non-qualified / $1,600 qualified plan awards",
+    "Gifts of entertainment tickets are treated as entertainment (0%) unless you choose to treat as a gift (Reg. 1.274-3)",
+    "A gift that is really a payment for services is not a gift"
+   ],
+   "evidence": [
+    "Name and business relationship of recipient",
+    "Date and description of gift, cost, business reason"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(b)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(b)"
+    },
+    {
+     "title": "26 U.S.C. §274(j)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(j)"
+    },
+    {
+     "title": "26 CFR §1.274-3",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-3",
+     "section": "§1.274-3"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 3"
+    }
+   ],
+   "notes": "Cap is per recipient per year across all gifts. The tag engine should keep a per-recipient counter."
+  },
+  {
+   "id": "us.education",
+   "label": {
+    "en": "Education, courses, books, training",
+    "he": "הכשרה, קורסים וספרים"
+   },
+   "match": {
+    "keywords": [
+     "course",
+     "udemy",
+     "coursera",
+     "masterclass",
+     "conference ticket",
+     "book",
+     "training",
+     "tuition",
+     "oreilly"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Must maintain or improve skills required in your CURRENT trade or business, or be required by law/employer to keep your status (Reg. 1.162-5(a))",
+    "NOT deductible if it meets minimum education requirements for the trade or qualifies you for a NEW trade (Reg. 1.162-5(b))",
+    "Professional books/publications: current expense; the cost of a degree towards a new field: no"
+   ],
+   "evidence": [
+    "Course description tying to current business",
+    "Invoice"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "26 CFR §1.162-5",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.162-5",
+     "section": "§1.162-5"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Education expenses"
+    },
+    {
+     "title": "IRS Publication 970",
+     "url": "https://www.irs.gov/publications/p970",
+     "section": "Ch. 12 (business education)"
+    }
+   ],
+   "notes": "Tuition deduction for individuals (IRC 222) expired after 2020 and was not revived."
+  },
+  {
+   "id": "us.professional",
+   "label": {
+    "en": "Professional fees (accounting, tax prep, legal, consulting)",
+    "he": "שכר מקצוענים (רו\"ח, עו\"ד, ייעוץ)"
+   },
+   "match": {
+    "keywords": [
+     "cpa",
+     "accountant",
+     "attorney",
+     "law firm",
+     "bookkeeper",
+     "tax preparation",
+     "legal zoom",
+     "incfile",
+     "northwest registered agent",
+     "registered agent"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Ordinary and necessary in the trade or business; the business share of tax-prep fees is deductible on Schedule C (the personal 1040 part is not)",
+    "Legal fees to acquire an asset or form the entity are capitalised/startup (see us.startup); registered-agent fees are current expenses",
+    "Foreign owner: deductible only against ECI"
+   ],
+   "evidence": [
+    "Engagement letter or invoice with description of services"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Legal and professional fees"
+    },
+    {
+     "title": "IRS Publication 334 (Tax Guide for Small Business)",
+     "url": "https://www.irs.gov/publications/p334",
+     "section": "Chapter 8"
+    }
+   ],
+   "notes": "Only matters if the LLC has a US trade or business (ECI): a nonresident alien owner deducts only against effectively connected income, and only on a timely filed return (IRC 873(a)/874(a), 882(c)). With no ECI the deduction is moot (FDAP is taxed gross; services performed abroad are foreign-source)."
+  },
+  {
+   "id": "us.insurance",
+   "label": {
+    "en": "Business insurance (liability, E&O, property, cyber)",
+    "he": "ביטוח עסקי (אחריות, E&O, סייבר)"
+   },
+   "match": {
+    "keywords": [
+     "insurance",
+     "hiscox",
+     "next insurance",
+     "hartford",
+     "liability insurance"
+    ],
+    "mcc": [
+     "6300",
+     "6399"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Premiums for coverage of the business are deductible in the period covered (prepaid > 12 months: capitalise)",
+    "Self-employed health insurance is separate (us.sehi); life insurance with owner as beneficiary: not deductible (IRC 264)"
+   ],
+   "evidence": [
+    "Policy and invoice"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)"
+    },
+    {
+     "title": "26 U.S.C. §264",
+     "url": "https://www.law.cornell.edu/uscode/text/26/264",
+     "section": "§264"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Insurance"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "id": "us.sehi",
+   "label": {
+    "en": "Self-employed health insurance",
+    "he": "ביטוח בריאות לעצמאי"
+   },
+   "match": {
+    "keywords": [
+     "health insurance",
+     "aetna",
+     "blue cross",
+     "kaiser",
+     "cigna",
+     "medical premium",
+     "dental",
+     "long-term care"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": null,
+    "currency": "USD",
+    "per": "year",
+    "year": null,
+    "note": "limited to net earnings of the business that establishes the plan"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Above-the-line deduction (Form 7206) for premiums for you, spouse, dependents and children under 27 (IRC 162(l))",
+    "Limited to net earnings from the business under which the plan is established",
+    "Not allowed for any month you were eligible for an employer-subsidized plan (yours or spouse's)",
+    "Premium Tax Credit interaction: circular calculation if on ACA marketplace plans",
+    "Long-term care premiums within age-based limits 2026: $500 / $930 / $1,860 / $4,960 / $6,200 (Rev. Proc. 2025-32 §4.27)"
+   ],
+   "evidence": [
+    "Premium statements (1095-A for marketplace)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(l)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(l)"
+    },
+    {
+     "title": "Rev. Proc. 2025-32 (2026 inflation adjustments)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+     "section": "§4.27"
+    },
+    {
+     "title": "IRS Form 7206 instructions",
+     "url": "https://www.irs.gov/forms-pubs/about-form-7206",
+     "section": "Self-Employed Health Insurance Deduction"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Self-employed health insurance"
+    }
+   ],
+   "notes": "Not an expense on Schedule C: it lowers AGI, not SE tax. Not available to a nonresident alien without US-source business income."
+  },
+  {
+   "id": "us.se-tax-deduction",
+   "label": {
+    "en": "Deduction for half of self-employment tax",
+    "he": "ניכוי חצי ממס עצמאים"
+   },
+   "match": {
+    "keywords": [
+     "self employment tax"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 50,
+   "vatPct": null,
+   "cap": {
+    "amount": 184500,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "Social Security wage base: 2025 $176,100 (SSA); 2026 $184,500 (SSA announced Oct 2025). Rate 15.3% on 92.35% of net SE earnings; Medicare 2.9% uncapped; +0.9% Additional Medicare over $200k"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Deduct one-half of SE tax in computing AGI (IRC 164(f)); it does NOT reduce SE tax itself or QBI-reduction adjusts QBI",
+    "SE tax applies to net earnings >= $400 (IRC 1402(b))"
+   ],
+   "evidence": [
+    "Computed on Schedule SE"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §164(f)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/164",
+     "section": "§164(f)"
+    },
+    {
+     "title": "26 U.S.C. §1401",
+     "url": "https://www.law.cornell.edu/uscode/text/26/1401",
+     "section": "§1401"
+    },
+    {
+     "title": "26 U.S.C. §1402",
+     "url": "https://www.law.cornell.edu/uscode/text/26/1402",
+     "section": "§1402"
+    },
+    {
+     "title": "SSA - Contribution and Benefit Base",
+     "url": "https://www.ssa.gov/oact/cola/cbb.html",
+     "section": "2025 $176,100; 2026 $184,500 (2026 value via secondary sources, SSA page not fetched)"
+    }
+   ],
+   "notes": "Computed, not a receipt tag. Foreign nonresident owner: no SE tax (and totalization/treaty issues) unless US trade or business."
+  },
+  {
+   "id": "us.retirement.sep",
+   "label": {
+    "en": "SEP-IRA contributions",
+    "he": "הפקדות SEP-IRA"
+   },
+   "match": {
+    "keywords": [
+     "sep ira",
+     "sep-ira",
+     "fidelity sep",
+     "schwab sep"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 70000,
+    "currency": "USD",
+    "per": "year",
+    "year": 2025,
+    "note": "2025 $70,000; 2026 $72,000; lesser of 25% of compensation (20% of net SE earnings after SE-tax deduction for sole props) or the 415(c) limit; compensation cap $350,000 (2025) / $360,000 (2026)"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Employer contribution only (no employee deferral); can be established and funded up to the return due date incl. extensions (IRC 408(k))",
+    "Must cover eligible employees at the same percentage",
+    "Deductible on Schedule 1, not Schedule C"
+   ],
+   "evidence": [
+    "Plan adoption form (Form 5305-SEP), contribution receipts"
+   ],
+   "confidence": "irs-guidance",
+   "sources": [
+    {
+     "title": "26 U.S.C. §408(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/408",
+     "section": "§408(k)"
+    },
+    {
+     "title": "26 U.S.C. §415(c)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/415",
+     "section": "§415(c)"
+    },
+    {
+     "title": "Notice 2025-67 (2026 limits)",
+     "url": "https://www.irs.gov/pub/irs-drop/n-25-67.pdf",
+     "section": "415(c) $72,000; comp limit $360,000 (confirmed by secondary sources; IRS PDF not read)"
+    },
+    {
+     "title": "IRS Retirement topics - SEP",
+     "url": "https://www.irs.gov/retirement-plans/sep-contribution-limits-including-grandfathered-salary-reduction-sep-plans",
+     "section": "SEP limits"
+    }
+   ],
+   "notes": "Foreign owner needs US-source earned income to contribute."
+  },
+  {
+   "id": "us.retirement.solo401k",
+   "label": {
+    "en": "Solo 401(k) employee deferral + profit sharing",
+    "he": "Solo 401(k) - הפקדות עובד ומעסיק"
+   },
+   "match": {
+    "keywords": [
+     "solo 401k",
+     "solo 401(k)",
+     "carry",
+     "ubiquity",
+     "fidelity solo"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 72000,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "2025: $23,500 deferral + $7,500 catch-up (50+) or $11,250 (60-63) ; total $70,000 + catch-up. 2026: $24,500 + $8,000 (50+) or $11,250 (60-63); total $72,000 + catch-up"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Plan must exist: for the employee deferral a new solo plan adopted by the tax-filing deadline may be allowed for new plans (SECURE 2.0 §317) - verify; otherwise adopt by Dec 31",
+    "Employee deferral: 100% of net SE earnings up to the limit; employer profit-sharing up to 20% of net SE earnings after the SE-tax deduction",
+    "Form 5500-EZ once plan assets exceed $250,000",
+    "Roth catch-up rules apply to high earners only for wage earners above FICA wage threshold ($150,000 for 2026) - not typically self-employed"
+   ],
+   "evidence": [
+    "Plan document, contribution records, Form 5500-EZ when required"
+   ],
+   "confidence": "irs-guidance",
+   "sources": [
+    {
+     "title": "26 U.S.C. §401(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/401",
+     "section": "§401(k)"
+    },
+    {
+     "title": "26 U.S.C. §402(g)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/402",
+     "section": "§402(g)"
+    },
+    {
+     "title": "Notice 2025-67 (2026 limits)",
+     "url": "https://www.irs.gov/pub/irs-drop/n-25-67.pdf",
+     "section": "402(g) $24,500; catch-up $8,000; 415(c) $72,000"
+    },
+    {
+     "title": "IRS One-participant 401(k) plans",
+     "url": "https://www.irs.gov/retirement-plans/one-participant-401k-plans",
+     "section": "limits"
+    }
+   ],
+   "notes": "2025 figures ($23,500, $70,000, $7,500) from prior Notice 2024-80: confident (stable public knowledge). 2026 figures confirmed by secondary sources only."
+  },
+  {
+   "id": "us.qbi",
+   "label": {
+    "en": "Qualified business income deduction (199A)",
+    "he": "ניכוי הכנסה עסקית כשירה (199A)"
+   },
+   "match": {
+    "keywords": [
+     "qbi",
+     "199a"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 20,
+   "vatPct": null,
+   "cap": {
+    "amount": 403500,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "Taxable-income threshold 2026: $201,750 single / $403,500 joint; phase-in range widened to $75k/$150k from 2026; 2025 threshold $197,300 / $394,600 with $50k/$100k range"
+   },
+   "appliesTo": [
+    "schedule-c"
+   ],
+   "conditions": [
+    "Permanent: OBBBA removed the 12/31/2025 sunset (IRC 199A(i)) - 20% of QBI remains available for 2026 onward",
+    "Deduction is lesser of 20% of QBI or 20% of taxable income (less net capital gain); wage/UBIA limits and SSTB exclusion phase in above the threshold",
+    "NEW from 2026: minimum $400 deduction if QBI from active trades >= $1,000 (indexed after 2026)",
+    "QBI is net of the SE-tax deduction, SEHI, and retirement-plan deductions attributable to the business"
+   ],
+   "evidence": [
+    "Computed from Schedule C net profit; W-2 wages/UBIA records for high earners"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §199A",
+     "url": "https://www.law.cornell.edu/uscode/text/26/199A",
+     "section": "§199A"
+    },
+    {
+     "title": "Rev. Proc. 2025-32 (2026 inflation adjustments)",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+     "section": "§4.26 (2026 thresholds)"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70105 (permanence, $400 minimum, phase-in range)"
+    }
+   ],
+   "notes": "Verified in Rev. Proc. 2025-32 text: 2026 thresholds and the $400/$1,000 minimum. 2025 thresholds ($197,300 / $394,600) from Rev. Proc. 2024-40, not re-read. A nonresident alien with only non-ECI income gets no 199A (QBI must be effectively connected, IRC 199A(c)(3)(A)(i)). A disregarded LLC owner may only claim on the individual's 1040/1040-NR."
+  },
+  {
+   "id": "us.startup",
+   "label": {
+    "en": "Startup and organizational costs",
+    "he": "הוצאות הקמה והתארגנות"
+   },
+   "match": {
+    "keywords": [
+     "incorporation",
+     "formation fee",
+     "llc formation",
+     "filing fee",
+     "legal startup",
+     "pre-opening",
+     "market research",
+     "domain purchase"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 5000,
+    "currency": "USD",
+    "per": "once",
+    "year": null,
+    "note": "Up to $5,000 of startup costs (and $5,000 organizational costs) in the year the business begins; reduced dollar-for-dollar when total exceeds $50,000; balance amortised over 180 months from the month active business begins"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Costs incurred BEFORE the active trade or business begins; costs that would be deductible if incurred by an active business (IRC 195(a),(c))",
+    "Election is deemed made if you simply deduct; attach statement for earlier-year forms (Reg. 1.195-1)",
+    "LLC taxed as C-corp: organizational costs under IRC 248; partnership: IRC 709"
+   ],
+   "evidence": [
+    "List of costs with dates; date active business began"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §195",
+     "url": "https://www.law.cornell.edu/uscode/text/26/195",
+     "section": "§195"
+    },
+    {
+     "title": "26 U.S.C. §248",
+     "url": "https://www.law.cornell.edu/uscode/text/26/248",
+     "section": "§248"
+    },
+    {
+     "title": "26 CFR §1.195-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.195-1",
+     "section": "§1.195-1"
+    },
+    {
+     "title": "IRS Publication 583 (Starting a Business and Keeping Records)",
+     "url": "https://www.irs.gov/publications/p583",
+     "section": "Startup costs"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Starting a business"
+    }
+   ],
+   "notes": "Only matters if the LLC has a US trade or business (ECI): a nonresident alien owner deducts only against effectively connected income, and only on a timely filed return (IRC 873(a)/874(a), 882(c)). With no ECI the deduction is moot (FDAP is taxed gross; services performed abroad are foreign-source)."
+  },
+  {
+   "id": "us.bankfees",
+   "label": {
+    "en": "Bank, card and merchant processing fees",
+    "he": "עמלות בנק וסליקה"
+   },
+   "match": {
+    "keywords": [
+     "stripe fee",
+     "paypal fee",
+     "square fee",
+     "wire fee",
+     "bank fee",
+     "monthly fee",
+     "merchant fee",
+     "processing fee",
+     "wise fee",
+     "mercury"
+    ],
+    "mcc": [
+     "6012",
+     "6010",
+     "6011"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Ordinary and necessary expenses (IRC 162)",
+    "If the gross sales were reported on Form 1099-K (net of fees), report GROSS income and deduct fees separately",
+    "Interest on business loans/credit cards: deductible; limited by 163(j) only for large taxpayers (average receipts above ~$31M)"
+   ],
+   "evidence": [
+    "Processor statement or fee report"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(a)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(a)"
+    },
+    {
+     "title": "26 U.S.C. §163(j)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/163",
+     "section": "§163(j)"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Interest / other expenses"
+    }
+   ],
+   "notes": "Only matters if the LLC has a US trade or business (ECI): a nonresident alien owner deducts only against effectively connected income, and only on a timely filed return (IRC 873(a)/874(a), 882(c)). With no ECI the deduction is moot (FDAP is taxed gross; services performed abroad are foreign-source)."
+  },
+  {
+   "id": "us.contractors",
+   "label": {
+    "en": "Payments to contractors / freelancers",
+    "he": "תשלום לקבלני משנה ופרילנסרים"
+   },
+   "match": {
+    "keywords": [
+     "contractor",
+     "freelancer",
+     "upwork",
+     "fiverr",
+     "toptal",
+     "consulting fee"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 2000,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "Form 1099-NEC / MISC filing threshold per payee: $600 for payments in 2025; $2,000 for payments made after 12/31/2025 (indexed from 2027)"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Deductible if ordinary and necessary and the worker is a bona fide independent contractor",
+    "1099-NEC required for US-person payees (trade or business payments) at/above the threshold; payments made by credit card/PayPal are reported by the processor on 1099-K, not by you",
+    "Collect Form W-9 (US persons) or W-8BEN (foreign) BEFORE paying; missing TIN: 24% backup withholding",
+    "Foreign contractors for work performed outside the US: foreign-source, generally no 1099 and no 30% withholding; US-source FDAP: Form 1042-S and 30% unless treaty reduction"
+   ],
+   "evidence": [
+    "W-9/W-8BEN on file",
+    "Invoice, contract, proof of payment",
+    "1099-NEC filed (due Jan 31)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §6041",
+     "url": "https://www.law.cornell.edu/uscode/text/26/6041",
+     "section": "§6041"
+    },
+    {
+     "title": "26 U.S.C. §6041A",
+     "url": "https://www.law.cornell.edu/uscode/text/26/6041A",
+     "section": "§6041A"
+    },
+    {
+     "title": "26 U.S.C. §3406",
+     "url": "https://www.law.cornell.edu/uscode/text/26/3406",
+     "section": "§3406"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70433 ($2,000 threshold for 6041/6041A payments after 2025)"
+    },
+    {
+     "title": "IRS About Form 1099-NEC",
+     "url": "https://www.irs.gov/forms-pubs/about-form-1099-nec",
+     "section": "filing thresholds"
+    }
+   ],
+   "notes": "Threshold change confirmed by multiple law-firm summaries of OBBBA §70433; statute text not read. Payee-level threshold: sum per calendar year. Also: OBBBA §70432 reset the 1099-K threshold to $20,000/200 transactions retroactively - secondary source."
+  },
+  {
+   "id": "us.statefees",
+   "label": {
+    "en": "State LLC fees and franchise taxes",
+    "he": "אגרות מדינה ו-franchise tax ל-LLC"
+   },
+   "match": {
+    "keywords": [
+     "delaware division of corporations",
+     "wyoming secretary of state",
+     "annual report",
+     "franchise tax",
+     "state llc fee",
+     "registered agent fee",
+     "secretary of state"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 300,
+    "currency": "USD",
+    "per": "year",
+    "year": 2026,
+    "note": "Delaware LLC annual tax $300 due June 1 (secondary sources); Wyoming minimum $60 annual license tax; California $800 minimum franchise tax - unverified, check state sites"
+   },
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "State fees and taxes paid to operate the business are deductible (IRC 162; taxes under IRC 164(a)(3) if a state income-based franchise tax)",
+    "Entity formation fee: startup/organizational cost (us.startup)"
+   ],
+   "evidence": [
+    "State invoice/receipt and filing confirmation"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "26 U.S.C. §164",
+     "url": "https://www.law.cornell.edu/uscode/text/26/164",
+     "section": "§164"
+    },
+    {
+     "title": "Delaware Division of Corporations - LLC annual tax",
+     "url": "https://corp.delaware.gov/paytaxes/",
+     "section": "annual LLC tax"
+    },
+    {
+     "title": "Wyoming SOS - annual report",
+     "url": "https://sos.wyo.gov/Business/AnnualReports.aspx",
+     "section": "minimum fee"
+    }
+   ],
+   "notes": "Open item: packages/countries/us/tables/2026.json has delawareTax 400; the Delaware LLC annual tax found by search is $300 ($400 matches nothing in LLC context; may be the corporate franchise). Reconcile before use. Only matters if the LLC has a US trade or business (ECI): a nonresident alien owner deducts only against effectively connected income, and only on a timely filed return (IRC 873(a)/874(a), 882(c)). With no ECI the deduction is moot (FDAP is taxed gross; services performed abroad are foreign-source)."
+  },
+  {
+   "id": "us.gifts-personal",
+   "label": {
+    "en": "Non-deductible personal items (guardrail)",
+    "he": "הוצאות פרטיות שאינן מוכרות (שומר סף)"
+   },
+   "match": {
+    "keywords": [
+     "netflix",
+     "spotify",
+     "groceries",
+     "clothing",
+     "gym",
+     "haircut",
+     "vacation",
+     "personal"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 0,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Personal, living or family expenses are not deductible (IRC 262)",
+    "Clothing deductible only if required AND not suitable for ordinary wear (Pub 535)",
+    "Fines and penalties (162(f)), political contributions (162(e)), life insurance premiums for the owner (264)"
+   ],
+   "evidence": [
+    "None - tag as personal; owner draw/distribution"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §262",
+     "url": "https://www.law.cornell.edu/uscode/text/26/262",
+     "section": "§262"
+    },
+    {
+     "title": "26 U.S.C. §162(f)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(f)"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "What you can't deduct"
+    }
+   ],
+   "notes": "Record as owner draw (equity) not expense."
+  },
+  {
+   "id": "us.interest-tax-misc",
+   "label": {
+    "en": "Business taxes and licenses",
+    "he": "מסים ורישיונות עסקיים"
+   },
+   "match": {
+    "keywords": [
+     "business license",
+     "permit",
+     "property tax business",
+     "sales tax paid",
+     "payroll tax"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "schedule-c",
+    "llc-disregarded",
+    "c-corp"
+   ],
+   "conditions": [
+    "Taxes and licenses on the business are deductible (IRC 164); federal income tax and SE tax itself are not (SE tax half via us.se-tax-deduction)",
+    "Sales tax collected is not income/expense if only passed through"
+   ],
+   "evidence": [
+    "Receipt"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "26 U.S.C. §164",
+     "url": "https://www.law.cornell.edu/uscode/text/26/164",
+     "section": "§164"
+    },
+    {
+     "title": "IRS Publication 535 (Business Expenses)",
+     "url": "https://www.irs.gov/publications/p535",
+     "section": "Taxes"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "id": "us.foreign-owned-no-eci",
+   "label": {
+    "en": "Foreign-owned disregarded LLC with no US trade or business: when deductions matter",
+    "he": "LLC שקוף בבעלות זרה ללא עסק בארה\"ב - מתי ניכויים רלוונטיים"
+   },
+   "match": {
+    "keywords": [
+     "form 5472",
+     "pro forma 1120",
+     "nonresident",
+     "eci"
+    ],
+    "mcc": []
+   },
+   "incomeTaxPct": 0,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "llc-disregarded"
+   ],
+   "conditions": [
+    "A foreign person is taxed in the US only on (a) FDAP income from US sources at 30% gross (treaty-reduced) - NO deductions (IRC 871(a)/881) and (b) income effectively connected with a US trade or business (ECI) - net, with deductions (IRC 871(b)/882)",
+    "Services performed outside the US are foreign-source (IRC 861(a)(3), 862(a)(3)): no US income tax and no deductions needed",
+    "Deductions against ECI are allowed ONLY if the return is timely filed (Form 1040-NR / 1120-F, IRC 874(a), 882(c)(2); Reg. 1.874-1(b)); late-filing waiver within 18 months",
+    "A single-member LLC wholly owned by a foreign person with no ECI still files pro forma Form 1120 + Form 5472 for reportable transactions (Reg. 1.6038A-1(c)); penalty $25,000 per form per year; the pro forma return does not claim business deductions",
+    "Business deductions (meals, travel, home office, QBI, SEP/Solo 401(k), SE tax) therefore have NO tax effect unless the LLC (or its owner) has a US trade or business, in which case the owner files 1040-NR with Schedule C-like Schedule E/ECI reporting"
+   ],
+   "evidence": [
+    "Form 5472 transaction records (capital contributions, distributions, related-party payments)",
+    "Evidence that services are performed outside the US (location of work)",
+    "Form W-8BEN given to US payers"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "26 U.S.C. §871",
+     "url": "https://www.law.cornell.edu/uscode/text/26/871",
+     "section": "§871"
+    },
+    {
+     "title": "26 U.S.C. §882",
+     "url": "https://www.law.cornell.edu/uscode/text/26/882",
+     "section": "§882"
+    },
+    {
+     "title": "26 U.S.C. §874",
+     "url": "https://www.law.cornell.edu/uscode/text/26/874",
+     "section": "§874"
+    },
+    {
+     "title": "26 U.S.C. §861",
+     "url": "https://www.law.cornell.edu/uscode/text/26/861",
+     "section": "§861"
+    },
+    {
+     "title": "26 CFR §1.6038A-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.6038A-1",
+     "section": "§1.6038A-1"
+    },
+    {
+     "title": "26 CFR §301.7701-3",
+     "url": "https://www.law.cornell.edu/cfr/text/26/301.7701-3",
+     "section": "§301.7701-3(b)(2) default DE"
+    },
+    {
+     "title": "IRS Instructions for Form 5472",
+     "url": "https://www.irs.gov/instructions/i5472",
+     "section": "reportable transactions; penalty"
+    }
+   ],
+   "notes": "Treat deduction tags as BOOKKEEPING-ONLY for these entities unless the user attests a US trade or business. Tag meaning (appliesTo llc-disregarded) is informational: the Taxximizer should show '$0 US tax effect' and instead surface the Israeli/home-country deductibility if applicable."
+  }
+ ],
+ "moves": [
+  {
+   "id": "us.move.mileage-vs-actual",
+   "title": {
+    "en": "Compare standard mileage vs actual vehicle expenses",
+    "he": "השוואה בין תעריף קילומטראז' להוצאות בפועל"
+   },
+   "when": "Business vehicle, Schedule C",
+   "effect": "Pick the higher; must use standard mileage in year 1 to keep the option; with 2026 rate 72.5c (Jan-Jun) / 76c (Jul-Dec) the standard rate usually wins for efficient cars and high mileage.",
+   "sources": [
+    {
+     "title": "Rev. Proc. 2019-46",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-19-46.pdf",
+     "section": "election rules"
+    },
+    {
+     "title": "IRS Publication 463 (Travel, Gift, and Car Expenses)",
+     "url": "https://www.irs.gov/publications/p463",
+     "section": "Chapter 4"
+    }
+   ]
+  },
+  {
+   "id": "us.move.log-everything",
+   "title": {
+    "en": "Keep §274(d) logs for mileage, meals, travel, gifts",
+    "he": "יומן 274(d) לנסיעות, ארוחות ומתנות"
+   },
+   "when": "Any claimed travel/meals/gifts",
+   "effect": "Without adequate records the deduction is disallowed outright (no Cohan estimate for 274(d) items).",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(d)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(d)"
+    },
+    {
+     "title": "26 CFR §1.274-5T",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-5T",
+     "section": "§1.274-5T"
+    }
+   ]
+  },
+  {
+   "id": "us.move.timing-purchases",
+   "title": {
+    "en": "Time equipment purchases: place in service before year-end",
+    "he": "תזמון רכישת ציוד לפני סוף השנה"
+   },
+   "when": "Profitable year, needs equipment",
+   "effect": "Deduct 100% in year placed in service via bonus (acquired after 1/19/2025) or 179 ($2.5M 2025 / $2.56M 2026); buying on Dec 31 works if placed in service (ready and available) by then.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §168(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/168",
+     "section": "§168(k)"
+    },
+    {
+     "title": "26 U.S.C. §179",
+     "url": "https://www.law.cornell.edu/uscode/text/26/179",
+     "section": "§179"
+    },
+    {
+     "title": "Notice 2026-11",
+     "url": "https://www.irs.gov/pub/irs-drop/n-26-11.pdf",
+     "section": "bonus guidance"
+    }
+   ]
+  },
+  {
+   "id": "us.move.safe-harbor",
+   "title": {
+    "en": "Elect the de minimis safe harbor every year",
+    "he": "בחירת de minimis safe harbor"
+   },
+   "when": "Items <= $2,500 each",
+   "effect": "Expense small assets immediately; election by attaching a statement to a timely filed return.",
+   "sources": [
+    {
+     "title": "26 CFR §1.263(a)-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.263(a)-1",
+     "section": "(f)"
+    },
+    {
+     "title": "Notice 2015-82",
+     "url": "https://www.irs.gov/pub/irs-drop/n-15-82.pdf",
+     "section": "$2,500 safe harbor"
+    }
+   ]
+  },
+  {
+   "id": "us.move.retirement",
+   "title": {
+    "en": "Fund a SEP-IRA or Solo 401(k)",
+    "he": "הפקדה ל-SEP או Solo 401(k)"
+   },
+   "when": "Schedule C profit, US-source earned income",
+   "effect": "Reduces income tax (and QBI); SEP up to $70,000 (2025)/$72,000 (2026); Solo 401(k) adds employee deferral $23,500/$24,500; SEP can be set up by the return due date.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §408(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/408",
+     "section": "§408(k)"
+    },
+    {
+     "title": "26 U.S.C. §401(k)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/401",
+     "section": "§401(k)"
+    },
+    {
+     "title": "Notice 2025-67",
+     "url": "https://www.irs.gov/pub/irs-drop/n-25-67.pdf",
+     "section": "2026 limits"
+    }
+   ]
+  },
+  {
+   "id": "us.move.sehi",
+   "title": {
+    "en": "Claim self-employed health insurance",
+    "he": "ניכוי ביטוח בריאות לעצמאי"
+   },
+   "when": "Paying own premiums, no employer plan",
+   "effect": "Above-the-line deduction up to net business profit.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §162(l)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/162",
+     "section": "§162(l)"
+    }
+   ]
+  },
+  {
+   "id": "us.move.home-office",
+   "title": {
+    "en": "Choose simplified or actual home office",
+    "he": "משרד ביתי - שיטה פשוטה מול בפועל"
+   },
+   "when": "Dedicated room used only for work",
+   "effect": "Simplified: $1,500 max with zero recordkeeping; actual can be larger for high rent; compare each year.",
+   "sources": [
+    {
+     "title": "Rev. Proc. 2013-13",
+     "url": "https://www.irs.gov/pub/irs-drop/rp-13-13.pdf",
+     "section": "simplified method"
+    },
+    {
+     "title": "IRS Publication 587 (Business Use of Your Home)",
+     "url": "https://www.irs.gov/publications/p587",
+     "section": ""
+    }
+   ]
+  },
+  {
+   "id": "us.move.hire-spouse",
+   "title": {
+    "en": "Hire a bona fide spouse/family member",
+    "he": "העסקת בן/בת זוג או בני משפחה אמיתיים"
+   },
+   "when": "Companion/family does real work",
+   "effect": "Wages become deductible (and make travel deductible under 274(m)(3) if bona fide); payroll taxes apply; must be real, reasonable pay.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(m)(3)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(m)(3)"
+    },
+    {
+     "title": "26 U.S.C. §3121(b)(3)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/3121",
+     "section": "§3121(b)(3)"
+    }
+   ]
+  },
+  {
+   "id": "us.move.qbi",
+   "title": {
+    "en": "Preserve the 20% QBI deduction",
+    "he": "שמירה על ניכוי QBI של 20%"
+   },
+   "when": "US ECI, Schedule C",
+   "effect": "Now permanent with a $400 floor; manage taxable income/W-2 wages near the $201,750/$403,500 (2026) thresholds; retirement and SEHI deductions reduce QBI.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §199A",
+     "url": "https://www.law.cornell.edu/uscode/text/26/199A",
+     "section": "§199A"
+    },
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70105"
+    }
+   ]
+  },
+  {
+   "id": "us.move.eci-election",
+   "title": {
+    "en": "Confirm there is no US trade or business (foreign owner)",
+    "he": "אימות שאין עסק בארה\"ב (בעלות זרה)"
+   },
+   "when": "Foreign-owned DE",
+   "effect": "Services performed abroad produce foreign-source income - no US tax; file W-8BEN with payers; Form 5472/pro forma 1120 still required; no deductions to optimise.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §861",
+     "url": "https://www.law.cornell.edu/uscode/text/26/861",
+     "section": "§861"
+    },
+    {
+     "title": "26 U.S.C. §864(b)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/864",
+     "section": "§864(b)"
+    },
+    {
+     "title": "IRS Instructions for Form 5472",
+     "url": "https://www.irs.gov/instructions/i5472",
+     "section": ""
+    }
+   ]
+  },
+  {
+   "id": "us.move.startup",
+   "title": {
+    "en": "Deduct up to $5,000 of startup costs in year one",
+    "he": "ניכוי עד $5,000 הוצאות הקמה"
+   },
+   "when": "Pre-opening costs",
+   "effect": "Immediate $5,000 (phased out above $50,000 total), remainder over 15 years.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §195",
+     "url": "https://www.law.cornell.edu/uscode/text/26/195",
+     "section": "§195"
+    }
+   ]
+  },
+  {
+   "id": "us.move.1099",
+   "title": {
+    "en": "Collect W-9/W-8BEN and file 1099-NEC at the new $2,000 threshold",
+    "he": "איסוף W-9/W-8BEN והגשת 1099-NEC (סף $2,000)"
+   },
+   "when": "Paying contractors in 2026",
+   "effect": "Avoid penalties and backup withholding; threshold up from $600 for payments after 12/31/2025.",
+   "sources": [
+    {
+     "title": "Pub. L. 119-21 (One Big Beautiful Bill Act)",
+     "url": "https://www.congress.gov/bill/119th-congress/house-bill/1/text",
+     "section": "§70433"
+    },
+    {
+     "title": "26 U.S.C. §6041",
+     "url": "https://www.law.cornell.edu/uscode/text/26/6041",
+     "section": "§6041"
+    }
+   ]
+  },
+  {
+   "id": "us.move.pay-card",
+   "title": {
+    "en": "Pay contractors by card to shift reporting to 1099-K",
+    "he": "תשלום בכרטיס מעביר דיווח ל-1099-K"
+   },
+   "when": "Small contractors",
+   "effect": "Card/third-party network payments are reported by the processor, not on your 1099-NEC (watch the fee cost).",
+   "sources": [
+    {
+     "title": "26 CFR §1.6041-1",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.6041-1",
+     "section": "(a)(1)(iv)"
+    }
+   ]
+  },
+  {
+   "id": "us.move.trip-days",
+   "title": {
+    "en": "Add business days to foreign trips to avoid 274(c) allocation",
+    "he": "הוספת ימים עסקיים כדי להימנע מהקצאה"
+   },
+   "when": "Foreign trip with some vacation",
+   "effect": "Stay <= 7 consecutive days or <25% personal days and 100% of transport stays deductible.",
+   "sources": [
+    {
+     "title": "26 U.S.C. §274(c)",
+     "url": "https://www.law.cornell.edu/uscode/text/26/274",
+     "section": "§274(c)"
+    },
+    {
+     "title": "26 CFR §1.274-4",
+     "url": "https://www.law.cornell.edu/cfr/text/26/1.274-4",
+     "section": "§1.274-4"
+    }
+   ]
+  }
+ ]
+}

@@ -89,7 +89,7 @@
             [
               has830 ? "ok" : "warn",
               t("taxChecks.soldier", { pts: b.soldier.toFixed(2) }),
-              t(has830 ? "taxChecks.soldierIn" : "taxChecks.soldierMissing", { date: ltr(dmy(b.p.discharge ?? "")), months: b.p.serviceMonths ?? "" }),
+              t(has830 ? "taxChecks.soldierIn" : "taxChecks.soldierMissing", { date: ltr(dmy(b.p.discharge ?? "")), months: b.p.serviceMonths ?? "", n: Number(b.p.serviceMonths) || 0 }),
               "/documents",
             ] as Check,
           ]

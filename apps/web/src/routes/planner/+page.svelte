@@ -4,11 +4,12 @@
   // Port of web/src/views/Planner.svelte. Maths: @openbooks/country-il (ilPlan, …) and @openbooks/country-us (corpTax).
   import { pl } from "@openbooks/core";
   import { form1301, ilPlan, isComplete, mandatoryPension, reservistPoints, type IlRates, type IlTable } from "@openbooks/country-il";
-  import { corpTax, type UsTable } from "@openbooks/country-us";
+  import { corpTax, dueOn, usDeadlines, type UsTable } from "@openbooks/country-us";
   import { S, bizType, catLabel, doc, ent, fmt, isUS, mdy, saveDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
-  import { t } from "#lib/i18n.svelte.ts";
+  import { bidi, lang, t } from "#lib/i18n.svelte.ts";
+  import { disallowed } from "#lib/taxtags.svelte.ts";
   import { Badge, Button, Card, Checkbox, Icon, Input, Money, PageHeader, Select, Table, type Column, type IconName } from "#lib/ui/index.ts";
-  import { corpInput, isCorp } from "#lib/ustax/books.ts";
+  import { corpInput, foreignOwned, isCorp, stateName as stateNameOf, track, usFacts, usNow } from "#lib/ustax/books.ts";
   import { ilProfile } from "../tax/il/il.ts";
 
   type Saved = Record<string, number | boolean | string | undefined>;
@@ -32,10 +33,15 @@
   const R = $derived(T as IlRates);
   const txns = $derived(yearTxns(y));
   const b = $derived(
-    us || !S.data ? null : form1301({ y, txns, type: bizType(y) ?? "", T, form: S.data.form?.[y] ?? {}, profile: ilProfile() }),
+    us || !S.data ? null : form1301({ y, txns, type: bizType(y) ?? "", T, form: S.data.form?.[y] ?? {}, profile: ilProfile(), disallowed: disallowed(y) }),
   );
   const P = $derived(pl(txns));
-  const turnover = $derived(num("turnover", Math.round(b?.turnover ?? 0)));
+  // expenses the tax rules allow: the raw sum less what the deduction rules disallow (Taxximizer → Deductions)
+  // The Israeli calculators work in shekels; books kept in another currency (US dollars) are converted at the planner's USD/ILS rate.
+  // ponytail: only USD and ILS books are converted; another currency would need its own rate field.
+  const toIls = (n: number) => (cur === "ILS" ? n : n * fx);
+  const allowed = $derived(Math.round(toIls(P.cogs + P.opex - disallowed(y))));
+  const turnover = $derived(num("turnover", Math.round(toIls(b?.turnover ?? 0))));
   const days = $derived(num("reserveDays")),
     degree = $derived(num("degreeYear"));
   const degreePts = $derived(degree && y > degree && y <= degree + 3 ? 1 : 0);
@@ -44,13 +50,13 @@
   const mandatory = $derived(hasRates ? mandatoryPension(turnover * 0.7, R) : 0);
   const input = $derived({
     turnover,
-    expenses: num("expenses", Math.round(P.cogs + P.opex)),
+    expenses: num("expenses", allowed),
     foreign: num("foreign"),
     points,
     pension: num("pension", Math.round(mandatory)),
     donations: num("donations"),
     selfEmployed: !!saved.selfEmployed,
-    withheld: b?.withheld ?? 0,
+    withheld: toIls(b?.withheld ?? 0),
   });
   const zair = $derived(hasRates ? ilPlan({ ...input, zair: true }, R) : null),
     actual = $derived(hasRates ? ilPlan({ ...input, zair: false }, R) : null);
@@ -83,6 +89,22 @@
   const UT = $derived(taxTable(y, "us") as unknown as Partial<UsTable>);
   const p = $derived((S.data?.profile ?? {}) as Record<string, string | undefined>);
   const corp = $derived(us && isCorp(y));
+  // The foreign-owner duties (5472, W-8BEN, treaty withholding, the owner's Israeli return) apply to a foreign-owned LLC or C-corp only.
+  // Every other track (a US person's sole proprietorship, a partnership, an S corporation, a US-owned C-corp) lists its own deadlines.
+  const tr = $derived(track(y));
+  const foreign = $derived(us && (tr === "foreign-owned" || (tr === "c-corp" && foreignOwned(bizType(y) ?? ""))));
+  const own = $derived.by(() => {
+    if (!us || foreign) return [];
+    const f = usFacts(bizType(y) ?? ""),
+      re = new RegExp(`\\.${y}(\\.|$)`);
+    // returns and payments for tax year y fall in y and y+1 (their ids carry the tax year); the state fees listed are the next year's
+    const mine = (d: { id: string }) => re.test(d.id),
+      fee = (d: { id: string }) => /^us\.(de|wy)\./.test(d.id);
+    const list = [...usDeadlines(y, f).filter(mine), ...usDeadlines(y + 1, f).filter((d) => mine(d) || fee(d))];
+    return list.filter((d, i) => list.findIndex((x) => x.id === d.id) === i).sort((a, b) => (a.date < b.date ? -1 : 1));
+  });
+  const ret = $derived(us && tr === "individual" ? usNow(y) : null);
+  const stateTax = $derived(ret?.personal?.state.tax ?? 0);
   const ctax = $derived(corp ? corpTax(corpInput(y)) : null);
   const treaty = $derived(UT.treatyRoyalty ?? 0.1);
   type Line = { key: string; label: string; value: number };
@@ -94,29 +116,31 @@
   const stateFee = $derived(
     (
       ({
-        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 400) }),
+        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 300) }),
         WY: () => t("planner.stateFee.WY", { amount: fmt(UT.wyomingMin ?? 60) }),
         NM: () => t("planner.stateFee.NM"),
       }) as Record<string, () => string>
     )[(p.state ?? "").toUpperCase().slice(0, 2)]?.() ?? null,
   );
+  /** A "MM-DD" due date of a year, moved to the next business day as the IRS does (a weekend or a federal holiday). */
+  const dueDay = (yy: number, md: string) => dueOn(yy, +md.slice(0, 2), +md.slice(3, 5));
   const fx = $derived(num("usdIls", 3.06));
   type Duty = { title: string; when: string | null; text: string; link?: [string, string] };
   const duties: Duty[] = $derived([
     corp
       ? {
           title: t("planner.cc.1120"),
-          when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`,
+          when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"),
           text: t("planner.cc.1120Text", { tax: fmt(ctax!.tax), rate: Math.round((UT.corpRate ?? 0.21) * 100), taxable: fmt(ctax!.taxable), amount: fmt(UT.form5472Penalty ?? 25000) }),
           link: ["/tax/us", t("common.open")],
         }
       : {
           title: t("planner.duty.5472"),
-          when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`,
+          when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"),
           text: t("planner.duty.5472Text", { amount: fmt(UT.form5472Penalty ?? 25000) }),
           link: ["/tax/us", t("common.open")],
         },
-    { title: t("planner.duty.7004"), when: `${y + 1}-${UT.dueMonthDay ?? "04-15"}`, text: t("planner.duty.7004Text", { date: mdy(`${y + 1}-${UT.extendedMonthDay ?? "10-15"}`) }) },
+    { title: t("planner.duty.7004"), when: dueDay(y + 1, UT.dueMonthDay ?? "04-15"), text: t("planner.duty.7004Text", { date: mdy(dueDay(y + 1, UT.extendedMonthDay ?? "10-15")) }) },
     stateFee
       ? { title: t("planner.duty.state"), when: null, text: stateFee }
       : { title: t("planner.duty.stateUnset"), when: null, text: t("planner.duty.stateUnsetText"), link: ["/tax/us", t("planner.duty.addState")] },
@@ -126,7 +150,7 @@
       text: t("planner.duty.w8Text", { def: Math.round((UT.defaultWithholding ?? 0.3) * 100), treaty: Math.round(treaty * 100) }),
     },
     { title: t("planner.duty.boi"), when: null, text: t("planner.duty.boiText") },
-    { title: t("planner.duty.1099"), when: `${y + 1}-01-31`, text: t("planner.duty.1099Text", { amount: fmt(UT.nec1099 ?? 2000), y }) },
+    { title: t("planner.duty.1099"), when: dueOn(y + 1, 1, 31), text: t("planner.duty.1099Text", { amount: fmt(UT.nec1099 ?? 2000), y }) },
   ]);
   const incomeCols: Column<Line>[] = $derived([
     { key: "label", label: t("common.ledgerAccount") },
@@ -138,7 +162,7 @@
     { value: "royalty", label: t("planner.royalty") },
     { value: "business", label: t("planner.businessProfits") },
   ]);
-  const ilsNet = $derived(Math.round(P.net * fx));
+  const ilsNet = $derived(Math.round(toIls(P.net)));
 </script>
 
 <PageHeader title={t("planner.title")} badge={String(y)} sub={t("planner.sub", { flag: ent().flag ?? "", y })}>
@@ -178,8 +202,9 @@
       <div class="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card title={t("planner.yourYear", { y })}>
           <div class="space-y-4">
-            {@render field(t("planner.turnover"), "turnover", Math.round(b.turnover), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
-            {@render field(t("planner.expenses"), "expenses", Math.round(P.cogs + P.opex), t("planner.expensesHint"))}
+            {#if cur !== "ILS"}{@render field(t("planner.fx"), "usdIls", 3.06, t("planner.fxHint"))}{/if}
+            {@render field(t("planner.turnover"), "turnover", Math.round(toIls(b.turnover)), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
+            {@render field(t("planner.expenses"), "expenses", allowed, t("planner.expensesHint"))}
             {@render field(t("planner.foreign"), "foreign", 0, t("planner.foreignHint"))}
             {@render field(t("planner.pension"), "pension", Math.round(mandatory), t("planner.pensionHint", { amount: fmt(mandatory) }))}
             {@render field(t("planner.donations"), "donations", 0, t("planner.donationsHint", { amount: fmt(R.donationMin) }))}
@@ -250,6 +275,45 @@
         </div>
       </div>
     {/if}
+  {:else if !foreign}
+    <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <Card title={t("planner.obligations", { y })} description={t("planner.own.sub")}>
+        <div class="divide-y divide-line">
+          {#each own as d (d.id)}
+            <div class="flex flex-wrap items-start gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+              <div class="min-w-0 flex-1 basis-56 text-[14px] text-ink" dir="auto">{d.title[lang()]}</div>
+              {#if d.form}<Badge size="sm">{d.form}</Badge>{/if}
+              <span class="shrink-0 text-[13px] text-ink-2 num">{mdy(d.date)}</span>
+            </div>
+          {:else}
+            <p class="text-[14px] text-sub">{t("fus.dl.none")}</p>
+          {/each}
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2 border-t border-line pt-3">
+          <Button size="sm" href="/tax/us">{t("common.open")}</Button>
+          <Button size="sm" variant="ghost" href="/filings">{t("filings.title")}</Button>
+        </div>
+      </Card>
+
+      {#if ret?.personal && ret.schedC}
+        <Card title={t("planner.own.estimate")} description={t("planner.own.estimateSub", { y })}>
+          <dl class="text-[14px]">
+            {#each [[t("fus.stat.profit"), ret.schedC.netProfit], [t("fus.stat.se"), ret.personal.se.line12], [t("fus.tax.total"), ret.personal.totalTax], ...(stateTax > 0 ? [[t("fus.tax.state", { state: bidi(stateNameOf() || t("fus.state.generic")), rate: ret.personal.state.rate }), stateTax]] : [])] as [label, v] (label)}
+              <div class="flex flex-wrap justify-between gap-x-3 py-1.5"><dt class="min-w-0 flex-1 basis-40 text-ink-2">{label}</dt><dd><Money value={v as number} currency={cur} cents={false} /></dd></div>
+            {/each}
+          </dl>
+          {#if ret.estimates && !ret.estimates.exempt}
+            <div class="mt-3 border-t border-line pt-3 text-[13px] text-sub">{t("fus.est.title", { y })}</div>
+            <dl class="mt-1 text-[14px]">
+              {#each ret.estimates.installments as i (i.n)}
+                <div class="flex flex-wrap justify-between gap-x-3 py-1"><dt class="text-ink-2 num">{mdy(i.due)}</dt><dd><Money value={i.amount} currency={cur} cents={false} /></dd></div>
+              {/each}
+            </dl>
+          {/if}
+          <p class="mt-3 text-[12px] text-faint">{t("fus.tax.note")}</p>
+        </Card>
+      {/if}
+    </div>
   {:else}
     <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div class="min-w-0 space-y-4">

@@ -1,11 +1,12 @@
 // The browser-only books: the server's Books service (packages/storage/src/books.ts) over IndexedDB instead of books.db + folders.
 // Keys in `kv` (JSON, mirrored in memory): entity/<id>, doc/<e>/<name>, rules/<e>, txns/<e>, stmts/<e>, years/<e>.
 // Keys in `blob` (bytes): <e>/inbox/<name>, <e>/proofs/<year>/<name>, <e>/attachments/<txn>/<name>.
-// The ledger, classify, rule cleaning, statement readers and tax tables are the same pure code the server runs.
-import { classify, cleanRules, ledger } from "@openbooks/core";
+// The ledger, classify, rule cleaning, write checks (close date, doc rules), statement readers and tax tables are the same pure code the server runs.
+import { classify, cleanRules } from "@openbooks/core";
 import { csvPreview } from "@openbooks/importers/csv";
 import { read } from "@openbooks/importers/read";
-import type { CsvProfile, EntityMeta, JournalEntry, Rule, StatementCheck, StoredTxn } from "@openbooks/schema";
+import type { CsvProfile, EntityMeta, RuleInput, StatementCheck, StoredTxn } from "@openbooks/schema";
+import { docRefusal, ledgerOf, ledgerRefusal, type BooksView, type Change, type Refusal } from "@openbooks/storage/guard";
 import { KINDS, parseStatements } from "@openbooks/storage/parse";
 import { taxTables } from "@openbooks/storage/taxtables";
 import type { State } from "../api.ts";
@@ -92,17 +93,35 @@ export class Local {
   }
   /** e: an entity id or a pseudo-entity (`_app`). */
   doc = <A>(e: string, name: string, fallback: A): A => (/^_[a-z]+$/.test(e) || this.meta(e) ? this.get(`doc/${e}/${name}`, fallback) : fallback);
+  private view = (e: string): BooksView => ({
+    doc: (name, fallback) => this.get(`doc/${e}/${name}`, fallback),
+    rules: () => this.get(`rules/${e}`, []),
+    stored: () => this.get(`txns/${e}`, []),
+  });
+  /** The server's guards: a closed period is HTTP 409, a doc breaking its own rules 400. */
+  private refuse(r: Refusal | null) {
+    if (r) throw "closed" in r ? new Bad(r.closed, 409) : new Bad(r.bad);
+  }
+  private guard = (e: string, change: Change) => this.refuse(ledgerRefusal(this.view(e), change));
   async putDoc(e: string, name: string, value: unknown) {
-    if (!/^_[a-z]+$/.test(e)) this.meta(e);
+    if (!/^_[a-z]+$/.test(e)) {
+      this.meta(e);
+      this.refuse(docRefusal(this.view(e), name, value));
+    }
     await this.put("kv", `doc/${e}/${name}`, value ?? undefined);
     if (name === "csv-profiles") await this.ingest(e); // CSVs read differently now
   }
-  rules = (e: string): Rule[] => (this.meta(e), this.get(`rules/${e}`, []));
-  setRules = (e: string, rs: readonly Rule[]) => this.put("kv", `rules/${e}`, cleanRules(rs));
+  rules = (e: string): RuleInput[] => (this.meta(e), this.get(`rules/${e}`, []));
+  async setRules(e: string, rs: readonly RuleInput[]) {
+    const rows = cleanRules(rs);
+    this.guard(e, { rules: rows });
+    await this.put("kv", `rules/${e}`, rows);
+  }
   async classify(e: string, ids: string[], category: string, rule?: string) {
     const r = classify(ids, category, this.rules(e), this.doc(e, "overrides", {}), rule);
-    if (rule) await this.setRules(e, r.rules);
-    await this.putDoc(e, "overrides", r.overrides);
+    this.guard(e, { rules: r.rules, overrides: r.overrides });
+    if (rule) await this.put("kv", `rules/${e}`, r.rules);
+    await this.put("kv", `doc/${e}/overrides`, r.overrides);
   }
 
   // ---------- files, statements ----------
@@ -188,9 +207,7 @@ export class Local {
   // ---------- state ----------
   state(e: string): State {
     const meta = this.meta(e);
-    const stored = this.get<StoredTxn[]>(`txns/${e}`, []);
-    const journal = this.doc<JournalEntry[]>(e, "journal", []).map((je) => ({ ...je, lines: je.lines ?? [] }));
-    const txns = ledger(stored, this.doc(e, "overrides", {}), this.rules(e), journal);
+    const txns = ledgerOf(this.view(e));
     const stmts = this.get<Stmt[]>(`stmts/${e}`, []);
     const proofs: Record<string, string[]> = {};
     for (const k of this.under(`${e}/proofs/`, this.blobs)) {

@@ -2,7 +2,7 @@
 import type { Database } from "bun:sqlite";
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import type { EntityMeta, Rule, StatementCheck, Txn } from "@openbooks/schema";
+import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 import { ls, pySorted } from "./db.ts";
 
 export interface Connection {
@@ -10,6 +10,7 @@ export interface Connection {
   type: string;
   connected: boolean;
   pending: boolean;
+  linkToken?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: unknown[];
@@ -23,7 +24,7 @@ export interface State {
   checks: StatementCheck[];
   form: Record<string, unknown>;
   profile: Record<string, unknown>;
-  rules: Rule[];
+  rules: RuleInput[];
   years: number[];
   proofs: Record<string, string[]>;
   unreadable: string[];
@@ -34,8 +35,8 @@ export interface State {
   connections: Connection[];
 }
 
-/** Docs with their own endpoints, left out of state.docs. */
-export const RESERVED = new Set(["form", "profile", "overrides"]);
+/** Docs with their own endpoints (or their own field in the state), left out of state.docs. */
+export const RESERVED = new Set(["form", "profile", "overrides", "rules"]);
 
 /** connectors.status(e): the non-secret view of each connection. A vault-sealed row counts as connected. */
 export function connections(db: Database, e: string): Connection[] {
@@ -43,11 +44,13 @@ export function connections(db: Database, e: string): Connection[] {
   const byKey = new Map(rows.map((r) => [r.provider, JSON.parse(r.value) as Record<string, unknown>]));
   return pySorted(byKey.keys()).map((k) => {
     const c = byKey.get(k)!;
+    const linking = Boolean(c.linkToken); // a vault-sealed row hides `pending`; Plaid's unsealed linkToken (gone once Link is done) still says it waits
     return {
       provider: k,
       type: k.split(":")[0]!,
-      connected: Boolean(c.secret || c.sealed),
-      pending: Boolean(c.pending),
+      connected: !linking && Boolean(c.secret || c.sealed),
+      pending: linking || Boolean(c.pending),
+      linkToken: c.linkToken as string | undefined,
       lastSync: (c.lastSync as string | undefined) ?? null,
       lastError: (c.lastError as string | undefined) ?? null,
       accounts: (c.accounts as unknown[] | undefined) ?? [],

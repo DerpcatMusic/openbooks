@@ -20,15 +20,21 @@ export class ConnectorError extends Data.TaggedError("ConnectorError")<{ readonl
 const fail = (message: string) => new ConnectorError({ message });
 
 // ---------- where connections live: `secret` rows (storage) opened/sealed by the vault ----------
+/** A connect step 1 waiting for step 2: One Zero's login and SMS context, or Plaid's keys until the public token comes back. */
 export interface Pending {
-  email: string;
-  password: string;
-  otpContext: string;
+  email?: string;
+  password?: string;
+  otpContext?: string;
+  clientId?: string;
+  secret?: string;
+  env?: string;
 }
 /** One `secret` row as stored: {secret, pending, lastSync, lastError, accounts} in plaintext mode, or with `sealed` instead of secret/pending. */
 export interface Conn {
   secret?: Record<string, string>;
   pending?: Pending;
+  /** Plaid Link's token: short-lived and only useful in the local browser, so it stays unsealed. */
+  linkToken?: string;
   sealed?: unknown;
   lastSync?: string | null;
   lastError?: string | null;
@@ -175,7 +181,10 @@ const parseKeepFloats = (text: string) =>
 const num = (v: unknown) => (J.isRawJSON(v) ? Number(v.rawJSON) : Number(v ?? 0) || 0);
 
 class HttpStatus {
-  constructor(readonly code: number) {}
+  constructor(
+    readonly code: number,
+    readonly detail = "",
+  ) {}
 }
 
 export const mercury = (token: string, p: string, params: Record<string, string | number> = {}) =>
@@ -272,6 +281,68 @@ export const mercurySync = (dir: string, token: string, file = "mercury-sync.jso
     return accounts.map((a) => String(a.name));
   });
 
+// ---------- Plaid (US/CA/EU banks and cards, with the user's own Plaid keys) ----------
+// Connect is two steps, like One Zero: keys -> a Link token the browser opens Plaid Link with -> a public token we exchange
+// for the access token. Syncs are incremental (/transactions/sync); the inbox file keeps every transaction plus the cursor,
+// and is written in israeli-bank-scrapers' shape so the scraper reader ingests it as-is.
+const PLAID_ENVS = new Set(["sandbox", "production"]);
+const plaidBase = (env: string) => process.env.OPENBOOKS_PLAID_API ?? `https://${env}.plaid.com`; // tests only
+export const plaid = (s: Record<string, string>, p: string, body: Json = {}) =>
+  Effect.tryPromise({
+    try: async () => {
+      const r = await fetch(plaidBase(s.env ?? "production") + p, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: s.clientId, secret: s.secret, ...body }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      const d = (await r.json().catch(() => ({}))) as Json;
+      if (!r.ok) throw new HttpStatus(r.status, str(d.error_message || d.error_code));
+      return d;
+    },
+    catch: (x) =>
+      fail(
+        x instanceof HttpStatus
+          ? `Plaid ${x.code} on ${p}${x.detail ? `: ${x.detail.slice(0, 200)}` : ""}`
+          : `Can't reach Plaid: ${(x as Error)?.message ?? "network error"}`,
+      ),
+  });
+
+export const plaidSync = (dir: string, s: Record<string, string>, file = "plaid-sync.json") =>
+  Effect.gen(function* () {
+    const prev = yield* Effect.promise(() => readJson(path.join(dir, "inbox", file)));
+    const byId = new Map<string, Json>(((prev?.plaidTxns as Json[] | undefined) ?? []).map((t) => [str(t.transaction_id), t]));
+    let cursor = str(prev?.cursor ?? "");
+    let accounts: Json[] = [];
+    for (;;) {
+      const d = yield* plaid(s, "/transactions/sync", { access_token: s.accessToken, count: 500, ...(cursor ? { cursor } : {}) });
+      accounts = (d.accounts as Json[] | undefined) ?? accounts;
+      for (const t of [...((d.added as Json[]) ?? []), ...((d.modified as Json[]) ?? [])]) byId.set(str(t.transaction_id), t);
+      for (const t of (d.removed as Json[]) ?? []) byId.delete(str(t.transaction_id));
+      cursor = str(d.next_cursor);
+      if (!d.has_more) break;
+    }
+    const txns = [...byId.values()];
+    const name = (a: Json) => `${str(a.name || "Plaid")} ••${str(a.mask)}`;
+    const out = accounts.map((a) => ({
+      accountNumber: str(a.mask || a.account_id),
+      balance: (a.balances as Json | undefined)?.current ?? null,
+      txns: txns
+        .filter((t) => t.account_id === a.account_id && !t.pending)
+        .map((t) => ({
+          date: str(t.date),
+          chargedAmount: -num(t.amount), // Plaid: positive = money out
+          chargedCurrency: str(t.iso_currency_code || t.unofficial_currency_code || "USD"),
+          description: str(t.merchant_name || t.name),
+          identifier: t.transaction_id,
+          status: "completed",
+        })),
+    }));
+    // source "scraper": read.ts hands it to the scraper reader, so rows become `scraper:plaid`
+    yield* writeInbox(dir, file, { source: "scraper", companyId: "plaid", name: "Plaid", syncedAt: now(), cursor, accounts: out, plaidTxns: txns });
+    return accounts.map(name);
+  });
+
 // ---------- Israeli banks and cards ----------
 /** Scrape one company and write inbox/<file>. Banks only show about a year, so older rows of the previous sync are kept. */
 export const scraperSync = (dir: string, company: string, creds: Record<string, string>, file: string) =>
@@ -311,6 +382,7 @@ const runSync = (dir: string, key: string, c: Conn) => {
     f = inboxFile(key),
     s = c.secret ?? {};
   if (t === "mercury") return mercurySync(dir, s.token ?? "", f);
+  if (t === "plaid") return plaidSync(dir, s, f);
   if (t === "onezero") return onezeroSync(dir, s, f);
   return scraperSync(dir, t, s, f);
 };
@@ -338,6 +410,7 @@ export interface Status {
   type: string;
   connected: boolean;
   pending: boolean;
+  linkToken?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: string[];
@@ -357,8 +430,9 @@ export const status = (e: string) =>
       out.push({
         provider: k,
         type: kind(k),
-        connected: !!c.secret,
-        pending: !!c.pending,
+        connected: !!c.secret && !c.linkToken,
+        pending: !!c.pending || !!c.linkToken, // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
+        linkToken: c.linkToken,
         lastSync: c.lastSync ?? null,
         lastError: c.lastError ?? null,
         accounts: c.accounts ?? [],
@@ -431,7 +505,7 @@ export const connect = (e: string, body: Body) =>
       const r = yield* scrape({ action: "verify", companyId: "oneZero", otpContext: pend.otpContext, otpCode: str(body.otpCode).trim() });
       const c = conns[p]!;
       delete c.pending;
-      Object.assign(c, { secret: { email: pend.email, password: pend.password, otpLongTermToken: r.otpLongTermToken ?? "" }, lastError: null });
+      Object.assign(c, { secret: { email: pend.email!, password: pend.password!, otpLongTermToken: r.otpLongTermToken ?? "" }, lastError: null });
     } else if (t === "onezero") {
       // One Zero step 1: sends the SMS
       const f = { email: field("email"), password: field("password"), phoneNumber: field("phoneNumber") };
@@ -439,6 +513,31 @@ export const connect = (e: string, body: Body) =>
       if (f.phoneNumber.startsWith("0")) f.phoneNumber = "+972" + f.phoneNumber.slice(1).replaceAll("-", ""); // 050-... -> +97250...
       const r = yield* scrape({ action: "trigger", companyId: "oneZero", phoneNumber: f.phoneNumber });
       conns[p] = { ...conns[p], pending: { email: f.email, password: f.password, otpContext: r.otpContext ?? "" } };
+      yield* save(e, conns);
+      return {} as Result;
+    } else if (t === "plaid" && body.publicToken) {
+      // Plaid step 2: the public token from Link becomes the access token; the keys leave pending for the secret
+      const k = conns[p]?.pending;
+      if (!k?.clientId || !k.secret || !k.env) return err("Start again: enter the Plaid keys first");
+      const d = yield* plaid({ clientId: k.clientId, secret: k.secret, env: k.env }, "/item/public_token/exchange", { public_token: str(body.publicToken) });
+      const c = conns[p]!;
+      delete c.pending;
+      delete c.linkToken;
+      Object.assign(c, { secret: { clientId: k.clientId, secret: k.secret, env: k.env, accessToken: str(d.access_token) }, lastError: null });
+    } else if (t === "plaid") {
+      // Plaid step 1: the keys buy a Link token the browser opens Plaid Link with; the keys wait as pending
+      const f = { clientId: field("clientId"), secret: field("secret"), env: field("env") };
+      if (!f.clientId || !f.secret) return err("Client ID and secret are required");
+      if (!PLAID_ENVS.has(f.env)) return err("Environment must be sandbox or production");
+      const d = yield* plaid(f, "/link/token/create", {
+        user: { client_user_id: "openbooks" },
+        client_name: "OpenBooks",
+        products: ["transactions"],
+        country_codes: ["US", "CA", "GB", "IE", "FR", "ES", "NL", "DE"],
+        language: "en",
+        transactions: { days_requested: 730 },
+      });
+      conns[p] = { ...conns[p], pending: f, linkToken: str(d.link_token) };
       yield* save(e, conns);
       return {} as Result;
     } else {

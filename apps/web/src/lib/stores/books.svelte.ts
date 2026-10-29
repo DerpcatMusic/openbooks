@@ -1,10 +1,31 @@
 // The books store: one reactive State from the server (GET /api/state and every write's answer), the open entity, year, period,
 // theme, toasts, and the formatters every screen uses. Pure ledger math lives in @openbooks/core; this file only binds it to S.
 // Live updates: one EventSource on /api/events; a change for the open entity (or entity: null) re-fetches the whole state.
-import { cashSeries as coreCashSeries, balances as coreBalances, accounts as coreAccounts, suggest as coreSuggest } from "@openbooks/core";
-import { group, inPeriod, monthsIn, type Period } from "@openbooks/core";
-import type { Txn } from "@openbooks/schema";
-import { api, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
+import {
+  cashSeries as coreCashSeries,
+  balances as coreBalances,
+  accounts as coreAccounts,
+  suggest as coreSuggest,
+  emptyTags,
+  normalizeRule,
+} from "@openbooks/core";
+import {
+  bankAccounts,
+  baseId,
+  chartOfAccounts,
+  closedOn,
+  group,
+  inPeriod,
+  monthsIn,
+  nextCode,
+  type BooksDoc,
+  type Coa,
+  type CoaEntry,
+  type Period,
+} from "@openbooks/core";
+import type { RuleInput, SplitsDoc, TagsDoc, Txn } from "@openbooks/schema";
+import { goto } from "../nav.ts";
+import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
 
@@ -122,30 +143,50 @@ export const addYear = (year: number) => call("/api/year", { year });
 export const removeYear = (year: number) => call("/api/year", { year, remove: true });
 
 // ---------- chart of accounts: "type:name"; the type decides where it lands in the reports ----------
+// The id never changes (it is the key on transactions and rules). Doc "coa" overlays { code, name, subtype, archived } per account.
 const TYPE_KEYS = ["revenue", "business", "other-income", "capital", "cogs", "expense", "equity", "transfer", "exempt", "personal", "own", "ask"] as const;
 export const typeLabel = (k: string) => t(`type.${k}`);
-/** Built-in accounts have display names ("cat.<key>"); accounts the user creates show their own name. */
-export const catLabel = (c: string) => (has(`cat.${c}`) ? t(`cat.${c}`) : c.split(":")[1] || c).replace(/-/g, " ").replace(/^./, (m) => m.toUpperCase());
-export function allCats() {
-  const used = S.data ? S.data.txns.map((x) => x.category).concat(S.data.rules.map((r) => r[1].trim())) : [];
+export const coa = () => doc<Coa>("coa", {});
+/** Archived accounts leave the pickers; their transactions, and every report, keep them. */
+export const isArchived = (c: string) => !!coa()[c]?.archived;
+/** Built-in accounts have display names ("cat.<key>"); accounts the user creates show their own name; a name set in the chart wins. */
+export const catLabel = (c: string) =>
+  coa()[c]?.name || (has(`cat.${c}`) ? t(`cat.${c}`) : c.split(":")[1] || c).replace(/-/g, " ").replace(/^./, (m) => m.toUpperCase());
+/** Ledger accounts in a stable order (the pack's chart, then in order of first use, then added in the chart): default codes follow it. */
+function ledgerList() {
+  const used = S.data
+    ? S.data.txns.map((x) => x.category).concat(S.data.rules.map(normalizeRule).flatMap((r) => (r.then.account ? [r.then.account.trim()] : [])))
+    : [];
   const base = pack()?.manifest.accounts ?? PACKS.find((p) => p.manifest.id === "us")!.manifest.accounts;
-  const order: readonly string[] = TYPE_KEYS;
-  return [...new Set([...base, ...used])]
-    .filter((c) => c !== "ask")
-    .sort((a, b) => order.indexOf(group(a)) - order.indexOf(group(b)) || catLabel(a).localeCompare(catLabel(b)));
+  const added = Object.keys(coa()).filter((c) => (TYPE_KEYS as readonly string[]).includes(group(c)));
+  return [...new Set([...base, ...used, ...added])].filter((c) => c !== "ask");
 }
-/** Groups for a <Select>: [{ label, options: [{ value, label }] }]. */
+export function allCats() {
+  const order: readonly string[] = TYPE_KEYS;
+  return ledgerList().sort((a, b) => order.indexOf(group(a)) - order.indexOf(group(b)) || catLabel(a).localeCompare(catLabel(b)));
+}
+/** Groups for a <Select>: [{ label, options: [{ value, label }] }]. Archived accounts are left out. */
 export const catGroups = () =>
   TYPE_KEYS.map((g) => ({
     label: typeLabel(g),
     options: allCats()
-      .filter((c) => group(c) === g)
+      .filter((c) => group(c) === g && !isArchived(c))
       .map((c) => ({ value: c, label: catLabel(c) })),
   })).filter((g) => g.options.length);
+export const isBank = (r: { type: string }) => r.type === "bank" || r.type === "card";
+/** What a chart row is called: a bank or card account by its statement name, a ledger account by its (renamed) label. */
+export const rowName = (r: { id: string; type: string }) => (isBank(r) ? r.id : catLabel(r.id));
+/** The chart of accounts: bank / card accounts and ledger accounts with codes, sorted by code. */
+export const chart = () => chartOfAccounts(ledgerList(), banks(), coa());
+/** The code a new ledger account of this type would get. */
+export const suggestedCode = (type: string) => nextCode(ledgerList(), banks(), coa(), type);
+export const ledgerTypes = TYPE_KEYS.filter((k) => k !== "ask");
 export const SERIES = ["var(--color-s1)", "var(--color-s2)", "var(--color-s3)", "var(--color-s4)", "var(--color-s5)", "var(--color-s6)"];
 
 // ---------- ledger bound to the open books (pure versions: @openbooks/core) ----------
 export const accounts = () => (S.data ? coreAccounts(S.data.txns) : []);
+/** Bank and card accounts, including statement accounts that carry a balance but no transactions yet. */
+export const banks = () => (S.data ? bankAccounts(S.data.txns, S.data.checks) : []);
 /** Balance of every bank/card account at the end of day `iso`. */
 export const balances = (iso: string) => (S.data ? coreBalances(S.data.txns, S.data.checks, iso) : {});
 /** Running cash per month of a period, with a mid-month Date for charts. */
@@ -203,20 +244,28 @@ function accept(d: State | NoBooks) {
   }
   if (!d.years.includes(S.year)) S.year = d.years.at(-1) ?? new Date().getFullYear();
 }
-/** Run a request for the current entity; drop the answer if the user switched entity meanwhile. */
-async function run(req: (e: string) => Promise<State | NoBooks>) {
-  const e = S.e;
+/**
+ * Run a request for the current entity. Only the newest request's answer is accepted: a reload that was asked before a write must not
+ * land after it and put the old state back (the next write would then save that stale doc over the new one). A refused write (`write`)
+ * re-reads the books: saveDoc already showed the new value locally. 409 = the close date refused it (see `closeDate`).
+ */
+let latest = 0;
+async function run(req: (e: string) => Promise<State | NoBooks>, write = false) {
+  const e = S.e,
+    mine = ++latest;
   S.busy = true;
   try {
     const d = await req(e);
-    if (e === S.e) accept(d);
+    if (e === S.e && mine === latest) accept(d);
   } catch (x) {
-    toast(String((x as Error).message || x));
+    const close = closeDate();
+    toast(x instanceof ApiError && x.status === 409 && close ? t("close.refused", { date: mdy(close) }) : String((x as Error).message || x));
+    if (write) void load();
   } finally {
     S.busy = false;
   }
 }
-const call = (path: string, body: unknown) => run((e) => api.post(path, body, e));
+const call = (path: string, body: unknown) => run((e) => api.post(path, body, e), true);
 
 let loading: Promise<void> | null = null,
   again = false;
@@ -250,15 +299,21 @@ export async function createEntity(meta: Entity) {
   }
 }
 export const classify = (ids: readonly string[], category: string, rule?: string) => call("/api/category", { ids, category, rule });
-export const saveRules = (rules: readonly (readonly [string, string])[]) => call("/api/rules", { rules });
+export const saveRules = (rules: readonly RuleInput[]) => call("/api/rules", { rules });
 export const setForm = (values: Record<string, string | null>, year = S.year) => call("/api/form", { year, values });
 export const setProfile = (p: Record<string, unknown>) => call("/api/profile", p);
 /** Connections: /api/connect | /api/sync | /api/disconnect with the provider's body. */
 export const connection = (path: "/api/connect" | "/api/sync" | "/api/disconnect", body: unknown) => call(path, body);
 
 export async function upload(files: File[], to: "auto" | "inbox" | "proofs" = "auto") {
-  for (const f of files) await run((e) => api.upload(e, f, S.year, to)).catch(() => {});
+  const notTaken: string[] = []; // CSV / JSON the server filed under Documents because no reader or saved column mapping recognised it
+  for (const f of files)
+    await run((e) =>
+      api.upload(e, f, S.year, to, (where) => where === "proofs" && /\.(csv|json)$/i.test(f.name) && to === "auto" && notTaken.push(f.name)),
+    ).catch(() => {});
   toast(t("toast.addedFiles", { n: files.length }));
+  if (notTaken.length)
+    toast(t("toast.notStatement", { name: ltr(notTaken[0]!), n: notTaken.length }), { label: t("toast.mapColumns"), run: () => void goto("/connections#csv") });
 }
 
 // ---------- books documents (invoices, journal, customers, …) and attachments ----------
@@ -268,9 +323,48 @@ export function saveDoc(name: string, value: unknown) {
   if (S.data) S.data.docs = { ...S.data.docs, [name]: value };
   return call("/api/doc", { name, value });
 }
-export const attachmentsOf = (id: string) => S.data?.attachments?.[id] ?? [];
+/** Change one chart entry (code, name, subtype, archived); an entry left with nothing set is removed. */
+export function setAccount(id: string, patch: Partial<CoaEntry>) {
+  const next = { ...coa(), [id]: { ...coa()[id], ...patch } };
+  const e = Object.fromEntries(Object.entries(next[id]!).filter(([, v]) => v !== undefined && v !== "" && v !== false)) as CoaEntry;
+  if (Object.keys(e).length) next[id] = e;
+  else delete next[id];
+  return saveDoc("coa", next);
+}
+/** doc "books" = { closeDate?, startDate? }: the close date locks everything on or before it; transactions before the start date are left out. */
+export const booksDoc = () => doc<BooksDoc>("books", {});
+/** Write the books doc with these fields changed (null clears one); the server checks the dates (checkBooks in core). */
+export function saveBooks(patch: BooksDoc) {
+  const next = Object.fromEntries(Object.entries({ ...booksDoc(), ...patch }).filter(([, v]) => v)) as BooksDoc;
+  return saveDoc("books", Object.keys(next).length ? next : null);
+}
+/** The books' close date: everything dated on or before it is locked, here and on the server. */
+export const closeDate = (): string | null => booksDoc().closeDate || null;
+export const setCloseDate = (date: string | null) => saveBooks({ closeDate: date });
+/** The books' entries start date: earlier transactions and journal entries are left out. Once set it can only move earlier. */
+export const startDate = (): string | null => booksDoc().startDate || null;
+export const setStartDate = (date: string | null) => saveBooks({ startDate: date });
+/** True for a date on or before the close date. */
+export const closed = (date: string) => closedOn(date, closeDate());
+/** Tags (doc "tags": tags, tag groups, hand-made assignments; pure edits in @openbooks/core tags.ts). Txn.tags has hand-made + rule tags. */
+export const tagsDoc = () => doc<TagsDoc>("tags", emptyTags());
+export const saveTags = (next: TagsDoc) => saveDoc("tags", next);
+/** Split transactions (doc "splits"): stored transaction id → its lines; the ledger has one row per line, id `${id}~${i}`. */
+export const splitsDoc = () => doc<SplitsDoc>("splits", {});
+export const saveSplits = (next: SplitsDoc) => saveDoc("splits", Object.keys(next).length ? next : null);
+/** Review marks (doc "reviewed" = { txnId: true }), independent of categorizing. A split's lines share their transaction's mark. */
+export const reviewedDoc = () => doc<Record<string, boolean>>("reviewed", {});
+export const isReviewed = (id: string) => !!reviewedDoc()[baseId(id)];
+export function setReviewed(ids: readonly string[], on: boolean) {
+  const next = { ...reviewedDoc() };
+  for (const id of ids)
+    if (on) next[baseId(id)] = true;
+    else delete next[baseId(id)];
+  return saveDoc("reviewed", Object.keys(next).length ? next : null);
+}
+export const attachmentsOf = (id: string) => S.data?.attachments?.[baseId(id)] ?? [];
 export async function attach(id: string, files: File[]) {
-  for (const f of files) await run((e) => api.attach(e, id, f));
+  for (const f of files) await run((e) => api.attach(e, baseId(id), f));
 }
 
 // ---------- live updates ----------

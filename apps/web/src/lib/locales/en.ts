@@ -11,6 +11,17 @@ import p34 from "./parts/3-4.en.ts";
 import p37 from "./parts/3-7.en.ts";
 import p38 from "./parts/3-8.en.ts";
 import p310 from "./parts/3-10.en.ts";
+import bills from "./parts/bills.en.ts";
+import cfa from "./parts/cfa.en.ts";
+import gaps from "./parts/gaps.en.ts";
+import recon from "./parts/recon.en.ts";
+import tags from "./parts/tags.en.ts";
+import taxtags from "./parts/taxtags.en.ts";
+import gaps2 from "./parts/gaps2.en.ts";
+import gaps3 from "./parts/gaps3.en.ts";
+import filingsIl from "./parts/filings-il.en.ts";
+import filingsUs from "./parts/filings-us.en.ts";
+import qa2 from "./parts/qa2.en.ts";
 export default {
   ...a,
   ...b,
@@ -23,6 +34,17 @@ export default {
   ...p37,
   ...p38,
   ...p310,
+  ...bills,
+  ...cfa,
+  ...gaps,
+  ...recon,
+  ...tags,
+  ...taxtags,
+  ...gaps2,
+  ...gaps3,
+  ...filingsIl,
+  ...filingsUs,
+  ...qa2,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",
@@ -104,6 +126,12 @@ export default {
   "theme.system": "System",
   "theme.dark": "Dark",
   "toast.addedFiles": { one: "Added {n} file", other: "Added {n} files" },
+  "toast.notStatement": {
+    one: "The file {name} isn't a bank export OpenBooks recognises, so it was filed under Documents and not imported. Map its columns to import it.",
+    other:
+      "{n} files weren't recognised as bank exports (starting with {name}), so they were filed under Documents and not imported. Map their columns to import them.",
+  },
+  "toast.mapColumns": "Map columns",
 
   // ---- business structures (BIZ_TYPES) ----
   "biz.books": "Books",
@@ -115,12 +143,18 @@ export default {
   "biz.osek-murshe.sub": "Charges VAT · actual expenses",
   "biz.ltd": "Company · Ltd (בע״מ)",
   "biz.ltd.sub": "Corporate tax · salary and dividends",
-  "biz.llc-disregarded": "Single-member LLC",
+  "biz.llc-disregarded": "Single-member LLC, foreign owner",
   "biz.llc-disregarded.sub": "Disregarded · 5472 + pro forma 1120 for foreign owners",
-  "biz.llc-ccorp": "LLC taxed as C-corp",
-  "biz.llc-ccorp.sub": "21% federal · Form 1120 · dividends withheld",
-  "biz.llc-partnership": "Multi-member LLC",
+  "biz.llc-ccorp": "C-corporation (or LLC taxed as one)",
+  "biz.llc-ccorp.sub": "21% federal · Form 1120 · 1120-W estimates",
+  "biz.llc-partnership": "Partnership / multi-member LLC",
   "biz.llc-partnership.sub": "Partnership · Form 1065 + K-1s",
+  "biz.s-corp.sub": "Pass-through · Form 1120-S + K-1s",
+  "biz.s-corp": "S corporation (or LLC taxed as one)",
+  "biz.llc-us-owner.sub": "Disregarded · Schedule C + SE like a sole proprietor",
+  "biz.llc-us-owner": "Single-member LLC, US owner",
+  "biz.sole-prop.sub": "Schedule C + SE · QBI deduction · quarterly 1040-ES",
+  "biz.sole-prop": "Sole proprietor",
 
   // ---- account types (TYPES) ----
   "type.revenue": "Revenue",
@@ -142,6 +176,7 @@ export default {
   "cat.business:youtube": "YouTube / Google",
   "cat.business:music": "Distributors",
   "cat.business:client": "Clients",
+  "cat.business:sales": "Sales",
   "cat.business:other": "Other business",
   "cat.capital:child-savings": "Child savings plan",
   "cat.exempt:idf-salary": "IDF pay",
@@ -156,6 +191,8 @@ export default {
   "cat.revenue:plugin-sales": "Audio Plugin Sales",
   "cat.revenue:patreon": "Patreon Membership Revenue",
   "cat.revenue:services": "Services Revenue",
+  "cat.revenue:sales": "Sales Revenue",
+  "cat.revenue:subscriptions": "Subscription Revenue",
   "cat.other-income:cashback": "Credit Card Rewards and Cashback",
   "cat.cogs:ai-models": "AI Models and Inference",
   "cat.cogs:hosting": "Hosting and Infrastructure",
@@ -168,6 +205,11 @@ export default {
   "cat.expense:equipment": "Equipment & Supplies",
   "cat.expense:meals": "Meals",
   "cat.expense:professional": "Legal & Professional Services",
+  "cat.expense:rent": "Rent",
+  "cat.expense:insurance": "Insurance",
+  "cat.expense:vehicle": "Vehicle and fuel",
+  "cat.expense:office": "Office and supplies",
+  "cat.expense:contractors": "Contractors and freelancers",
   "cat.expense:games": "Games & Media (personal?)",
   "cat.equity:owner": "Owner Contributions & Draws",
   "cat.transfer:internal": "Transfers Between Accounts",
@@ -199,6 +241,10 @@ export default {
   "home.greet.evening": "Good evening",
   "home.ask": { one: "{n} transaction needs a ledger account", other: "{n} transactions need a ledger account" },
   "home.askHint": "usually under a minute with suggestions and shortcuts",
+  "home.start.title": "Start with your bank data",
+  "home.start.text": "Drop a statement or CSV export anywhere on this page, or connect a bank. Then clear the review queue and the reports fill in.",
+  "home.start.import": "Import a statement",
+  "home.start.connect": "Connect a bank",
   "home.reviewGo": "Review →",
   "home.cash": "Cash",
   "home.cashShort": "cash",

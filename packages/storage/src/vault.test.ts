@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Effect, Exit } from "effect";
 import { afterEach, describe, expect, test } from "vite-plus/test";
 import { openDb } from "./db.ts";
+import { connections } from "./state.ts";
 import { makeVault, type VaultOptions } from "./vault.ts";
 
 // books.py's schema (docs/architecture.md); db.ts (item 2.5) owns the real one.
@@ -240,5 +241,15 @@ describe("vault", () => {
     await run(v.setup("hunter2-SYNTHETIC"));
     const x = await Effect.runPromiseExit(v.change("hunter2-WRONG", "x"));
     expect(JSON.stringify(x) + String(x)).not.toMatch(/hunter2|SYNTHETIC/);
+  });
+
+  test("state connections: a sealed Plaid row waiting for Link reads pending (its unsealed linkToken says so), not connected", async () => {
+    const { db, put } = fixture();
+    put.run("acme", "plaid", JSON.stringify({ pending: { clientId: "cid", secret: "s-SYNTHETIC", env: "sandbox" }, linkToken: "link-1" }));
+    await run(Effect.flatMap(makeVault(db, FAST), (v) => v.setup("pw")));
+    expect(rows(db)["acme/plaid"]!.pending).toBeUndefined(); // sealed with the keys
+    const all = connections(db, "acme");
+    expect(all.find((c) => c.provider === "plaid")).toMatchObject({ connected: false, pending: true, linkToken: "link-1" });
+    expect(JSON.stringify(all)).not.toContain("s-SYNTHETIC");
   });
 });

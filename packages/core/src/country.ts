@@ -1,5 +1,6 @@
 // The country-pack contract (docs/architecture.md § Country packs). A pack is pure data + pure functions; the server loads packs,
 // the UI and tools only ever talk to this interface. packages/countries/_template is the starting point for a new country.
+import type { DeductionTable } from "@openbooks/schema";
 import type { Dict } from "./i18n.ts";
 
 export type Bilingual = { readonly en: string; readonly he: string };
@@ -88,6 +89,18 @@ export interface CrossBorder {
 /** A form hook: form id → field values computed from the books (strings, as printed on the form). Overrides are applied by the caller. */
 export type FormHook<Ctx> = (ctx: Ctx) => Readonly<Record<string, string>>;
 
+/** One date the books owner has to file or pay by (the Filings hub lists these; id is stable per year so a "filed" mark sticks to it). */
+export interface FilingDeadline {
+  date: string; // YYYY-MM-DD
+  id: string;
+  title: Bilingual;
+  form?: string;
+  url?: string;
+  source?: string;
+  /** The date or rule is not confirmed from a primary source (the hub flags it). */
+  unverified?: boolean;
+}
+
 export interface CountryPack<Table = unknown> {
   readonly manifest: Manifest;
   /** tables/<year>.json, parsed and validated by the pack's schema. */
@@ -95,7 +108,16 @@ export interface CountryPack<Table = unknown> {
   /** The table for tax year y: its own, else the closest earlier year, else the earliest. */
   table(y: number): Table & { readonly year: number };
   readonly playbook: readonly PlaybookItem[];
+  /** tables/deductions.json: per-expense deduction rules and tax moves (the Taxximizer's smart tags run on these). */
+  readonly deductions?: DeductionTable;
   readonly strings: { readonly en: Dict; readonly he: Dict };
+  /**
+   * Filing and payment dates for tax year `year` (periods inside it, and the returns that follow it), for a business of this type.
+   * `facts` carries at least what the signature names; the hub passes the rest of the entity's saved filing settings too (the US pack reads
+   * `state`, `formed`, `entityForm`, `foreignAccountsOver10k`). A pack may instead return the dates falling in calendar `year` (the US pack
+   * does): dueInYear asks for `year - 1` and `year`, keeps dates in `year` and dedupes by id, so either reading lists the same calendar.
+   */
+  deadlines?: (year: number, facts: { businessType: string; vatFrequency?: "monthly" | "bimonthly" }) => FilingDeadline[];
   /**
    * Residence pack only: fold foreign entities' results into the person's home tax. `home`: the person's entities in this country;
    * `fx`: residence-currency units per one unit of each foreign currency for year y. Called by the server/UI once per person-year.

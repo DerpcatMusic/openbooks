@@ -13,9 +13,12 @@
   import { PROVIDERS, GROUPS, providerName, readText, guess, toProfile, canSave, type Mapping } from "./providers.ts";
   import { onMount } from "svelte";
 
-  onMount(() => void refresh());
+  onMount(() => {
+    void refresh();
+    if (location.hash === "#csv") choose("csv"); // the "map columns" link after a CSV wasn't recognised on drop
+  });
 
-  const WHAT: Record<string, string> = { mercury: "connections.what.mercury", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
+  const WHAT: Record<string, string> = { mercury: "connections.what.mercury", plaid: "connections.what.plaid", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
   const what = (k: string) => {
     const key = WHAT[k] ?? WHAT[PROVIDERS[k]?.group ?? ""];
     return key ? t(key) : "";
@@ -28,7 +31,7 @@
         ? [t("connections.pill.failed"), "bad"]
         : [t("connections.pill.connected"), "good"]
       : c.pending
-        ? [t("connections.pill.waiting"), "warn"]
+        ? [t(c.linkToken ? "connections.pill.plaid" : "connections.pill.waiting"), "warn"]
         : [t("connections.pill.notConnected"), "neutral"];
   const iconOf = (type: string) => (PROVIDERS[type]?.group === "il-card" ? "wallet" : "bank");
 
@@ -82,6 +85,30 @@
     const otpCode = (otp[key] ?? "").trim();
     otp[key] = "";
     if (otpCode) await post("/api/connect", { provider: key, otpCode });
+  }
+
+  // ---------- Plaid Link: Plaid's script, loaded on first use. The bank login happens in Plaid's window; we get only the public token ----------
+  type PlaidWindow = { Plaid?: { create(o: { token: string; onSuccess(publicToken: string): void; onExit(err: { display_message?: string } | null): void }): { open(): void } } };
+  let plaidJs: Promise<void> | undefined;
+  const loadPlaid = () =>
+    (plaidJs ??= new Promise<void>((ok, bad) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.plaid.com/link/v2/stable/link-initialize.js";
+      s.onload = () => ok();
+      s.onerror = () => ((plaidJs = undefined), bad(new Error(t("connections.plaidLoadFailed"))));
+      document.head.append(s);
+    }));
+  async function openLink(key: string, token: string) {
+    try {
+      await loadPlaid();
+      (window as unknown as PlaidWindow).Plaid!.create({
+        token,
+        onSuccess: (publicToken) => void post("/api/connect", { provider: key, publicToken }),
+        onExit: (err) => err?.display_message && toast(err.display_message),
+      }).open();
+    } catch (x) {
+      toast(String((x as Error).message || x));
+    }
   }
 
   // ---------- confirm dialogs (disconnect, replace or delete a mapping) ----------
@@ -164,8 +191,6 @@
   const listBtn = "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[14px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 </script>
 
-<svelte:head><title>{t("connections.title")} · OpenBooks</title></svelte:head>
-
 <PageHeader title={t("connections.title")} sub={t("connections.sub", { flag: ent().flag ?? "", name: bidi(ent().name ?? "") })}>
   {#snippet actions()}
     {#if conns.some((c) => c.connected)}<Button variant="primary" icon="download" onclick={() => sync()} disabled={S.busy}>{S.busy ? t("connections.syncing") : t("connections.syncAll")}</Button>{/if}
@@ -201,7 +226,12 @@
         <div class="flex items-start gap-2 border-t border-bad/20 bg-bad/6 px-4 py-2.5 text-[13px] text-bad sm:px-5"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span class="min-w-0 [overflow-wrap:anywhere]" dir="auto">{c.lastError}</span></div>
       {/if}
 
-      {#if c.pending}
+      {#if c.pending && c.linkToken}
+        <div class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-4 sm:px-5">
+          <p class="min-w-0 flex-1 basis-64 text-[13px] text-sub">{t("connections.plaidLink")}</p>
+          <Button variant="primary" icon="bank" disabled={S.busy} onclick={() => openLink(c.provider, c.linkToken!)}>{t("connections.plaidOpen")}</Button>
+        </div>
+      {:else if c.pending}
         <form class="space-y-3 border-t border-line px-4 py-4 sm:px-5" onsubmit={(e) => submitOtp(e, c.provider)}>
           <p class="text-[13px] text-sub">{t("connections.otpHint")}</p>
           <div class="flex flex-wrap items-end gap-3">
@@ -257,12 +287,17 @@
               </ol>
             {:else if pick === "onezero"}
               <p class="text-[13px] text-sub">{t("connections.onezeroHint")}</p>
+            {:else if pick === "plaid"}
+              <p class="text-[13px] text-sub">{t("connections.plaidHint")}</p>
             {:else}
               <p class="text-[13px] text-sub">{t("connections.scraperHint", { name: P.name })}</p>
             {/if}
             <p class="text-[13px] text-sub">{what(pick)}</p>
             <div class="grid gap-3 sm:grid-cols-2">
               {#each P.fields as x (x.key)}
+                {#if x.key === "env"}
+                  <Select label={x.label} bind:value={f[x.key]} options={[{ value: "", label: "…" }, { value: "sandbox", label: "sandbox" }, { value: "production", label: "production" }]} />
+                {:else}
                 <Input
                   label={x.label}
                   type={x.type}
@@ -273,12 +308,13 @@
                   dir={x.key === "username" || x.key === "userCode" ? "auto" : "ltr"}
                   class={x.mono ? "sm:col-span-2" : ""}
                   bind:value={f[x.key]} />
+                {/if}
               {/each}
             </div>
             <div class="flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onclick={() => choose(null)}>{t("common.cancel")}</Button>
               <Button type="submit" variant="primary" loading={S.busy} disabled={S.busy || !ready}>
-                {S.busy ? (P.otp ? t("connections.sending") : t("connections.loggingIn")) : P.otp ? t("connections.sendSms") : t("connections.connectSync")}
+                {pick === "plaid" ? t("connections.plaidNext") : S.busy ? (P.otp ? t("connections.sending") : t("connections.loggingIn")) : P.otp ? t("connections.sendSms") : t("connections.connectSync")}
               </Button>
             </div>
           </form>
@@ -389,7 +425,9 @@
 
   <div class="space-y-2 text-[13px] text-sub">
     <p class="flex items-start gap-2"><Icon name="shield" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.privacy")}</span></p>
-    <p class="flex items-start gap-2"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.scrapersNote")}</span></p>
+    {#if ent().currency === "ILS" || (P && P.group !== "us")}
+      <p class="flex items-start gap-2"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.scrapersNote")}</span></p>
+    {/if}
   </div>
 </div>
 

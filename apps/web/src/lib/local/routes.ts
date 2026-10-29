@@ -1,5 +1,6 @@
 // /api/* and /files/* answered from the browser's books (store.ts). Same paths, JSON and status codes as apps/server/src/server.ts.
 // Anything that needs a server or the network (bank sync, AI, the vault, ⌘K tools) answers 403 with a pointer to the installed app.
+import { isRuleInput } from "@openbooks/schema";
 import { Bad, type Local } from "./store.ts";
 
 export const NEEDS_APP = "Needs the installed OpenBooks app. This browser version keeps your books on this device only.";
@@ -127,11 +128,9 @@ async function dispatch(db: Local, method: string, u: URL, body: BodyInit | null
       await db.classify(e, b.ids, String(b.category), b.rule || undefined);
       break;
     case "/api/rules":
-      if (!Array.isArray(b.rules)) throw new Bad("bad request");
-      await db.setRules(
-        e,
-        b.rules.map(([m, c]: [unknown, unknown]) => [String(m), String(c)] as [string, string]),
-      );
+      // [match, account] tuples and/or { when, then } rules, as the server
+      if (!Array.isArray(b.rules) || !b.rules.every(isRuleInput)) throw new Bad("bad request");
+      await db.setRules(e, b.rules);
       break;
     case "/api/form": {
       const form = db.doc<Record<string, Record<string, unknown>>>(e, "form", {});

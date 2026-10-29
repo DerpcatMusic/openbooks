@@ -1,0 +1,2851 @@
+{
+ "country": "il",
+ "asOf": "2026-10-29",
+ "years": [
+  2025,
+  2026
+ ],
+ "disclaimer": "Research compilation, not tax advice. Percentages and caps come from the Income Tax Ordinance (consolidated text as mirrored on Hebrew Wikisource), regulations on the same site, the Tax Authority's 4 Dec 2025 small-business notice, and secondary sources where marked. Amounts annotated by year in the regulations were not cross-checked in Reshumot; verify against the Tax Authority's latest publication or an accountant before filing. Fields in an 'unverified' array could not be confirmed from a primary source.",
+ "businessTypeNotes": {
+  "patur": "Income-tax percentages apply to the gross amount paid; vatPct is always 0 (no input VAT, VAT Law s.41).",
+  "zair": "On the deemed-30% track none of the per-expense income-tax percentages apply (s.87ד): taxable income = 70% of turnover; only keren hishtalmut (17(5א)), pension s.47 and credits remain. 'zair' is a tax-file status, orthogonal to patur/murshe: a murshe can also be zair, and keeps input VAT.",
+  "murshe": "Income-tax percentages apply; vatPct is the share of the VAT on the invoice that can be reclaimed.",
+  "ltd": "Same expense percentages; owner-benefit items (car, phone) become salary benefits; companies pay a 45% advance on 'excess expenses' (the non-deductible part of refreshments, gifts, clothing, mobile, car, travel) - Efraty §5.1.4."
+ },
+ "conventions": {
+  "vatPct": "percent of the input VAT shown on a valid tax invoice that is reclaimable; null = not determined from a primary source, treat as not reclaimable until verified",
+  "incomeTaxPct": "percent of the expense that is deductible; null = depends on a business-use share (see 'basis')",
+  "cap.kind": "how to read the cap (max_deduction, max_non_deductible, threshold, per_night_cap, ...)",
+  "values": "per-year numeric parameters for the engine; the 2025 and 2026 columns are the tax-year amounts",
+  "tags_default": "personal = default tag suggestion should not be business"
+ },
+ "rules": [
+  {
+   "id": "il.refreshments",
+   "label": {
+    "en": "Light refreshments at the place of business",
+    "he": "כיבוד קל במקום העיסוק"
+   },
+   "match": {
+    "keywords": [
+     "כיבוד",
+     "כיבוד קל",
+     "קפה",
+     "תה",
+     "עוגיות",
+     "פירות",
+     "חטיפים",
+     "מים",
+     "סוכר",
+     "קפסולות",
+     "coffee beans",
+     "tea",
+     "cookies",
+     "snacks",
+     "office kitchen",
+     "pantry",
+     "nespresso"
+    ]
+   },
+   "incomeTaxPct": 80,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Consumed AT the taxpayer's place of business (מקום העיסוק), not in a café/restaurant/outside",
+    "Hot/cold drinks, cookies, fruit and similar only",
+    "Visitors or staff (BSH cites Circular 14/2000 for both; not verified at source)"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT) itemised (supermarket receipt is fine, in business name if you want VAT)",
+    "Keep purchase receipts; no attendee list is required by the regulation for light refreshments"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(1) כיבוד"
+    },
+    {
+     "title": "BSH CPA: כיבודים במקום העסק והוצאות אירוח (secondary)",
+     "url": "https://www.bshcpa.co.il/כיבודים-ואירוח/",
+     "section": "whole page"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3.9 כיבודים"
+    }
+   ],
+   "notes": "80% of the cost is deductible; the other 20% is permanently non-deductible. 'Light refreshments' = cold or hot drinks, cookies and the like (ITA notice 2018, per BSH: seasonal fruit and vegetables count). Meals, catering trays, restaurant food are NOT light refreshments (see il.hosting-il). VAT: the secondary sources conflict (some say input VAT on office coffee/cookies is reclaimable, some say not); VAT reg. 16 bars input VAT on 'hosting' (אירוח) and no primary text says whether staff-kitchen refreshments are hosting. Kept null = do not reclaim by default. Companies/NPOs pay a 45%/90% advance on the non-deductible 'excess expenses' (Efraty §5.1.4).",
+   "unverified": [
+    "vatPct",
+    "Circular 14/2000 text"
+   ]
+  },
+  {
+   "id": "il.meals-own",
+   "label": {
+    "en": "Own meals while working (lunch, restaurant, delivery)",
+    "he": "ארוחות עצמיות (אש\"ל) בעבודה"
+   },
+   "match": {
+    "keywords": [
+     "ארוחת צהריים",
+     "מסעדה",
+     "וולט",
+     "wolt",
+     "תן ביס",
+     "10bis",
+     "ארוחה",
+     "משלוח אוכל",
+     "lunch",
+     "restaurant",
+     "delivery",
+     "takeaway",
+     "dinner"
+    ],
+    "mcc": [
+     5812,
+     5814,
+     5811
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "No exception for 'working lunch' alone"
+   ],
+   "evidence": [
+    "None helps: a valid invoice does not make the meal deductible"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1) – 'הוצאות אש\"ל' (ארוחותיו של היחיד, בין במקום ההשתכרות ובין מחוצה לו)"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 16"
+    }
+   ],
+   "notes": "Statutory: the taxpayer's own meals are 'אש\"ל' and expressly non-deductible under s.32(1), wherever eaten. Only exceptions: breakfast included in an allowed hotel price, and the per-diem allowance while travelling abroad (il.travel.perdiem).",
+   "tags_default": "personal"
+  },
+  {
+   "id": "il.hosting-il",
+   "label": {
+    "en": "Hosting in Israel (client lunch, business dinner, event catering)",
+    "he": "אירוח בישראל (ארוחה עם לקוח, קייטרינג)"
+   },
+   "match": {
+    "keywords": [
+     "אירוח",
+     "ארוחה עם לקוח",
+     "ארוחת עסקים",
+     "קייטרינג",
+     "מסעדה",
+     "פגישה בבית קפה",
+     "business lunch",
+     "client dinner",
+     "hosting",
+     "catering",
+     "entertainment"
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business purpose does not rescue it"
+   ],
+   "evidence": [
+    "n/a (not deductible)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1)-(2)"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 16 – מס תשומות על אירוח"
+    },
+    {
+     "title": "BSH CPA: כיבודים במקום העסק והוצאות אירוח (secondary)",
+     "url": "https://www.bshcpa.co.il/כיבודים-ואירוח/",
+     "section": "whole page"
+    }
+   ],
+   "notes": "Popular belief ('a business meal with a client is deductible') is wrong for Israel: hosting in Israel is non-deductible for income tax and input VAT is barred by VAT reg. 16. The 80% rule applies only to light refreshments AT the place of business. Exception: hosting a guest from abroad (il.hosting-foreign-guest)."
+  },
+  {
+   "id": "il.hosting-foreign-guest",
+   "label": {
+    "en": "Hosting a business guest from abroad",
+    "he": "אירוח אורח עסקי מחו\"ל"
+   },
+   "match": {
+    "keywords": [
+     "אורח מחו\"ל",
+     "לקוח מחו\"ל",
+     "אירוח אורח",
+     "foreign guest",
+     "visiting client",
+     "overseas client dinner"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Guest is resident abroad",
+    "Hosting is reasonable and tied to producing income"
+   ],
+   "evidence": [
+    "Record: guest name and country of origin, number of days / circumstances, relationship to the business, amount (BSH)",
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 16 – חריג: אירוח אדם מחוץ לארץ (VAT: regulation)"
+    },
+    {
+     "title": "BSH CPA: כיבודים במקום העסק והוצאות אירוח (secondary)",
+     "url": "https://www.bshcpa.co.il/כיבודים-ואירוח/",
+     "section": "whole page"
+    }
+   ],
+   "notes": "VAT: reg. 16 expressly allows input VAT on hosting a person from outside Israel (regulation). Income tax: BSH reports full deductibility, no ₪ cap, if reasonable and documented; I found no primary-source (ordinance/regulation/circular) text for the income-tax side, so confidence is practice. Keep proportionate (reasonable).",
+   "unverified": [
+    "income-tax primary source"
+   ]
+  },
+  {
+   "id": "il.cafe-work",
+   "label": {
+    "en": "Café / restaurant while working (coffee, 'office services' split bills)",
+    "he": "קפה בבית קפה / שהות בבית קפה לצורך עבודה"
+   },
+   "match": {
+    "keywords": [
+     "קפה",
+     "קפה גרג",
+     "ארומה",
+     "קופי",
+     "בית קפה",
+     "cafe",
+     "coffee shop",
+     "starbucks",
+     "aroma",
+     "greg",
+     "landwer",
+     "cofix",
+     "arcaffe"
+    ],
+    "mcc": [
+     5814,
+     5812
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Co-working space membership is a different thing: deductible, see il.coworking"
+   ],
+   "evidence": [
+    "None helps"
+   ],
+   "confidence": "circular",
+   "sources": [
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3.9 fn.91 – הנחיית רשות המסים 2018"
+    },
+    {
+     "title": "BSH CPA: כיבודים במקום העסק והוצאות אירוח (secondary)",
+     "url": "https://www.bshcpa.co.il/כיבודים-ואירוח/",
+     "section": "whole page"
+    }
+   ],
+   "notes": "ITA guidance (Nov 2018, quoted by Efraty fn.91 and BSH): expenses for staying in cafés/restaurants are not 'office services'; office-services expenses are deductible (income tax and VAT) only where the taxpayer regularly runs the business from that office or the place is primarily an office (e.g. co-working). A District Court (Dec 2018, per BSH) rejected splitting a café bill into 60% 'office services'/40% food. A coffee you drink is also 'אש\"ל' (s.32(1)). Light-refreshment 80% applies only to supplies at your own place of business.",
+   "tags_default": "personal",
+   "unverified": [
+    "district court case name/number not found"
+   ]
+  },
+  {
+   "id": "il.coworking",
+   "label": {
+    "en": "Co-working / rented office space",
+    "he": "משרד / חלל עבודה משותף"
+   },
+   "match": {
+    "keywords": [
+     "wework",
+     "חלל עבודה",
+     "משרד",
+     "שכירות משרד",
+     "coworking",
+     "co-working",
+     "office rent",
+     "desk rental"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Place where the business is run on a regular basis / primarily an office"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)",
+    "Rental or membership agreement"
+   ],
+   "confidence": "circular",
+   "sources": [
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3.9 fn.91 – שירותי משרד"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17 – הוצאה בייצור הכנסה"
+    }
+   ],
+   "notes": "Office/co-working rent and services are ordinary s.17 expenses; VAT reclaimable with a tax invoice.",
+   "unverified": [
+    "VAT chapter-and-verse beyond the 2018 notice"
+   ]
+  },
+  {
+   "id": "il.vehicle.running",
+   "label": {
+    "en": "Private car: running costs (fuel, insurance, licence, lease, repairs, depreciation)",
+    "he": "רכב פרטי: הוצאות החזקה (דלק, ביטוח, רישוי, ליסינג, תיקונים, פחת)"
+   },
+   "match": {
+    "keywords": [
+     "דלק",
+     "פז",
+     "סונול",
+     "דור אלון",
+     "דלק מוטורס",
+     "תדלוק",
+     "ביטוח רכב",
+     "ביטוח חובה",
+     "ביטוח מקיף",
+     "רישוי רכב",
+     "טסט",
+     "מוסך",
+     "תיקון רכב",
+     "ליסינג",
+     "שמן",
+     "צמיגים",
+     "fuel",
+     "petrol",
+     "gas station",
+     "car insurance",
+     "car licence",
+     "mot",
+     "garage",
+     "car repair",
+     "car lease",
+     "leasing"
+    ],
+    "mcc": [
+     5541,
+     5542,
+     7538,
+     7531,
+     5533,
+     5532
+    ]
+   },
+   "incomeTaxPct": 45,
+   "vatPct": 66.67,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Car class M1 / N1 below 3,500 kg (not an operational vehicle)",
+    "Business use must be real; private-use share is already built into the 45%/shovi formula",
+    "Odometer reading of EACH car at 1 Jan and 31 Dec must be recorded in the annual return (reg. 6)",
+    "Reg. 5 (installed distance/fuel meter) only takes effect on a date the Finance Minister sets; I could not verify it is in force"
+   ],
+   "evidence": [
+    "Tax invoices / receipts in the owner's name per expense type",
+    "Odometer readings start and end of tax year (reg. 6) - ITA/Efraty also recommend a vehicle log and a 31 Dec odometer protocol",
+    "Vehicle licence showing class (M1/N1) and sub-class"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות רכב), התשנ\"ה-1995",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_רכב)",
+     "section": "תקנות 1, 2(1), 5, 6"
+    },
+    {
+     "title": "תקנות מס הכנסה (שווי השימוש ברכב), התשמ\"ז-1987",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(שווי_השימוש_ברכב)",
+     "section": "תקנה 2 + 'המחיר המתואם לצרכן' (תקרת מחיר)"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנות 14 ו-18(ב)(2)-(3)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§6.3.2-6.3.3 שווי שימוש; §3 הוצאות עודפות"
+    }
+   ],
+   "notes": "Income tax: deductible = MAX(45% x costs, costs - annual shovi) where shovi = months of use x monthly shovi (price x ~2.48% typical; rate depends on the model's 2010 weighted-price bracket). Price used for shovi is capped (2024: 563,790; 2025: 583,100; 2026: 596,860 per the Wikisource annotation; Efraty's 563,790 'for 2025' is the 2024 figure). 'Costs' = licensing, compulsory + comprehensive insurance, rent/lease, fuel, oil, repairs/maintenance, parking not at/near the place of business, tolls (אגרה) and depreciation (s.21). Applies to M1/N1 vehicles under 3,500 kg; motorcycle L3 = max(costs - shovi, 25%); taxi/bus M1 = 90%; tour/desert vehicle = 80%; driving-school car = 77.5% (68% in the stated case). VAT: purchase VAT is not reclaimable on a private car (reg. 14, il.vehicle.purchase); input VAT on RUNNING costs is reclaimed at 2/3 where the car is mainly for business, 1/4 where mainly private (reg. 18(ב)(2)-(3)) unless the VAT director fixed another split. Non-reclaimed VAT is part of the cost base for the 45%. The deemed-30% zair track ignores all this. Company car (ltd): the company deducts 100% and the employee is taxed on shovi (reg. 3-4).",
+   "values": {
+    "shoviPriceCap": {
+     "2024": 563790,
+     "2025": 583100,
+     "2026": 596860
+    },
+    "shoviRateTypical": 0.0248,
+    "vatReclaimMostlyBusiness": 0.6667,
+    "vatReclaimMostlyPrivate": 0.25
+   },
+   "unverified": [
+    "2026 shovi rate by price bracket",
+    "depreciation cost ceiling (if any) on expensive cars",
+    "cap year-by-year values from an annotated consolidation, not the Reshumot"
+   ]
+  },
+  {
+   "id": "il.vehicle.purchase",
+   "label": {
+    "en": "Private car: purchase / import VAT, depreciation",
+    "he": "רכישת רכב פרטי: מע\"מ ופחת"
+   },
+   "match": {
+    "keywords": [
+     "רכישת רכב",
+     "רכב חדש",
+     "מקדמה לרכב",
+     "car purchase",
+     "new car",
+     "vehicle purchase"
+    ]
+   },
+   "incomeTaxPct": 45,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business must exclusively use the car for the listed purposes to reclaim VAT"
+   ],
+   "evidence": [
+    "Purchase invoice, licence"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 14(א)-(ב)"
+    },
+    {
+     "title": "תקנות מס הכנסה (פחת), 1941",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(פחת)",
+     "section": "רכב M1/N1 – 15% (16% leased/rental class; 25% taxi etc.)"
+    }
+   ],
+   "notes": "Input VAT on buying or importing a private vehicle is NOT reclaimable (reg. 14), except dealers/driving schools/rental/passenger-transport/tour businesses using it exclusively for that purpose. Income tax: purchase price is capitalised and depreciated at 15% a year (private M1/N1), and the depreciation flows into the 45% / shovi formula in il.vehicle.running (it is not a separate additional deduction).",
+   "values": {
+    "depreciationRate": 0.15
+   }
+  },
+  {
+   "id": "il.parking-tolls",
+   "label": {
+    "en": "Parking and road tolls",
+    "he": "חניה ואגרות כבישים"
+   },
+   "match": {
+    "keywords": [
+     "חניה",
+     "פנגו",
+     "סלופארק",
+     "אחוזות החוף",
+     "חניון",
+     "כביש 6",
+     "נתיב מהיר",
+     "מנהרות הכרמל",
+     "parking",
+     "pango",
+     "cellopark",
+     "toll",
+     "highway 6",
+     "fast lane"
+    ],
+    "mcc": [
+     7523,
+     4784
+    ]
+   },
+   "incomeTaxPct": 45,
+   "vatPct": 66.67,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Vehicle must be a qualifying private car",
+    "Pango/Cellopark: keep the app's tax invoice/monthly summary"
+   ],
+   "evidence": [
+    "Parking/toll invoices or app statements"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות רכב), התשנ\"ה-1995",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_רכב)",
+     "section": "תקנה 1 – 'הוצאות החזקת רכב' כוללות חניה שאינה במקום העיסוק או סמוך אליו, ואגרה"
+    }
+   ],
+   "notes": "Parking away from the place of business and tolls are part of the vehicle-cost pool, so the same max(45%, costs - shovi) rule applies. Parking at/near the place of business is outside the pool by definition; whether it is then 100% deductible is a practice question (commuting is excluded by s.32(1)); treat as 45% unless advised.",
+   "unverified": [
+    "VAT split on parking (assumed to follow reg. 18 like other car costs)"
+   ]
+  },
+  {
+   "id": "il.taxi-transit",
+   "label": {
+    "en": "Taxis, ride-hailing, buses, trains (business trips)",
+    "he": "מוניות, גט, תחבורה ציבורית (נסיעות עסקיות)"
+   },
+   "match": {
+    "keywords": [
+     "מונית",
+     "גט",
+     "gett",
+     "יאנגו",
+     "yango",
+     "uber",
+     "רב קו",
+     "רב-קו",
+     "רכבת",
+     "אוטובוס",
+     "מונית שירות",
+     "taxi",
+     "ride",
+     "bus",
+     "train",
+     "rav kav",
+     "israel railways",
+     "light rail"
+    ],
+    "mcc": [
+     4121,
+     4111,
+     4112,
+     4131
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Trip documented as business (client, meeting)",
+    "Not the home-to-regular-workplace commute"
+   ],
+   "evidence": [
+    "Receipt / ride-hailing invoice showing date, route, amount; for VAT a tax invoice or approved taxi-meter record in the business's name"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17 + סעיף 32(1) – נסיעה בין הבית למקום העבודה אינה מותרת"
+    },
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38 – מסמך אחר: תיעוד מונה אלקטרוני במונית"
+    }
+   ],
+   "notes": "Not covered by the vehicle regulations (they only cover the taxpayer's own private car). Business-purpose trips are an ordinary s.17 expense; travel from home to the usual place of work is excluded by s.32(1). VAT: the VAT Law accepts an electronic taxi-meter document as a 'other document' for deduction (s.38 notices); public-transport fares: I could not verify VAT treatment, so vatPct is null.",
+   "unverified": [
+    "VAT on public transport fares",
+    "whether ITA wants a trip log"
+   ]
+  },
+  {
+   "id": "il.phone.mobile",
+   "label": {
+    "en": "Mobile phone (device + plan)",
+    "he": "טלפון נייד"
+   },
+   "match": {
+    "keywords": [
+     "סלקום",
+     "פרטנר",
+     "פלאפון",
+     "הוט מובייל",
+     "גולן טלקום",
+     "012",
+     "019",
+     "רמי לוי תקשורת",
+     "טלפון נייד",
+     "אייפון",
+     "סמסונג",
+     "cellcom",
+     "partner",
+     "pelephone",
+     "hot mobile",
+     "golan",
+     "mobile plan",
+     "iphone",
+     "samsung"
+    ]
+   },
+   "incomeTaxPct": 50,
+   "vatPct": 66.67,
+   "cap": {
+    "amount": 1380,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "max_non_deductible"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Plan/device in the taxpayer's name or business",
+    "Not available when the deemed-30% zair track is used"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT) for the plan and the device"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2ב(ג) – רדיו טלפון נייד"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 18(ב)(2)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3.13"
+    }
+   ],
+   "notes": "NOT deductible = the lower of 50% of the cost or ₪1,380 a year (₪115/month). So deductible = cost - min(50% x cost, 1,380): 50% when annual cost <= 2,760, otherwise cost - 1,380. The ₪1,380 figure applies to 2023-2027 (earlier years: ₪1,260; the '₪1,200' circulating is stale). The 50%/₪1,380 rule is a 'cap on the disallowed part', not a cap on the deduction. VAT: mixed-use default 2/3 under VAT reg. 18(ב)(2) (practice for phones; the VAT director may fix another ratio).",
+   "values": {
+    "nonDeductibleCapPerYear": {
+     "2025": 1380,
+     "2026": 1380
+    },
+    "nonDeductibleSharePct": 50
+   },
+   "unverified": [
+    "2/3 VAT default specifically for phones"
+   ]
+  },
+  {
+   "id": "il.phone.landline-home",
+   "label": {
+    "en": "Home landline",
+    "he": "טלפון קווי בבית"
+   },
+   "match": {
+    "keywords": [
+     "בזק",
+     "קו טלפון",
+     "הוט",
+     "טלפון קווי",
+     "bezeq",
+     "landline",
+     "home phone"
+    ]
+   },
+   "incomeTaxPct": 80,
+   "vatPct": 66.67,
+   "cap": {
+    "amount": 26600,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "threshold"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Home must be the main place of the business",
+    "International calls need a per-call log"
+   ],
+   "evidence": [
+    "Bezeq/ISP invoices",
+    "Call log for international calls"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2ב(א)-(ב)"
+    }
+   ],
+   "notes": "Non-mobile phone at the home is NOT deductible unless the home is where most of the business is run (proved to the assessor). If proved: cost <= ₪26,600 a year -> deduct the lower of 80% x cost and (cost - ₪2,700); cost > ₪26,600 -> deduct cost - ₪5,300 (amounts apply 2024-2027). Calls abroad made in producing income are deductible in full with a call log (date, time, destination, recipient, length, subject, estimated price) even if the home is not the main office.",
+   "values": {
+    "threshold": 26600,
+    "floor": 2700,
+    "floorAbove": 5300
+   }
+  },
+  {
+   "id": "il.internet",
+   "label": {
+    "en": "Internet and home communications",
+    "he": "אינטרנט"
+   },
+   "match": {
+    "keywords": [
+     "אינטרנט",
+     "סיבים",
+     "ספק אינטרנט",
+     "בזק בינלאומי",
+     "פרטנר סיבים",
+     "internet",
+     "fiber",
+     "isp",
+     "wifi"
+    ]
+   },
+   "incomeTaxPct": null,
+   "vatPct": 66.67,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Defensible business-use share (document the method)"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17 + סעיף 32(2) – 'כולו ולשם כך בלבד'"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 18"
+    }
+   ],
+   "notes": "No dedicated regulation. Deductible in proportion to business use (practice: the same share as the home office or a defensible use estimate); the s.32(2) 'wholly and exclusively' rule is why a private connection is apportioned. VAT follows reg. 18 (business share; 2/3 default if mainly business).",
+   "basis": "business-use share",
+   "unverified": [
+    "ITA-approved percentage (none found)"
+   ]
+  },
+  {
+   "id": "il.home-office",
+   "label": {
+    "en": "Home office (arnona, electricity, water, rent, mortgage interest, building maintenance)",
+    "he": "משרד בבית"
+   },
+   "match": {
+    "keywords": [
+     "ארנונה",
+     "חשמל",
+     "חברת החשמל",
+     "מים",
+     "תאגיד מים",
+     "ועד בית",
+     "שכר דירה",
+     "ריבית משכנתא",
+     "משרד בית",
+     "arnona",
+     "property tax",
+     "electricity",
+     "iec",
+     "water bill",
+     "rent",
+     "mortgage interest",
+     "home office",
+     "hoa"
+    ]
+   },
+   "incomeTaxPct": null,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Dedicated, regularly used work space",
+    "Share = business area or rooms / total, consistently applied",
+    "Keep floor plan / photos and the method"
+   ],
+   "evidence": [
+    "Arnona, electricity, water bills; rent contract or mortgage-interest certificate",
+    "Floor plan and the share calculation"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17 + סעיף 32(1) 'הוצאות הבית' + 32(2)"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנה 15 (דירת מגורים) + תקנה 18"
+    },
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2ב (טלפון בבית) – the only home-office regulation"
+    }
+   ],
+   "notes": "No regulation or primary ITA instruction fixes a percentage. Practice: apportion by dedicated area or rooms (business rooms / total rooms; a dedicated room typically supports 1/4-1/3). Mortgage INTEREST (not principal) may be apportioned; some practitioners claim 80% of the business share (single opinion, unverified). Purchase VAT on the dwelling is not reclaimable if it also serves as the business place (VAT reg. 15). Costs with VAT (electricity, water) are reclaimed in the business share (reg. 18). Capital-gains/betterment exemption on a later sale may be partly lost for the business portion (flag, unverified). If rented, make sure the lease allows business use and the landlord reports the rent.",
+   "basis": "area or rooms share",
+   "unverified": [
+    "any official ITA percentage",
+    "80% mortgage-interest claim",
+    "sale-exemption interaction"
+   ]
+  },
+  {
+   "id": "il.travel.flights",
+   "label": {
+    "en": "Business trip abroad: flights",
+    "he": "טיסות לצורך עסקי בחו\"ל"
+   },
+   "match": {
+    "keywords": [
+     "טיסה",
+     "אל על",
+     "ארקיע",
+     "ישראייר",
+     "ryanair",
+     "wizz",
+     "lufthansa",
+     "emirates",
+     "airline",
+     "flight",
+     "airfare",
+     "boarding pass",
+     "booking flights",
+     "skyscanner"
+    ],
+    "mcc": [
+     3000,
+     4511,
+     4722
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": null,
+    "currency": "ILS",
+    "per": "trip",
+    "year": 2026,
+    "kind": "business_class_fare_cap"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Trip and stay necessary to produce income",
+    "Business purpose provable (see il.travel.mixed and il.travel.companion)"
+   ],
+   "evidence": [
+    "Ticket / e-ticket and boarding passes",
+    "Proof of purpose: invitation, conference registration, client agreement, meeting schedule"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2)(א)"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1) אש\"ל, סעיף 32(2)"
+    }
+   ],
+   "notes": "Economy: 100% of the fare. Business or first class: 100% of the price of a business-class ticket on the same flight (the excess is non-deductible). VAT: international flights carry 0% VAT, so there is nothing to reclaim. A trip counts only if the trip AND the stay were NECESSARY for producing the income (reg. 2(2) opening words)."
+  },
+  {
+   "id": "il.travel.lodging",
+   "label": {
+    "en": "Business trip abroad: hotel / lodging per night",
+    "he": "לינה בחו\"ל לצורך עסקי"
+   },
+   "match": {
+    "keywords": [
+     "מלון",
+     "בוקינג",
+     "booking.com",
+     "airbnb",
+     "hotel",
+     "hostel",
+     "lodging",
+     "accommodation",
+     "expedia",
+     "agoda"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": 365,
+    "currency": "USD",
+    "per": "day",
+    "year": 2026,
+    "kind": "per_night_cap"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Real nights spent for the business",
+    "Receipts proving the lodging (reg. 6)",
+    "Conference lodging in Israel is exempt from the Israel lodging limits (reg. 2א(ג))"
+   ],
+   "evidence": [
+    "Hotel invoice/folio in the traveller's name with dates",
+    "Itinerary showing business purpose"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2)(ב)"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1) אש\"ל, סעיף 32(2)"
+    }
+   ],
+   "notes": "Per night, trip of up to 90 nights: first 7 nights deductible up to actual or the cap ($355 in 2025, $365 in 2026). Nights 8-90: a night costing up to $156 (2025) / $160 (2026) is fully deductible; a dearer night is deductible at 75% of the cost but not less than $156/$160 and not more than $266.25 (2025) / ~$274 (2026). Trip over 90 nights: every night capped at $156/$160. Two or more trips with fewer than 14 consecutive days in Israel between them count as one trip. In the listed countries (Australia, Austria, Italy, Iceland, Ireland, Angola, Belgium, Germany, Dubai, Denmark, Netherlands, Hong Kong, UK, Taiwan, Greece, Japan, Luxembourg, Norway, Spain, Oman, Finland, France, Qatar, Korea, Cameroon, Canada, Sweden, Switzerland) the lodging and 'other expenses' limits are raised by 25% (ITA determination 2005). The cap is per night per room, not per person: a double room shared with a non-business companion is deductible only up to the single-room price. Amounts are re-indexed on 1 Jan each year to US CPI. VAT: foreign hotels charge no Israeli VAT.",
+   "values": {
+    "firstSevenNights": {
+     "2025": 355,
+     "2026": 365
+    },
+    "nights8to90Full": {
+     "2025": 156,
+     "2026": 160
+    },
+    "nights8to90Max75pct": {
+     "2025": 266.25,
+     "2026": 273.75
+    },
+    "over90Nights": {
+     "2025": 156,
+     "2026": 160
+    },
+    "uplift125Countries": true
+   },
+   "unverified": [
+    "2025 values rest on the Wikisource annotation (2026 values are cross-checked with the Technion summary of the ITA table)"
+   ]
+  },
+  {
+   "id": "il.travel.perdiem",
+   "label": {
+    "en": "Business trip abroad: per-diem (meals and incidentals)",
+    "he": "אש\"ל בחו\"ל (כלכלה והוצאות אחרות)"
+   },
+   "match": {
+    "keywords": [
+     "אש\"ל",
+     "ארוחות בחו\"ל",
+     "per diem",
+     "meals abroad",
+     "taxi abroad",
+     "local transport abroad"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": 102,
+    "currency": "USD",
+    "per": "day",
+    "year": 2026,
+    "kind": "per_day_cap"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Days of necessary business stay only"
+   ],
+   "evidence": [
+    "Itinerary / ticket dates; receipts recommended"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2)(ג)"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1) אש\"ל, סעיף 32(2)"
+    }
+   ],
+   "notes": "Meals are normally barred by s.32(1) ('אש\"ל'); abroad the regulation allows 'other expenses' up to: with lodging expenses $100 (2025) / $102 (2026) per day of stay; without lodging expenses $167 / $171 per day. The same 25% uplift applies in the listed countries. Whether individual receipts are required for the capped per-diem is not stated in the regulation (employers' practice: flat amount without receipts). Day count = days of stay that were necessary for the business.",
+   "values": {
+    "withLodging": {
+     "2025": 100,
+     "2026": 102
+    },
+    "withoutLodging": {
+     "2025": 167,
+     "2026": 171
+    }
+   },
+   "unverified": [
+    "receipt requirement for the per-diem component"
+   ]
+  },
+  {
+   "id": "il.travel.car-rental",
+   "label": {
+    "en": "Business trip abroad: car rental",
+    "he": "שכירת רכב בחו\"ל"
+   },
+   "match": {
+    "keywords": [
+     "שכירת רכב",
+     "הרץ",
+     "אביס",
+     "סיקסט",
+     "rental car",
+     "hertz",
+     "avis",
+     "sixt",
+     "enterprise",
+     "europcar"
+    ],
+    "mcc": [
+     7512,
+     3351
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": 80,
+    "currency": "USD",
+    "per": "day",
+    "year": 2026,
+    "kind": "per_day_cap"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [],
+   "evidence": [
+    "Rental agreement and invoice with dates"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2)(ד)"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(1) אש\"ל, סעיף 32(2)"
+    }
+   ],
+   "notes": "Lower of actual rental cost and $78/day (2025) / $80/day (2026). Foreign rental agreements must show the duration (per the Technion summary of the ITA rule).",
+   "values": {
+    "perDay": {
+     "2025": 78,
+     "2026": 80
+    }
+   }
+  },
+  {
+   "id": "il.travel.companion",
+   "label": {
+    "en": "Partner / girlfriend / spouse / family member on a business trip",
+    "he": "בן/בת זוג או קרוב שמצטרף/ת לנסיעה עסקית"
+   },
+   "match": {
+    "keywords": [
+     "בת זוג",
+     "בן זוג",
+     "חברה",
+     "אשתי",
+     "בעלי",
+     "מלווה",
+     "companion",
+     "spouse",
+     "girlfriend",
+     "partner trip",
+     "wife",
+     "husband"
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Companion works in the business and presence was necessary",
+    "Documented role (contract/payslip, meeting minutes)",
+    "Never deduct the incremental cost of a private companion"
+   ],
+   "evidence": [
+    "Proof of the companion's work and why it required travel",
+    "Separate invoices/payment for the private part"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(2) – הוצאה שאינה כסף שהוצא כולו לייצור ההכנסה ולשם כך בלבד; סעיף 32(1) – הוצאות פרטיות"
+    },
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2) – הנסיעה והשהייה הכרחיות לייצור ההכנסה"
+    }
+   ],
+   "notes": "Popular belief ('it's a business trip so my partner's flight and room are deductible too') is wrong as a default. A companion's flight, extra hotel cost, meals and tours are private (s.32(1)-(2): not wholly and exclusively for producing income). Deductible only if the companion has a genuine, documented business role that required presence (an employee or business partner doing real work, an interpreter, etc.) - then his/her costs are the business's ordinary costs within the same per-night/per-day caps. Shared hotel room: deduct no more than the single-room price. Joint business of spouses (s.66(ד)): each spouse's personal exertion must be required - only then is a spouse's own trip a business trip. I found no ITA circular or Israeli ruling specifically on accompanying partners, so this is the statute applied to the facts, not a published safe harbour.",
+   "unverified": [
+    "ITA position paper on spouses/companions",
+    "case-law examples"
+   ]
+  },
+  {
+   "id": "il.travel.mixed",
+   "label": {
+    "en": "Mixed business and vacation trip",
+    "he": "נסיעה משולבת עסקים ונופש"
+   },
+   "match": {
+    "keywords": [
+     "חופשה",
+     "טיול",
+     "נסיעה משולבת",
+     "vacation",
+     "holiday",
+     "leisure",
+     "extended stay",
+     "bleisure"
+    ]
+   },
+   "incomeTaxPct": null,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Main purpose business",
+    "Per-night / per-day caps still apply to business days"
+   ],
+   "evidence": [
+    "Agenda, invitations, meeting confirmations with dates",
+    "Return ticket dates vs the last business day"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(2)"
+    },
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2) – 'הנסיעה והשהייה הכרחיות'"
+    }
+   ],
+   "notes": "Only the days of stay that were NECESSARY for the business are covered by lodging and per-diem. Vacation days are personal: lodging, per-diem, rental car and local costs for those days are non-deductible. Flights: practice is that a ticket is fully deductible when the trip's main purpose is business and the vacation is incidental, and apportioned by days (or limited to the business itinerary fare) when the trip is mainly leisure; I found no published ITA rule for the split. A weekend that falls between business days is normally accepted as part of the stay. Keep the evidence that the dates were driven by business meetings.",
+   "basis": "business days / total days",
+   "unverified": [
+    "published ITA flight apportionment rule"
+   ]
+  },
+  {
+   "id": "il.lodging-il",
+   "label": {
+    "en": "Lodging inside Israel for business",
+    "he": "לינה בישראל לצורך עסקי"
+   },
+   "match": {
+    "keywords": [
+     "מלון בארץ",
+     "צימר",
+     "לינה",
+     "אילת",
+     "מלון",
+     "hotel israel",
+     "zimmer",
+     "overnight"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": {
+    "amount": 365,
+    "currency": "USD",
+    "per": "day",
+    "year": 2026,
+    "kind": "per_night_cap_ils_equivalent"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "100 km rule",
+    "Business necessity"
+   ],
+   "evidence": [
+    "Hotel tax invoice in the business name",
+    "Purpose (meeting/conference)"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2א – לינה בישראל"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    }
+   ],
+   "notes": "Deductible up to the same first-7-nights USD limit (converted at the latest representative rate before the night); breakfast included in an allowed price is deductible. Not deductible if the place is under 100 km from home or main place of business, unless the assessor is convinced the overnight was necessary. Conference lodging is exempt from these limits. VAT reclaimable with a tax invoice (practice).",
+   "unverified": [
+    "VAT on Israeli hotels for residents is 18% except Eilat (0% only for tourists)"
+   ]
+  },
+  {
+   "id": "il.gifts",
+   "label": {
+    "en": "Gifts to clients, suppliers and employees (personal event)",
+    "he": "מתנות ללקוחות / ספקים / עובדים"
+   },
+   "match": {
+    "keywords": [
+     "מתנה",
+     "מתנות",
+     "שי",
+     "שי לחג",
+     "פרחים",
+     "יין",
+     "בקבוק",
+     "שובר",
+     "gift",
+     "gifts",
+     "bouquet",
+     "flowers",
+     "wine",
+     "gift card",
+     "present"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": {
+    "amount": 240,
+    "currency": "ILS",
+    "per": "recipient",
+    "year": 2026,
+    "kind": "max_deduction_per_person_per_year"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business relationship (customer/supplier) or an employee's personal event",
+    "Track cumulative total per recipient per tax year"
+   ],
+   "evidence": [
+    "Record: recipient's identifying details, place the gift was given, receipts to verify (reg. 2(4))",
+    "Tax invoice for the purchase"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(4) – מתנות"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3.10 מתנות (states ₪230, 2023 level)"
+    }
+   ],
+   "notes": "Deductible up to ₪240 per person per year for gifts given in Israel (₪230 for 2023, ₪240 for 2024-2027 per the annotated regulation; Efraty's 2025 guide still says ₪230 - flag), and US$15 per person per year for gifts given abroad. The amount above the cap is not deductible. Per-person accumulation across all gifts in the year. VAT: no primary text found on input VAT for client gifts - null. Companies/NPOs pay the 45%/90% advance on the non-deductible excess. Employee gifts above the benefit thresholds are a taxable benefit instead (separate payroll rule).",
+   "values": {
+    "perPersonPerYear": {
+     "2023": 230,
+     "2024": 240,
+     "2025": 240,
+     "2026": 240
+    },
+    "abroadUSD": 15
+   },
+   "unverified": [
+    "₪230 vs ₪240 for 2025 (conflicting sources)",
+    "VAT on gifts"
+   ]
+  },
+  {
+   "id": "il.donations",
+   "label": {
+    "en": "Donations (section 46 credit - not a deduction)",
+    "he": "תרומות (זיכוי לפי סעיף 46 – לא ניכוי)"
+   },
+   "match": {
+    "keywords": [
+     "תרומה",
+     "עמותה",
+     "קרן",
+     "מגבית",
+     "תרומות",
+     "donation",
+     "charity",
+     "ngo",
+     "nonprofit",
+     "keren"
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": {
+    "amount": 10354816,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "credit_base_cap_or_30pct_of_taxable_income"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Approved institution (סעיף 46)",
+    "Total in year above ₪207",
+    "Credit cannot exceed tax"
+   ],
+   "evidence": [
+    "Official s.46 donation receipt (קבלה לפי סעיף 46) with the donor's ID"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 46, 46א"
+    }
+   ],
+   "notes": "A donation to an approved institution gives a TAX CREDIT of 35% of the donation (individual; companies use the s.126 rate) if the year's total exceeds ₪207 (2024-2027). The credited base is capped at the lower of 30% of taxable income and ₪10,354,816; excess carries over three years. Combined with R&D deduction the s.46א cap is 50% of taxable income. It is not an expense; do not subtract it from business profit. Only receipts under s.46 from institutions approved for it count.",
+   "values": {
+    "minimum": 207,
+    "creditRate": 0.35,
+    "capPctTaxableIncome": 0.3,
+    "carryYears": 3
+   }
+  },
+  {
+   "id": "il.literature",
+   "label": {
+    "en": "Professional books, journals and subscriptions",
+    "he": "ספרות מקצועית ועיתונים מקצועיים"
+   },
+   "match": {
+    "keywords": [
+     "ספר",
+     "ספרים",
+     "עיתון מקצועי",
+     "מנוי מקצועי",
+     "סטימצקי",
+     "צומת ספרים",
+     "book",
+     "books",
+     "journal",
+     "magazine",
+     "subscription professional",
+     "kindle",
+     "audible"
+    ],
+    "mcc": [
+     5942,
+     5192,
+     2741
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Relevant to the taxpayer's profession"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17 – הוצאה בייצור הכנסה"
+    }
+   ],
+   "notes": "Ordinary s.17 expense when tied to the profession. Reading for general interest is private (s.32(2)). VAT reclaimable with a tax invoice.",
+   "unverified": [
+    "no ITA instruction found; general principle only"
+   ]
+  },
+  {
+   "id": "il.training",
+   "label": {
+    "en": "Courses and training",
+    "he": "קורסים והשתלמויות"
+   },
+   "match": {
+    "keywords": [
+     "קורס",
+     "השתלמות",
+     "הכשרה",
+     "סדנה",
+     "לימודים",
+     "אוניברסיטה",
+     "udemy",
+     "coursera",
+     "course",
+     "training",
+     "workshop",
+     "tuition",
+     "bootcamp"
+    ],
+    "mcc": [
+     8220,
+     8299,
+     8249
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Maintains/updates existing skills",
+    "Not a degree and not a new profession"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)",
+    "Syllabus / course description showing relevance"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(15) – הוצאות לימודים"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§3 הוצאות מותרות"
+    }
+   ],
+   "notes": "Professional training that maintains or improves the EXISTING profession is deductible. Studies to acquire an academic degree or a new profession are NOT deductible (s.32(15)) - though a degree can later earn credit points (separate rule in the repo playbook). VAT reclaimable with a tax invoice for deductible training."
+  },
+  {
+   "id": "il.conference",
+   "label": {
+    "en": "Conferences and trade shows",
+    "he": "כנסים ותערוכות"
+   },
+   "match": {
+    "keywords": [
+     "כנס",
+     "תערוכה",
+     "כרטיס כנס",
+     "conference",
+     "expo",
+     "summit",
+     "convention",
+     "meetup ticket"
+    ],
+    "mcc": [
+     7399
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Conference in the taxpayer's field of business"
+   ],
+   "evidence": [
+    "Registration confirmation and tax invoice",
+    "Agenda"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2א(ג) – לינה בכנס; 2(2) נסיעה לחו\"ל"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17"
+    }
+   ],
+   "notes": "Registration fees are ordinary expenses. Lodging in Israel for a conference in your field is exempt from the 100 km / USD limits (reg. 2א(ג)); travel abroad for a conference follows il.travel.* caps. Meals provided as part of the fee are fine; extra meals are per-diem/non-deductible (s.32(1))."
+  },
+  {
+   "id": "il.clothing",
+   "label": {
+    "en": "Work clothing",
+    "he": "ביגוד עבודה"
+   },
+   "match": {
+    "keywords": [
+     "ביגוד",
+     "בגדים",
+     "נעליים",
+     "מדים",
+     "חולצה עם לוגו",
+     "תלבושת",
+     "uniform",
+     "work clothes",
+     "clothing",
+     "workwear",
+     "shoes",
+     "logo shirt"
+    ],
+    "mcc": [
+     5651,
+     5691,
+     5699
+    ]
+   },
+   "incomeTaxPct": 80,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Visible business identification, or mandated by law",
+    "Not general-purpose clothing"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)",
+    "Photo showing the logo/identification"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(6) – ביגוד"
+    }
+   ],
+   "notes": "80% of clothing bought for the taxpayer or employees if the clothes visibly identify the business (logo) or the law requires wearing them. 100% if the clothes cannot be used other than for work. Ordinary suits, shoes and 'looking professional' are private (0%). VAT follows the deductible character; no primary text for the 80% case - null.",
+   "unverified": [
+    "VAT on the 80% case"
+   ]
+  },
+  {
+   "id": "il.depreciation",
+   "label": {
+    "en": "Equipment and depreciation (computers, electronics, furniture, vehicles)",
+    "he": "ציוד ופחת"
+   },
+   "match": {
+    "keywords": [
+     "מחשב",
+     "לפטופ",
+     "מסך",
+     "מדפסת",
+     "טלפון",
+     "מצלמה",
+     "שולחן",
+     "כיסא",
+     "ריהוט",
+     "ציוד",
+     "ציוד משרדי",
+     "laptop",
+     "computer",
+     "monitor",
+     "printer",
+     "camera",
+     "desk",
+     "chair",
+     "furniture",
+     "equipment",
+     "macbook",
+     "server"
+    ],
+    "mcc": [
+     5734,
+     5732,
+     5045,
+     5712,
+     5021
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Asset used in the business",
+    "Depreciation from first use"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT)",
+    "Asset register (date, cost, rate)"
+   ],
+   "confidence": "regulation",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 21 – פחת"
+    },
+    {
+     "title": "תקנות מס הכנסה (פחת), 1941",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(פחת)",
+     "section": "הטבלה: אלקטרוניקה (מחשבים אישיים 33%, אחרים 25%, ציוד אלקטרוני וממוחשב 15%), רהיטים כלליים 6%, רכב M1/N1 15%"
+    }
+   ],
+   "notes": "Fixed assets are deducted over their life, not when bought (straight-line at the regulation rate, from the year put to use). Rates: personal computers 33%, other computers 25%, electronic and computerised equipment 15%, general furniture 6%, private car M1/N1 15%. VAT on equipment is reclaimed in full at purchase with a tax invoice (not for private cars - reg. 14). Not applicable under the deemed-30% zair track, and the depreciation is added back to the sale value for capital-gain purposes (s.87ד(ב)). Immediate expensing of low-value items and accelerated depreciation options exist in practice/other regulations but I did not verify thresholds.",
+   "values": {
+    "computersPersonal": 0.33,
+    "computersOther": 0.25,
+    "electronicEquipment": 0.15,
+    "furnitureGeneral": 0.06,
+    "privateCar": 0.15
+   },
+   "unverified": [
+    "low-value immediate expensing threshold",
+    "accelerated depreciation rules"
+   ]
+  },
+  {
+   "id": "il.software",
+   "label": {
+    "en": "Software, SaaS, hosting, domains",
+    "he": "תוכנות, מנויים, אחסון ודומיינים"
+   },
+   "match": {
+    "keywords": [
+     "אדובי",
+     "מיקרוסופט",
+     "גוגל",
+     "אמזון",
+     "aws",
+     "github",
+     "notion",
+     "slack",
+     "zoom",
+     "dropbox",
+     "figma",
+     "openai",
+     "anthropic",
+     "chatgpt",
+     "claude",
+     "cloudflare",
+     "vercel",
+     "namecheap",
+     "godaddy",
+     "wix",
+     "adobe",
+     "microsoft",
+     "google workspace",
+     "subscription",
+     "saas",
+     "hosting",
+     "domain"
+    ],
+    "mcc": [
+     5734,
+     5817,
+     7372,
+     4816
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business use; apportion personal"
+   ],
+   "evidence": [
+    "Vendor invoice/receipt showing the business name"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17"
+    },
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38(א) – חשבונית מס כדין"
+    }
+   ],
+   "notes": "Ordinary business expense when used for the business (apportion mixed personal use). Israeli suppliers: tax invoice -> VAT reclaimable. Foreign suppliers charge no Israeli VAT, so there is nothing to reclaim on the invoice; whether an osek murshe/patur owes reverse-charge VAT on imported services was not verified here (null). Long-lived software purchases may be capitalised and depreciated.",
+   "unverified": [
+    "VAT on imported services by patur/murshe"
+   ]
+  },
+  {
+   "id": "il.bank-fees",
+   "label": {
+    "en": "Bank fees, card fees, business loan interest",
+    "he": "עמלות בנק וריבית על הלוואות עסקיות"
+   },
+   "match": {
+    "keywords": [
+     "עמלה",
+     "עמלת בנק",
+     "דמי כרטיס",
+     "ריבית",
+     "הלוואה",
+     "סליקה",
+     "פייפאל",
+     "סטריפ",
+     "bank fee",
+     "commission",
+     "interest",
+     "loan",
+     "stripe fee",
+     "paypal fee",
+     "payment processing",
+     "wire fee"
+    ],
+    "mcc": [
+     6012,
+     6011,
+     6051
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business account or business share",
+    "Interest on tax debts excluded"
+   ],
+   "evidence": [
+    "Bank statement / fee schedule",
+    "Loan agreement for interest"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17(1) – ריבית והפרשי הצמדה בייצור הכנסה"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(2) – חלק פרטי"
+    }
+   ],
+   "notes": "Business bank and processor fees and interest on business borrowing are s.17 expenses; the private share of a mixed account is not. Interest/linkage on tax-authority debts is not deductible. Banks do not charge VAT on most fees (they pay wage-and-profit tax), so vatPct 0 - practice, not verified in a primary text. Paypal/Stripe fees to foreign entities: no Israeli VAT.",
+   "unverified": [
+    "VAT absence on bank fees (primary text)"
+   ]
+  },
+  {
+   "id": "il.professional-fees",
+   "label": {
+    "en": "Accountant, bookkeeper, lawyer, consultant fees",
+    "he": "רואה חשבון, הנהלת חשבונות, עורך דין, יועץ"
+   },
+   "match": {
+    "keywords": [
+     "רואה חשבון",
+     "רו\"ח",
+     "מנהל חשבונות",
+     "הנהלת חשבונות",
+     "עורך דין",
+     "עו\"ד",
+     "יועץ",
+     "יועץ מס",
+     "accountant",
+     "cpa",
+     "bookkeeper",
+     "lawyer",
+     "attorney",
+     "legal fees",
+     "consultant",
+     "tax advisor"
+    ],
+    "mcc": [
+     8931,
+     8111,
+     7392
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 100,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Business purpose; apportion personal work"
+   ],
+   "evidence": [
+    "חשבונית מס / tax invoice in the business's name (osek murshe supplier) or receipt (osek patur supplier: income tax only, no VAT) with the service description"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17"
+    },
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38(א)"
+    }
+   ],
+   "notes": "Fees for running or defending the business are deductible with VAT reclaimable on a tax invoice. Fees for purely personal matters (divorce, personal estate, a private return's personal part) are not; apportion a combined invoice. An osek patur's accountant VAT is a cost (no reclaim)."
+  },
+  {
+   "id": "il.insurance.business",
+   "label": {
+    "en": "Business insurance (liability, professional indemnity, equipment, office)",
+    "he": "ביטוחים עסקיים"
+   },
+   "match": {
+    "keywords": [
+     "ביטוח אחריות מקצועית",
+     "ביטוח צד ג",
+     "ביטוח ציוד",
+     "ביטוח עסק",
+     "ביטוח משרד",
+     "professional indemnity",
+     "liability insurance",
+     "business insurance",
+     "equipment insurance"
+    ],
+    "mcc": [
+     6300,
+     6399
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Insures the business, not the person"
+   ],
+   "evidence": [
+    "Policy and premium receipt"
+   ],
+   "confidence": "practice",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17"
+    }
+   ],
+   "notes": "Premiums for insuring the business are ordinary expenses. Insurance premiums carry no VAT (financial services), so no input VAT. Personal health, life, car-private-part or home contents are not business insurance."
+  },
+  {
+   "id": "il.insurance.life-credit",
+   "label": {
+    "en": "Life insurance (personal) - credit",
+    "he": "ביטוח חיים - זיכוי לפי סעיף 45א"
+   },
+   "match": {
+    "keywords": [
+     "ביטוח חיים",
+     "פוליסת חיים",
+     "ריסק",
+     "life insurance",
+     "term life",
+     "risk insurance"
+    ]
+   },
+   "incomeTaxPct": 0,
+   "vatPct": 0,
+   "cap": {
+    "amount": null,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "credit_25pct_within_5pct_of_qualifying_income"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Premium paid in the tax year",
+    "Shared 5% ceiling with pension credit"
+   ],
+   "evidence": [
+    "Annual insurer certificate"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 45א(א)(1), (ד)(2)(ב)(1), (ה)"
+    }
+   ],
+   "notes": "Not a business expense. Credit of 25% of life-insurance premiums (self, spouse; child over 18 for a 'beneficiary member'), inside a shared ceiling of 5% of qualifying income (for a self-employed person with no employment income) that also covers pension survivors' insurance and the credit on pension deposits. Minimum floor ₪2,268 (2024-2027) where income is low.",
+   "unverified": [
+    "exact combined-ceiling arithmetic when pension credit is also used"
+   ]
+  },
+  {
+   "id": "il.insurance.disability",
+   "label": {
+    "en": "Disability (loss-of-work-capacity) insurance - deduction",
+    "he": "ביטוח אובדן כושר עבודה (ניכוי)"
+   },
+   "match": {
+    "keywords": [
+     "אובדן כושר עבודה",
+     "אכ\"ע",
+     "פוליסת אכע",
+     "disability insurance",
+     "income protection"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": null,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "up_to_3.5pct_of_income"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Preferred insurance definition met"
+   ],
+   "evidence": [
+    "Insurer annual certificate"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(14)(ב)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§ ניכוי בשל ביטוח אובדן כושר עבודה"
+    }
+   ],
+   "notes": "Deduction up to 3.5% of business income for a 'preferred insurance' (policy to at least age 60 and pays until recovery or age 60). Income ceiling for the 3.5%: the statute ties it to the average wage divided by 4.8 and I could not reproduce the repo's playbook figures (income ceiling ₪356,100, max ₪12,463 for 2025) from the text. Not available in the deemed-30% zair track (s.87ד excludes ss.17-27, and this deduction sits in the s.32(14) family - flag).",
+   "unverified": [
+    "ceiling formula and 2025/2026 values",
+    "availability under the zair track"
+   ]
+  },
+  {
+   "id": "il.pension",
+   "label": {
+    "en": "Pension (self-employed): deduction + credit split",
+    "he": "פנסיה לעצמאי: ניכוי וזיכוי"
+   },
+   "match": {
+    "keywords": [
+     "פנסיה",
+     "הפקדה לפנסיה",
+     "קרן פנסיה",
+     "מגדל פנסיה",
+     "הראל פנסיה",
+     "מנורה פנסיה",
+     "מיטב",
+     "pension",
+     "retirement",
+     "pension fund",
+     "kupat gemel pension"
+    ]
+   },
+   "incomeTaxPct": 11,
+   "vatPct": 0,
+   "cap": {
+    "amount": 232800,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "qualifying_income_ceiling"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Deposit paid in the tax year",
+    "Allowed in the zair track (s.47 is outside ss.17-27)",
+    "Beneficiary-member threshold for the higher deduction"
+   ],
+   "evidence": [
+    "Annual fund certificate (אישור שנתי) for deposits"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 47(א)-(ב1) + 'עמית מוטב'"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 45א(ב), (ה)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "pension deductions"
+    }
+   ],
+   "notes": "Deduction (s.47): for a beneficiary member (deposits >= 16% of the average wage: ₪24,069 in 2025, ₪26,436 in 2026) up to 11% of self-employed income up to the first ₪116,400, plus 7% (and an extra 4% on the part of deposits above 12%) of the next band of income, i.e. a combined practical maximum of about 11% of income up to ₪232,800 = ₪25,608. Credit (s.45א(ב), (ה)): 35% on deposits up to 5% of income up to ₪232,800 (about ₪11,640 base -> ₪4,074 credit), on deposits that were not deducted. The ₪116,400 / ₪164,400 statutory amounts are fixed for 2024-2027, so 2025 and 2026 are identical. My reading of the nested definitions matches the repo model (11% deduct + 5% credit within ₪232,800) but the text is intricate - verify with an accountant. The mandatory minimum deposit for the self-employed (4.45% / 12.55%) is a separate pension-extension-order rule in the repo tables.",
+   "values": {
+    "deductPct": 0.11,
+    "creditPct": 0.05,
+    "creditRate": 0.35,
+    "qualifyingIncomeBand1": 116400,
+    "qualifyingIncomeBand2": 116400,
+    "beneficiaryThreshold": {
+     "2025": 24069,
+     "2026": 26436
+    }
+   },
+   "unverified": [
+    "exact stacking of 11%/7%/4% bands and the credit base"
+   ]
+  },
+  {
+   "id": "il.keren-hishtalmut",
+   "label": {
+    "en": "Keren hishtalmut (self-employed)",
+    "he": "קרן השתלמות לעצמאי"
+   },
+   "match": {
+    "keywords": [
+     "קרן השתלמות",
+     "השתלמות",
+     "הפקדה לקרן השתלמות",
+     "keren hishtalmut",
+     "study fund",
+     "hishtalmut"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": 13202,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "max_deduction"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Fund for the self-employed; paid in the tax year"
+   ],
+   "evidence": [
+    "Fund's annual certificate"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 17(5א)"
+    },
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(5) – הפקדות בקרן השתלמות של יחיד"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 87ד(א) – 17(5א) נשמר"
+    }
+   ],
+   "notes": "Deposits are a deduction (not a credit) up to 4.5% of business income, income counted up to ₪293,397 (2024-2027), so the maximum deduction is about ₪13,202 a year. Kept under the zair track (s.87ד exempts s.17(5א) from the exclusion). Reduced if the employer also funds a keren hishtalmut for the same person.",
+   "values": {
+    "pct": 0.045,
+    "incomeCeiling": 293397,
+    "maxDeduction": 13202
+   }
+  },
+  {
+   "id": "il.bl-deduction",
+   "label": {
+    "en": "Bituach Leumi (self-employed): 52% deduction",
+    "he": "ניכוי 52% מדמי ביטוח לאומי לעצמאי"
+   },
+   "match": {
+    "keywords": [
+     "ביטוח לאומי",
+     "ב.ל",
+     "דמי ביטוח",
+     "btl",
+     "national insurance",
+     "bituach leumi",
+     "social security israel"
+    ]
+   },
+   "incomeTaxPct": 52,
+   "vatPct": 0,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Paid in the tax year",
+    "Not available under the zair deemed-expense track"
+   ],
+   "evidence": [
+    "BL payment record / annual statement"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 47א(א)"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 87ד(א) – לא חל על בעל עסק זעיר"
+    }
+   ],
+   "notes": "52% of BL insurance paid in the tax year on non-employment income is deductible (capped at taxable income); health-insurance tax is not part of it in the repo model. NOT available to a registered 'small business owner' on the deemed-30% track (s.87ד(א) disapplies s.47א). Paid before year-end; the amount paid, not accrued."
+  },
+  {
+   "id": "il.zair-deemed",
+   "label": {
+    "en": "Osek zair: 30% deemed expenses instead of actual",
+    "he": "בעל עסק זעיר: הוצאות נורמטיביות 30%"
+   },
+   "match": {
+    "keywords": [
+     "בעל עסק זעיר",
+     "עוסק זעיר",
+     "תיאום מס",
+     "דיווח מקוצר",
+     "small business owner",
+     "zair",
+     "micro business",
+     "deemed expense"
+    ]
+   },
+   "incomeTaxPct": 30,
+   "vatPct": null,
+   "cap": {
+    "amount": 122833,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "turnover_ceiling"
+   },
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe"
+   ],
+   "conditions": [
+    "No employees",
+    "Accepted books (ניהול פנקסים תקין)",
+    "All business income from personal exertion",
+    "No part of business income from your employer",
+    "No transparent-entity attribution",
+    "No more than 25% of business income from a relative or from someone who employed you in the last 3 years",
+    "Not a controlling shareholder of a closely held company; not a partner in a partnership; not a kibbutz member",
+    "Do tax coordination each year by 25 Dec"
+   ],
+   "evidence": [
+    "Books (חשבוניות/קבלות) are still required; receipts are not attached to the short report but bookkeeping duty remains and is a condition (BRIT CPA)",
+    "Turnover record by month"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיפים 87ב-87ד (תיקון תשפ\"ג-4, חוק ההסדרים 2023-24)"
+    },
+    {
+     "title": "רשות המסים, הודעה 2025-000092 מיום 4.12.2025: רפורמה במיסוי עסקים זעירים",
+     "url": "https://www.gov.il/BlobFolder/policy/represent-info-07122025-1/he/IncomeTax_represent-info-071225-1.pdf",
+     "section": "whole notice"
+    },
+    {
+     "title": "כל-זכות: עסק זעיר (secondary, cites ITA)",
+     "url": "https://www.kolzchut.org.il/he/עסק_זעיר",
+     "section": "whole page"
+    },
+    {
+     "title": "BRIT CPA: רפורמת בעל עסק זעיר (secondary, reproduces ITA circular text)",
+     "url": "https://britcpa.co.il/hozrim/רפורמת-בעל-עסק-זעיר/",
+     "section": "whole page"
+    }
+   ],
+   "notes": "The reform is NOT new in 2026: it started with tax year 2024. A 'small business owner' (individual resident) with turnover up to the VAT 'osek patur' ceiling (₪120,000 in 2024-2025, ₪122,833 in 2026) deducts a flat 30% of turnover INSTEAD of actual expenses (s.87ד: ss.17-27 do not apply, except s.17(5א) keren hishtalmut; s.47א BL deduction does not apply). Taxable income = 70% of turnover. Pension s.47 and the s.45א credits and personal credit points remain. Losses cannot be carried forward. Turnover includes war indirect-damage compensation; reserve pay and maternity benefits from BL are excluded from the ceiling and get no 30%. Over the ceiling (counting compensation) -> full annual return, and the 30% applies only to the small-business income (ITA notice Dec 2025). Registration is voluntary for a murshe, automatic for a new/existing patur; zair is NOT the same as patur (a murshe can be zair). Tax coordination (תיאום מס) must be done during the year (deadline 25 Dec; 2025 deadline could not be extended); the short report is filed after year-end: for 2024 by 31.07.2025; for 2025 by 31.08.2026 (kolzchut; a search snippet cites 31.05.2026 for 2025 - conflict); from 2026 by 31 March. An ITA proposal to widen short-report eligibility to ₪300,000 turnover is mentioned by Efraty; not enacted as far as found.",
+   "values": {
+    "ceiling": {
+     "2024": 120000,
+     "2025": 120000,
+     "2026": 122833
+    },
+    "deemedPct": 0.3
+   },
+   "unverified": [
+    "Circular number '78/2024' (as printed on britcpa) not checked at the ITA",
+    "2025 short-report deadline conflict 31.05.2026 vs 31.08.2026",
+    "BL liability computation for zair (separate BL rules)"
+   ]
+  },
+  {
+   "id": "il.patur-vat",
+   "label": {
+    "en": "Osek patur: no input VAT",
+    "he": "עוסק פטור: אין ניכוי מס תשומות"
+   },
+   "match": {
+    "keywords": [
+     "עוסק פטור",
+     "פטור ממע\"מ",
+     "osek patur",
+     "exempt dealer",
+     "vat exempt"
+    ]
+   },
+   "incomeTaxPct": 100,
+   "vatPct": 0,
+   "cap": {
+    "amount": 122833,
+    "currency": "ILS",
+    "per": "year",
+    "year": 2026,
+    "kind": "vat_turnover_ceiling"
+   },
+   "appliesTo": [
+    "patur"
+   ],
+   "conditions": [
+    "Turnover under the ceiling",
+    "Not a mandatory-murshe profession"
+   ],
+   "evidence": [
+    "Receipts (קבלה) issued, not tax invoices"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 1 – 'עוסק פטור' (120,000 ל-2024-2025; 122,833 ל-2026)"
+    },
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 41 – אין ניכוי תשומות אלא לעסקה חייבת"
+    }
+   ],
+   "notes": "An osek patur charges no VAT and may NOT deduct input VAT (s.41): VAT paid on every purchase is simply part of the expense cost (still deductible for income tax at the rule's percentage on the gross amount). Ceiling: ₪120,000 (2024-2025), ₪122,833 (2026); some professions (lawyers, accountants, doctors, engineers, etc.) must register as murshe regardless. VAT rate 18%. Switching to murshe pays off mainly with large VAT-bearing purchases and mostly-business clients (they reclaim the VAT you charge); with consumer customers you either cut your price by 18/118 or lose margin. Export of services is 0% and keeps input VAT recoverable.",
+   "values": {
+    "vatRate": 0.18,
+    "ceiling": {
+     "2025": 120000,
+     "2026": 122833
+    }
+   }
+  },
+  {
+   "id": "il.recordkeeping",
+   "label": {
+    "en": "Record-keeping and evidence rules (what counts as acceptable)",
+    "he": "ניהול פנקסים: מסמך קביל"
+   },
+   "match": {
+    "keywords": [
+     "חשבונית",
+     "קבלה",
+     "חשבונית מס",
+     "חשבונית עסקה",
+     "מספר הקצאה",
+     "invoice",
+     "receipt",
+     "tax invoice",
+     "allocation number"
+    ]
+   },
+   "incomeTaxPct": null,
+   "vatPct": null,
+   "cap": null,
+   "appliesTo": [
+    "patur",
+    "zair",
+    "murshe",
+    "ltd"
+   ],
+   "conditions": [
+    "Invoice in the business's name/ID, with VAT number, date, description, amount",
+    "Allocation number when above the threshold",
+    "Claim input VAT within 6 months"
+   ],
+   "evidence": [
+    "Original or digital copy retained (7-year retention is the usual rule; not verified in the bookkeeping regulations here)"
+   ],
+   "confidence": "statute",
+   "sources": [
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38(א), (א1), (א2)"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(16א) + סעיף 130-131"
+    },
+    {
+     "title": "חוק לצמצום השימוש במזומן, התשע\"ח-2018",
+     "url": "https://he.wikisource.org/wiki/חוק_לצמצום_השימוש_במזומן",
+     "section": "Second Schedule / s.2"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§1.2.1-1.2.2 מספר הקצאה"
+    }
+   ],
+   "notes": "VAT input is deductible only with a tax invoice issued properly in the taxpayer's name, claimed within 6 months of its date (s.38(א)). For an invoice over the threshold (before VAT), a Tax Authority allocation number is required or input VAT is denied: ₪20,000 in 2025 (per the repo playbook), ₪10,000 from 1 Jan 2026, ₪5,000 from 1 Jun 2026 (s.38(א1)). Efraty also reports that the expense itself is disallowed when input VAT is lost for lack of an allocation number - I could not find that text in the consolidated Ordinance; treat as likely but unverified. Payments made in breach of the cash-use law and penalised are non-deductible (s.32(16א)) and lose VAT (s.38(א2)); do not rely on cash for large business payments (business cash cap ₪6,000 per the Schedule, unverified for 2026). A receipt (קבלה) from a patur supplier supports the income-tax deduction but carries no VAT. A חשבונית עסקה / proforma is not a tax invoice. Cards, transfers, bit/paybox are fine; keep the statement as a cross-check.",
+   "values": {
+    "allocationThreshold": {
+     "2025": 20000,
+     "2026-01..05": 10000,
+     "2026-06..": 5000
+    }
+   },
+   "unverified": [
+    "expense-disallowance consequence of a missing allocation number",
+    "7-year retention",
+    "cash cap 2026"
+   ]
+  }
+ ],
+ "moves": [
+  {
+   "id": "il.move.zair-vs-actual",
+   "title": {
+    "en": "Compare the 30% deemed track with actual expenses",
+    "he": "להשוות מסלול זעיר (30%) מול הוצאות בפועל"
+   },
+   "when": "Turnover <= zair ceiling (122,833 in 2026) and the business qualifies (no employees, personal-exertion income, etc.).",
+   "effect": "Compute tax twice with ilPlan: zair: taxable = 0.7 x turnover, no 47א BL deduction; actual: taxable = turnover - deductible expenses (apply this table's percentages) - 52% x BL. Actual wins roughly when deductible expenses (after the 80%/45%/50% haircuts) exceed ~30% of turnover MINUS the value of the 52% BL deduction (about 0.52 x BL, which is worth up to ~1.5-6% of profit). Zair also removes the annual return and advances (value of time) and the audit surface; actual keeps loss carry-forward and depreciation. Keep every receipt anyway: if turnover crosses the ceiling the whole year reverts to the regular file.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 87ד"
+    },
+    {
+     "title": "רשות המסים, הודעה 2025-000092 מיום 4.12.2025: רפורמה במיסוי עסקים זעירים",
+     "url": "https://www.gov.il/BlobFolder/policy/represent-info-07122025-1/he/IncomeTax_represent-info-071225-1.pdf",
+     "section": "whole notice"
+    }
+   ]
+  },
+  {
+   "id": "il.move.keep-receipts-when-zair",
+   "title": {
+    "en": "Keep receipts even on the zair track",
+    "he": "לשמור קבלות גם כשבמסלול זעיר"
+   },
+   "when": "Any zair whose turnover might exceed the ceiling (including war compensation) or who might be removed from the track.",
+   "effect": "If registration is cancelled (s.87ג(ג)) you file a full return and need actual-expense proof; the app should flag turnover at 85% of the ceiling.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 87ג(ג)"
+    },
+    {
+     "title": "רשות המסים, הודעה 2025-000092 מיום 4.12.2025: רפורמה במיסוי עסקים זעירים",
+     "url": "https://www.gov.il/BlobFolder/policy/represent-info-07122025-1/he/IncomeTax_represent-info-071225-1.pdf",
+     "section": "whole notice"
+    }
+   ]
+  },
+  {
+   "id": "il.move.patur-to-murshe",
+   "title": {
+    "en": "Switch osek patur to murshe when VAT-bearing costs are large",
+    "he": "מעבר מפטור למורשה"
+   },
+   "when": "Customers are mostly VAT-registered businesses or foreign (0% VAT), and annual VAT-bearing purchases are large (equipment, car running costs share, rent).",
+   "effect": "Extra deduction = VAT in business-related purchases x reclaim ratio (100% for equipment/software; 66.7% for mixed car/phone costs; 0% for hosting). Cost: VAT paperwork, price pressure with consumers (price falls by 18/118 if consumers can't recover), bookkeeping ~₪6,500/yr (repo costs).",
+   "sources": [
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38 + 41"
+    },
+    {
+     "title": "תקנות מס ערך מוסף, התשל\"ו-1976",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_ערך_מוסף",
+     "section": "תקנות 14, 16, 18"
+    }
+   ]
+  },
+  {
+   "id": "il.move.refreshments-office",
+   "title": {
+    "en": "Buy coffee/snacks for the office instead of paying in cafés",
+    "he": "כיבוד במשרד במקום בית קפה"
+   },
+   "when": "Recurring café spend on a taxpayer who has a real place of business (home office counts only if it is the main place).",
+   "effect": "Office supplies earn 80% deduction; café coffee earns 0%. Saving = 0.8 x spend x marginal rate (plus the VAT question). Does not help at a café; only supplies consumed at the business place qualify.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(1)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "fn.91"
+    }
+   ]
+  },
+  {
+   "id": "il.move.gifts-cap",
+   "title": {
+    "en": "Spread gifts across recipients, track the ₪240 per person per year",
+    "he": "לפזר מתנות ולעקוב אחרי תקרת 240 ₪"
+   },
+   "when": "Client/supplier gifts in the year.",
+   "effect": "Deduct min(240, gifts to person); the rest is lost. Track recipient identity, place and receipts. Prefer many small gifts to a few large ones.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(4)"
+    }
+   ]
+  },
+  {
+   "id": "il.move.travel-documentation",
+   "title": {
+    "en": "Document business trips and split private days/companions on separate invoices",
+    "he": "לתעד נסיעות ולהפריד חלק פרטי"
+   },
+   "when": "Any trip abroad with business meetings.",
+   "effect": "Deductible = flights (economy/business-class-fare cap) + nights within the cap + per-diem for necessary days + rental car cap. Make sure the companion's private costs are paid and invoiced separately; for a shared room deduct the single-room price. App should compute: sum(min(actual, cap) per night) + days x per-diem.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2(2)"
+    },
+    {
+     "title": "Technion HR summary of the ITA travel-abroad amounts at 1.1.2026 (secondary)",
+     "url": "https://hr.technion.ac.il/wp-content/uploads/2026/02/הוצאות-מוכרות-בנסיעה-לחול-2026.pdf",
+     "section": "items 1-5"
+    }
+   ]
+  },
+  {
+   "id": "il.move.pension-optimum",
+   "title": {
+    "en": "Deposit to pension to the optimum (deduct + credit)",
+    "he": "הפקדה אופטימלית לפנסיה"
+   },
+   "when": "Self-employed with taxable profit and room under the ceiling; before 31 Dec.",
+   "effect": "Best deposit ≈ 16% of min(profit, 232,800): 11% deducted, up to 5% earns a 35% credit; the playbook (il-pension-self-employed-47) already runs this through ilPlan. Beneficiary-member threshold (₪26,436 in 2026) must be met for the full deduction.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיפים 47, 45א"
+    }
+   ]
+  },
+  {
+   "id": "il.move.keren-hishtalmut",
+   "title": {
+    "en": "Max keren hishtalmut deduction",
+    "he": "מקסום קרן השתלמות"
+   },
+   "when": "Self-employed (including zair) with profit; before 31 Dec.",
+   "effect": "Deduction = min(deposit, 4.5% x min(income, 293,397)) = up to ₪13,202; saving = deduction x marginal rate. Works even on the zair track.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיפים 17(5א), 87ד(א)"
+    }
+   ]
+  },
+  {
+   "id": "il.move.donation-credit",
+   "title": {
+    "en": "Time donations to use the 35% credit",
+    "he": "תרומות וניצול זיכוי 35%"
+   },
+   "when": "Taxpayer already donating; total over ₪207.",
+   "effect": "Credit = 35% x min(donations, 30% x taxable income, 10,354,816), capped at tax due; carry the excess 3 years. Not a deduction: it saves 35 agorot per shekel, so it is a net cost, not a tax-saver.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 46"
+    }
+   ]
+  },
+  {
+   "id": "il.move.equipment-before-year-end",
+   "title": {
+    "en": "Buy and start using equipment before year-end (depreciation) and reclaim VAT",
+    "he": "רכישת ציוד לפני סוף שנה"
+   },
+   "when": "Planned equipment purchase and taxable profit in the current year (murshe).",
+   "effect": "VAT reclaimed in full in the period; depreciation starts the year put to use at the table rate (33% computers). On the zair track no depreciation.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (פחת), 1941",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(פחת)",
+     "section": "טבלת פחת"
+    },
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 21"
+    }
+   ]
+  },
+  {
+   "id": "il.move.vehicle-log",
+   "title": {
+    "en": "Odometer readings 1 Jan and 31 Dec, vehicle log",
+    "he": "פנקס רכב וקריאת מונה"
+   },
+   "when": "Any car expense claim.",
+   "effect": "Without the start/end odometer in the annual return the vehicle expenses are not allowed (reg. 6). Compare 45% to costs - shovi: for expensive cars shovi is high and 45% usually wins; for cheap cars with high costs, costs - shovi may win.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות רכב), התשנ\"ה-1995",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_רכב)",
+     "section": "תקנות 5-6"
+    },
+    {
+     "title": "תקנות מס הכנסה (שווי השימוש ברכב), התשמ\"ז-1987",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(שווי_השימוש_ברכב)",
+     "section": "תקנה 2"
+    }
+   ]
+  },
+  {
+   "id": "il.move.allocation-number",
+   "title": {
+    "en": "Ask suppliers for an allocation number on invoices over the threshold",
+    "he": "מספר הקצאה בחשבוניות"
+   },
+   "when": "Any single invoice above ₪5,000 before VAT from 1 Jun 2026 (₪10,000 in Jan-May 2026; ₪20,000 in 2025).",
+   "effect": "Without it the input VAT is lost (and reportedly the expense). Flag missing allocation numbers when a receipt above the threshold is scanned.",
+   "sources": [
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38(א1)"
+    },
+    {
+     "title": "Efraty & Co, tax amendments guide 2025-2027 (secondary)",
+     "url": "https://www.efraty.com/?p=5221",
+     "section": "§1.2"
+    }
+   ]
+  },
+  {
+   "id": "il.move.mobile-plan",
+   "title": {
+    "en": "Keep the mobile plan invoice in the business name",
+    "he": "חבילת סלולר על שם העסק"
+   },
+   "when": "Any mobile spend.",
+   "effect": "Deductible = cost - min(50% x cost, ₪1,380/year); VAT reclaimable at 2/3 on a tax invoice in the business name.",
+   "sources": [
+    {
+     "title": "תקנות מס הכנסה (ניכוי הוצאות מסויימות)",
+     "url": "https://he.wikisource.org/wiki/תקנות_מס_הכנסה_(ניכוי_הוצאות_מסויימות)",
+     "section": "תקנה 2ב(ג)"
+    }
+   ]
+  },
+  {
+   "id": "il.move.cash-avoidance",
+   "title": {
+    "en": "Pay business expenses by traceable means",
+    "he": "לשלם הוצאות עסק באמצעי תשלום מתועד"
+   },
+   "when": "Any large payment.",
+   "effect": "Cash above the legal cap makes the expense non-deductible and the VAT non-reclaimable.",
+   "sources": [
+    {
+     "title": "פקודת מס הכנסה (נוסח משולב, ויקיטקסט)",
+     "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה",
+     "section": "סעיף 32(16א)"
+    },
+    {
+     "title": "חוק מס ערך מוסף, התשל\"ו-1975",
+     "url": "https://he.wikisource.org/wiki/חוק_מס_ערך_מוסף",
+     "section": "סעיף 38(א2)"
+    }
+   ]
+  }
+ ]
+}

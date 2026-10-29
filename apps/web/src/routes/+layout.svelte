@@ -14,6 +14,7 @@
   import { installAi } from "#lib/ai.ts";
   import { toast } from "#lib/ui/toast.svelte.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { navKey } from "#lib/ustax/books.ts";
 
   let { children }: { children: Snippet } = $props();
 
@@ -22,6 +23,7 @@
     list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
     users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
     rules: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+    tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
     report: "M3 3v18h18M7 16v-5M12 16V8M17 16v-8",
     form: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8M8 9h2",
     folder: "M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2",
@@ -45,7 +47,7 @@
     shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10",
   };
 
-  type Item = { href: string; label: string; icon: string };
+  type Item = { href: string; label: string; icon: string; sub?: boolean };
   const NAV: [string | null, Item[]][] = $derived([
     [
       null,
@@ -53,6 +55,8 @@
         { href: "/home", label: t("nav.home"), icon: "home" },
         { href: "/transactions", label: t("nav.transactions"), icon: "list" },
         { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear())) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
+        { href: "/bills", label: t("nav.payableBills"), icon: "calendar" },
+        { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
         { href: "/review", label: t("nav.review"), icon: "sparkle" },
         { href: "/reports", label: t("nav.reports"), icon: "report" },
         { href: "/counterparties", label: t("nav.counterparties"), icon: "users" },
@@ -62,8 +66,11 @@
       t("nav.section.books"),
       [
         { href: "/rules", label: t("nav.rules"), icon: "rules" },
+        { href: "/tags", label: t("nav.tags"), icon: "tag" },
         { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
+        { href: "/reconciliation", label: t("nav.reconciliation"), icon: "check" },
         { href: "/journal", label: t("nav.journal"), icon: "file" },
+        { href: "/payroll", label: t("nav.payroll"), icon: "users" },
         { href: "/documents", label: t("nav.documents"), icon: "folder" },
         { href: "/connections", label: t("nav.connections"), icon: "wallet" },
       ],
@@ -74,9 +81,11 @@
           [
             t("nav.section.tax"),
             [
-              isUS() ? { href: "/tax/us", label: t("nav.form5472"), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
+              { href: "/filings", label: t("nav.filings"), icon: "calendar" },
+              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
               { href: "/planner", label: t("nav.planner"), icon: "sparkle" },
               { href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" },
+              { href: "/trips", label: t("nav.trips"), icon: "calendar", sub: true },
               { href: "/you", label: t("nav.you"), icon: "user" },
             ],
           ],
@@ -320,7 +329,7 @@
         <nav aria-label={t("nav.main")} class="flex gap-0.5 px-3 pt-3 max-md:overflow-x-auto max-md:pb-3 md:flex-col">
           {#each NAV as [section, items], i (i)}
             {#if section}<div class="px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub max-md:hidden">{section}</div>{/if}
-            {#each items as it (it.href)}{@render navLink(it)}{/each}
+            {#each items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
           {/each}
           {@render navLink({ href: "/settings", label: t("nav.settings"), icon: "settings" }, "md:hidden")}
         </nav>

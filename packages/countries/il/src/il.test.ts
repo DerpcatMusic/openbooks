@@ -204,6 +204,12 @@ describe("form 1301 hook", () => {
     );
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "200,000" } }).taxable).toBe(200000);
   });
+  it("non-deductible expenses (deduction rules) come off the actual-expenses figure, not the zair 70%", () => {
+    const txns = [txn(100000, "business:client"), txn(-5000, "expense:software"), txn(-1000, "expense:meals")];
+    expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns, disallowed: 1000 }).fields["150"]).toBe("95000");
+    expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns }).fields["150"]).toBe("94000");
+    expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns, disallowed: 1000 }).fields["150"]).toBe("70000");
+  });
   it("real 2025 return matches the Tax Authority's assessment (08.10.2026): fund tax is final, nothing back", () => {
     const T25 = il.table(2025) as IlRates;
     const r = form1301({

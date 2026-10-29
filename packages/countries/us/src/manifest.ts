@@ -13,8 +13,11 @@ export const manifest: Manifest = {
   currency: "USD",
   businessTypes: (
     [
-      ["llc-disregarded", "transparent"],
+      ["sole-prop", "sole-proprietor"],
+      ["llc-us-owner", "transparent"],
+      ["llc-disregarded", "transparent"], // owned by a foreign person: Form 5472 + pro forma 1120
       ["llc-ccorp", "company"],
+      ["s-corp", "company"],
       ["llc-partnership", "partnership"],
     ] as const
   ).map(([key, treatment]) => ({ key, treatment, label: label(`biz.${key}`), sub: label(`biz.${key}.sub`) })),
@@ -22,12 +25,10 @@ export const manifest: Manifest = {
   legacyKinds: { "us-llc": "llc-disregarded" },
   taxYear: { start: "01-01", filingDue: "04-15", extendedDue: "10-15" },
   accounts: [
-    "revenue:music-royalties",
-    "revenue:plugin-sales",
-    "revenue:patreon",
     "revenue:services",
+    "revenue:sales",
+    "revenue:subscriptions",
     "other-income:cashback",
-    "cogs:ai-models",
     "cogs:hosting",
     "cogs:platform-fees",
     "expense:advertising",
@@ -38,7 +39,11 @@ export const manifest: Manifest = {
     "expense:equipment",
     "expense:meals",
     "expense:professional",
-    "expense:games",
+    "expense:rent",
+    "expense:insurance",
+    "expense:vehicle",
+    "expense:office",
+    "expense:contractors",
     "equity:owner",
     "transfer:internal",
   ],

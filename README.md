@@ -26,16 +26,22 @@ Bank sync, invoices, reports and tax forms for freelancers, Israeli osek and US 
 
 |  |  |
 |---|---|
-| **Bank sync** | Mercury API, Israeli banks and cards (Hapoalim, Leumi, Discount, Max, Cal, One Zero…), bit, any bank's CSV |
-| **Rules & review** | Classify once and it sticks. A keyboard-first queue clears the rest |
-| **Reports** | P&L, balance sheet, cash flow, general ledger. Monthly, total or vs last year |
-| **Invoices** | US invoices, Israeli חשבון עסקה / קבלה / חשבונית מס, matched to payments |
+| **Bank sync** | Mercury API, Plaid with your own keys (US, Canada, UK, EU), Israeli banks and cards (Hapoalim, Leumi, Discount, Max, Cal, One Zero…), bit, any bank's CSV |
+| **Transactions** | Filter by account, tag, method, review state or text. Bulk edit, split one payment across several ledger accounts, mark reviewed |
+| **Rules & review** | "If / then" rules classify once and stick, and can add tags. A keyboard-first queue clears the rest |
+| **Tags & smart tax tags** | Tag groups (one tag per group), colours, and tags that carry a tax meaning: 50% meals, a trip with a companion, a business-use share |
+| **Invoices, bills, vendors** | US invoices, Israeli חשבון עסקה / קבלה / חשבונית מס, customers and vendors. Payments match in full or in part, including the bills you owe |
+| **Reports** | P&L, balance sheet (US books), cash flow and cash flow analysis, general ledger, AR and AP aging. Cash basis; monthly, quarterly or total, vs last year, CSV |
+| **Books** | Editable chart of accounts, journal entries (paste from a spreadsheet), monthly reconciliation against the statement, a close date that locks finished periods |
 | **Tax** | 🇮🇱 Form 1301 over the official form, proof pack, osek zair planner · 🇺🇸 Form 5472 + pro forma 1120 |
+| **Taxximizer** | Compare business structures, then see what your receipts are worth: sourced Israeli and US deduction rules per expense, caps, missing receipts, and "tag these" suggestions you apply in one click |
 | **⌘K + AI** | Jump anywhere, run actions, ask your books with your own key or a local model |
 | **MCP** | Claude and other MCP clients read your books and propose changes you approve |
 | **Private** | One SQLite file. Secrets sealed with AES-256-GCM. Listens on 127.0.0.1 only |
 
 English and Hebrew (RTL), light and dark, and a privacy mode that scrambles every number for screen-shares. Israeli bank sync needs Chrome or Chromium installed.
+
+The deduction rules are researched and cite their sources, and each says how firm it is (statute, regulation, practice). They are a guide for your bookkeeping, not a tax position: the US side covers per-expense rules, not self-employment tax, QBI or state tax.
 
 ## Quick start
 
@@ -75,7 +81,12 @@ OPENBOOKS_HOME=examples/showcase bun apps/server/src/main.ts   # with the demo's
 claude mcp add openbooks -- /path/to/openbooks mcp
 ```
 
-Reads run on their own; anything that changes the books waits for your approval. Details in [docs/mcp.md](docs/mcp.md).
+Reads run on their own; anything that changes the books waits for your approval. 28 tools, among them:
+
+- **Read:** `list_transactions`, `profit_and_loss`, `balances`, `list_invoices`, `list_bills`, `aging_report` (AR or AP by due date), `deduction_summary` (what the rules let you deduct, receipts missing, money left on the table), `suggest_tax_tags`, `tax_summary`, `us_tax_estimate` (Schedule C, SE, QBI, 1040-ES, corporate and K-1 figures), `prepare_1099s` (who needs a 1099-NEC)
+- **Propose (approved by you):** `classify`, `set_rules`, `split_transaction`, `apply_tax_tag`, `add_journal_entry`, `create_invoice`, `draft_bill`
+
+Details in [docs/mcp.md](docs/mcp.md).
 
 ## Develop
 

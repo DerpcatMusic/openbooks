@@ -71,7 +71,7 @@ export default {
   "invoices.openTxn": "Open transaction",
   "invoices.receiptFromBill": "Create קבלה",
   "invoices.markUnpaid": "Mark unpaid",
-  "invoices.candHint": "Incoming payments since {date}: amount within 1% first, then payer name.",
+  "invoices.candHint": "Incoming payments since {date}: an exact fit first, then amount within 1%, then payer name.",
   "invoices.match.amount": "amount",
   "invoices.match.payer": "payer",
   "invoices.noCands": "No incoming payments after the issue date.",
@@ -107,7 +107,11 @@ export default {
   "connect.f.nationalID": "ID number (teudat zehut)",
   "connect.f.num": "Identification code",
   "connect.f.card6Digits": "First 6 digits of the card",
+  "connect.f.clientId": "Client ID",
+  "connect.f.secret": "Secret",
+  "connect.f.env": "Environment",
   "connect.p.mercury": "Mercury",
+  "connect.p.plaid": "Plaid",
   "connect.p.onezero": "One Zero",
   "connect.p.hapoalim": "Bank Hapoalim",
   "connect.p.leumi": "Bank Leumi",
@@ -135,6 +139,15 @@ export default {
     'The last 12 months. Anything on or before your latest One Zero PDF statement is skipped, and only money in counts unless the business is set to "import": "all".',
   "connections.what.ilBank": "About the last 12 months of account movements. Each sync keeps older rows from earlier syncs.",
   "connections.what.ilCard": "About the last 12 months of charges (in shekels, money out negative). Installments book on their charge date.",
+  "connections.what.plaid":
+    "Bank and card accounts over Plaid, with your own keys: about two years of transactions, then incremental syncs (US, Canada, UK, EU).",
+  "connections.plaidHint":
+    "Enter the client ID and secret from your Plaid dashboard, and the environment: sandbox to try test banks, production for real ones. The next step opens Plaid Link, where you log in to your bank.",
+  "connections.plaidNext": "Continue to Plaid Link",
+  "connections.plaidOpen": "Open Plaid Link",
+  "connections.plaidLink": "Log in to your bank in the Plaid window. OpenBooks never sees the bank login.",
+  "connections.plaidLoadFailed": "Plaid Link didn't load. Check the connection to plaid.com and try again.",
+  "connections.pill.plaid": "Waiting for Plaid Link",
   "connections.pill.failed": "Sync failed",
   "connections.pill.connected": "Connected",
   "connections.pill.waiting": "Waiting for SMS code",
@@ -175,7 +188,10 @@ export default {
   "connections.csvIntro":
     "Export transactions from your bank's website as CSV, then tell the app which column is which once. The mapping is saved, so later exports from the same bank are read automatically when you add them to Documents.",
   "connections.chooseCsv": "Choose a CSV file",
-  "connections.csvInfo": "{n} lines · split on {sep} · highlighted row is the header",
+  "connections.csvInfo": {
+    one: "{n} line · split on {sep} · highlighted row is the header",
+    other: "{n} lines · split on {sep} · highlighted row is the header",
+  },
   "connections.tabs": "tabs",
   "connections.headerRow": "Header row",
   "connections.rowN": "Row {n}: {cells}",
@@ -199,7 +215,7 @@ export default {
   "connections.profileLine": "→ {account} · {format} · columns: {cols}",
   "connections.confirmDeleteMapping": "Delete the mapping “{name}”? Files it reads stay in Documents but their transactions leave the books.",
   "connections.privacy":
-    "Logins stay on this computer, in the local books.db (readable only by you). They're never sent to the browser or anywhere but the bank itself.",
+    "Logins stay on this computer, in the local books.db (readable only by you). They're never sent to the browser or anywhere but the bank itself (for Plaid, Plaid).",
   "connections.scrapersNote":
     "Israeli banks and cards connect through the open-source israeli-bank-scrapers, which logs in the way you do on the bank's website (Israel's open-banking APIs are only open to licensed providers). When a bank changes its login, adds a 2FA step or shows a captcha, its connector can break until the library catches up. A CSV export always works.",
 
@@ -275,7 +291,7 @@ export default {
   "setup.kind.il": "Israeli osek zair / patur",
   "setup.kind.ilSub": "Shekels · Form 1301, Bituach Leumi, receipts",
   "setup.kind.us": "US single-member LLC",
-  "setup.kind.usSub": "Dollars · Form 5472 + 1120 for foreign owners, invoices",
+  "setup.kind.usSub": "Dollars · Schedule C, 1065, 1120, 1120-S, 5472, 1099-NEC, invoices",
   "setup.kind.other": "Something else",
   "setup.kind.otherSub": "Plain books: P&L, balance sheet, invoices",
   "setup.titleAdd": "Add a business",

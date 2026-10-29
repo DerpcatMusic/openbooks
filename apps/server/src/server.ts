@@ -3,9 +3,8 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { classify } from "@openbooks/core";
 import { csvPreview, handle, read } from "@openbooks/importers";
-import type { EntityMeta, Rule, StatementCheck } from "@openbooks/schema";
+import { type EntityMeta, isRuleInput, type RuleInput, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import { ask, configureAi, decide, langOf, loadAi, mcpHttpHandler, ollamaModels, paletteTools, publicAi, runTool, testAi } from "@openbooks/tools";
 import { foreign } from "./guard.ts";
@@ -26,7 +25,7 @@ export interface ServerOptions {
 }
 
 type R = Services;
-const RESERVED = new Set(["form", "profile", "overrides"]);
+const RESERVED = new Set(["form", "profile", "overrides", "rules"]);
 const KINDS = [".pdf", ".csv", ".json"];
 const ext = (f: string) => (f.includes(".") ? f.slice(f.lastIndexOf(".")).toLowerCase() : "");
 const json = (obj: unknown, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
@@ -354,7 +353,9 @@ export async function startServer(o: ServerOptions) {
       mkdirSync(dest, { recursive: true });
       writeFileSync(join(dest, name), raw);
       if (to !== "inbox") await publish({ entity: e, topics: ["docs"] }); // inbox: the ingest in state() publishes
-      return state(e);
+      const res = await state(e);
+      res.headers.set("X-OpenBooks-Filed", to === "inbox" ? "inbox" : "proofs"); // the app warns when a CSV or JSON wasn't taken as a statement
+      return res;
     }
     const b = body();
     if (path === "/api/csv-preview") {
@@ -372,23 +373,13 @@ export async function startServer(o: ServerOptions) {
         const ids = b.ids as string[],
           category = String(b.category);
         if (!Array.isArray(ids)) throw new Reply({ error: "bad request" }, 400);
-        await books((bs) =>
-          Effect.gen(function* () {
-            const r = classify(ids, category, yield* bs.rules(e), yield* bs.doc(e, "overrides", {}), (b.rule as string) || undefined);
-            if (b.rule) yield* bs.setRules(e, r.rules);
-            yield* bs.putDoc(e, "overrides", r.overrides);
-          }),
-        );
+        await books((bs) => bs.classify(e, ids, category, (b.rule as string) || undefined));
         break;
       }
       case "/api/rules":
-        if (!Array.isArray(b.rules)) throw new Reply({ error: "bad request" }, 400);
-        await books((bs) =>
-          bs.setRules(
-            e,
-            (b.rules as [unknown, unknown][]).map(([m, c]) => [String(m), String(c)] as Rule),
-          ),
-        );
+        // [match, account] tuples and/or { when, then } rules; anything else is a bad request (cleanRules assumes the shapes)
+        if (!Array.isArray(b.rules) || !b.rules.every(isRuleInput)) throw new Reply({ error: "bad request" }, 400);
+        await books((bs) => bs.setRules(e, b.rules as RuleInput[]));
         break;
       case "/api/form": {
         // {year, values: {key: value|null}}
@@ -504,6 +495,8 @@ export async function startServer(o: ServerOptions) {
         if (tag === "VaultLocked") return json({ error: "unlock OpenBooks in the app first" }, 423);
         if (tag === "AIError") return json({ error: (err as Error).message }, 400);
         if (tag === "UnknownEntity") return json({ error: "unknown entity" }, 404);
+        if (tag === "ClosedPeriod") return json({ error: (err as Error).message }, 409); // the books' close date refuses the write
+        if (tag === "BadInput") return json({ error: (err as Error).message }, 400); // a doc that breaks its own rules (unbalanced journal entry, split that doesn't add up…)
         console.error(`${req.method} ${u.pathname}: ${(err as Error)?.name ?? "error"}`); // never the message: it could carry request data
         return json({ error: "internal error" }, 500);
       }
