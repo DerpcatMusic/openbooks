@@ -26,6 +26,7 @@ export default {
   "charts.inout.title": "כסף נכנס ויוצא",
   "charts.inout.net": "נטו",
   "charts.inout.net6": "נטו ב־6 חודשים",
+  "charts.inout.empty": "לא נכנס ולא יצא כסף בשישה החודשים האלה.",
 
   "charts.nw.title": "שווי נקי",
   "charts.nw.currency": "מטבע",

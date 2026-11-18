@@ -26,6 +26,7 @@ export default {
   "charts.inout.title": "Money in and out",
   "charts.inout.net": "Net",
   "charts.inout.net6": "Net over 6 months",
+  "charts.inout.empty": "Nothing came in or went out in these six months.",
 
   "charts.nw.title": "Net worth",
   "charts.nw.currency": "Currency",

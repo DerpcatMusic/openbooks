@@ -98,7 +98,8 @@ export interface SpendNormal {
 export function spendVsNormal(ts: readonly Row[], p: Period, n = 3): SpendNormal[] {
   const spend = (q: Period) => {
     const m = new Map<string, number>();
-    for (const t of ts) if (inPeriod(t, q) && (plOf(t.category) === "expense" || plOf(t.category) === "cogs")) m.set(t.category, (m.get(t.category) ?? 0) - t.amount);
+    for (const t of ts)
+      if (inPeriod(t, q) && (plOf(t.category) === "expense" || plOf(t.category) === "cogs")) m.set(t.category, (m.get(t.category) ?? 0) - t.amount);
     return m;
   };
   // only periods the books reach back to count toward the average
@@ -117,4 +118,5 @@ export function spendVsNormal(ts: readonly Row[], p: Period, n = 3): SpendNormal
 }
 
 /** Bank and card fees in these transactions (positive): the bank-fees account and payment-platform fees. */
-export const bankFees = (ts: readonly Row[]) => r2(-ts.filter((t) => /^(expense:bank-fees|cogs:platform-fees)$/.test(t.category)).reduce((a, t) => a + t.amount, 0));
+export const bankFees = (ts: readonly Row[]) =>
+  r2(-ts.filter((t) => /^(expense:bank-fees|cogs:platform-fees)$/.test(t.category)).reduce((a, t) => a + t.amount, 0));

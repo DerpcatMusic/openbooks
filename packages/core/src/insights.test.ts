@@ -77,7 +77,14 @@ test("margins: only with revenue; net margin + expense ratio = 100; labels round
 
 test("spending against its own normal: average of the prior periods the books reach, null change without history", () => {
   const r = (date: string, amount: number, category = "expense:software") => ({ date, amount, category, account: "Bank" });
-  const ts = [r("2026-01-10", -100), r("2026-02-10", -100), r("2026-03-10", -160), r("2026-03-11", -40, "expense:travel"), r("2026-03-12", -5, "transfer:x"), r("2026-03-13", 900, "revenue:x")];
+  const ts = [
+    r("2026-01-10", -100),
+    r("2026-02-10", -100),
+    r("2026-03-10", -160),
+    r("2026-03-11", -40, "expense:travel"),
+    r("2026-03-12", -5, "transfer:x"),
+    r("2026-03-13", 900, "revenue:x"),
+  ];
   expect(spendVsNormal(ts, { from: "2026-03", to: "2026-03" }, 3)).toEqual([
     { key: "expense:software", value: 160, avg: 100, change: 0.6 },
     { key: "expense:travel", value: 40, avg: 0, change: null },

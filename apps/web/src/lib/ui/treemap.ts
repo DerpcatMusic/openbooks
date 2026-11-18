@@ -30,12 +30,12 @@ export function squarify<T extends { value: number }>(items: readonly T[], box: 
       // a column on the left, as wide as the row's area needs
       const cw = s / r.h;
       let y = r.y;
-      for (const i of row) out.push({ x: r.x, y, w: cw, h: area(i) / cw, item: i }), (y += area(i) / cw);
+      for (const i of row) (out.push({ x: r.x, y, w: cw, h: area(i) / cw, item: i }), (y += area(i) / cw));
       r = { x: r.x + cw, y: r.y, w: r.w - cw, h: r.h };
     } else {
       const rh = s / r.w;
       let x = r.x;
-      for (const i of row) out.push({ x, y: r.y, w: area(i) / rh, h: rh, item: i }), (x += area(i) / rh);
+      for (const i of row) (out.push({ x, y: r.y, w: area(i) / rh, h: rh, item: i }), (x += area(i) / rh));
       r = { x: r.x, y: r.y + rh, w: r.w, h: r.h - rh };
     }
     row = [];

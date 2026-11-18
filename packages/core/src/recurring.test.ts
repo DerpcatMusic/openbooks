@@ -14,7 +14,11 @@ test("monthly subscription with a few days of drift is found, with the next date
 
 test("each cadence", () => {
   const every = (days: number, n: number) => Array.from({ length: n }, (_, i) => new Date(Date.UTC(2025, 0, 6 + i * days)).toISOString().slice(0, 10));
-  const cad = (days: number) => recurring(every(days, 4).map((d) => row(d, -10, "X")), "2025-01-06")[0]?.cadence;
+  const cad = (days: number) =>
+    recurring(
+      every(days, 4).map((d) => row(d, -10, "X")),
+      "2025-01-06",
+    )[0]?.cadence;
   expect(cad(7)).toBe("weekly");
   expect(cad(14)).toBe("biweekly");
   expect(cad(91)).toBe("quarterly");

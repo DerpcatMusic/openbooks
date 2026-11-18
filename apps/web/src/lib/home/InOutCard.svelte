@@ -29,7 +29,7 @@
   <span class="text-[13px] text-sub">{t("charts.inout.net6")} <Money value={net} {currency} cents={false} plus class={net < 0 ? "text-bad" : "text-good"} /></span>
 </div>
 {#if rows.every((r) => !r.v.in && !r.v.out)}
-  <p class="py-10 text-center text-[14px] text-sub">{t("chart.nothing")}</p>
+  <p class="py-10 text-center text-[14px] text-sub">{t("charts.inout.empty")}</p>
 {:else}<Bars
   layout="group"
   height={240}

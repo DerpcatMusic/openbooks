@@ -4,7 +4,11 @@ import { squarify } from "./treemap.ts";
 import { breakdown, netSeries, rangeStart } from "./networth.ts";
 
 const it = (key: string, value: number): FlowItem => ({ key, label: key, value, color: "red" });
-const meta = { mid: { key: "mid", label: "In", color: "x" }, surplus: { key: "~surplus", label: "S", color: "x" }, deficit: { key: "~deficit", label: "D", color: "x" } };
+const meta = {
+  mid: { key: "mid", label: "In", color: "x" },
+  surplus: { key: "~surplus", label: "S", color: "x" },
+  deficit: { key: "~deficit", label: "D", color: "x" },
+};
 const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThan(1e-6);
 
 function conserves(r: ReturnType<typeof sankey>) {
@@ -15,9 +19,12 @@ function conserves(r: ReturnType<typeof sankey>) {
   // every link is as thick as its outer node, links in and out of the middle tile its bar exactly with no gap
   for (const side of [0, 2]) {
     const ls = r.links.filter((l) => (side === 0 ? l.to : l.from) === mid);
-    near(ls.reduce((a, l) => a + l.w, 0), mid.h);
+    near(
+      ls.reduce((a, l) => a + l.w, 0),
+      mid.h,
+    );
     let y = mid.y;
-    for (const l of ls) near(side === 0 ? l.y1 : l.y0, y), (y += l.w);
+    for (const l of ls) (near(side === 0 ? l.y1 : l.y0, y), (y += l.w));
   }
   for (const l of r.links) near(l.w, (l.from.col === 0 ? l.from : l.to).h);
   // outer nodes in a column never overlap and stay inside the chart
