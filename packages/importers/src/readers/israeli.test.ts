@@ -14,9 +14,10 @@ const raw = (n: string) => readFileSync(join(FX, n));
 const file = (n: string, as = n) => ({ name: as, bytes: new Uint8Array(raw(n)) });
 const py = JSON.parse(raw("python.json").toString()) as Record<string, { rows: unknown[]; checks: unknown[]; uidAmounts: string[] }>;
 const ctx = (meta: object = {}) => ({ meta: { name: "t", ...meta }, profile: {}, siblingPdfPeriods: () => [["2025-03-01", "2025-03-31"] as [string, string]] });
-const same = (name: string, out: { rows: { amount: number }[]; checks: unknown[] }) => {
+// books.py reported no checks for scraper files; the balance check (reconciliation) is added on top: `scraperChecks` is what it must be
+const same = (name: string, out: { rows: { amount: number }[]; checks: unknown[] }, scraperChecks?: unknown[]) => {
   expect(out.rows).toEqual(py[name]!.rows);
-  expect(out.checks).toEqual(py[name]!.checks);
+  expect(out.checks).toEqual(scraperChecks ?? py[name]!.checks);
   expect(out.rows.map((r) => uidAmount(r as never))).toEqual(py[name]!.uidAmounts);
 };
 
@@ -56,7 +57,9 @@ describe("One Zero", () => {
 describe("israeli-bank-scrapers", () => {
   it("reads banks and cards like books.py (pending skipped, twin rows, installments, foreign currency memo)", () => {
     const hap = scraperJson(file("hapoalim-sync.json"));
-    same("hapoalim", hap);
+    same("hapoalim", hap, [
+      { file: "hapoalim-sync.json", label: "Hapoalim ••1234", period: ["2025-01-01", "not a date"], parsed: 950.66, total: 900, balance: true }, // sums every row since the account began
+    ]);
     expect(hap.rows.slice(0, 3).map((r) => r.date)).toEqual(["2025-03-02", "2025-03-06", "2025-03-06"]);
     expect(new Set(hap.rows.map((r) => r.key)).size).toBe(hap.rows.length);
     const max = scraperJson(file("max-sync.json"));
