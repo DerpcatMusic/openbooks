@@ -72,6 +72,7 @@
         { href: "/payroll", label: t("nav.payroll"), icon: "users" },
         { href: "/documents", label: t("nav.documents"), icon: "folder" },
         { href: "/connections", label: t("nav.connections"), icon: "wallet" },
+        { href: "/history", label: t("nav.history"), icon: "list" },
       ],
     ],
     ...(S.data && !family()

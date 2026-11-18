@@ -14,9 +14,16 @@ afterAll(() => tmps.forEach((d) => rmSync(d, { recursive: true, force: true })))
 
 /** inbox/*.json = [{ id, date, amount }]: one row each. */
 const read: Read = (file) => {
-  const rows = (JSON.parse(new TextDecoder().decode(file.bytes)) as { id: string; date: string; amount: number }[]).map(
-    (t): StatementRow => ({ date: t.date, amount: t.amount, desc: t.id, source: "bank", account: "Bank", file: file.name, page: 1, key: t.id }),
-  );
+  const rows = (JSON.parse(new TextDecoder().decode(file.bytes)) as { id: string; date: string; amount: number }[]).map((t): StatementRow => ({
+    date: t.date,
+    amount: t.amount,
+    desc: t.id,
+    source: "bank",
+    account: "Bank",
+    file: file.name,
+    page: 1,
+    key: t.id,
+  }));
   return { rows, checks: [], uidAmount: () => "" }; // the id doesn't move with the amount (like a bank's own transaction id)
 };
 const home = () => {
@@ -37,12 +44,23 @@ const setup = (h: string) =>
 const auditRows = (h: string) => {
   const db = new Database(join(h, "books.db"));
   try {
-    return db.query<{ actor: string; kind: string; target: string; before: string; after: string }, []>("select actor, kind, target, before, after from audit order by rowid").all();
+    return db
+      .query<{ actor: string; kind: string; target: string; before: string; after: string }, []>(
+        "select actor, kind, target, before, after from audit order by rowid",
+      )
+      .all();
   } finally {
     db.close();
   }
 };
-const draft = (id: string, issued = "2026-03-01") => ({ id, kind: "receipt", number: null, status: "draft", issued, items: [{ desc: "x", qty: 1, price: 100 }] });
+const draft = (id: string, issued = "2026-03-01") => ({
+  id,
+  kind: "receipt",
+  number: null,
+  status: "draft",
+  issued,
+  items: [{ desc: "x", qty: 1, price: 100 }],
+});
 const issued = <T extends object>(d: T) => ({ ...d, status: "paid" });
 
 test("issuing via putDoc: the server numbers, refuses edits/deletes/renumbers/backdates, and a stale tab can't take the same number", async () => {
@@ -59,11 +77,33 @@ test("issuing via putDoc: the server numbers, refuses edits/deletes/renumbers/ba
       yield* b.putDoc("co", "invoices", tab1);
       const stale = yield* Effect.flip(b.putDoc("co", "invoices", tab2)); // would un-issue a
       const now = yield* b.doc<{ id: string; number: string | null; status: string }[]>("co", "invoices", []);
-      yield* b.putDoc("co", "invoices", now.map((d) => (d.id === "b" ? issued(d) : d)));
+      yield* b.putDoc(
+        "co",
+        "invoices",
+        now.map((d) => (d.id === "b" ? issued(d) : d)),
+      );
       const both = yield* b.doc<{ id: string; number: string | null }[]>("co", "invoices", []);
-      const edit = yield* Effect.flip(b.putDoc("co", "invoices", both.map((d) => (d.id === "a" ? { ...d, items: [] } : d))));
-      const renumber = yield* Effect.flip(b.putDoc("co", "invoices", both.map((d) => (d.id === "a" ? { ...d, number: "0009" } : d))));
-      const del = yield* Effect.flip(b.putDoc("co", "invoices", both.filter((d) => d.id !== "a")));
+      const edit = yield* Effect.flip(
+        b.putDoc(
+          "co",
+          "invoices",
+          both.map((d) => (d.id === "a" ? { ...d, items: [] } : d)),
+        ),
+      );
+      const renumber = yield* Effect.flip(
+        b.putDoc(
+          "co",
+          "invoices",
+          both.map((d) => (d.id === "a" ? { ...d, number: "0009" } : d)),
+        ),
+      );
+      const del = yield* Effect.flip(
+        b.putDoc(
+          "co",
+          "invoices",
+          both.filter((d) => d.id !== "a"),
+        ),
+      );
       const wipe = yield* Effect.flip(b.putDoc("co", "invoices", null));
       const back = yield* Effect.flip(b.putDoc("co", "invoices", [...both, issued(draft("c", "2026-02-01"))]));
       return { stale, both, edit, renumber, del, wipe, back };
@@ -132,8 +172,16 @@ test("audit: each write records actor, kind and the changed items in its own tra
     Effect.gen(function* () {
       const b = yield* Books;
       yield* b.putDoc("co", "customers", [{ id: "c1", name: "Dana" }]);
-      yield* b.putDoc("co", "customers", [{ id: "c1", name: "Dana" }, { id: "c2", name: "Avi" }]).pipe(Effect.provideService(Actor, "mcp"));
-      yield* b.putDoc("co", "customers", [{ id: "c1", name: "Dana" }, { id: "c2", name: "Avi" }]); // no change: no row
+      yield* b
+        .putDoc("co", "customers", [
+          { id: "c1", name: "Dana" },
+          { id: "c2", name: "Avi" },
+        ])
+        .pipe(Effect.provideService(Actor, "mcp"));
+      yield* b.putDoc("co", "customers", [
+        { id: "c1", name: "Dana" },
+        { id: "c2", name: "Avi" },
+      ]); // no change: no row
       yield* b.setRules("co", [["Stripe", "revenue:sales"]]).pipe(Effect.provideService(Actor, "ai"));
       yield* b.setMeta("co", { short: "C" });
       yield* b.putDoc("co", "invoices", [issued(draft("a"))]);
@@ -152,7 +200,10 @@ test("audit: each write records actor, kind and the changed items in its own tra
   expect(JSON.parse(rows[1]!.before)).toEqual([]);
   expect(JSON.parse(rows[1]!.after)).toEqual([{ id: "c2", name: "Avi" }]); // only the changed item
   expect(JSON.parse(rows[3]!.after)).toEqual({ short: "C" });
-  const b = await run(h, Effect.flatMap(Books, (b) => b.audit("co", { kind: "meta" })));
+  const b = await run(
+    h,
+    Effect.flatMap(Books, (b) => b.audit("co", { kind: "meta" })),
+  );
   expect(b).toHaveLength(1);
 });
 
@@ -199,7 +250,18 @@ test("close date: meta currency / closed business type, trips, payroll and tags 
   await setup(h);
   statement(h, "a.json", [{ id: "t", date: "2025-01-10", amount: -50 }]);
   const trip = { id: "t1", name: "Berlin", start: "2025-01-05", end: "2025-01-08", country: "DE", nights: 3, businessDays: 4 };
-  const pay = { id: "r1", period: "2025-01", payDate: "2025-01-31", gross: 100, employerTaxes: 0, employeeWithholding: 0, benefits: 0, net: 100, provider: "X", payments: [] };
+  const pay = {
+    id: "r1",
+    period: "2025-01",
+    payDate: "2025-01-31",
+    gross: 100,
+    employerTaxes: 0,
+    employeeWithholding: 0,
+    benefits: 0,
+    net: 100,
+    provider: "X",
+    payments: [],
+  };
   const r = await run(
     h,
     Effect.gen(function* () {

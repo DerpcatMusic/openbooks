@@ -548,16 +548,19 @@ export const makeBooks = (opts: BooksOptions) =>
               closedImport: blocked && last ? { at: last.at, ...blocked } : null,
               brokenSplits: Object.keys(splits).filter((id) => !ok(id, amounts.get(id))),
             };
-            return { ...assemble(db, join(home, e), e, {
-              entity: { id: e, ...m! },
-              entities: listEntities(),
-              txns: [...txns],
-              form: getDoc(e, "form", {}),
-              profile: getDoc(e, "profile", {}),
-              rules: getRules(e),
-              docs: Object.fromEntries(docs.map((d) => [d.name, JSON.parse(d.value) as unknown])),
-              taxTables: taxTables(getDoc("_app", "taxtables", {})),
-            }), integrity };
+            return {
+              ...assemble(db, join(home, e), e, {
+                entity: { id: e, ...m! },
+                entities: listEntities(),
+                txns: [...txns],
+                form: getDoc(e, "form", {}),
+                profile: getDoc(e, "profile", {}),
+                rules: getRules(e),
+                docs: Object.fromEntries(docs.map((d) => [d.name, JSON.parse(d.value) as unknown])),
+                taxTables: taxTables(getDoc("_app", "taxtables", {})),
+              }),
+              integrity,
+            };
           });
         }),
       audit: (e, q) => on(e, () => readAudit(db, e, q)),

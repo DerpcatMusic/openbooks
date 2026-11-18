@@ -1,6 +1,8 @@
 // Invoices, bills and receipts: pure helpers over the books docs "invoices" and "customers" (port of web/src/lib/invoices.js + VAT).
 // invoice: { id, kind, number: null until issued, customer, items: [{ desc, qty, price }], issued, due, currency, notes, method,
-//            status: "draft"|"open"|"paid", paidTxn, paidDate, ref, created, vat?, noVat? }
+//            status: "draft"|"open"|"paid"|"cancelled", paidTxn, paidDate, ref, created, vat?, noVat?, prints?, cancels?, cancelledBy? }
+// The server numbers a document when it is issued and never lets it change or go away after that (core documents.ts): it is
+// cancelled by issuing a "credit" document that points at it.
 // US books issue "invoice". Israeli exempt books (osek patur / zair) issue "bill" (חשבון עסקה) and "receipt" (קבלה), never a
 // חשבונית מס. VAT-registered Israeli books (osek murshe, ltd) also issue "tax" (חשבונית מס) and add VAT to every document.
 // `vat` is the rate frozen on the document when it is saved (from the issue year's table), so issued documents never change.
@@ -9,7 +11,7 @@ import { isBiz, paidOf, payerOf, similarity, type Payment } from "@openbooks/cor
 export { similarity };
 import type { Txn } from "@openbooks/schema";
 
-export type Kind = "invoice" | "bill" | "receipt" | "tax";
+export type Kind = "invoice" | "bill" | "receipt" | "tax" | "credit";
 export interface Line {
   desc: string;
   qty: number | string;
@@ -26,7 +28,7 @@ export interface Invoice {
   currency?: string;
   notes?: string;
   method?: string;
-  status: "draft" | "open" | "paid";
+  status: "draft" | "open" | "paid" | "cancelled";
   paidTxn: string | null;
   paidDate: string | null;
   /** Partial payments applied (see Payment in core). Missing = none, or one payment of the whole total when status is "paid". */
@@ -41,6 +43,12 @@ export interface Invoice {
   noVat?: boolean;
   /** Tax Authority allocation number (מספר הקצאה), needed on a tax invoice above the threshold; goes into the PCN874 file. */
   alloc?: string;
+  /** Server-kept: times the issued document was printed (the first print is the original, later ones copies). */
+  prints?: number;
+  /** A credit: the id of the document it cancels. */
+  cancels?: string;
+  /** Server-kept on a cancelled document: the credit that cancelled it. */
+  cancelledBy?: string;
 }
 export interface Customer {
   id: string;
@@ -50,7 +58,7 @@ export interface Customer {
   /** Licensed-dealer (עוסק מורשה) or company number: required on a tax invoice above 5,000 before VAT and written into PCN874. */
   vatId?: string;
 }
-export type Status = "draft" | "unpaid" | "partial" | "overdue" | "paid";
+export type Status = "draft" | "unpaid" | "partial" | "overdue" | "paid" | "cancelled" | "credit";
 
 export const today = () => new Date().toLocaleDateString("sv"); // local YYYY-MM-DD
 export const addDays = (iso: string, n: number) => {
@@ -73,9 +81,11 @@ export const total = (inv: Pick<Invoice, "items" | "vat">) => r2(net(inv) + vatO
 
 /** What has been paid on an invoice: the payments applied, else its whole total when it was marked paid the old way. A receipt documents a payment. */
 export const paidAmount = (inv: Invoice) =>
-  inv.kind === "receipt" ? total(inv) : inv.payments?.length ? paidOf(inv.payments) : inv.status === "paid" ? total(inv) : 0;
-/** Still owed: the total less what was paid (0 for a draft, a receipt or a settled invoice). */
-export const owedOf = (inv: Invoice) => (inv.status === "draft" || inv.kind === "receipt" ? 0 : Math.max(0, r2(total(inv) - paidAmount(inv))));
+  inv.kind === "credit" ? 0 : inv.kind === "receipt" ? total(inv) : inv.payments?.length ? paidOf(inv.payments) : inv.status === "paid" ? total(inv) : 0;
+/** Not asking for money: a draft, a receipt, a cancelled document or the credit that cancelled it. */
+const settled = (inv: Invoice) => inv.status === "draft" || inv.status === "cancelled" || inv.kind === "receipt" || inv.kind === "credit";
+/** Still owed: the total less what was paid (0 for a draft, a receipt, a cancelled document, a credit or a settled invoice). */
+export const owedOf = (inv: Invoice) => (settled(inv) ? 0 : Math.max(0, r2(total(inv) - paidAmount(inv))));
 /** Issued, still owing and past its due date (a partly paid invoice counts). */
 export const isLate = (inv: Invoice, now = today()) => !!inv.due && inv.due < now && owedOf(inv) > 0;
 
@@ -83,6 +93,8 @@ export const isLate = (inv: Invoice, now = today()) => !!inv.due && inv.due < no
  *  order); isLate tells whether it is past due as well. */
 export function status(inv: Invoice, now = today()): Status {
   if (inv.status === "draft") return "draft";
+  if (inv.status === "cancelled") return "cancelled";
+  if (inv.kind === "credit") return "credit";
   if (inv.status === "paid" || inv.kind === "receipt") return "paid";
   const t = total(inv),
     p = paidAmount(inv);
@@ -120,13 +132,26 @@ export function apply(
   return a > 0 ? [...have, { id, txn: txn?.id ?? null, amount: a, date: txn?.date ?? date }] : have;
 }
 
-/** Next number in this kind's series. Numbers are given only when a document is issued, and only drafts can be deleted,
- *  so max+1 never reuses a number. US: INV-0001. IL: one running series per document type, 0001. */
-export function nextNumber(invoices: readonly Invoice[], kind: Kind) {
-  const prefix = kind === "invoice" ? "INV-" : "";
-  const max = Math.max(0, ...invoices.filter((i) => i.kind === kind && i.number).map((i) => +String(i.number).replace(/\D/g, "") || 0));
-  return prefix + String(max + 1).padStart(4, "0");
-}
+/** The credit that cancels `src`, as the client sends it: the server copies the content (negated), numbers it and cancels `src`. */
+export const creditFor = (src: Invoice, id: string, issued: string): Invoice => ({
+  id,
+  kind: "credit",
+  number: null,
+  customer: src.customer,
+  items: [],
+  issued,
+  due: null,
+  currency: src.currency,
+  status: "open",
+  paidTxn: null,
+  paidDate: null,
+  ref: src.number,
+  refKind: src.kind,
+  cancels: src.id,
+  created: new Date().toISOString(),
+});
+/** Can be cancelled: issued, not cancelled already, not itself a credit. */
+export const cancellable = (inv: Invoice) => inv.status !== "draft" && inv.status !== "cancelled" && inv.kind !== "credit";
 
 // money in that is never a customer paying: own transfers, owner money, cashback, savings, IDF pay
 const NOT_PAYMENT = new Set(["transfer", "own", "equity", "other-income", "capital", "exempt"]);

@@ -18,7 +18,16 @@ afterAll(() => {
 const post = (path: string, body: unknown) => http(s.port, "POST", `${path}?e=acme`, body);
 const invoices = async () => ((await http(s.port, "GET", "/api/state?e=acme")).json() as J).docs.invoices as J[];
 const save = (value: unknown) => post("/api/doc", { name: "invoices", value });
-const inv = (id: string, o: J = {}) => ({ id, kind: "invoice", number: null, customer: null, items: [{ desc: "x", qty: 1, price: 10 }], issued: "2026-03-10", status: "draft", ...o });
+const inv = (id: string, o: J = {}) => ({
+  id,
+  kind: "invoice",
+  number: null,
+  customer: null,
+  items: [{ desc: "x", qty: 1, price: 10 }],
+  issued: "2026-03-10",
+  status: "draft",
+  ...o,
+});
 
 test("/api/doc: the server numbers issued documents and refuses edit, delete, renumber and backdate", async () => {
   expect((await save([inv("a"), inv("b")])).status).toBe(200);
@@ -26,13 +35,7 @@ test("/api/doc: the server numbers issued documents and refuses edit, delete, re
   let docs = await invoices();
   expect(docs.map((d) => d.number)).toEqual(["INV-0001", null]);
   const a = docs[0]!;
-  for (const bad of [
-    [{ ...a, items: [] }, docs[1]],
-    [{ ...a, number: "INV-0002" }, docs[1]],
-    [{ ...a, status: "draft" }, docs[1]],
-    [docs[1]],
-    null,
-  ]) {
+  for (const bad of [[{ ...a, items: [] }, docs[1]], [{ ...a, number: "INV-0002" }, docs[1]], [{ ...a, status: "draft" }, docs[1]], [docs[1]], null]) {
     const r = await save(bad);
     expect(r.status, JSON.stringify(bad)).toBe(400);
     expect((r.json() as J).error).toContain("INV-0001");

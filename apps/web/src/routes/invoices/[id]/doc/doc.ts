@@ -3,11 +3,16 @@
 import type { Kind } from "../../invoices.ts";
 
 const he = {
-  kind: { invoice: "חשבונית", bill: "חשבון עסקה", receipt: "קבלה", tax: "חשבונית מס" } as Record<Kind, string>,
+  kind: { invoice: "חשבונית", bill: "חשבון עסקה", receipt: "קבלה", tax: "חשבונית מס", credit: "מסמך ביטול" } as Record<Kind, string>,
+  /** A credit that cancels a tax invoice. */
+  creditTax: "חשבונית מס זיכוי",
+  cancelledMark: "מבוטל",
+  cancels: (doc: string, ref: string) => `מבטל את ${doc} מס׳ ${ref}`,
+  totalCredit: "סה״כ זיכוי",
   draft: "טיוטה",
   paidMark: "שולם",
   original: "מקור",
-  copy: "העתק",
+  copy: "העתק נאמן למקור",
   patur: "עוסק פטור מס׳",
   murshe: "עוסק מורשה מס׳",
   companyNo: "ח.פ.",
@@ -40,11 +45,15 @@ const he = {
 type Words = typeof he;
 
 const en: Words = {
-  kind: { invoice: "Invoice", bill: "Payment request", receipt: "Receipt", tax: "Tax invoice" },
+  kind: { invoice: "Invoice", bill: "Payment request", receipt: "Receipt", tax: "Tax invoice", credit: "Credit note" },
+  creditTax: "Tax credit note",
+  cancelledMark: "CANCELLED",
+  cancels: (doc, ref) => `Cancels ${doc.toLowerCase()} no. ${ref}`,
+  totalCredit: "Total credited",
   draft: "DRAFT",
   paidMark: "PAID",
   original: "Original",
-  copy: "Copy",
+  copy: "True copy of the original",
   patur: "VAT-exempt dealer no.",
   murshe: "VAT reg. no.",
   companyNo: "Company no.",

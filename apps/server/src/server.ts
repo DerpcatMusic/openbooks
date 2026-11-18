@@ -325,7 +325,11 @@ export async function startServer(o: ServerOptions) {
           return v;
         };
       const limit = Number.parseInt(q.get("limit") ?? "", 10);
-      return json({ entries: await books((b) => b.audit(e, { kind: opt("kind"), target: opt("target"), from: day("from"), to: day("to"), limit: Number.isFinite(limit) ? limit : 200 })) });
+      return json({
+        entries: await books((b) =>
+          b.audit(e, { kind: opt("kind"), target: opt("target"), from: day("from"), to: day("to"), limit: Number.isFinite(limit) ? limit : 200 }),
+        ),
+      });
     }
     if (path === "/api/pack") {
       const e = await entity(q.get("e"));

@@ -1708,7 +1708,9 @@ const audit_log = defineTool({
   kind: "read",
   input: input({
     kind: Schema.optionalKey(Schema.Literals(["doc", "rules", "meta", "classify", "ingest", "secrets", "print"])),
-    target: Schema.optionalKey(S.check(Schema.isMaxLength(100)).annotate({ description: "A doc name (invoices, journal, …), rules, entity, inbox, or invoices/<number> for prints" })),
+    target: Schema.optionalKey(
+      S.check(Schema.isMaxLength(100)).annotate({ description: "A doc name (invoices, journal, …), rules, entity, inbox, or invoices/<number> for prints" }),
+    ),
     from: Schema.optionalKey(pattern(DATE_RE, "First day, YYYY-MM-DD (UTC)")),
     to: Schema.optionalKey(pattern(DATE_RE, "Last day, YYYY-MM-DD (UTC)")),
     limit: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 500 })).annotate({ description: "Default 50" })),
@@ -1719,7 +1721,9 @@ const audit_log = defineTool({
   run: (a, ctx) =>
     Effect.gen(function* () {
       const e = yield* entityOf(a, ctx);
-      const rows = yield* Books.use((b) => b.audit(e.id, { kind: a.kind, target: a.target, from: a.from, to: a.to, limit: a.limit ?? 50 })).pipe(Effect.mapError(gone(e.id)));
+      const rows = yield* Books.use((b) => b.audit(e.id, { kind: a.kind, target: a.target, from: a.from, to: a.to, limit: a.limit ?? 50 })).pipe(
+        Effect.mapError(gone(e.id)),
+      );
       return { entries: rows.map(({ entity: _, ...r }) => r) };
     }),
 });

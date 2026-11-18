@@ -90,8 +90,6 @@ export default {
   // ---- printed document: screen-only toolbar ----
   "invoiceDoc.print": "הדפסה / שמירה כ־PDF",
   "invoiceDoc.notFound": "המסמך לא נמצא.",
-  "invoiceDoc.showOriginal": "הצגת מקור",
-  "invoiceDoc.showCopy": "הצגת העתק",
 
   // ---- providers (lib/connect.js) ----
   "connect.g.us": "ארצות הברית",

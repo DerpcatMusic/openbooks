@@ -31,7 +31,10 @@ export const connectionStoreLayer = (home: string, db: Database) =>
               db
                 .transaction(() => {
                   // the audit row names the connections added or removed, never their contents (credentials, tokens)
-                  const before = db.query<{ provider: string }, [string]>("select provider from secret where entity = ? order by provider").all(e).map((r) => r.provider);
+                  const before = db
+                    .query<{ provider: string }, [string]>("select provider from secret where entity = ? order by provider")
+                    .all(e)
+                    .map((r) => r.provider);
                   db.query("delete from secret where entity = ?").run(e);
                   const ins = db.query("insert into secret values (?, ?, ?)");
                   for (const [p, v] of Object.entries(rows)) ins.run(e, p, JSON.stringify(v));

@@ -68,7 +68,10 @@ export interface IngestOptions {
 }
 
 type Row = [string, string, string, number, string, string, string, string];
-const fileOf = (data: string) => String((JSON.parse(data) as { file?: unknown }).file ?? "");
+const fileOf = (data: string) => {
+  const f = (JSON.parse(data) as { file?: unknown }).file;
+  return typeof f === "string" ? f : "";
+};
 
 /**
  * Re-reads every statement when the {file: sig} map differs from the statement table (overlapping statements dedupe
@@ -120,9 +123,11 @@ export function ingest(db: Database, inbox: string, e: string, read: Read, ctx: 
     }
   }
   db.transaction(() => {
-    const old = db.query<{ id: string; date: string; amount: number; account: string; desc: string; source: string; data: string }, [string]>(
-      "select id, date, amount, account, desc, source, data from txn where entity = ? order by date, rowid",
-    ).all(e);
+    const old = db
+      .query<{ id: string; date: string; amount: number; account: string; desc: string; source: string; data: string }, [string]>(
+        "select id, date, amount, account, desc, source, data from txn where entity = ? order by date, rowid",
+      )
+      .all(e);
     const was = new Map(old.map((o) => [o.id, [e, o.id, o.date, o.amount, o.account, o.desc, o.source, o.data] as Row]));
     const closed = (date: string) => !!opts.close && date <= opts.close;
     const blocked = { added: 0, removed: 0, changed: 0 };
@@ -134,7 +139,11 @@ export function ingest(db: Database, inbox: string, e: string, read: Read, ctx: 
       if (o.join("\u0000") !== t.join("\u0000")) blocked.changed++;
       return [o];
     });
-    for (const o of old) if (closed(o.date) && !now.has(o.id)) (blocked.removed++, rows.push(was.get(o.id)!));
+    for (const o of old)
+      if (closed(o.date) && !now.has(o.id)) {
+        blocked.removed++;
+        rows.push(was.get(o.id)!);
+      }
     const kept = new Set(rows.map((t) => t[1]));
     const files: IngestSummary["files"] = {};
     const tally = (f: string, k: "added" | "removed") => ((files[f] ??= { added: 0, removed: 0 })[k] += 1);

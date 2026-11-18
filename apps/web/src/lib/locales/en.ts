@@ -24,6 +24,7 @@ import filingsUs from "./parts/filings-us.en.ts";
 import qa2 from "./parts/qa2.en.ts";
 import banks from "./parts/banks.en.ts";
 import money from "./parts/money.en.ts";
+import integrity from "./parts/integrity.en.ts";
 export default {
   ...a,
   ...b,
@@ -49,6 +50,7 @@ export default {
   ...qa2,
   ...banks,
   ...money,
+  ...integrity,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

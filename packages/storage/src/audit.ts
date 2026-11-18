@@ -41,7 +41,10 @@ export function delta(before: unknown, after: unknown): { before: unknown; after
   }
   if (isObj(before) && isObj(after)) {
     const ks = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((k) => canon(before[k]) !== canon(after[k]));
-    return { before: Object.fromEntries(ks.filter((k) => k in before).map((k) => [k, before[k]])), after: Object.fromEntries(ks.filter((k) => k in after).map((k) => [k, after[k]])) };
+    return {
+      before: Object.fromEntries(ks.filter((k) => k in before).map((k) => [k, before[k]])),
+      after: Object.fromEntries(ks.filter((k) => k in after).map((k) => [k, after[k]])),
+    };
   }
   return { before, after };
 }
@@ -84,12 +87,16 @@ export interface AuditQuery {
 }
 /** Newest first. */
 export function readAudit(db: Database, e: string, q: AuditQuery = {}): AuditRow[] {
-  const where = ["entity = ?"],
-    args: (string | number)[] = [e];
-  if (q.kind) where.push("kind = ?"), args.push(q.kind);
-  if (q.target) where.push("target = ?"), args.push(q.target);
-  if (q.from) where.push("at >= ?"), args.push(q.from);
-  if (q.to) where.push("at < ?"), args.push(`${q.to}~`); // ISO timestamps of that day sort before "YYYY-MM-DD~"
+  // ISO timestamps of the `to` day all sort before "YYYY-MM-DD~"
+  const filters: [string, string | undefined][] = [
+    ["kind = ?", q.kind],
+    ["target = ?", q.target],
+    ["at >= ?", q.from],
+    ["at < ?", q.to && `${q.to}~`],
+  ];
+  const set = filters.filter((f): f is [string, string] => !!f[1]);
+  const where = ["entity = ?", ...set.map((f) => f[0])],
+    args: (string | number)[] = [e, ...set.map((f) => f[1])];
   args.push(Math.max(1, Math.min(q.limit ?? 200, 1000)));
   return db
     .query<Omit<AuditRow, "before" | "after"> & { before: string | null; after: string | null }, (string | number)[]>(
