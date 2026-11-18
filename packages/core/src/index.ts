@@ -16,6 +16,7 @@ export * from "./country.ts";
 export * from "./accrual.ts";
 export * from "./autolink.ts";
 export * from "./insights.ts";
+export * from "./recurring.ts";
 export * from "./trips.ts";
 export * from "./basis.ts";
 export * from "./xlsx.ts";

@@ -1,7 +1,7 @@
 // Home-dashboard numbers (docs/mercury-books-spec.md section 11): net cash flow, monthly burn, runway, coverage, margins. Pure.
 // "Cash" is every bank account that is not a credit card (the same as the Cash card); a card purchase is not cash out until the card is paid.
 import type { Txn } from "@openbooks/schema";
-import { isCard, pl } from "./reports.ts";
+import { inPeriod, isCard, pl, plOf, priorPeriod, type Period } from "./reports.ts";
 
 type Row = Pick<Txn, "date" | "amount" | "category" | "account">;
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -78,3 +78,39 @@ export const pctLabel = (v: number) => {
   const r = Math.round(v);
   return v > 0 && r < 1 ? "<1%" : `${r === 0 ? 0 : r}%`;
 };
+
+// ---------- spending against normal (Reports treemap, the anomaly insight) ----------
+export interface SpendNormal {
+  /** Ledger account (expense or cost of sales). */
+  key: string;
+  /** Spent in the period (positive). */
+  value: number;
+  /** Average spend in the `n` same-length periods before it (0 = none). */
+  avg: number;
+  /** (value - avg) / avg; null without history. */
+  change: number | null;
+}
+/** Spending per expense / cost-of-sales account in `p`, against that account's own average over the n periods before. */
+export function spendVsNormal(ts: readonly Row[], p: Period, n = 3): SpendNormal[] {
+  const spend = (q: Period) => {
+    const m = new Map<string, number>();
+    for (const t of ts) if (inPeriod(t, q) && (plOf(t.category) === "expense" || plOf(t.category) === "cogs")) m.set(t.category, (m.get(t.category) ?? 0) - t.amount);
+    return m;
+  };
+  // only periods the books reach back to count toward the average
+  const first = ts.reduce((m, t) => (t.date < m ? t.date : m), "9999");
+  const now = spend(p),
+    past: Map<string, number>[] = [];
+  for (let q = priorPeriod(p), i = 0; i < n && `${q.to}-31` >= first; i++, q = priorPeriod(q)) past.push(spend(q));
+  const k = past.length;
+  return [...now]
+    .filter(([, v]) => v > 0)
+    .map(([key, value]) => {
+      const avg = k ? r2(past.reduce((a, m) => a + (m.get(key) ?? 0), 0) / k) : 0;
+      return { key, value: r2(value), avg, change: avg > 0 ? (value - avg) / avg : null };
+    })
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Bank and card fees in these transactions (positive): the bank-fees account and payment-platform fees. */
+export const bankFees = (ts: readonly Row[]) => r2(-ts.filter((t) => /^(expense:bank-fees|cogs:platform-fees)$/.test(t.category)).reduce((a, t) => a + t.amount, 0));
