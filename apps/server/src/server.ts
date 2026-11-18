@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { csvPreview, handle, read } from "@openbooks/importers";
+import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
 import { type EntityMeta, RuleInput, Schema, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import { ask, configureAi, decide, langOf, loadAi, mcpHttpHandler, ollamaModels, paletteTools, publicAi, runTool, testAi } from "@openbooks/tools";
@@ -241,6 +241,15 @@ export async function startServer(o: ServerOptions) {
     const q = u.searchParams,
       path = u.pathname;
     if (path === "/api/events") return events(req, server);
+    if (path === "/api/enablebanking/callback") {
+      // the bank sends the browser back here after the consent; the state (with its secret nonce) says which connection this is
+      const state = q.get("state") ?? "",
+        e = ebStateEntity(state);
+      if (!e) return new Response("Unknown authorization", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+      const r = await run(handle(e, path, { state, code: q.get("code"), error: q.get("error"), error_description: q.get("error_description") }));
+      if (r && "error" in r) return new Response(r.error, { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+      return new Response(null, { status: 302, headers: { location: "/connections" } });
+    }
     if (path === "/api/state") {
       // unknown or missing ?e= opens the first business; none yet → the app shows setup
       try {

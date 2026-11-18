@@ -11,13 +11,28 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Context, Data, Effect, Layer } from "effect";
+import {
+  ebRedirect,
+  ebStart,
+  ebSession,
+  ebState,
+  ebStateEntity,
+  ebStateKey,
+  enablebankingSync,
+  sameSecret,
+  simplefinClaim,
+  simplefinSync,
+  wiseCheck,
+  wiseSync,
+  EB_CALLBACK,
+} from "./banks.ts";
 import type { ScrapeCmd, ScrapeResult, ScrapedAccount, ScrapedTxn } from "./scrape.ts";
 
 export type { ScrapeCmd, ScrapeResult } from "./scrape.ts";
 
 /** A failure whose message is safe to show the user (never carries credentials). */
 export class ConnectorError extends Data.TaggedError("ConnectorError")<{ readonly message: string }> {}
-const fail = (message: string) => new ConnectorError({ message });
+export const fail = (message: string) => new ConnectorError({ message });
 
 // ---------- where connections live: `secret` rows (storage) opened/sealed by the vault ----------
 /** A connect step 1 waiting for step 2: One Zero's login and SMS context, or Plaid's keys until the public token comes back. */
@@ -28,6 +43,13 @@ export interface Pending {
   clientId?: string;
   secret?: string;
   env?: string;
+  /** Enable Banking: the app's credentials and the authorization waiting for the bank's redirect. */
+  appId?: string;
+  privateKey?: string;
+  state?: string;
+  bank?: string;
+  country?: string;
+  validUntil?: string;
 }
 /** One `secret` row as stored: {secret, pending, lastSync, lastError, accounts} in plaintext mode, or with `sealed` instead of secret/pending. */
 export interface Conn {
@@ -35,6 +57,9 @@ export interface Conn {
   pending?: Pending;
   /** Plaid Link's token: short-lived and only useful in the local browser, so it stays unsealed. */
   linkToken?: string;
+  /** Enable Banking: the bank's login URL while an authorization waits, and when the consent ends. Neither is secret. */
+  authUrl?: string;
+  expiresAt?: string;
   sealed?: unknown;
   lastSync?: string | null;
   lastError?: string | null;
@@ -141,16 +166,16 @@ export const scrape = (cmd: ScrapeCmd) =>
 
 // ---------- helpers ----------
 const KEY = /^[A-Za-z][A-Za-z0-9]{1,31}(:\d{1,3})?$/;
-const now = () => new Date().toISOString().slice(0, 19) + "+00:00"; // Python isoformat(timespec="seconds") in UTC
+export const now = () => new Date().toISOString().slice(0, 19) + "+00:00"; // Python isoformat(timespec="seconds") in UTC
 /** Python str() for what JSON can hold: objects never become "[object Object]". */
-const str = (v: unknown): string => (v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v as string));
+export const str = (v: unknown): string => (v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v as string));
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 /** "hapoalim:2" -> "hapoalim" */
 export const kind = (key: string) => key.split(":")[0]!;
 /** "hapoalim:2" -> "hapoalim-2-sync.json" */
 export const inboxFile = (key: string) => `${key.replaceAll(":", "-")}-sync.json`;
-const last4 = (n: unknown) => str(n).slice(-4);
+export const last4 = (n: unknown) => str(n).slice(-4);
 
 /** Writes `.name.tmp` then renames: a dotfile isn't a statement, so ingest never sees a half-written sync. */
 export const writeInbox = (dir: string, name: string, obj: unknown) =>
@@ -162,7 +187,7 @@ export const writeInbox = (dir: string, name: string, obj: unknown) =>
     await fs.rename(tmp, path.join(inbox, name));
   });
 
-const readJson = (file: string) =>
+export const readJson = (file: string) =>
   fs.readFile(file, "utf8").then(
     (t) => JSON.parse(t) as Record<string, unknown>,
     () => null,
@@ -171,7 +196,7 @@ const readJson = (file: string) =>
 // ---------- Mercury ----------
 // OPENBOOKS_MERCURY_API: tests point it at a local fake; never set it otherwise (the token goes wherever it points)
 const MERCURY = process.env.OPENBOOKS_MERCURY_API ?? "https://api.mercury.com/api/v1";
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 const J = JSON as unknown as { rawJSON(s: string): unknown; isRawJSON(v: unknown): v is { rawJSON: string } };
 /** JSON.parse that keeps `-20.0` a float literal when re-serialized, as Python's json round trip does: the uid hashes str(amount). */
 const parseKeepFloats = (text: string) =>
@@ -327,6 +352,7 @@ export const plaidSync = (dir: string, s: Record<string, string>, file = "plaid-
     const out = accounts.map((a) => ({
       accountNumber: str(a.mask || a.account_id),
       balance: (a.balances as Json | undefined)?.current ?? null,
+      currency: str((a.balances as Json | undefined)?.iso_currency_code || "USD"),
       txns: txns
         .filter((t) => t.account_id === a.account_id && !t.pending)
         .map((t) => ({
@@ -364,7 +390,8 @@ export const scraperSync = (dir: string, company: string, creds: Record<string, 
       else accts.push({ ...oa, txns: keep });
     }
     const name = r.name || company;
-    yield* writeInbox(dir, file, { source: "scraper", companyId: company, name, syncedAt: now(), startDate: start, accounts: accts });
+    const withCurrency = accts.map((a) => ({ currency: "ILS", ...a })); // the library reports shekels unless an account says otherwise
+    yield* writeInbox(dir, file, { source: "scraper", companyId: company, name, syncedAt: now(), startDate: start, accounts: withCurrency });
     return accts.map((a) => `${name} ••${last4(a.accountNumber)}`);
   });
 
@@ -384,6 +411,9 @@ const runSync = (dir: string, key: string, c: Conn) => {
   if (t === "mercury") return mercurySync(dir, s.token ?? "", f);
   if (t === "plaid") return plaidSync(dir, s, f);
   if (t === "onezero") return onezeroSync(dir, s, f);
+  if (t === "simplefin") return simplefinSync(dir, s, f);
+  if (t === "wise") return wiseSync(dir, s, f);
+  if (t === "enablebanking") return enablebankingSync(dir, s, f);
   return scraperSync(dir, t, s, f);
 };
 
@@ -411,6 +441,8 @@ export interface Status {
   connected: boolean;
   pending: boolean;
   linkToken?: string;
+  authUrl?: string;
+  expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: string[];
@@ -430,9 +462,11 @@ export const status = (e: string) =>
       out.push({
         provider: k,
         type: kind(k),
-        connected: !!c.secret && !c.linkToken,
-        pending: !!c.pending || !!c.linkToken, // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
+        connected: !!c.secret && !c.linkToken && !c.authUrl,
+        pending: !!c.pending || !!c.linkToken || !!c.authUrl, // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
         linkToken: c.linkToken,
+        authUrl: c.authUrl,
+        expiresAt: c.expiresAt,
         lastSync: c.lastSync ?? null,
         lastError: c.lastError ?? null,
         accounts: c.accounts ?? [],
@@ -483,7 +517,7 @@ export const connect = (e: string, body: Body) =>
     if (!p) return err("Pick a bank");
     const conns = yield* load(e);
     // already connected: this is another login at the same bank (an OTP answer is for the pending key itself)
-    if (!p.includes(":") && conns[p]?.secret && !body.otpCode) {
+    if (!p.includes(":") && conns[p]?.secret && !body.otpCode && !body.reconnect) {
       for (let n = 2; n < 1000; n++)
         if (!(`${p}:${n}` in conns)) {
           p = `${p}:${n}`;
@@ -498,6 +532,32 @@ export const connect = (e: string, body: Body) =>
       if (!token) return err("Paste the API token");
       yield* mercury(token, "/accounts", { limit: 1 }); // validates before saving
       conns[p] = { ...conns[p], secret: { token }, lastError: null };
+    } else if (t === "simplefin") {
+      const token = field("setupToken");
+      if (!token) return err("Paste the setup token");
+      const accessUrl = yield* simplefinClaim(token); // claims the one-time token: nothing is saved unless that works
+      conns[p] = { ...conns[p], secret: { accessUrl }, lastError: null };
+    } else if (t === "wise") {
+      const token = field("wiseToken");
+      if (!token) return err("Paste the API token");
+      yield* wiseCheck(token);
+      conns[p] = { ...conns[p], secret: { token }, lastError: null };
+    } else if (t === "enablebanking") {
+      // step 1: the app's credentials pick a bank and start the authorization; the browser follows authUrl, the callback route finishes
+      const old = conns[p]?.secret;
+      const f =
+        body.reconnect && old
+          ? { appId: old.appId ?? "", privateKey: old.privateKey ?? "", country: old.country ?? "", bank: old.bank ?? "" }
+          : { appId: field("appId"), privateKey: field("privateKey"), country: field("country"), bank: field("bank") };
+      if (!f.appId || !f.privateKey || !/^[A-Za-z]{2}$/.test(f.country) || !f.bank)
+        return err("App id, private key, a two-letter country and the bank's name are all required");
+      const redirect = ebRedirect(str(body.origin));
+      if (!redirect) return err("Open OpenBooks at http://127.0.0.1 or http://localhost to connect Enable Banking");
+      const state = ebState(e, p);
+      const a = yield* ebStart(f, redirect, state);
+      conns[p] = { ...conns[p], pending: { ...f, state, bank: a.bank, country: a.country, validUntil: a.validUntil }, authUrl: a.url, lastError: null };
+      yield* save(e, conns);
+      return {} as Result;
     } else if (t === "onezero" && body.otpCode) {
       // One Zero step 2
       const pend = conns[p]?.pending;
@@ -554,11 +614,48 @@ export const connect = (e: string, body: Body) =>
     return x ? err(x) : ({} as Result);
   }).pipe(Effect.catchTag("ConnectorError", (x) => Effect.succeed(err(x.message))));
 
+/** The bank sends the browser back here with ?code&state (or ?error): the session is created and the first sync runs. */
+export const enableBankingCallback = (e: string, body: Body) =>
+  Effect.gen(function* () {
+    const state = str(body.state);
+    const key = ebStateKey(state);
+    const conns = yield* load(e);
+    const pend = key ? conns[key]?.pending : undefined;
+    if (!key || !pend?.state || !pend.appId || !pend.privateKey || !sameSecret(pend.state, state))
+      return err("This bank authorization isn't one OpenBooks started (or it was already used). Start the connection again.");
+    const c = conns[key]!;
+    delete c.pending;
+    delete c.authUrl;
+    if (!body.code) {
+      yield* save(e, conns);
+      return err(`The bank authorization didn't complete: ${str(body.error_description || body.error || "no code").slice(0, 200)}`);
+    }
+    const s = yield* ebSession({ appId: pend.appId, privateKey: pend.privateKey }, str(body.code), pend.validUntil ?? "").pipe(
+      Effect.tapError(() => save(e, conns)), // the failed attempt must not keep the pending state
+    );
+    c.secret = {
+      appId: pend.appId,
+      privateKey: pend.privateKey,
+      bank: pend.bank ?? "",
+      country: pend.country ?? "",
+      sessionId: s.sessionId,
+      validUntil: s.validUntil,
+      accountsJson: JSON.stringify(s.accounts),
+    };
+    c.expiresAt = s.validUntil;
+    c.lastError = null;
+    yield* save(e, conns);
+    const x = yield* syncOne(e, conns, key);
+    return x ? err(x) : ({} as Result);
+  }).pipe(Effect.catchTag("ConnectorError", (x) => Effect.succeed(err(x.message))));
+
 const PATHS: Record<string, (e: string, body: Body) => Effect.Effect<Result, VaultError, ConnectionStore | ConnectionVault | Scraper>> = {
   "/api/connect": connect,
   "/api/sync": (e, b) => sync(e, str(b.provider || "")),
   "/api/disconnect": (e, b) => disconnect(e, str(b.provider || "")),
+  [EB_CALLBACK]: enableBankingCallback,
 };
 
 /** books.py's connectors.handle: null = not ours, {error} = failed, {} = done (the server then sends state). */
+export { ebStateEntity };
 export const handle = (e: string, p: string, body: Body) => (Object.hasOwn(PATHS, p) ? PATHS[p]!(e, body) : Effect.succeed(null));

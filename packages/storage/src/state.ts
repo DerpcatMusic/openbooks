@@ -13,6 +13,8 @@ export interface Connection {
   connected: boolean;
   pending: boolean;
   linkToken?: string;
+  authUrl?: string;
+  expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: unknown[];
@@ -46,13 +48,15 @@ export function connections(db: Database, e: string): Connection[] {
   const byKey = new Map(rows.map((r) => [r.provider, JSON.parse(r.value) as Record<string, unknown>]));
   return pySorted(byKey.keys()).map((k) => {
     const c = byKey.get(k)!;
-    const linking = Boolean(c.linkToken); // a vault-sealed row hides `pending`; Plaid's unsealed linkToken (gone once Link is done) still says it waits
+    const linking = Boolean(c.linkToken || c.authUrl); // a vault-sealed row hides `pending`; Plaid's unsealed linkToken (gone once Link is done) still says it waits
     return {
       provider: k,
       type: k.split(":")[0]!,
       connected: !linking && Boolean(c.secret || c.sealed),
       pending: linking || Boolean(c.pending),
       linkToken: c.linkToken as string | undefined,
+      authUrl: c.authUrl as string | undefined,
+      expiresAt: c.expiresAt as string | undefined,
       lastSync: (c.lastSync as string | undefined) ?? null,
       lastError: (c.lastError as string | undefined) ?? null,
       accounts: (c.accounts as unknown[] | undefined) ?? [],
