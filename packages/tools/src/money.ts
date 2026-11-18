@@ -103,7 +103,10 @@ export interface NetWorth {
 
 /** Every entity's bank and card accounts, one end-of-day balance a day from..to, each converted to `currency` at that day's rate. */
 export const netWorth = (currency: string, from: string, to: string) =>
-  Effect.map(netWorthDetail(currency, from, to), (n): NetWorth => ({ ...n, series: n.series.map(({ native: _, ...s }) => s) }));
+  Effect.map(netWorthDetail(currency, from, to), (n): NetWorth => ({
+    ...n,
+    series: n.series.map((s) => ({ entity: s.entity, account: s.account, currency: s.currency, liability: s.liability, values: s.values })),
+  }));
 /** netWorth plus each account's own-currency balances (`native`). */
 export const netWorthDetail = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {

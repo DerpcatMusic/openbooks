@@ -458,9 +458,10 @@ export async function startServer(o: ServerOptions) {
       }
       case "/api/transfers": {
         // {out, in: "entity/txn id", as: "confirmed" | "rejected"}: decide a pair (confirming files both sides)
-        const pair = { out: String(b.out ?? ""), in: String(b.in ?? "") };
-        if (!pair.out.includes("/") || !pair.in.includes("/") || (b.as !== "confirmed" && b.as !== "rejected")) throw new Reply({ error: "bad request" }, 400);
-        await run(decideTransferPair(pair, b.as));
+        const ref = (v: unknown) => (typeof v === "string" && /^[a-z0-9-]+\/[A-Za-z0-9-]+$/.test(v) ? v : null);
+        const pair = { out: ref(b.out), in: ref(b.in) };
+        if (!pair.out || !pair.in || (b.as !== "confirmed" && b.as !== "rejected")) throw new Reply({ error: "bad request" }, 400);
+        await run(decideTransferPair({ out: pair.out, in: pair.in }, b.as));
         break;
       }
       case "/api/doc": {
