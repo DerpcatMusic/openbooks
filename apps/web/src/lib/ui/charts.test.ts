@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { sankey, topN, type FlowItem } from "./sankey.ts";
 import { squarify } from "./treemap.ts";
+import { breakdown, netSeries, rangeStart } from "./networth.ts";
 
 const it = (key: string, value: number): FlowItem => ({ key, label: key, value, color: "red" });
 const meta = { mid: { key: "mid", label: "In", color: "x" }, surplus: { key: "~surplus", label: "S", color: "x" }, deficit: { key: "~deficit", label: "D", color: "x" } };
@@ -76,4 +77,31 @@ test("treemap: areas proportional to values, no overlaps, fills the box", () => 
   // squarified: no sliver worse than 1:8 for this spread of values
   for (const t of ts.slice(0, 6)) expect(Math.max(t.w / t.h, t.h / t.w)).toBeLessThan(8);
   expect(squarify([{ value: 0 }], box)).toEqual([]);
+});
+
+test("net worth: liabilities subtract whatever their sign, ranges, breakdown by entity", () => {
+  const d = {
+    currency: "ILS",
+    dates: ["2026-01-01", "2026-01-02"],
+    series: [
+      { entity: "a", account: "Bank", currency: "ILS", liability: false, values: [100, 200] },
+      { entity: "a", account: "Card", currency: "ILS", liability: true, values: [30, -40] },
+      { entity: "b", account: "Wise", currency: "USD", liability: false, values: [0, 50] },
+    ],
+    missing: [],
+  };
+  expect(netSeries(d)).toEqual([70, 210]);
+  expect(breakdown(d, 0)).toEqual([
+    {
+      entity: "a",
+      total: 70,
+      accounts: [
+        { account: "Bank", value: 100, liability: false },
+        { account: "Card", value: -30, liability: true },
+      ],
+    },
+  ]);
+  expect(rangeStart("3m", "2026-05-31")).toBe("2026-02-28");
+  expect(rangeStart("ytd", "2026-05-31")).toBe("2026-01-01");
+  expect(rangeStart("all", "2026-05-31")).toBe("");
 });

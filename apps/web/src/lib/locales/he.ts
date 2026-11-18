@@ -21,6 +21,7 @@ import gaps3 from "./parts/gaps3.he.ts";
 import filingsIl from "./parts/filings-il.he.ts";
 import filingsUs from "./parts/filings-us.he.ts";
 import qa2 from "./parts/qa2.he.ts";
+import charts from "./parts/charts.he.ts";
 export default {
   ...a,
   ...b,
@@ -44,6 +45,7 @@ export default {
   ...filingsIl,
   ...filingsUs,
   ...qa2,
+  ...charts,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

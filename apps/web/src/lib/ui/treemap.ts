@@ -48,3 +48,13 @@ export function squarify<T extends { value: number }>(items: readonly T[], box: 
   if (row.length) flush();
   return out;
 }
+
+/** A box of the spending treemap. */
+export interface TreeItem {
+  key: string;
+  label: string;
+  value: number;
+  avg: number;
+  /** (value - avg) / avg; null = no history. */
+  change: number | null;
+}
