@@ -3,16 +3,20 @@ import { burn, cashAt, cashDelta, cashFlow, margins, pctLabel } from "./insights
 
 const tx = (date: string, amount: number, category = "expense:software", account = "Checking") => ({ date, amount, category, account });
 
-test("cash flow: cash accounts only (a card purchase is not cash out until the card is paid)", () => {
+test("cash flow: cash accounts only (a card purchase is not cash out until the card is paid), movements between pockets are not in/out", () => {
   const ts = [
     tx("2026-01-05", 1000, "revenue:sales"),
     tx("2026-01-06", -300),
     tx("2026-01-07", -50, "expense:meals", "Visa Credit Card"),
     tx("2026-01-20", -200, "transfer:internal"),
+    tx("2026-01-21", 5000, "equity:owner"),
+    tx("2026-01-22", -400, "own:transfer"),
+    tx("2026-01-23", 900, "personal:family"),
+    tx("2026-01-24", 2000, "loan:bank"),
   ];
-  expect(cashFlow(ts)).toEqual({ in: 1000, out: 500, net: 500 });
+  expect(cashFlow(ts)).toEqual({ in: 1000, out: 300, net: 700 });
   expect(cashAt(ts, "2026-01-06")).toBe(700);
-  expect(cashAt(ts, "2026-12-31")).toBe(500);
+  expect(cashAt(ts, "2026-12-31")).toBe(8000);
 });
 
 test("delta: percent of the prior, the plain difference when the prior is 0", () => {

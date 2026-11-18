@@ -20,6 +20,7 @@ export type Side = "debit" | "credit";
 const KIND: Readonly<Record<string, readonly [Klass, Side | null, number]>> = {
   bank: ["asset", "debit", 1],
   card: ["liability", "credit", 2],
+  loan: ["liability", "credit", 2],
   equity: ["equity", "credit", 3],
   revenue: ["revenue", "credit", 4],
   business: ["revenue", "credit", 4],
