@@ -46,6 +46,32 @@ export interface Change {
   docs?: string[];
 }
 
+/** GET /api/networth: every entity's bank and card accounts, one end-of-day balance a day, converted to `currency` at that day's BoI rate. */
+export interface NetWorth {
+  currency: string;
+  dates: string[];
+  series: { entity: string; account: string; currency: string; liability: boolean; values: number[] }[];
+  /** Currency-days without a rate (that account counts 0 that day). */
+  missing: { currency: string; date: string }[];
+}
+/** One side of a suggested transfer (GET /api/transfers). */
+export interface TransferSide {
+  entity: string;
+  id: string;
+  date: string;
+  amount: number;
+  currency: string;
+  account: string;
+  desc: string;
+  category: string;
+}
+export interface TransferSuggestion {
+  out: TransferSide;
+  in: TransferSide;
+  gap: number;
+  diff: number;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -87,6 +113,13 @@ export const api = {
   attach: (e: string, txn: string, f: File) =>
     request<State>(withEntity(`/api/attach?txn=${encodeURIComponent(txn)}&name=${encodeURIComponent(f.name)}`, e), f),
   csvPreview: (e: string, text: string, profile?: unknown) => request<unknown>(withEntity("/api/csv-preview", e), { text, profile }),
+  netWorth: (currency: string, from: string, to: string) => request<NetWorth>(`/api/networth?currency=${encodeURIComponent(currency)}&from=${from}&to=${to}`),
+  /** BoI representative rates, ILS per unit: currency → date → rate. */
+  fx: (currencies: readonly string[], from: string, to: string) =>
+    request<{ rates: Record<string, Record<string, number>> }>(`/api/fx?currencies=${currencies.map(encodeURIComponent).join(",")}&from=${from}&to=${to}`),
+  /** Likely transfers touching this business; `ref` ("entity/txn id"): every possible other side of one row (manual search, wider window). */
+  transfers: (e: string, ref?: string) =>
+    request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),
   packUrl: (e: string, year: number) => withEntity(`/api/pack?year=${year}`, e),
   fileUrl: (e: string, name: string, sub = "inbox") => `/files/${e}/${sub}/${encodeURIComponent(name)}`,
 };

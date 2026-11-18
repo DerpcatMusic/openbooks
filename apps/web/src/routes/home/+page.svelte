@@ -3,7 +3,7 @@
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { burn as burnRate, cashDelta, cashFlow, group, isCard, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
+  import { burn as burnRate, cashDelta, cashFlow, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import { form1301 } from "@openbooks/country-il";
   import type { IlTable } from "@openbooks/country-il";
   import type { Txn } from "@openbooks/schema";
@@ -27,7 +27,8 @@
   const monthTs = (ym: string) => S.data!.txns.filter((x) => x.date.startsWith(ym));
   const ml = (ym: string) => mon(+ym.slice(5) - 1);
   const endOf = (ym: string) => `${ym}-${String(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).padStart(2, "0")}`;
-  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => a + x.amount, 0);
+  // money in (Israel): what came in from outside, not transfers, own money, owner equity, personal movements or loans
+  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => (isFlow(x.category) ? a + x.amount : a), 0);
 
   // cash (US) / money in (Israel)
   const nonCard = (b: Record<string, number>) => Object.entries(b).reduce((s, [a, v]) => (isCard(a) ? s : s + v), 0);
@@ -39,7 +40,7 @@
   type Item = { key: string; label: string; value: number; color: string };
   const inByType = $derived.by(() => {
     const m = new Map<string, number>();
-    for (const x of ts) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + x.amount);
+    for (const x of ts) if (isFlow(x.category)) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + x.amount);
     return [...m]
       .map(([key, value]) => ({ key, label: key in TYPES ? typeLabel(key) : key, value }))
       .sort((a, b) => b.value - a.value)

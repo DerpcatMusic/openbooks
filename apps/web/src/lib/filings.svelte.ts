@@ -16,7 +16,8 @@ import {
   type VatReport,
 } from "@openbooks/country-il";
 import type { Period } from "@openbooks/country-il";
-import { isBiz } from "@openbooks/core";
+import { fxOf, isBiz, type RateTable } from "@openbooks/core";
+import { api } from "./api.ts";
 import { S, bizType, doc, ent, family, pack, saveDoc, taxTable } from "./stores/books.svelte.ts";
 import { resultOf } from "./taxtags.svelte.ts";
 import { usFacts } from "./ustax/books.ts";
@@ -48,6 +49,26 @@ export function calendar(year: number, today: string): FilingRow[] {
 }
 
 // ---------- Israeli VAT ----------
+/** BoI representative rates for the foreign-currency invoices, fetched once per (currencies, range) from /api/fx (the server caches them). */
+let rates = $state<{ key: string; table: RateTable }>({ key: "", table: {} });
+const asked = new Set<string>();
+function fxFor(invoices: readonly InvoiceDoc[], base: string) {
+  const need = invoices.filter((i) => i.currency && i.currency !== base && i.issued);
+  if (!need.length) return undefined;
+  const cs = [...new Set(need.map((i) => i.currency!))].sort(),
+    ds = need.map((i) => i.issued).sort(),
+    key = `${cs.join(",")}|${ds[0]}|${ds.at(-1)}`;
+  if (rates.key !== key && !asked.has(key)) {
+    asked.add(key);
+    // after this read: a derived may not write state, the answer lands on its own and the report recomputes
+    void api
+      .fx(cs, ds[0]!, ds.at(-1)!)
+      .then((r) => (rates = { key, table: r.rates }))
+      .catch(() => asked.delete(key));
+  }
+  return fxOf(rates.table, base);
+}
+
 /** Everything the VAT report reads for tax year y, or null (not Israeli, no type). */
 export function vatCtx(y: number): VatContext | null {
   if (!isIL() || !S.data) return null;
@@ -60,6 +81,7 @@ export function vatCtx(y: number): VatContext | null {
     rate: Number((taxTable(y) as { vatRate?: number }).vatRate ?? 0.18),
     settings: il(),
     currency: ent().currency ?? "ILS",
+    fx: fxFor(doc<InvoiceDoc[]>("invoices"), ent().currency ?? "ILS"),
   };
 }
 export const vatFor = (p: Pick<Period, "key" | "from" | "to" | "months">): VatReport | null => {
