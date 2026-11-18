@@ -238,6 +238,11 @@ describe("deadlines in a calendar year", () => {
     expect(usDeadlines(2026, { businessType: "llc-partnership" }).find((d) => d.form === "1065")?.date).toBe("2026-03-16"); // March 15, 2026 is a Sunday
     expect(usDeadlines(2027, { businessType: "s-corp" }).find((d) => d.form === "1120-S")?.date).toBe("2027-03-15");
   });
+  it("Delaware LLC tax amount comes from the year table: $400 (corp.delaware.gov/alt-entitytaxinstructions)", () => {
+    const d = usDeadlines(2027, { businessType: "llc-disregarded", state: "DE" }).find((x) => x.id.endsWith("de.llc"));
+    expect(d?.title.en).toContain("$400");
+    expect(d?.title.he).toContain("400");
+  });
   it("every deadline has English and Hebrew text and a source; ids are unique", () => {
     for (const t of ["sole-prop", "llc-us-owner", "llc-disregarded", "llc-ccorp", "llc-partnership", "s-corp"]) {
       const ds = usDeadlines(2027, { businessType: t, state: "DE", formed: "2024-01-02", foreignAccountsOver10k: true });

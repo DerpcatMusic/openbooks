@@ -142,7 +142,7 @@ export default {
   "taxUS.f.business": "Principal business activity",
   "taxUS.fillError": "Couldn't fill the form: {msg}",
   "taxUS.state.WY": "Wyoming annual report ($60 minimum) is due on the first day of the anniversary month of formation.",
-  "taxUS.state.DE": "Delaware LLC annual tax ($300) is due June 1.",
+  "taxUS.state.DE": "Delaware LLC annual tax ({amount}) is due June 1.",
   "taxUS.state.NM": "New Mexico has no annual report for LLCs.",
   "taxUS.state.other": "Check {state}'s annual report / franchise tax.",
   "taxUS.state.none": "Set the state of formation to see its annual filing.",

@@ -2,7 +2,7 @@
   // US tax for the open LLC: what the IRS needs for the tax year, computed from the books, and the official forms filled from them.
   // Disregarded single-member LLC owned from abroad: Form 5472 + pro forma 1120 (+ Part V statement). LLC taxed as a C-corp: its own 1120 + 5472
   // and the 1120-W estimates. The header and year picker are the page's (+page.svelte); field maps are the US pack's form hooks (irs.ts).
-  import { ccorpObligations, corpTax, llcObligations, type UsTable } from "@openbooks/country-us";
+  import { ccorpObligations, corpTax, llcObligations, usTable, type UsTable } from "@openbooks/country-us";
   import { S, catLabel, ent, fmt, mdy, setProfile, taxTable, toast, yearTxns } from "#lib/stores/books.svelte.ts";
   import { bidi, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Icon, Input, Money, Table, type Column } from "#lib/ui/index.ts";
@@ -47,7 +47,7 @@
   const missing = $derived(FIELDS.filter(([k]) => !p[k]).map(([k]) => t(`taxUS.f.${k}`)));
   const code = $derived((p.state ?? "").trim().toUpperCase().slice(0, 2));
   const stateText = $derived(
-    ["WY", "DE", "NM"].includes(code) ? t(`taxUS.state.${code}`) : p.state ? t("taxUS.state.other", { state: bidi(p.state) }) : t("taxUS.state.none"),
+    ["WY", "DE", "NM"].includes(code) ? t(`taxUS.state.${code}`, { amount: fmt(UT.delawareTax ?? usTable(y).delawareTax) }) : p.state ? t("taxUS.state.other", { state: bidi(p.state) }) : t("taxUS.state.none"),
   );
 
   // auto-fill: the official IRS PDFs filled from the books (pdf-lib is ~1 MB, so it loads on click)

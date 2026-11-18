@@ -4,7 +4,7 @@
   // Port of web/src/views/Planner.svelte. Maths: @openbooks/country-il (ilPlan, …) and @openbooks/country-us (corpTax).
   import { pl } from "@openbooks/core";
   import { form1301, ilPlan, isComplete, mandatoryPension, reservistPoints, type IlRates, type IlTable } from "@openbooks/country-il";
-  import { corpTax, dueOn, usDeadlines, type UsTable } from "@openbooks/country-us";
+  import { corpTax, dueOn, usDeadlines, usTable, type UsTable } from "@openbooks/country-us";
   import { S, bizType, catLabel, doc, ent, fmt, isUS, mdy, saveDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
   import { bidi, lang, t } from "#lib/i18n.svelte.ts";
   import { disallowed } from "#lib/taxtags.svelte.ts";
@@ -117,7 +117,7 @@
   const stateFee = $derived(
     (
       ({
-        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 300) }),
+        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? usTable(y).delawareTax) }),
         WY: () => t("planner.stateFee.WY", { amount: fmt(UT.wyomingMin ?? 60) }),
         NM: () => t("planner.stateFee.NM"),
       }) as Record<string, () => string>
