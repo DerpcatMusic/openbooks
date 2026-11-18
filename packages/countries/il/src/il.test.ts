@@ -42,7 +42,15 @@ const T: IlRates = {
   pensionRate1: 0.0445,
   pensionRate2: 0.1255,
   depositPct: 0.11,
-  creditPct: 0.05,
+  creditPct: 0.055,
+  creditPctDisability: 0.05,
+  creditRate: 0.35,
+  lifeCreditRate: 0.25,
+  khPct: 0.045,
+  khIncomeCap: 293397,
+  disabilityPct: 0.035,
+  disabilityIncomeCap: 399480,
+  blDeductPct: 0.52,
   donationMin: 207,
   avgWageMonthly: 12536,
   blReducedMonthly: 7522,
@@ -82,6 +90,21 @@ describe("planner (ported self-check of web/src/lib/planner.js)", () => {
     ok(p.health, 18200 * 0.0323);
     ok(ilPlan({ turnover: 26000, expenses: 0, zair: true, points: 0, pension: 0, donations: 0, selfEmployed: true }, T).blBase, 3134 * 12);
   });
+  it("BL base is income after pension and 52% of the BL dues (btl.gov.il self-employed rates); solved in closed form here", () => {
+    // 2026 table: base X > reduced band 92,436 ⇒ X = 100,000 − 0.52 × (0.1283 X − (0.1283 − 0.0447) × 92,436) ⇒ X = 104,018.38 / 1.066716
+    const p = ilPlan({ turnover: 100000, expenses: 0, zair: false, points: 0, pension: 0, donations: 0, selfEmployed: true }, T26);
+    ok(p.blBase, (100000 + 0.52 * (0.1283 - 0.0447) * 92436) / (1 + 0.52 * 0.1283));
+    ok(p.blDed, 0.52 * p.bl);
+    // osek zair: no §47א deduction, BL on 70% of turnover
+    ok(ilPlan({ turnover: 100000, expenses: 0, zair: true, points: 0, pension: 0, donations: 0, selfEmployed: true }, T26).blBase, 70000);
+  });
+  it("pension credit: 35% on deposits up to 5.5% of qualifying income, 5% with a disability deduction (§45א(ו); 1301 guide 2025 row 76)", () => {
+    const base = { turnover: 100000, expenses: 0, zair: false, points: 0, pension: 20000, donations: 0, selfEmployed: true };
+    const p = ilPlan(base, T26);
+    ok(p.pensionDed, 11000); // §47: 11% of 100,000
+    ok(p.pensionCredit, 0.35 * 5500);
+    ok(ilPlan({ ...base, disability: true }, T26).pensionCredit, 0.35 * 5000);
+  });
   it("company: salary lever beats pure dividend in low brackets; never loses vs pure dividend", () => {
     ok(company(0, { points: 0 }, T).keep, 0);
     expect(company(100000, { points: 0 }, T, 0.23, false).salary).not.toBe(0);
@@ -90,6 +113,10 @@ describe("planner (ported self-check of web/src/lib/planner.js)", () => {
   it("small foreign-client osek wins", () => {
     const r = taxximize({ revenue: 100000, expenses: 10000, clients: "foreign", points: 2.25, fx: 3.6 }, T, { costs: { llc: 0, ccorp: 0 }, corpRate: 0.21 });
     expect(["patur", "murshe"]).toContain(r.best?.key);
+  });
+  it("no USD rate: the US structures say so instead of using a default rate", () => {
+    const r = taxximize({ revenue: 100000, expenses: 10000, clients: "foreign", points: 2.25 }, T, { costs: { llc: 500, ccorp: 900 }, corpRate: 0.21 });
+    expect(r.rows.filter((x) => !x.ok && x.why.k === "noRate").map((x) => x.key)).toEqual(["llc", "ccorp"]);
   });
   it("released soldier points", () => {
     expect(soldierPoints("2024-06", 32, 2025)).toBe(2);
@@ -109,24 +136,24 @@ describe("numerically identical to the old JS on the real 2026 tables (fixtures/
     expect(k100!.best).toBe("patur");
     expect(Math.round(k100!.rows[0]!.keep!)).toBe(83403);
     expect(k450!.best).toBe("murshe");
-    expect(Math.round(k450!.rows[1]!.keep!)).toBe(276126);
+    expect(Math.round(k450!.rows[1]!.keep!)).toBe(279728); // was 276,126 before the 5.5% pension credit and the BL base after 52% of BL
   });
   it("ilPlan scenarios", () => {
     for (const s of ref.plans) expect(ilPlan(s.input, T26)).toEqual(s.plan);
   });
-  it("advisor sample: children 20,328, pension 15,517, KH 3,627, W-8BEN 2,880, woman 1,452, disability 930, phone 563", () => {
+  it("advisor sample: children 20,328, pension 15,749, KH 3,627, W-8BEN 2,880, woman 1,452, disability 930, phone 551", () => {
     const { answers, ctx } = ref.advisor;
     const r = advise(playbook, answers, { ...ctx, T: T26 });
     expect(r.map((x) => ({ id: x.item.id, status: x.status, saving: x.saving, missing: x.missing.map((q) => q.key) }))).toEqual(ref.advisor.result);
     const save = Object.fromEntries(r.filter((x) => x.status === "save").map((x) => [x.item.id, x.saving]));
     expect(save).toEqual({
       "il-credit-children": 20328,
-      "il-pension-self-employed-47": 15517,
+      "il-pension-self-employed-47": 15749, // old JS 15,517: credit on 5% instead of 5.5% (§45א(ו))
       "il-keren-hishtalmut-self": 3627,
       "us-w8ben-royalties-treaty": 2880,
       "il-credit-woman": 1452,
       "il-disability-insurance": 930,
-      "il-phone": 563,
+      "il-phone": 551, // old JS 563: BL base now also net of 52% of BL, so the BL saved by the extra expense is smaller
     });
   });
 });

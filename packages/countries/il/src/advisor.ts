@@ -54,8 +54,11 @@ export interface AdviseContext {
   expenses: number;
   points: number;
   T: IlRates;
-  fx?: number;
+  /** ILS per USD (Bank of Israel); missing = the treaty estimate is not computed. */
+  fx?: number | null;
   usRoyalties?: number;
+  /** Osek zair is closed to this person (income attributed from a transparent entity, or control of a company): actual expenses only. */
+  zairExcluded?: boolean;
 }
 export type Status = keyof typeof RANK;
 export interface Advice {
@@ -67,7 +70,7 @@ export interface Advice {
 
 /** → advice sorted: biggest saving first, then checks, questions, info, n/a. */
 export function advise(items: readonly PlaybookItem[], a: Facts, c: AdviseContext): Advice[] {
-  const zair = c.type === "osek-zair";
+  const zair = c.type === "osek-zair" && !c.zairExcluded;
   const base: PlanInput = {
     turnover: c.turnover,
     expenses: c.expenses,
@@ -89,16 +92,21 @@ export function advise(items: readonly PlaybookItem[], a: Facts, c: AdviseContex
       return best > base.pension ? N - total({ pension: best }) : 0;
     },
     "il-keren-hishtalmut-self": () => {
-      const cap = 0.045 * Math.min(profit, 293397);
+      const cap = c.T.khPct * Math.min(profit, c.T.khIncomeCap);
       return Math.max(0, N - total({ deductions: cap - Math.min(num(a.khDeposits) || 0, cap) }));
     },
     "il-disability-insurance": () =>
-      num(a.disabilityPremium) ? N - total({ deductions: Math.min(num(a.disabilityPremium), 0.035 * Math.min(profit, 356100)) }) : 0,
+      num(a.disabilityPremium)
+        ? N - total({ deductions: Math.min(num(a.disabilityPremium), c.T.disabilityPct * Math.min(profit, c.T.disabilityIncomeCap)), disability: true })
+        : 0,
     "il-life-insurance-45a": () =>
-      num(a.lifeInsurancePremium) ? N - total({ credits: 0.25 * Math.min(num(a.lifeInsurancePremium), 0.05 * Math.min(profit, 225600)) }) : 0,
+      // creditable base: 5% of qualifying income (twice the yearly mezaka), Tax Authority 1301 guide 2025 row 73 (box 036)
+      num(a.lifeInsurancePremium)
+        ? N - total({ credits: c.T.lifeCreditRate * Math.min(num(a.lifeInsurancePremium), 0.05 * Math.min(profit, c.T.mezakaMonthly * 24)) })
+        : 0,
     "il-donations-46": () => 0, // already in base when answered; shown as a check
     "il-osek-zair-vs-actual": () => {
-      if (c.turnover > c.T.zairCeiling) return 0;
+      if (c.turnover > c.T.zairCeiling || c.zairExcluded) return 0;
       const z = total({ zair: true }),
         r = total({ zair: false });
       return Math.max(0, N - Math.min(z, r));
@@ -110,7 +118,9 @@ export function advise(items: readonly PlaybookItem[], a: Facts, c: AdviseContex
       !zair && num(a.carCosts)
         ? N - total({ expenses: c.expenses + Math.max(0.45 * num(a.carCosts), num(a.carCosts) - 12 * 0.0248 * (num(a.carPrice) || 0)) })
         : 0,
-    "us-w8ben-royalties-treaty": () => (num(a.usRoyalties) || c.usRoyalties || 0) * Math.max(0, (num(a.usWithheldPct) || 30) / 100 - 0.1) * (c.fx ?? 3.6),
+    ...(c.fx
+      ? { "us-w8ben-royalties-treaty": () => (num(a.usRoyalties) || c.usRoyalties || 0) * Math.max(0, (num(a.usWithheldPct) || 30) / 100 - 0.1) * c.fx! }
+      : {}),
   };
   const relevant = items.filter((it) => it.applies_to.some((t) => c.types.includes(t)));
   return relevant

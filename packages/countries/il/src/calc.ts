@@ -57,6 +57,8 @@ export interface PlanInput {
   withheld?: number;
   deductions?: number;
   credits?: number;
+  /** A loss-of-work-capacity insurance deduction is claimed: the pension credit base drops from 5.5% to 5% (§45א(ו)). */
+  disability?: boolean;
 }
 export interface Plan {
   business: number;
@@ -76,32 +78,47 @@ export interface Plan {
   effective: number;
   keep: number;
 }
+/** Self-employed BL dues on a yearly base (reduced rate up to blReducedMonthly, full above). */
+const blDues = (base: number, T: IlRates) =>
+  bands(base, [
+    [T.blReducedMonthly * 12, T.blRateReduced],
+    [null, T.blRateFull],
+  ]);
+/**
+ * BL's yearly base for a self-employed person: income after the pension deduction and after the deductible share (blDeductPct, 52%) of the
+ * dues themselves (btl.gov.il self-employed rates), within the minimum and maximum. The dues depend on the base, so it is solved by
+ * fixed-point iteration (contraction factor 0.52 × 12.83% ≈ 0.07: converges to the cent in a few rounds). `deduct` false: osek zair, whose
+ * income is 70% of turnover with no §47א deduction.
+ */
+export function blBaseOf(income: number, T: IlRates, selfEmployed: boolean, deduct: boolean): number {
+  const clamp = (b: number) => Math.min(Math.max(b, selfEmployed ? T.blMinMonthly * 12 : 0), T.blMaxMonthly * 12);
+  let base = clamp(income);
+  if (deduct) for (let k = 0; k < 30; k++) base = clamp(income - T.blDeductPct * blDues(base, T));
+  return base;
+}
 /**
  * One scenario. deductions: extra §17(5א)/disability-type deductions (taxable income only); credits: extra credits such as §45א life insurance
- * (applied last, capped). zair = 30% deemed expenses (no §47A BL deduction); otherwise actual expenses with 52% of BL deductible.
+ * (applied last, capped). zair = 30% deemed expenses (no §47א BL deduction); otherwise actual expenses with 52% of BL deductible.
  * `foreign` (attributed foreign income) is added after the 30%: deemed expenses never apply to it.
  */
 export function ilPlan(i: PlanInput, T: IlRates): Plan {
   const business = Math.max(0, i.zair ? i.turnover * 0.7 : i.turnover - i.expenses) + (i.foreign ?? 0);
   const capBase = Math.min(business, T.mezakaMonthly * 24);
   const pensionDed = Math.min(i.pension, T.depositPct * capBase),
-    pensionCreditBase = Math.min(i.pension - pensionDed, T.creditPct * capBase);
-  const blBase = Math.min(Math.max(business - pensionDed, i.selfEmployed ? T.blMinMonthly * 12 : 0), T.blMaxMonthly * 12);
+    pensionCreditBase = Math.min(i.pension - pensionDed, (i.disability ? T.creditPctDisability : T.creditPct) * capBase);
+  const blBase = blBaseOf(business - pensionDed, T, i.selfEmployed, !i.zair);
   const red = T.blReducedMonthly * 12;
-  const bl = bands(blBase, [
-      [red, T.blRateReduced],
-      [null, T.blRateFull],
-    ]),
+  const bl = blDues(blBase, T),
     health = bands(blBase, [
       [red, T.healthRateReduced],
       [null, T.healthRateFull],
     ]);
-  const blDed = i.zair ? 0 : Math.min(0.52 * bl, business - pensionDed);
+  const blDed = i.zair ? 0 : Math.min(T.blDeductPct * bl, business - pensionDed);
   const taxable = Math.max(0, business - pensionDed - blDed - (i.deductions ?? 0));
   const gross = bands(taxable, T.brackets);
   const pointsCredit = Math.min(gross, i.points * T.point),
-    pensionCredit = Math.min(gross - pointsCredit, 0.35 * pensionCreditBase);
-  const donationCredit = Math.min(gross - pointsCredit - pensionCredit, i.donations >= T.donationMin ? 0.35 * Math.min(i.donations, 0.3 * taxable) : 0);
+    pensionCredit = Math.min(gross - pointsCredit, T.creditRate * pensionCreditBase);
+  const donationCredit = Math.min(gross - pointsCredit - pensionCredit, i.donations >= T.donationMin ? T.creditRate * Math.min(i.donations, 0.3 * taxable) : 0);
   const otherCredit = Math.min(gross - pointsCredit - pensionCredit - donationCredit, i.credits ?? 0);
   const tax = gross - pointsCredit - pensionCredit - donationCredit - otherCredit;
   const total = tax + bl + health;
@@ -186,7 +203,8 @@ export interface TaxximizeInput {
   clients: Clients;
   points: number;
   paturOk?: boolean;
-  fx?: number;
+  /** ILS per USD for the foreign structures' US costs; missing = those rows say the rate is missing (never a default). */
+  fx?: number | null;
   costs?: Partial<Record<string, number>>;
 }
 /** The foreign side Taxximizer needs (US pack table: costs in $, corpRate). */
@@ -224,7 +242,7 @@ type Ok = Extract<Structure, { ok: true }>;
 
 export function taxximize(i: TaxximizeInput, T: IlRates, U?: ForeignCosts): { rows: Structure[]; ranked: Ok[]; best: Ok | undefined } {
   const vat = T.vatRate ?? 0.18,
-    fx = i.fx ?? 3.6,
+    fx = i.fx ?? null,
     under = i.revenue <= T.zairCeiling;
   const consumer = i.clients === "consumer";
   const recovered = ((i.vatExpenses ?? i.expenses) * vat) / (1 + vat);
@@ -279,6 +297,7 @@ export function taxximize(i: TaxximizeInput, T: IlRates, U?: ForeignCosts): { ro
     };
   };
   const abroad = i.clients === "foreign" ? flat : reg;
+  const noRate = (key: StructureKey): Structure => ({ key, label: key, ok: false, why: { k: "noRate" } });
   // ponytail: `as number` mirrors planner.js, where a missing cost is undefined and poisons the row to NaN; tables always carry costs
   const C = { ...T.costs, ...i.costs } as Record<string, number>,
     UC = U?.costs ?? {};
@@ -288,8 +307,10 @@ export function taxximize(i: TaxximizeInput, T: IlRates, U?: ForeignCosts): { ro
       : { key: "patur", label: "patur", ok: false, why: i.paturOk === false ? { k: "patur" } : { k: "ceiling", amount: T.zairCeiling } },
     osek("murshe", under ? "murshePlus" : "murshe", reg, C.murshe as number, under, under ? "murshePlus" : "murshe"),
     corp("ltd", "ltd", reg, C.ltd as number, T.ltd.corpRate, "ltd"),
-    osek("llc", "llc", abroad, (UC.llc ?? 0) * fx + (C.llc as number), false, "llc"),
-    corp("ccorp", "ccorp", abroad, (UC.ccorp ?? 0) * fx + (C.ccorp as number), Math.max(U?.corpRate ?? 0.21, T.ltd.corpRate), "ccorp"),
+    UC.llc && !fx ? noRate("llc") : osek("llc", "llc", abroad, (UC.llc ?? 0) * (fx ?? 0) + (C.llc as number), false, "llc"),
+    UC.ccorp && !fx
+      ? noRate("ccorp")
+      : corp("ccorp", "ccorp", abroad, (UC.ccorp ?? 0) * (fx ?? 0) + (C.ccorp as number), Math.max(U?.corpRate ?? 0.21, T.ltd.corpRate), "ccorp"),
   ];
   const ranked = rows.filter((r): r is Ok => r.ok).sort((a, b) => b.keep - a.keep);
   return { rows, ranked, best: ranked[0] };

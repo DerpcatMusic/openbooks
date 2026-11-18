@@ -12,6 +12,7 @@
   ],
   "zairCeiling": 120000,
   "capitalRate": 0.15,
+  "blDeductPct": 0.52,
   "blRateReduced": 0.0447,
   "blRateFull": 0.1283,
   "healthRateReduced": 0.0323,
@@ -19,7 +20,14 @@
   "pensionRate1": 0.0445,
   "pensionRate2": 0.1255,
   "depositPct": 0.11,
-  "creditPct": 0.05,
+  "creditPct": 0.055,
+  "creditPctDisability": 0.05,
+  "creditRate": 0.35,
+  "lifeCreditRate": 0.25,
+  "khPct": 0.045,
+  "khIncomeCap": 293397,
+  "disabilityPct": 0.035,
+  "disabilityIncomeCap": 399480,
   "donationMin": 207,
   "avgWageMonthly": 12536,
   "blReducedMonthly": 7522,
@@ -64,11 +72,52 @@
     },
     "creditPct": {
       "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45א",
-      "effective": "2025-01-01"
+      "effective": "2025-01-01",
+      "note": "§45א(ו): self-employed member's credit on deposits up to 5.5% of qualifying income (5% plus 0.5% when no loss-of-work-capacity deduction is claimed). Tax Authority 1301 guide 2025, row 76 (box 268)"
+    },
+    "creditPctDisability": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45א",
+      "effective": "2025-01-01",
+      "note": "§45א(ו): the extra 0.5% is lost when a loss-of-work-capacity insurance deduction (box 112) is claimed"
+    },
+    "creditRate": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45א",
+      "effective": "2025-01-01",
+      "note": "35% credit on pension deposits (§45א) and on donations (§46): Tax Authority 1301 guide 2025, rows 76 and 78א"
+    },
+    "lifeCreditRate": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_45א",
+      "effective": "2025-01-01",
+      "note": "25% credit on life-insurance premiums: Tax Authority 1301 guide 2025, row 73 (box 036)"
+    },
+    "khPct": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_17",
+      "effective": "2025-01-01",
+      "note": "§17(5א): 4.5% of determining income. Tax Authority 1301 guide 2025, row 51 (box 136)"
+    },
+    "khIncomeCap": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_17",
+      "effective": "2025-01-01",
+      "note": "Determining-income ceiling 293,397: Tax Authority 1301 guide 2025, row 51 (box 136); frozen for 2026"
+    },
+    "disabilityPct": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_47",
+      "effective": "2025-01-01",
+      "note": "Tax Authority 1301 guide 2025, row 49 (box 112): up to 3.5% of business income"
+    },
+    "disabilityIncomeCap": {
+      "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_47",
+      "effective": "2025-01-01",
+      "note": "Tax Authority 1301 guide 2025, row 49 (box 112): 3.5% of business income capped at 399,480 (2.5x the average wage)"
     },
     "donationMin": {
       "url": "https://he.wikisource.org/wiki/פקודת_מס_הכנסה#סעיף_46",
       "effective": "2025-01-01"
+    },
+    "blDeductPct": {
+      "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
+      "effective": "2025-01-01",
+      "note": "52% of a self-employed person's Bituach Leumi dues (not health tax) is deductible (Ordinance §47א; Tax Authority 1301 guide 2025, row 54, box 030), and BL assesses the dues on income after that deduction"
     },
     "blRateReduced": {
       "url": "https://www.btl.gov.il/Insurance/Rates/Pages/לעצמאים.aspx",
