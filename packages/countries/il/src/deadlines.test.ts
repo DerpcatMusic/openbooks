@@ -25,4 +25,14 @@ describe("IL deadlines", () => {
     const d = ilDeadlines(2026, { businessType: "osek-murshe", taxAdvances: "none", blAdvances: false } as never);
     expect(d.some((x) => x.id.startsWith("il.adv."))).toBe(false);
   });
+  it("osek zair registered as osek murshe for VAT gets VAT reports (zair is an income-tax track only, Kol Zchut עסק זעיר)", () => {
+    expect(ilDeadlines(2026, { businessType: "osek-zair", vatStatus: "murshe" }).filter((x) => x.id.startsWith("il.vat."))).toHaveLength(12);
+    expect(ilDeadlines(2026, { businessType: "osek-zair" }).some((x) => x.id.startsWith("il.vat."))).toBe(false);
+  });
+  it("zair closed by a foreign transparent holding: the 1301 instead of the short report, plus Form 150 (Circular 7/2025 §3.3, §3.11)", () => {
+    const d = ilDeadlines(2026, { businessType: "osek-zair", zairExcluded: true, foreignHoldings: 1 });
+    expect(d.find((x) => x.id === "il.1301.2026")).toMatchObject({ date: "2027-04-30", form: "1301" });
+    expect(d.find((x) => x.id === "il.150.2026")).toMatchObject({ date: "2027-04-30", form: "150" });
+    expect(d.some((x) => x.id.startsWith("il.short."))).toBe(false);
+  });
 });

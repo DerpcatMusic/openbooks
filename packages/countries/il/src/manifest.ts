@@ -8,7 +8,12 @@ const label = (k: string) => ({ en: str(S.en, k) ?? k, he: str(S.he, k) ?? str(S
 
 /** Israeli business types registered for VAT (osek murshe, ltd): they issue חשבונית מס and charge VAT. */
 const VAT_TYPES: ReadonlySet<string> = new Set(["osek-murshe", "ltd"]);
-export const vatRegistered = (bizType: string | null | undefined) => !!bizType && VAT_TYPES.has(bizType);
+/**
+ * VAT-registered books. Osek zair is an income-tax track only (Kol Zchut "עסק זעיר": a zair may be osek murshe), so for it the saved
+ * VAT status decides (`vatStatus` "murshe"); patur by default.
+ */
+export const vatRegistered = (bizType: string | null | undefined, vatStatus?: "patur" | "murshe") =>
+  !!bizType && (VAT_TYPES.has(bizType) || (bizType === "osek-zair" && vatStatus === "murshe"));
 
 export const manifest: Manifest = {
   id: "il",

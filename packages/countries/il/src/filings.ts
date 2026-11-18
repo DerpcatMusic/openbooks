@@ -18,6 +18,8 @@ export interface IlSettings {
   taxAdvanceRatePct: number;
   /** Pay Bituach Leumi advances (sole proprietors). */
   blAdvances: boolean;
+  /** An osek zair's VAT status (zair is an income-tax track; for VAT it is patur or murshe). Ignored for other types. */
+  vatStatus: "patur" | "murshe";
   /** Monthly income Bituach Leumi advances are based on; null = from last year's profit. */
   blMonthlyIncome: number | null;
   /** Supplier name → licensed-dealer number (turns petty-cash inputs into named ones). */
@@ -39,6 +41,7 @@ export function ilSettings(bag: Record<string, unknown> | undefined): IlSettings
     taxAdvanceFrequency: f === "bimonthly" || f === "none" ? f : "monthly",
     taxAdvanceRatePct: Math.max(0, num(s.taxAdvanceRatePct)),
     blAdvances: s.blAdvances !== false,
+    vatStatus: s.vatStatus === "murshe" ? "murshe" : "patur",
     blMonthlyIncome: typeof s.blMonthlyIncome === "number" ? s.blMonthlyIncome : null,
     supplierIds: Object.fromEntries(Object.entries(obj(s.supplierIds)).filter(([, v]) => typeof v === "string")) as Record<string, string>,
     assetClass: obj(s.assetClass) as Record<string, AssetClass>,
