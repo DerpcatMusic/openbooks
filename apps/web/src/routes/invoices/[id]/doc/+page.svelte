@@ -2,10 +2,12 @@
   import { BASE } from "#lib/nav.ts";
   // Printable invoice / bill / receipt / tax invoice on an A4 sheet (/invoices/<id>/doc?e=<entity>; the shell drops the sidebar
   // for paths ending in /doc). Always paper-white whatever the app theme, and in the document's own language, not the UI's:
-  // US invoices in English; Israeli documents in Hebrew (RTL, מקור/העתק) with an English version for customers abroad.
+  // US invoices in English; Israeli documents in Hebrew (RTL) with an English version for customers abroad. The server counts the prints
+  // of an issued document (POST /api/print): the first is the original (מקור), every later one a true copy (העתק נאמן למקור).
   // Exempt Israeli books (osek patur/zair) may not issue חשבונית מס and say so; VAT-registered ones show net, VAT and total.
   import { page } from "$app/state";
   import { S, doc, money, dmy, mdyEn, bizType } from "#lib/stores/books.svelte.ts";
+  import { request, withEntity } from "#lib/api.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { total, net, vatOf, status, lineTotal, type Invoice, type Customer } from "../../invoices.ts";
   import { vatRegistered } from "@openbooks/country-il";
@@ -19,7 +21,17 @@
   let english = $state(page.url.searchParams.get("lang") === "en");
   const lg = $derived(il && !english ? "he" : "en");
   const l = $derived(L[lg]);
-  let copy = $state(false); // first print to the customer is the מקור / original; the copy you keep is העתק / copy
+  // printed before (or printing right now: the label is frozen for the print in progress while the count is recorded)
+  let counted = $state<number | null>(null),
+    frozen = $state<boolean | null>(null);
+  const prints = $derived(Math.max(counted ?? 0, inv?.prints ?? 0));
+  const copy = $derived(frozen ?? prints > 0);
+  function beforePrint() {
+    if (!inv || inv.status === "draft") return;
+    frozen = prints > 0;
+    const id = inv.id;
+    void request<{ prints: number }>(withEntity("/api/print", S.e), { id }).then((r) => (counted = r.prints), () => {});
+  }
 
   const cur = $derived(inv?.currency || S.data?.entity.currency || (il ? "ILS" : "USD"));
   const nf = $derived(new Intl.NumberFormat("en-US", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol" }));
@@ -32,22 +44,25 @@
   const registered = $derived(!!inv && il && vatRegistered(bizType(+inv.issued.slice(0, 4))));
   const showVat = $derived(registered && inv?.vat !== undefined);
   const company = $derived(!!inv && bizType(+inv.issued.slice(0, 4)) === "ltd");
-  const title = $derived(inv ? l.kind[inv.kind] : "");
+  const title = $derived(inv ? (inv.kind === "credit" && inv.refKind === "tax" ? l.creditTax : l.kind[inv.kind]) : "");
   const owner = $derived(il ? `${p.first ?? ""} ${p.last ?? ""}`.trim() || S.data?.entity.name || "" : (p.legalName ?? S.data?.entity.name ?? ""));
   const paidTxn = $derived(inv?.paidTxn ? S.data?.txns.find((x) => x.id === inv.paidTxn) : undefined);
   const method = $derived(inv ? inv.method || "העברה בנקאית" : "");
   const pct = (r: number) => `${Math.round(r * 1000) / 10}%`;
 </script>
 
+<svelte:window onbeforeprint={beforePrint} onafterprint={() => (frozen = null)} />
 <svelte:head><title>{inv ? `${title} ${inv.number ?? l.draft}${cust ? ` — ${cust.name}` : ""}` : "OpenBooks"}</title></svelte:head>
 
 <div class="bar no-print fixed end-4 top-4 z-10 flex flex-wrap justify-end gap-2">
   <a href="{BASE}/invoices?e={encodeURIComponent(S.e)}" class="tool">{t("invoiceDoc.back")}</a>
   {#if il}
     <button onclick={() => (english = !english)} class="tool">{english ? t("invoiceDoc.hebrew") : t("invoiceDoc.english")}</button>
-    <button onclick={() => (copy = !copy)} class="tool">{copy ? t("invoiceDoc.showOriginal") : t("invoiceDoc.showCopy")}</button>
   {/if}
-  <button onclick={() => print()} class="tool dark">{t("invoiceDoc.print")}</button>
+  <button onclick={() => print()} class="tool dark" title={draft ? undefined : t("integrity.printHint")}>
+    {draft || !inv ? t("invoiceDoc.print") : copy ? t("integrity.printCopy") : t("integrity.printOriginal")}
+  </button>
+  {#if !draft && prints}<span class="tool plain">{t("integrity.printedN", { n: prints })}</span>{/if}
 </div>
 
 {#if !S.data}
@@ -57,7 +72,7 @@
 {:else}
   <div class="inv-doc" dir={lg === "he" ? "rtl" : "ltr"} lang={lg}>
     <section class="sheet">
-      {#if draft}<div class="mark">{l.draft}</div>{:else if paid && !il}<div class="mark paid">{l.paidMark}</div>{/if}
+      {#if draft}<div class="mark">{l.draft}</div>{:else if inv.status === "cancelled"}<div class="mark">{l.cancelledMark}</div>{:else if paid && !il}<div class="mark paid">{l.paidMark}</div>{/if}
       <div class="top">
         <div>
           <div class="biz"><bdi>{owner}</bdi></div>
@@ -74,7 +89,7 @@
           {/if}
         </div>
         <div class="end">
-          {#if il}<div class="orig">{copy ? l.copy : l.original}</div>{/if}
+          {#if il && !draft}<div class="orig">{copy ? l.copy : l.original}</div>{/if}
           <h1>{title}</h1>
           <table class="meta"><tbody>
             <tr><td>{l.number}</td><td>{inv.number ?? "—"}</td></tr>
@@ -91,7 +106,8 @@
         {#if cust?.email}<div dir="ltr" class="start">{cust.email}</div>{/if}
       </div>
 
-      {#if inv.ref}<p>{l.forRef(l.kind[inv.refKind ?? "bill"], inv.ref)}</p>{/if}
+      {#if inv.kind === "credit"}<p>{l.cancels(l.kind[inv.refKind ?? "bill"], inv.ref ?? "")}</p>
+      {:else if inv.ref}<p>{l.forRef(l.kind[inv.refKind ?? "bill"], inv.ref)}</p>{/if}
 
       <table class="items">
         <thead><tr><th>{l.desc}</th><th class="n" style="width:46pt">{l.qty}</th><th class="n" style="width:80pt">{l.price}</th><th class="n" style="width:90pt">{l.amount}</th></tr></thead>
@@ -103,7 +119,7 @@
             <tr class="sub"><td colspan="3">{l.net}</td><td class="n">{m(net(inv))}</td></tr>
             <tr class="sub"><td colspan="3">{l.vat} {pct(vat)}</td><td class="n">{m(vatOf(inv))}</td></tr>
           {/if}
-          <tr class="grand"><td colspan="3">{inv.kind === "receipt" ? l.totalReceived : il ? l.totalDue : l.totalDueCur(cur)}</td><td class="n">{m(total(inv))}</td></tr>
+          <tr class="grand"><td colspan="3">{inv.kind === "credit" ? l.totalCredit : inv.kind === "receipt" ? l.totalReceived : il ? l.totalDue : l.totalDueCur(cur)}</td><td class="n">{m(total(inv))}</td></tr>
         </tfoot>
       </table>
 
@@ -112,7 +128,7 @@
           <thead><tr><th>{l.method}</th><th style="width:90pt">{l.date}</th><th class="n" style="width:90pt">{l.amount}</th></tr></thead>
           <tbody><tr><td dir="auto">{lg === "en" ? (METHOD_EN[method] ?? method) : method}{paidTxn?.who ? ` (${paidTxn.who})` : ""}</td><td>{date(inv.paidDate ?? inv.issued)}</td><td class="n">{m(total(inv))}</td></tr></tbody>
         </table>
-      {:else if paid}
+      {:else if paid && inv.kind !== "credit"}
         <div class="due">{l.paidInFull(inv.paidDate ? date(inv.paidDate) : "")}</div>
       {:else if inv.due}
         <div class="due">{l.pay} <b>{m(total(inv))}</b> {l.by} <b>{date(inv.due)}</b>.</div>
@@ -150,6 +166,11 @@
   }
   .tool:focus-visible {
     box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3b6cf6;
+  }
+  .tool.plain {
+    background: rgb(255 255 255 / 0.85);
+    font-weight: 400;
+    box-shadow: none;
   }
   .tool.dark {
     background: #111;

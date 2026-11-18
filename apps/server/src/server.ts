@@ -26,6 +26,7 @@ import {
 } from "@openbooks/tools";
 import { foreign } from "./guard.ts";
 import { buildPack } from "./pack.ts";
+import { Actor } from "@openbooks/storage";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
 
 export interface ServerOptions {
@@ -314,6 +315,22 @@ export async function startServer(o: ServerOptions) {
         w = Number(q.get("window")) || undefined;
       return json({ suggestions: await run(ref ? transferSearch(ref, w) : transferSuggestions(e, w ? { window: w } : {})) });
     }
+    if (path === "/api/audit") {
+      // ?e=&kind=&target=&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=: the History view (read-only; nothing writes this table but the books)
+      const e = await entity(q.get("e")),
+        opt = (k: string) => q.get(k) || undefined,
+        day = (k: string) => {
+          const v = opt(k);
+          if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Reply({ error: `bad ${k}` }, 400);
+          return v;
+        };
+      const limit = Number.parseInt(q.get("limit") ?? "", 10);
+      return json({
+        entries: await books((b) =>
+          b.audit(e, { kind: opt("kind"), target: opt("target"), from: day("from"), to: day("to"), limit: Number.isFinite(limit) ? limit : 200 }),
+        ),
+      });
+    }
     if (path === "/api/pack") {
       const e = await entity(q.get("e"));
       if (q.get("year") === null) throw new Reply({ error: "unknown entity" }, 404); // books.py: KeyError → this 404
@@ -505,12 +522,23 @@ export async function startServer(o: ServerOptions) {
         );
         break;
       }
+      case "/api/print": {
+        // {id}: an issued document is being printed; answers how many times it has been (1 = this is the original, more = a copy)
+        if (typeof b.id !== "string") return json({ error: "bad request" }, 400);
+        return json({ prints: await books((bs) => bs.recordPrint(e, b.id as string)) });
+      }
       case "/api/connect":
-      case "/api/sync":
       case "/api/disconnect": {
         // a locked vault fails VaultLocked → 423 (below); secrets never leave the connector
         const r = await run(handle(e, path, b));
         if (r && "error" in r) return json(r, 400);
+        break;
+      }
+      case "/api/sync": {
+        // what a sync brings in is the sync's doing in the audit log: the connector's writes and the ingest that follows
+        const r = await run(handle(e, path, b).pipe(Effect.provideService(Actor, "sync")));
+        if (r && "error" in r) return json(r, 400);
+        await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
         break;
       }
       default:

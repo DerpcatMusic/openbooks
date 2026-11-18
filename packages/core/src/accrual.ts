@@ -219,11 +219,11 @@ export const invoiceTotal = (i: Pick<InvoiceLike, "items" | "vat">) => {
   const net = r2(sum((i.items ?? []).map((x) => (+(x.qty as number) || 0) * (+(x.price as number) || 0))));
   return r2(net + r2(net * (i.vat ?? 0)));
 };
-/** Issued invoices that ask for money: not drafts, not receipts (a receipt documents a payment). A document the old way marked paid counts as
+/** Issued invoices that ask for money: not drafts, not cancelled ones or the credits that cancel them, not receipts (a receipt documents a payment). A document the old way marked paid counts as
  *  one payment of its whole total on its paid date. */
 export function invoiceSources(invoices: readonly InvoiceLike[], customer: (id: string | null) => string): AgingSource[] {
   return invoices
-    .filter((i) => i.status && i.status !== "draft" && i.status !== "cancelled" && i.kind !== "receipt" && i.issued)
+    .filter((i) => i.status && i.status !== "draft" && i.status !== "cancelled" && i.kind !== "receipt" && i.kind !== "credit" && i.issued)
     .map((i) => {
       const gross = invoiceTotal(i);
       return {

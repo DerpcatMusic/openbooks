@@ -15,6 +15,7 @@
   import { PageHeader, Tabs, Select, Search, Button, Badge, Money, Icon, Table, EmptyState, type Column, type SelectGroup } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
   import TxnDrawer from "#lib/txns/TxnDrawer.svelte";
+  import IntegrityNotice from "#lib/IntegrityNotice.svelte";
   import More from "#lib/txns/More.svelte";
   import TagChip from "#lib/txns/TagChip.svelte";
   import { parseArg, inTab, inCat, inTag, inKind, inMethod, inReview, searchText, toCsv, range, type Kind, type Tab } from "#lib/txns/txns.ts";
@@ -277,6 +278,7 @@
     <Search bind:value={q} label={t("common.search")} class="ms-auto w-full sm:w-64" />
   </div>
 </PageHeader>
+<IntegrityNotice onsplit={(ids) => (S.drawer = ids[0] ?? null)} />
 
 {#snippet txnCell(x: Txn, k: string)}
   {#if k === "sel"}

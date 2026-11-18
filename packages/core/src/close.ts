@@ -41,7 +41,8 @@ export interface BooksDoc {
 }
 export type BooksProblem = "date" | "closeFuture" | "closeBeforeStart" | "startLater" | "basis";
 
-const isoOk = (s: string) =>
+/** A real calendar date written YYYY-MM-DD. */
+export const isoOk = (s: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
 /**
  * Why a new "books" doc is refused, or null. Both dates must be real dates; the close date can't be in the future (`today`, the
@@ -58,5 +59,32 @@ export function checkBooks(prev: BooksDoc | null | undefined, next: BooksDoc | n
   if (close && close !== wasClose && close > today) return "closeFuture"; // an old value saved before this check stays as it is
   if (start && was && start > was) return "startLater";
   if (close && start && (close !== wasClose || start !== was) && close < start) return "closeBeforeStart";
+  return null;
+}
+
+/** The business type in force in year y: the latest `types` entry at or before it (types {"2025": "osek-zair"} carries forward). */
+const typeIn = (types: Readonly<Record<string, string>> | undefined, y: number) => {
+  const from = Object.keys(types ?? {})
+    .filter((k) => +k <= y)
+    .sort()
+    .at(-1);
+  return from ? types![from] : undefined;
+};
+/**
+ * Why an entity meta change is refused under the close date, or null: the currency can't change once anything is closed (every closed
+ * amount is in it), and the business type of a year with closed days can't change (its tax treatment is settled).
+ */
+export function closedMeta(
+  prev: { currency?: string | undefined; types?: Readonly<Record<string, string>> | undefined },
+  patch: { currency?: string | undefined; types?: Readonly<Record<string, string>> | undefined },
+  close: string | null | undefined,
+): "currency" | "types" | null {
+  if (!close) return null;
+  if (patch.currency !== undefined && (patch.currency || undefined) !== (prev.currency || undefined)) return "currency";
+  if (patch.types !== undefined) {
+    const last = +close.slice(0, 4);
+    const years = [...Object.keys(prev.types ?? {}), ...Object.keys(patch.types ?? {})].map(Number).filter((y) => y <= last);
+    if ([...years, last].some((y) => typeIn(prev.types, y) !== typeIn(patch.types, y))) return "types";
+  }
   return null;
 }

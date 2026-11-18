@@ -37,6 +37,13 @@ export interface State {
   taxTables: Record<string, Record<string, unknown>>;
   inbox: string[];
   connections: Connection[];
+  /** What the books' integrity checks want the user to see. */
+  integrity?: {
+    /** The latest ingest, when the close date kept changes out of the closed period. */
+    closedImport: { at: string; close: string; added: number; removed: number; changed: number } | null;
+    /** Split transactions whose split no longer adds up (a re-import changed the amount) or whose transaction is gone: shown unsplit. */
+    brokenSplits: string[];
+  };
 }
 
 /** Docs with their own endpoints (or their own field in the state), left out of state.docs. */

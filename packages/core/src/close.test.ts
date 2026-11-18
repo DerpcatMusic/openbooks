@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { checkBooks, closedOn, movedBefore } from "./close.ts";
+import { checkBooks, closedMeta, closedOn, movedBefore } from "./close.ts";
 
 test("closedOn: on or before the close date, never without one", () => {
   expect(closedOn("2026-09-30", "2026-09-30")).toBe(true);
@@ -53,4 +53,17 @@ test("checkBooks: the basis is cash or accrual, and either can be switched at an
   expect(checkBooks({ basis: "accrual" }, { basis: null }, "2026-10-29")).toBeNull();
   expect(checkBooks({}, { basis: "cash" }, "2026-10-29")).toBeNull();
   expect(checkBooks({}, { basis: "hybrid" as never }, "2026-10-29")).toBe("basis");
+});
+
+test("closedMeta: currency and closed years' business type are locked by the close date", () => {
+  const prev = { currency: "ILS", types: { "2024": "osek-zair" } };
+  expect(closedMeta(prev, { currency: "USD" }, null)).toBeNull();
+  expect(closedMeta(prev, { currency: "USD" }, "2025-03-31")).toBe("currency");
+  expect(closedMeta(prev, { currency: "ILS" }, "2025-03-31")).toBeNull();
+  // 2025 has closed days: its type can't change; a type from 2026 on can
+  expect(closedMeta(prev, { types: { "2024": "osek-zair", "2025": "osek-murshe" } }, "2025-03-31")).toBe("types");
+  expect(closedMeta(prev, { types: { "2024": "osek-zair", "2026": "osek-murshe" } }, "2025-03-31")).toBeNull();
+  expect(closedMeta(prev, { types: { "2024": "osek-murshe" } }, "2025-03-31")).toBe("types");
+  expect(closedMeta(prev, { types: { "2024": "osek-zair", "2025": "osek-zair" } }, "2025-03-31")).toBeNull(); // same type every closed year
+  expect(closedMeta(prev, { types: { "2023": "osek-zair", "2024": "osek-zair" } }, "2025-03-31")).toBe("types"); // 2023 had the legacy kind
 });

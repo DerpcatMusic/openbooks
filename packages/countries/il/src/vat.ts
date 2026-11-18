@@ -166,7 +166,8 @@ export function vatReport(inp: VatReportInput): VatReport {
   const agg = new Map<string, VatLine>(); // unidentified small sales, one line per month-end and taxable flag
   for (const d of inp.docs) {
     if (d.status === "draft" || !inPeriod(d.issued)) continue;
-    const counts = d.kind === "tax" || (d.kind === "receipt" && d.refKind !== "tax");
+    // a credit cancelling a tax invoice (חשבונית מס זיכוי) carries its items negated: it takes the VAT back in its own period
+    const counts = d.kind === "tax" || (d.kind === "receipt" && d.refKind !== "tax") || (d.kind === "credit" && d.refKind === "tax");
     if (!counts) continue;
     const doc = d.number ?? d.id,
       receipt = d.kind !== "tax",

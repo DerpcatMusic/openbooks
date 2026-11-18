@@ -33,6 +33,11 @@ export interface State {
   taxTables: Record<string, Record<string, any>>; // country → year → table (taxtables.json / _app overrides)
   inbox: string[];
   connections: Connection[];
+  /** The close date kept a bank import out of the closed period; splits a re-import broke (shown unsplit). */
+  integrity?: {
+    closedImport: { at: string; close: string; added: number; removed: number; changed: number } | null;
+    brokenSplits: string[];
+  };
 }
 /** No books yet: the app shows setup. */
 export interface NoBooks {

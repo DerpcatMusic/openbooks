@@ -10,7 +10,8 @@ import {
   isLate,
   kindsFor,
   net,
-  nextNumber,
+  cancellable,
+  creditFor,
   owedOf,
   paidAmount,
   remaining,
@@ -48,10 +49,15 @@ test("invoices: VAT, totals, numbering, status", () => {
   expect(kindsFor(true, false)).toEqual(["invoice"]);
   expect(kindsFor(false, false)).toEqual(["bill", "receipt"]);
   expect(kindsFor(false, true)).toEqual(["tax", "bill", "receipt"]);
-  const docs = [inv({ kind: "tax", number: "0007" }), inv({ kind: "bill", number: "0002" }), inv({ kind: "invoice", number: "INV-0009" })];
-  expect(nextNumber(docs, "tax")).toBe("0008");
-  expect(nextNumber(docs, "receipt")).toBe("0001");
-  expect(nextNumber(docs, "invoice")).toBe("INV-0010");
+  // numbering is the server's (core documents.ts); a cancelled document and its credit owe nothing
+  const sold = inv({ kind: "tax", number: "0007", items, due: "2026-01-01" });
+  expect(cancellable(sold)).toBe(true);
+  const cr = creditFor(sold, "c", "2026-02-01");
+  expect(cr).toMatchObject({ kind: "credit", cancels: "i", ref: "0007", refKind: "tax", status: "open", number: null });
+  expect([status(cr), owedOf(cr), paidAmount(cr)]).toEqual(["credit", 0, 0]);
+  expect(cancellable(cr)).toBe(false);
+  const gone = { ...sold, status: "cancelled" as const };
+  expect([status(gone, "2026-02-01"), owedOf(gone), isLate(gone, "2026-02-01"), cancellable(gone)]).toEqual(["cancelled", 0, false, false]);
   expect(status(inv({ status: "draft" }))).toBe("draft");
   expect(status(inv({ kind: "receipt" }))).toBe("paid");
   expect(status(inv({ due: "2026-01-01" }), "2026-02-01")).toBe("overdue");
