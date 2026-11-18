@@ -47,7 +47,8 @@ import {
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Books, taxTables } from "@openbooks/storage";
-import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
+import { form1301, il, zairExclusion, type IlTable, type Profile } from "@openbooks/country-il";
+import type { CrossBorder, EntityYear, Facts, FxFn } from "@openbooks/core";
 import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
@@ -982,17 +983,125 @@ const taxTable = (y: number, country = "il") =>
     const row = t[String(pick)]!;
     return { ...row, year: pick, brackets: row.brackets.map(([hi, r]) => [hi ?? Infinity, r] as const) };
   });
-const ilTax = (e: Entity, y: number, txns: readonly Txn[]) =>
+/**
+ * Exchange rates for the tools: ₪ per unit on a date. ponytail: no rate source is wired yet (the Bank of Israel source lands on its own
+ * branch), so every rate is missing and the foreign income stays off the 1301 estimate, reported as missing.
+ */
+const fxRate: FxFn = () => null;
+/** From the entity list alone (no ledgers): how many foreign entities the person holds in year y and whether osek zair is closed. */
+const holdingsOf = (y: number) =>
+  Effect.gen(function* () {
+    const es = (yield* Books.use((b) => b.entities)).map(entityOf$);
+    const person = yield* Books.use((b) => b.doc<{ residence?: string } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const residence = person?.residence || "il";
+    const hs = es.flatMap((e) => {
+      const p = packFor(e.meta, y);
+      return p
+        ? [
+            {
+              entity: e.id,
+              type: p.type,
+              treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
+              foreign: p.pack.manifest.id !== residence,
+            },
+          ]
+        : [];
+    });
+    const foreign = hs.filter((h) => h.foreign);
+    return {
+      foreignHoldings: foreign.length,
+      zairExcluded:
+        residence === "il" &&
+        zairExclusion(
+          hs.filter((h) => !h.foreign),
+          foreign,
+        ).length > 0,
+    };
+  });
+/** The person's year across all businesses (each from its own ledger and pack): osek zair exclusions, Form 150 count, the crossBorder result. */
+const personYear = (y: number) =>
+  Effect.gen(function* () {
+    const es = (yield* Books.use((b) => b.entities)).map(entityOf$);
+    const person = yield* Books.use((b) => b.doc<{ residence?: string; facts?: Facts } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const residence = person?.residence || "il",
+      facts = person?.facts ?? {};
+    const years: EntityYear[] = [];
+    for (const e of es) {
+      const p = packFor(e.meta, y);
+      if (!p) continue;
+      const ts = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(y))),
+        r = pl(ts);
+      years.push({
+        entity: e.id,
+        country: p.pack.manifest.id,
+        type: p.type,
+        treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
+        year: y,
+        currency: e.meta.currency ?? p.pack.manifest.currency,
+        revenue: r.revenue,
+        expenses: r.cogs + r.opex,
+        foreignTaxPaid: +(facts[`foreignTax.${e.id}.${y}`] ?? 0) || 0, // the web app's taxKey
+        lines: ts.filter((t) => ["revenue", "cogs", "expense"].includes(plOf(t.category) ?? "")).map((t) => ({ date: t.date, amount: t.amount })),
+      });
+    }
+    const home = years.filter((x) => x.country === residence),
+      foreign = years.filter((x) => x.country !== residence);
+    const blocked = residence === "il" ? zairExclusion(home, foreign) : [];
+    const cb: CrossBorder | null = residence === "il" && foreign.length ? il.crossBorder!({ residence, facts }, y, home, foreign, fxRate) : null;
+    return { foreign, blocked, cb };
+  });
+const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
   Effect.gen(function* () {
     // the same form1301 the Tax page uses; form values (Tax page) override the automatic ones
     const T = yield* taxTable(y);
+    const py = yield* personYear(y);
+    const zairExcluded = py.blocked.length > 0,
+      cb = py.cb,
+      foreign = cb && !cb.missingFx.length && cb.attributedIncome ? { income: cb.attributedIncome, taxPaid: cb.foreignTax } : undefined;
     const f = (yield* docOf<Record<string, Record<string, string | number | null>>>(e, "form", {}))[String(y)] ?? {};
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
     const form = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v == null ? v : String(v)])) as Record<string, string>;
-    const r = form1301({ y, txns, type: "osek-zair", T: T as unknown as IlTable, form, profile: p as Profile, today: new Date().toISOString().slice(0, 10) });
+    const r = form1301({
+      y,
+      txns,
+      type,
+      T: T as unknown as IlTable,
+      form,
+      profile: p as Profile,
+      today: new Date().toISOString().slice(0, 10),
+      zairExcluded,
+      ...(foreign ? { foreign } : {}),
+    });
     const used = Math.min(r.gross, r.credits);
+    const zair = type === "osek-zair" && !zairExcluded;
     return {
-      regime: "Israeli osek zair (30% deemed expenses), form 1301",
+      regime: zair ? "Israeli osek zair (30% deemed expenses), form 1301" : `Israeli ${type} (actual expenses), form 1301`,
+      businessType: type,
+      zairExcluded: zairExcluded
+        ? {
+            why: py.blocked.map((b) =>
+              b.key === "zair" ? "business income attributed from a transparent (pass-through) foreign entity" : "controls a closely held company",
+            ),
+            source:
+              "Income Tax Circular 7/2025 §3.3 (Ordinance §87ב–87ז): osek zair is closed; 30% deemed expenses do not apply. Confirm with an Israeli accountant.",
+            url: py.blocked[0]!.url,
+          }
+        : null,
+      crossBorder: cb
+        ? {
+            attributedIncome: r2(cb.attributedIncome),
+            foreignTax: r2(cb.foreignTax),
+            foreignTaxCredit: r2(r.f1324.credit),
+            missingRates: cb.missingFx.length,
+            onReturn: !!foreign,
+            note: cb.missingFx.length
+              ? `${cb.missingFx.length} foreign amounts have no Bank of Israel rate yet: the foreign income is NOT in this estimate.`
+              : "Foreign income converted at each transaction's Bank of Israel rate (appendix 1324).",
+            obligations: cb.obligations.map((o) => ({ form: o.form, why: o.why })),
+          }
+        : null,
+      deductions: r.deductions,
+      paymentCredits: r.paymentCredits,
       taxTableYear: T.year,
       turnover: r2(r.turnover),
       zairCeiling: T.zairCeiling ?? null,
@@ -1079,7 +1188,7 @@ const tax_summary = defineTool({
   name: "tax_summary",
   title: { en: "Tax summary", he: "סיכום מס" },
   description:
-    "Tax picture for a year. Israeli osek zair: turnover, 70% taxable, brackets, credit points (resident, discharged soldier), credits, tax due vs withheld. US LLC: Form 5472 / pro forma 1120 obligations and due dates, owner contributions and distributions, year-end assets. Not tax advice.",
+    "Tax picture for a year. Israeli sole proprietor (osek zair / patur / murshe, by the business type in force): turnover, taxable income (70% for an eligible osek zair; actual expenses when zair is closed by a foreign transparent holding or control of a company), the person's foreign income and foreign tax credit (appendix 1324), personal deductions and credits, brackets, credit points (resident, discharged soldier), credits, tax due vs withheld. US LLC: Form 5472 / pro forma 1120 obligations and due dates, owner contributions and distributions, year-end assets. Not tax advice.",
   kind: "read",
   input: input({ year: I.check(Schema.isBetween({ minimum: 1990, maximum: 2100 })) }),
   output: Schema.Struct({ entity: S, kind: opt(S), year: I, ...CUR, uncategorized: I, regime: S }),
@@ -1090,8 +1199,9 @@ const tax_summary = defineTool({
         kind = e.meta.kind ?? null;
       const txns = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(y)));
       const out = { entity: e.id, kind, year: y, currency: e.meta.currency ?? null, uncategorized: txns.filter((t) => t.category === "ask").length };
-      if (kind === "il-osek-zair") return { ...out, ...(yield* ilTax(e, y, txns)) };
-      if (kind === "us-llc") return { ...out, ...(yield* usTax(e, y, txns)) };
+      const p = packFor(e.meta, y);
+      if (p?.pack === il) return { ...out, ...(yield* ilTax(e, y, txns, p.type)) };
+      if (p?.type === "llc-disregarded" || (!p && kind === "us-llc")) return { ...out, ...(yield* usTax(e, y, txns)) };
       return { ...out, regime: "none built in", profitAndLoss: pl(txns) };
     }),
 });
@@ -1686,6 +1796,7 @@ export const tools: readonly Tool[] = [
     docOf,
     dedCtx,
     packFor,
+    holdingsOf,
     home: Books.use((b) => Effect.succeed(b.home)).pipe(Effect.orDie),
     input,
     label,

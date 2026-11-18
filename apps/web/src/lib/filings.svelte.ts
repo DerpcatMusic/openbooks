@@ -20,6 +20,7 @@ import { isBiz } from "@openbooks/core";
 import { S, bizType, doc, ent, family, pack, saveDoc, taxTable } from "./stores/books.svelte.ts";
 import { resultOf } from "./taxtags.svelte.ts";
 import { usFacts } from "./ustax/books.ts";
+import { ilForeign } from "./crossborder.svelte.ts";
 
 export const filings = (): FilingsDoc => readFilings(doc<unknown>("filings", null));
 export const saveFilings = (d: FilingsDoc) => saveDoc("filings", d);
@@ -31,7 +32,7 @@ export const unmarkFiled = (id: string) => saveFilings(unmarkDone(filings(), id)
 /** The open books have a country calendar (the pack has `deadlines` and the year has a business type). */
 export const hasCalendar = () => !!S.data && !!pack()?.deadlines && !!bizType();
 export const isIL = () => family() === "il";
-export const vatBooks = (y = S.year) => isIL() && vatRegistered(bizType(y));
+export const vatBooks = (y = S.year) => isIL() && vatRegistered(bizType(y), il().vatStatus);
 
 /** Deadlines due in calendar `year` with their status today. */
 export function calendar(year: number, today: string): FilingRow[] {
@@ -42,7 +43,17 @@ export function calendar(year: number, today: string): FilingRow[] {
   const facts = (y: number) => {
     const type = bizType(y);
     if (!type) return null;
-    return isIL() ? { businessType: type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances } : usFacts(type);
+    if (!isIL()) return usFacts(type);
+    const fx = ilForeign(y);
+    return {
+      businessType: type,
+      vatFrequency: s.vatFrequency,
+      taxAdvances: s.taxAdvanceFrequency,
+      blAdvances: s.blAdvances,
+      vatStatus: s.vatStatus,
+      foreignHoldings: fx.foreign.length,
+      zairExcluded: fx.zairExcluded,
+    };
   };
   return filingRows(dueInYear(p, year, facts), f, today);
 }

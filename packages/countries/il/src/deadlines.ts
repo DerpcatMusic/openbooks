@@ -126,7 +126,10 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
     out.push({
       id: `il.150.${year}`,
       date: t === "ltd" ? nextWorkday(`${year + 1}-05-31`) : nextWorkday(`${year + 1}-04-30`),
-      title: { en: `Form 150: holdings in foreign entities, ${year} (attached to the annual return)`, he: `טופס 150: החזקה בחבר בני אדם תושב חוץ, ${year} (נספח לדוח השנתי)` },
+      title: {
+        en: `Form 150: holdings in foreign entities, ${year} (attached to the annual return)`,
+        he: `טופס 150: החזקה בחבר בני אדם תושב חוץ, ${year} (נספח לדוח השנתי)`,
+      },
       form: "150",
       url: "https://www.gov.il/he/service/itc-150",
       source: "Income Tax Circular 7/2025 §3.11: Form 150 is an appendix to the annual return, filed with it every year a foreign entity is held.",

@@ -231,7 +231,9 @@ describe("form 1301 hook", () => {
     const net = bands(150000, T26.brackets) - 2.25 * T26.point;
     ok(r.f1324.credit, net / 3);
     expect(r.due).toBe(Math.round(net - net / 3));
-    expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "100000" }, foreign: { income: 50000, taxPaid: 100 } }).f1324.credit).toBe(100);
+    expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "100000" }, foreign: { income: 50000, taxPaid: 100 } }).f1324.credit).toBe(
+      100,
+    );
   });
   const txn = (amount: number, category: string) => ({
     id: "x",

@@ -15,6 +15,7 @@
   import { Badge, Button, Card, Checkbox, Icon, Input, PageHeader, Segmented, Select, Skeleton, Table } from "#lib/ui/index.ts";
   import type { Column } from "#lib/ui/index.ts";
   import { disallowed } from "#lib/taxtags.svelte.ts";
+  import { rateToday } from "#lib/fx.ts";
   import Ask from "./Ask.svelte";
   import Deductions from "./Deductions.svelte";
 
@@ -38,10 +39,11 @@
   const U = $derived(taxTable(y, "us") as { costs?: { llc?: number; ccorp?: number }; corpRate?: number });
   const ready = $derived(!!T.ltd && T.blRateReduced != null);
 
-  // defaults from this business's books for the year (US books are in dollars → ₪ at the entered rate)
-  const fx = $derived(saved.fx ?? 3.6);
+  // defaults from this business's books for the year (US books are in dollars → ₪ at the entered rate, else today's Bank of Israel rate; never a default)
+  const fx = $derived(saved.fx ?? rateToday("USD"));
+  const noFx = $derived(isUS() && !fx);
   const P = $derived(pl(yearTxns(y)));
-  const toIls = (v: number) => Math.round(isUS() ? v * fx : v);
+  const toIls = (v: number) => Math.round(isUS() ? v * (fx ?? NaN) : v);
   // Expenses are what the country pack's deduction rules allow (core deductions.ts), not the raw sum: the Israeli rules for Israeli books, the US
   // rules for a US entity's books, the same as its 1120 uses. ponytail: a foreign owner's share is really taxed under Israeli rules; the US table
   // is the closest sourced reading of what an authority lets through (meals 50%, entertainment 0%), not an Israeli ruling.
@@ -58,7 +60,7 @@
     fx,
     costs: saved.costs ?? {},
   } satisfies TaxximizeInput);
-  const r = $derived(ready ? taxximize({ ...i, vatExpenses: whatif ? (saved.vatExpenses ?? i.expenses) : i.expenses }, T, U) : null);
+  const r = $derived(ready && !noFx ? taxximize({ ...i, vatExpenses: whatif ? (saved.vatExpenses ?? i.expenses) : i.expenses }, T, U) : null);
   const NOW: Record<string, string> = { "osek-patur": "patur", "osek-zair": "murshe", "osek-murshe": "murshe", ltd: "ltd", "llc-disregarded": "llc", "llc-ccorp": "ccorp" };
   const base = $derived(
     r?.rows.find((x) => x.key === NOW[bizType(y) ?? ""] && x.ok) ?? r?.rows.find((x) => x.key === (isUS() ? "llc" : "patur") && x.ok) ?? r?.rows.find((x) => x.ok),
@@ -184,8 +186,13 @@
 <div class="px-4 pt-5 pb-12 sm:px-8">
   {#if !S.data}
     <Skeleton class="h-64" />
-  {:else if !ready || !r}
+  {:else if !ready}
     <Card><p class="text-[14px] text-sub">{t("taxximizer.noRates", { y })}</p></Card>
+  {:else if noFx || !r}
+    <Card>
+      <p class="text-[14px] text-warn">{t("taxximizer.fxMissing")}</p>
+      <Input class="mt-3 w-full sm:w-52" numeric type="number" step="any" label={t("taxximizer.fx")} value="" hint={t("taxximizer.fxHintUS")} onchange={(e) => set("fx", num(e))} />
+    </Card>
   {:else}
     <div class="grid gap-4 2xl:grid-cols-[320px_minmax(0,1fr)]">
       <!-- inputs: one column beside the results on wide screens, two columns above them below 2xl (the table needs the width) -->
@@ -208,7 +215,7 @@
             <div class="flex gap-3"><dt class="flex-1 text-sub">{t("taxximizer.expensesY", { y })}</dt><dd class="num text-ink">{ils(i.expenses)}</dd></div>
             {#if cut > 0}<div class="text-[12px] text-sub">{t("taxtags.tx.cutNote", { amount: ils(toIls(cut)) })} <a class="text-accent-ink hover:underline" href="#deductions">{t("taxtags.tx.title")}</a></div>{/if}
             {#if P.uncat}<div class="text-[12px] text-warn">{t("taxximizer.uncat", { amount: ils(Math.abs(toIls(P.uncat))) })}</div>{/if}
-            {#if isUS()}<div class="text-[12px] text-faint">{t("taxximizer.dollarBooks", { fx: ltr(String(fx)) })}</div>{/if}
+            {#if isUS()}<div class="text-[12px] text-faint">{t("taxximizer.dollarBooks", { fx: ltr(String(fx ?? "")) })}</div>{/if}
           </dl>
         {/if}
         <div class="text-[13px] text-sub">
@@ -217,7 +224,7 @@
           <span class="mt-1 block text-[12px] text-faint">{t(`taxximizer.clientsHint.${i.clients}`)}</span>
         </div>
         <Input numeric type="number" step="any" label={t("taxximizer.points")} value={i.points} hint={t("taxximizer.pointsHint")} onchange={(e) => set("points", num(e))} />
-        <Input numeric type="number" step="any" label={t("taxximizer.fx")} value={fx} hint={t(isUS() ? "taxximizer.fxHintUS" : "taxximizer.fxHint")} onchange={(e) => set("fx", num(e))} />
+        <Input numeric type="number" step="any" label={t("taxximizer.fx")} value={fx ?? ""} hint={t(isUS() ? "taxximizer.fxHintUS" : "taxximizer.fxHint")} onchange={(e) => set("fx", num(e))} />
         <Checkbox label={t("taxximizer.paturOk")} description={t("taxximizer.paturOkHint")} checked={i.paturOk} onchange={(v) => set("paturOk", v)} />
         <details class="border-t border-line pt-3 text-[13px] md:col-span-2 2xl:col-span-1">
           <summary class="cursor-pointer text-sub hover:text-ink">{t("taxximizer.costs")}</summary>

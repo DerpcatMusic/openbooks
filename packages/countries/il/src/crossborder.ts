@@ -67,12 +67,15 @@ export function ilCrossBorder(T: IlRates, person: Person, y: number, home: reado
   const obligations: Obligation[] = foreign.length
     ? [
         { form: "1301", country: "il", why: "annual return: a resident with a foreign business must file" },
-        ...(attributedIncome || foreignTax || missing.length ? [{ form: "1324", country: "il", why: "foreign income and the foreign tax credit (appendix to 1301)" }] : []),
+        ...(attributedIncome || foreignTax || missing.length
+          ? [{ form: "1324", country: "il", why: "foreign income and the foreign tax credit (appendix to 1301)" }]
+          : []),
         ...foreign.map((e) => ({ form: "150", country: "il", why: `holding in a foreign entity (${e.entity})` })),
       ]
     : [];
   return {
     attributedIncome,
+    foreignTax,
     foreignTaxCredit: Math.max(0, Math.min(foreignTax, extraTax)),
     blocked,
     obligations,

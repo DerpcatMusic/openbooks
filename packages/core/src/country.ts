@@ -83,6 +83,8 @@ export interface Obligation {
 export interface CrossBorder {
   /** Income the residence country taxes the person on, in the residence currency. */
   readonly attributedIncome: number;
+  /** Foreign tax paid on that income, in the residence currency (before the cap). */
+  readonly foreignTax: number;
   /** Credit for foreign tax, capped at the residence tax on that income. */
   readonly foreignTaxCredit: number;
   /** Reliefs that do not apply (e.g. IL osek zair's 30% deemed expenses), with the law and where it is written. */
