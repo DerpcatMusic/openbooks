@@ -41,7 +41,8 @@ export interface BooksDoc {
 }
 export type BooksProblem = "date" | "closeFuture" | "closeBeforeStart" | "startLater" | "basis";
 
-const isoOk = (s: string) =>
+/** A real calendar date written YYYY-MM-DD. */
+export const isoOk = (s: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
 /**
  * Why a new "books" doc is refused, or null. Both dates must be real dates; the close date can't be in the future (`today`, the
