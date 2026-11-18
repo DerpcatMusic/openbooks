@@ -57,6 +57,16 @@ bun apps/server/src/main.ts
 OPENBOOKS_HOME=examples/showcase bun apps/server/src/main.ts   # with the demo's sample books
 ```
 
+As an app with its own window and icon, always on the latest `main`:
+
+```bash
+scripts/app.sh             # update, rebuild if needed, (re)start the server, open an app window
+scripts/app.sh --install   # Linux: add OpenBooks to your app menu / dock (it runs the line above)
+scripts/app.sh --stop      # stop the server
+```
+
+Each launch fast-forwards the checkout to `origin/main` (skipped if you have local edits or your own commits), rebuilds when the commit changed, and restarts the server on the new build. Books go to `~/openbooks` unless `OPENBOOKS_HOME` says otherwise. Any Chromium browser (Chrome, Edge, Brave, Helium) can also install the open page with "Install app". There is no service worker, so the window always shows the build the server has now.
+
 | Env | Default | |
 |---|---|---|
 | `OPENBOOKS_HOME` | `./entities` | `books.db` plus each business's statements and documents |

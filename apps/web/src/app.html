@@ -4,6 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenBooks</title>
+    <!-- Installable (Chrome/Edge/Helium: Install app). No service worker on purpose: the window always loads the build the server has now. -->
+    <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+    <link rel="icon" href="%sveltekit.assets%/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/icon-192.png" />
+    <meta name="theme-color" content="#5266eb" />
     <!-- Before first paint: theme, font, language/direction and privacy, so nothing flashes (stores take over after load). -->
     <script>
       try {
