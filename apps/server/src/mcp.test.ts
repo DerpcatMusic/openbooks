@@ -132,7 +132,7 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.rpc("nope", modern)).error.code).toBe(-32601);
 
     const tools = Object.fromEntries(((await s.rpc("tools/list", modern)).result.tools as J[]).map((t) => [t.name, t]));
-    expect(Object.keys(tools)).toHaveLength(30);
+    expect(Object.keys(tools)).toHaveLength(31);
     expect(Object.keys(tools).filter((n) => /secret|token|credential|connect/.test(n))).toEqual([]);
     s.out = Object.fromEntries((Object.entries(tools) as [string, J][]).map(([n, t]) => [n, t.outputSchema]));
     for (const [n, t] of Object.entries(tools) as [string, J][]) {
@@ -353,6 +353,8 @@ describe("openbooks mcp (stdio)", () => {
     expect((await s.tool("suggest_tax_tags", { year: 2026 })).suggestions).toBeInstanceOf(Array);
 
     expect((await s.tool("bank_status")).connections).toEqual([]);
+    const rec = await s.tool("recurring", { includeDismissed: true });
+    expect(Array.isArray(rec.recurring) && typeof rec.monthlyOut === "number").toBe(true);
     expect(await s.tool("bank_sync", {}, false)).toContain("No connected bank");
     expect(await s.tool("bank_sync", { provider: "hapoalim:2" }, false)).toContain("No connected bank");
     expect(await s.tool("bank_sync", { provider: "no such bank" }, false)).toContain("provider"); // Python: "bad format"; Effect names the pattern
@@ -445,7 +447,7 @@ describe("/mcp (Streamable HTTP)", () => {
     expect((await modern(6, "nope/nope"))[0]).toBe(404);
     [code, r] = await modern(7, "tools/list", {}, undefined, { Origin: `http://localhost:${port}` });
     expect(code).toBe(200);
-    expect(r!.result.tools).toHaveLength(30);
+    expect(r!.result.tools).toHaveLength(31);
     [code, r] = await modern(8, "tools/list", {}, undefined, { Origin: "http://evil.example" });
     expect([code, r!.error.code]).toEqual([403, -32600]);
     expect((await modern(9, "tools/list", {}, undefined, { Host: `evil.example:${port}` }))[0]).toBe(403); // DNS rebinding
@@ -482,7 +484,7 @@ describe("/mcp (Streamable HTTP)", () => {
         return { action: "accept", content: { confirm: true } };
       });
       await c.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`)));
-      expect((await c.listTools()).tools).toHaveLength(30);
+      expect((await c.listTools()).tools).toHaveLength(31);
       const lt = (await c.callTool({ name: "list_transactions", arguments: { entity: "acme" } })).structuredContent as J;
       const id = (lt.transactions as J[]).find((t) => !t.id.startsWith("je"))!.id;
       const args = { entity: "acme", ids: Array(21).fill(id), category: "ask" };

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { burn, cashAt, cashDelta, cashFlow, margins, pctLabel } from "./insights.ts";
+import { bankFees, burn, cashAt, cashDelta, cashFlow, margins, pctLabel, spendVsNormal } from "./insights.ts";
 
 const tx = (date: string, amount: number, category = "expense:software", account = "Checking") => ({ date, amount, category, account });
 
@@ -73,4 +73,14 @@ test("margins: only with revenue; net margin + expense ratio = 100; labels round
   expect(margins(1000, 1500)).toEqual({ net: -50, expenseRatio: 150 }); // loss
   expect(margins(1000, 0)).toEqual({ net: 100, expenseRatio: 0 });
   expect([pctLabel(75), pctLabel(0.4), pctLabel(0), pctLabel(-50), pctLabel(99.6), pctLabel(-0.2)]).toEqual(["75%", "<1%", "0%", "-50%", "100%", "0%"]);
+});
+
+test("spending against its own normal: average of the prior periods the books reach, null change without history", () => {
+  const r = (date: string, amount: number, category = "expense:software") => ({ date, amount, category, account: "Bank" });
+  const ts = [r("2026-01-10", -100), r("2026-02-10", -100), r("2026-03-10", -160), r("2026-03-11", -40, "expense:travel"), r("2026-03-12", -5, "transfer:x"), r("2026-03-13", 900, "revenue:x")];
+  expect(spendVsNormal(ts, { from: "2026-03", to: "2026-03" }, 3)).toEqual([
+    { key: "expense:software", value: 160, avg: 100, change: 0.6 },
+    { key: "expense:travel", value: 40, avg: 0, change: null },
+  ]);
+  expect(bankFees([r("2026-03-01", -12, "expense:bank-fees"), r("2026-03-02", -3, "cogs:platform-fees"), r("2026-03-02", -50)])).toBe(15);
 });

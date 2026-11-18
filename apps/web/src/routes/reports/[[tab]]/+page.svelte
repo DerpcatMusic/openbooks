@@ -4,11 +4,13 @@
   // length (at most 5 years); lines drill into the transactions; CSV export and print. The aging tabs have their own as-of date and no period.
   import { page } from "$app/state";
   import { goto } from "#lib/nav.ts";
-  import { agingReport, basisBridge, inPeriod, openAt, outsideNet, pl, priorPeriod, withTag } from "@openbooks/core";
+  import { agingReport, basisBridge, inPeriod, openAt, outsideNet, pl, priorPeriod, spendVsNormal, withTag } from "@openbooks/core";
   import { S, ent, isUS, period, periodLabel, monthsIn, balances, catLabel, mon, mdy, tagsDoc, toast } from "#lib/stores/books.svelte.ts";
   import { apSources, arSources, basis, ledgerRows, linkSuggested, prSources, unlinked } from "#lib/stores/basis.svelte.ts";
   import { t, bidi, I } from "#lib/i18n.svelte.ts";
-  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs } from "#lib/ui/index.ts";
+  import { Bars, Button, EmptyState, Icon, Money, PageHeader, Segmented, Select, Stat, Tabs, Treemap } from "#lib/ui/index.ts";
+  import FlowCard from "#lib/home/FlowCard.svelte";
+  import RecurringList from "#lib/home/RecurringList.svelte";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import Statement from "#lib/reports/Statement.svelte";
   import CashFlowAnalysis from "#lib/reports/CashFlowAnalysis.svelte";
@@ -19,7 +21,7 @@
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
-  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "cfa", "gl", "ar", "ap"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
+  const TABS = $derived(["pl", ...(us ? ["bs"] : []), "cf", "cfa", "flow", "gl", "ar", "ap"].map((key) => ({ key, label: t(`reports.tab.${key}`) })));
   const tab = $derived(TABS.some((x) => x.key === page.params.tab) ? page.params.tab! : "pl");
   const pickTab = (k: string) => goto(`/reports/${k}`, { replace: true, reset: false });
 
@@ -36,12 +38,15 @@
     prior = $derived(priorPeriod(p));
   const aging = $derived(tab === "ar" || tab === "ap");
   // a range over 5 years isn't reported (the monthly columns alone would be 60+): say so instead
-  const tooLong = $derived(!aging && tab !== "cfa" && monthsIn(p).length > 60);
+  const tooLong = $derived(!aging && tab !== "cfa" && tab !== "flow" && monthsIn(p).length > 60);
   // report on the activity of one tag: P&L, cash flow and the ledger use only its transactions (the balance sheet is of the whole books)
   let tagPick = $state("");
   const tags = $derived(tagsDoc().tags);
   const tag = $derived(tags.some((g) => g.id === tagPick) ? tagPick : "");
   const scoped = <T extends { tags?: readonly string[] | undefined }>(xs: T[]) => (tag ? withTag(xs, tag) : xs);
+  // money flow: the sankey, spending against each account's own normal (the 3 same-length periods before), recurring payments
+  const flowTs = $derived(scoped((S.data?.txns ?? []).filter((x) => inPeriod(x, p))));
+  const tree = $derived(tab === "flow" ? spendVsNormal(scoped(S.data?.txns ?? []), p, 3).map((x) => ({ ...x, label: catLabel(x.key) })) : []);
   // the books' basis: cash rows as they are, or the accrual rows (invoices and bills by their dates, payments clearing receivable / payable)
   const accrual = $derived(basis() === "accrual");
   const rows = $derived(ledgerRows());
@@ -186,7 +191,7 @@
         {#if tags.length && tab !== "bs" && !aging}
           <Select variant="pill" icon="tag" label={t("tags.filter")} value={tag} onchange={(v) => (tagPick = v)} options={[{ value: "", label: t("tags.allTags") }, ...tags.map((g) => ({ value: g.id, label: g.name }))]} />
         {/if}
-        {#if !tooLong}<Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button><Button icon="download" onclick={() => void exportXlsx()}>{t("reports.exportXlsx")}</Button>{/if}
+        {#if !tooLong && tab !== "flow"}<Button icon="download" onclick={exportCsv}>{t("reports.exportCsv")}</Button><Button icon="download" onclick={() => void exportXlsx()}>{t("reports.exportXlsx")}</Button>{/if}
       {/if}
       <Button icon="printer" onclick={() => print()}>{t("common.print")}</Button>
     </div>
@@ -201,6 +206,23 @@
     <div class="panel"><EmptyState icon="calendar" title={t("reports.tooLong")} text={t("reports.tooLongHint")} /></div>
   {:else if tab === "cfa"}
     <CashFlowAnalysis />
+  {:else if tab === "flow"}
+    <div class="grid gap-4">
+      <section class="panel min-w-0 p-4 sm:p-6"><FlowCard ts={flowTs} currency={cur} sub={periodLabel(p)} height={360} /></section>
+      <section class="panel min-w-0 p-4 sm:p-6">
+        <h2 class="text-[16px] text-ink">{t("charts.tree.title")}</h2>
+        <p class="mb-4 text-[13px] text-sub">{t("charts.tree.sub", { period: periodLabel(p) })}</p>
+        {#if tree.length}
+          <Treemap items={tree} currency={cur} label={t("charts.tree.title")} onselect={(k) => go("transactions", `cat:${k}`)} />
+        {:else}
+          <EmptyState icon="report" title={t("reports.empty")} text={t("reports.emptyHint")} compact />
+        {/if}
+      </section>
+      <section class="panel min-w-0 p-4 sm:p-6">
+        <h2 class="mb-3 text-[16px] text-ink">{t("charts.rec.title")}</h2>
+        <RecurringList currency={cur} restore />
+      </section>
+    </div>
   {:else if tab !== "bs" && !ts.length && !priorTs.length}
     <div class="panel"><EmptyState icon="report" title={t("reports.empty")} text={t("reports.emptyHint")} /></div>
   {:else if tab === "pl"}

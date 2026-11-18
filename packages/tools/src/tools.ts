@@ -34,7 +34,9 @@ import {
   paidOf,
   payerOf,
   plOf,
+  perMonth,
   pyRound,
+  recurring as detectRecurring,
   pyStr,
   relevantMoves,
   remaining,
@@ -461,6 +463,62 @@ const net_worth = defineTool({
       const assets = r2(sum(accounts.filter((x) => x.converted > 0).map((x) => x.converted))),
         liabilities = r2(-sum(accounts.filter((x) => x.converted < 0).map((x) => x.converted)));
       return { currency: cur, date: d, total: r2(assets - liabilities), assets, liabilities, accounts, missing: nw.missing };
+    }),
+});
+
+const recurring = defineTool({
+  name: "recurring",
+  title: { en: "Recurring payments", he: "תשלומים קבועים" },
+  description:
+    "Subscriptions, bills and recurring income: counterparties paid or paying on a steady cadence (weekly, biweekly, monthly, quarterly, yearly; at least 3 times, amounts within 35%). Amounts negative = money out. priceChange is a step in the amount after at least two payments at the old price. Series the user hid in the app are left out unless includeDismissed.",
+  kind: "read",
+  input: input({ includeDismissed: Schema.optionalKey(Schema.Boolean) }),
+  output: Schema.Struct({
+    ...CUR,
+    recurring: Schema.Array(
+      Schema.Struct({
+        payer: S,
+        account: S,
+        accountLabel: S,
+        cadence: S,
+        amount: N,
+        perMonth: N,
+        count: I,
+        last: S,
+        next: S,
+        dismissed: Schema.Boolean,
+        priceChange: opt(Schema.Struct({ from: N, to: N, date: S })),
+      }),
+    ),
+    monthlyOut: N,
+    monthlyIn: N,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const hidden = yield* docOf<Record<string, boolean>>(e, "recurring-dismissed", {});
+      const rs = detectRecurring(yield* ledgerOf(e), today())
+        .map((r) => ({ ...r, dismissed: !!hidden?.[r.key] }))
+        .filter((r) => a.includeDismissed || !r.dismissed);
+      const live = rs.filter((r) => !r.dismissed);
+      return {
+        currency: e.meta.currency ?? null,
+        recurring: rs.map((r) => ({
+          payer: r.payer,
+          account: r.account,
+          accountLabel: label(r.account),
+          cadence: r.cadence,
+          amount: r2(r.amount),
+          perMonth: r2(perMonth(r)),
+          count: r.count,
+          last: r.last,
+          next: r.next,
+          dismissed: r.dismissed,
+          priceChange: r.priceChange ? { from: r2(r.priceChange.from), to: r2(r.priceChange.to), date: r.priceChange.date } : null,
+        })),
+        monthlyOut: r2(-sum(live.filter((r) => r.amount < 0).map(perMonth))),
+        monthlyIn: r2(sum(live.filter((r) => r.amount > 0).map(perMonth))),
+      };
     }),
 });
 
@@ -1881,6 +1939,7 @@ export const tools: readonly Tool[] = [
   bank_status,
   bank_sync,
   audit_log,
+  recurring,
   ...filingTools({
     entityOf,
     ledgerOf,
