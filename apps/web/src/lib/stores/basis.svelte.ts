@@ -42,7 +42,7 @@ export function ledgerRows(): Txn[] {
     const cats = allCats().filter((c) => !isArchived(c));
     memo = {
       key,
-      rows: accrualRows(d.txns, arSources(), [...apSources(), ...prSources()], {
+      rows: accrualRows(d.txns, invoiceSources(doc<Parameters<typeof invoiceSources>[0]>("invoices"), nameOf("customers"), { ledger: true }), [...apSources(), ...prSources()], {
         revenue: cats.find((c) => plOf(c) === "revenue") ?? "revenue:sales",
         expense: cats.find((c) => plOf(c) === "expense") ?? "expense:other",
         from: startDate(),
