@@ -91,6 +91,8 @@ export const TagsDoc = Schema.Struct({
       tax: Schema.optionalKey(TagTax),
       /** Deactivated: hidden from pickers and filters, kept on the transactions that already carry it. Absent = active. */
       inactive: Schema.optionalKey(Schema.Boolean),
+      /** Transactions with this tag are reportable transactions with the foreign owner (Form 5472 Part V, Reg. 1.482-1(i)(7)). */
+      relatedParty: Schema.optionalKey(Schema.Boolean),
     }),
   ),
   on: Schema.Record(Schema.String, Schema.Array(Schema.String)),

@@ -23,6 +23,8 @@ import {
   inRange,
   cleanSplit,
   invoiceSources,
+  openAt,
+  relatedPartyTags,
   invoiceTotal,
   isCard,
   isLegacy,
@@ -1143,19 +1145,32 @@ const US_FIELDS: Record<string, string> = {
   ownerCountry: "Owner citizenship & tax residence",
   ownerTin: "Owner foreign TIN",
   business: "Principal business activity",
+  businessCountries: "Principal country(ies) where business is conducted (5472 line 1o)",
 };
 const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
   Effect.gen(function* () {
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
+    // 5472 Part V: equity rows plus rows carrying a related-party tag (other transactions with the owner, Reg. 1.482-1(i)(7))
+    const rel = relatedPartyTags(yield* docOf<TagsDoc>(e, "tags", emptyTags()));
+    const other = txns.filter((t) => group(t.category) !== "equity" && (t.tags ?? []).some((g) => rel.has(g)));
     const owner = txns.filter((t) => group(t.category) === "equity");
     const contrib = owner.filter((t) => t.amount > 0),
       dist = owner.filter((t) => t.amount < 0);
     const b = yield* balancesAt(e, `${y}-12-31`);
-    const assets = sum(
-      Object.entries(b)
-        .filter(([k]) => !isCard(k))
-        .map(([, v]) => v),
-    );
+    // line 1c: the balance-sheet total (bank accounts; open invoices too when the books are on the accrual basis, as the app's balance sheet)
+    const accrual = (yield* docOf<{ basis?: string | null }>(e, "books", {})).basis === "accrual";
+    const ar = accrual
+      ? openAt(
+          invoiceSources(yield* docOf<Invoice[]>(e, "invoices", []), () => ""),
+          `${y}-12-31`,
+        ).total
+      : 0;
+    const assets =
+      sum(
+        Object.entries(b)
+          .filter(([k]) => !isCard(k))
+          .map(([, v]) => v),
+      ) + ar;
     return {
       regime: "Foreign-owned US single-member LLC (disregarded entity)",
       obligations: [
@@ -1164,7 +1179,7 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
           what: "Information return: Part I total assets, Part II the foreign owner, Part V reportable transactions with the owner",
           due: `${y + 1}-04-15`,
           extendedDue: `${y + 1}-10-15`,
-          extension: "Form 7004",
+          extension: "Form 7004: on paper, 'Foreign-owned U.S. DE' across the top, faxed or mailed like the 5472 (not e-filed)",
           penalty: "25,000 USD for a late or missing 5472",
         },
         {
@@ -1177,6 +1192,7 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
       ],
       ownerContributions: { count: contrib.length, total: r2(sum(contrib.map((t) => t.amount))) },
       ownerDistributions: { count: dist.length, total: r2(-sum(dist.map((t) => t.amount))) },
+      otherOwnerTransactions: { count: other.length, net: r2(sum(other.map((t) => t.amount))) },
       totalAssetsYearEnd: r2(assets),
       missingProfileFields: Object.entries(US_FIELDS)
         .filter(([k]) => !p[k])

@@ -3,7 +3,8 @@
   // Disregarded single-member LLC owned from abroad: Form 5472 + pro forma 1120 (+ Part V statement). LLC taxed as a C-corp: its own 1120 + 5472
   // and the 1120-W estimates. The header and year picker are the page's (+page.svelte); field maps are the US pack's form hooks (irs.ts).
   import { ccorpObligations, corpTax, llcObligations, usTable, type UsTable } from "@openbooks/country-us";
-  import { S, catLabel, ent, fmt, mdy, setProfile, taxTable, toast, yearTxns } from "#lib/stores/books.svelte.ts";
+  import { S, catLabel, ent, fmt, mdy, saveTags, setProfile, tagsDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
+  import { ensureRelatedPartyTag, group, relatedPartyTags } from "@openbooks/core";
   import { bidi, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Icon, Input, Money, Table, type Column } from "#lib/ui/index.ts";
   import { corpInput, irsInput, isCorp, ownerTxns, totalAssets, usNow } from "#lib/ustax/books.ts";
@@ -17,8 +18,8 @@
   const corp = $derived(isCorp(y));
   const yts = $derived(yearTxns(y));
   const owner = $derived(ownerTxns(y));
-  const contributions = $derived(owner.filter((x) => x.amount > 0)),
-    distributions = $derived(owner.filter((x) => x.amount < 0));
+  const contributions = $derived(owner.filter((x) => x.amount > 0 && group(x.category) === "equity")),
+    distributions = $derived(owner.filter((x) => x.amount < 0 && group(x.category) === "equity"));
   const sum = (ts: readonly Txn[]) => ts.reduce((a, x) => a + x.amount, 0);
   const assets = $derived(totalAssets(y));
   const ask = $derived(yts.filter((x) => x.category === "ask"));
@@ -43,8 +44,11 @@
     ["ownerCountry", "text", "auto"],
     ["ownerTin", "text", "ltr"],
     ["business", "text", "auto"],
+    ["businessCountries", "text", "auto"],
+    ["taxReturnCountry", "text", "auto"],
   ];
-  const missing = $derived(FIELDS.filter(([k]) => !p[k]).map(([k]) => t(`taxUS.f.${k}`)));
+  const OPTIONAL = new Set(["taxReturnCountry"]); // 5472 line 1n stays blank when the LLC files no income tax return as a resident anywhere
+  const missing = $derived(FIELDS.filter(([k]) => !p[k] && !OPTIONAL.has(k)).map(([k]) => t(`taxUS.f.${k}`)));
   const code = $derived((p.state ?? "").trim().toUpperCase().slice(0, 2));
   const stateText = $derived(
     ["WY", "DE", "NM"].includes(code) ? t(`taxUS.state.${code}`, { amount: fmt(UT.delawareTax ?? usTable(y).delawareTax) }) : p.state ? t("taxUS.state.other", { state: bidi(p.state) }) : t("taxUS.state.none"),
@@ -52,8 +56,11 @@
 
   // auto-fill: the official IRS PDFs filled from the books (pdf-lib is ~1 MB, so it loads on click)
   let filling = $state(false);
+  /** Why the last download was refused (fields the blank could not take, or no blank for the year): stays on screen until the next try. */
+  let fillErr = $state<string | null>(null);
   async function fill(kind: "packet" | "5472" | "1120") {
     filling = true;
+    fillErr = null;
     try {
       const irs = await import("./pdf.ts");
       const d = corp ? corpInput(y) : irsInput(y);
@@ -62,11 +69,23 @@
       else if (kind === "5472") irs.download(await irs.fill5472({ ...d, de: !corp }), `${name}-${y}-f5472.pdf`);
       else irs.download(await irs.fill1120(d), `${name}-${y}-f1120${corp ? "" : "-pro-forma"}.pdf`);
     } catch (e) {
-      toast(t("taxUS.fillError", { msg: bidi((e as Error).message) }));
+      const irs = await import("./pdf.ts");
+      fillErr =
+        e instanceof irs.UnfilledFields
+          ? t("legal.unfilled", { form: e.form, list: e.fields.join(", ") })
+          : e instanceof irs.NoBlank
+            ? t("legal.noBlank", { form: e.form, y: e.year })
+            : t("taxUS.fillError", { msg: bidi((e as Error).message) });
     } finally {
       filling = false;
     }
   }
+
+  // 5472 Part V also covers other transactions with the owner (Reg. 1.482-1(i)(7)): rows carrying a related-party tag
+  const relTags = $derived(relatedPartyTags(tagsDoc()));
+  const isEquity = (x: Txn) => group(x.category) === "equity";
+  const others = $derived(owner.filter((x) => !isEquity(x)));
+  const addRelatedTag = () => saveTags(ensureRelatedPartyTag(tagsDoc(), t("legal.relatedTag")).doc);
 
   type Step = { ok: boolean | null; title: string; text: string; href?: string };
   const steps: Step[] = $derived([
@@ -96,7 +115,9 @@
           {
             ok: true,
             title: t("taxUS.partV"),
-            text: t("taxUS.partVText", { nc: contributions.length, c: fmt(sum(contributions), 2), nd: distributions.length, d: fmt(-sum(distributions), 2) }),
+            text:
+              t("taxUS.partVText", { nc: contributions.length, c: fmt(sum(contributions), 2), nd: distributions.length, d: fmt(-sum(distributions), 2) }) +
+              (others.length ? " " + t("legal.partVOther", { n: others.length, total: fmt(sum(others), 2) }) : ""),
           },
           { ok: null, title: t("taxUS.fill5472"), text: t("taxUS.fill5472Text", { assets: fmt(assets, 2) }) },
           { ok: null, title: t("taxUS.proForma"), text: t("taxUS.proFormaText") },
@@ -137,6 +158,13 @@
     </div>
   </div>
 
+  {#if fillErr}
+    <div role="alert" class="mt-3 flex items-start gap-3 rounded-2xl border border-warn/30 bg-warn/8 px-4 py-3 text-[14px] text-ink">
+      <span class="mt-0.5 shrink-0 text-warn"><Icon name="alert" size={18} /></span>
+      <span class="min-w-0 flex-1" dir="auto">{fillErr}</span>
+    </div>
+  {/if}
+
   <div class="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
     <div class="min-w-0 space-y-4">
       <Card flush>
@@ -174,7 +202,8 @@
           {#snippet cell(r, c)}
             {#if c.key === "date"}<span class="text-sub num">{mdy(r.date)}</span>
             {:else if c.key === "desc"}<span class="text-ink" dir="auto">{r.desc}{r.memo ? ` · ${r.memo}` : ""}</span>
-            {:else if c.key === "kind"}<Badge size="sm" tone={r.amount > 0 ? "good" : "neutral"}>{t(r.amount > 0 ? "taxUS.contribution" : "taxUS.distribution")}</Badge>
+            {:else if c.key === "kind"}{#if isEquity(r)}<Badge size="sm" tone={r.amount > 0 ? "good" : "neutral"}>{t(r.amount > 0 ? "taxUS.contribution" : "taxUS.distribution")}</Badge>
+              {:else}<Badge size="sm" tone="neutral">{t(r.amount > 0 ? "legal.receivedFromOwner" : "legal.paidToOwner")}</Badge>{/if}
             {:else}<Money value={r.amount} currency={cur} plus />{/if}
           {/snippet}
           {#snippet empty()}<p class="px-4 py-4 text-[14px] text-sub sm:px-5">{t("taxUS.noOwner", { cat: catLabel("equity:owner") })}</p>{/snippet}
@@ -182,9 +211,14 @@
             {#if owner.length}
               <tr><td colspan="3">{t("taxUS.contributions")}</td><td class="text-end"><Money value={sum(contributions)} currency={cur} /></td></tr>
               <tr><td colspan="3">{t("taxUS.distributions")}</td><td class="text-end"><Money value={-sum(distributions)} currency={cur} /></td></tr>
+              {#if others.length}<tr><td colspan="3">{t("legal.otherOwner")}</td><td class="text-end"><Money value={sum(others)} currency={cur} plus /></td></tr>{/if}
             {/if}
           {/snippet}
         </Table>
+        <div class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3 sm:px-5">
+          <p class="min-w-0 flex-1 basis-56 text-[13px] text-sub">{t(relTags.size ? "legal.relatedHint" : "legal.relatedHintNone")}</p>
+          {#if !relTags.size}<Button size="sm" onclick={addRelatedTag}>{t("legal.relatedAdd")}</Button>{/if}
+        </div>
       </Card>
 
       {#if corp}<Contractors {y} />{/if}
@@ -199,7 +233,8 @@
             {type}
             {dir}
             value={p[k] ?? ""}
-            required={!p[k]}
+            required={!p[k] && !OPTIONAL.has(k)}
+            hint={k === "businessCountries" || k === "taxReturnCountry" ? t(`legal.hint.${k}`) : undefined}
             onchange={(e: Event) => setProfile({ [k]: (e.currentTarget as HTMLInputElement).value })} />
         {/each}
       </div>

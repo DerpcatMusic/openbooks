@@ -33,4 +33,22 @@ export default {
   "legal.vatStatus": "VAT status",
   "legal.vatStatus.patur": "Osek patur (no VAT)",
   "legal.vatStatus.murshe": "Osek murshe (charges VAT)",
+  "taxUS.f.businessCountries": "Countries where the LLC does business",
+  "taxUS.f.taxReturnCountry": "Country where the LLC files a tax return as a resident",
+  "legal.hint.businessCountries":
+    "Form 5472 line 1o: the principal country or countries where the business is run (for example the US and Israel). Not \u201cworldwide\u201d.",
+  "legal.hint.taxReturnCountry":
+    "Form 5472 line 1n. Leave blank if the LLC files no income tax return as a resident anywhere (a disregarded LLC usually files none).",
+  "legal.unfilled": "The {form} was not downloaded: these fields could not be filled: {list}. Nothing was left out silently; please report this.",
+  "legal.noBlank": "The {form} for tax year {y} is not bundled yet (the IRS form changes each year). Download it from irs.gov when it is published.",
+  "legal.relatedTag": "Related party (owner)",
+  "legal.partVOther": "{n} other transactions with you (net {total}) are tagged as related-party and go on Part V too.",
+  "legal.receivedFromOwner": "Received from owner",
+  "legal.paidToOwner": "Paid to owner",
+  "legal.otherOwner": "Other transactions with the owner",
+  "legal.relatedHint":
+    "Other dealings with you (rent, services, loans, expenses you paid for the LLC) also go on Part V: give those transactions the related-party tag.",
+  "legal.relatedHintNone":
+    "Other dealings with you (rent, services, loans, expenses you paid for the LLC) also go on Part V. Add a related-party tag, then tag those transactions with it.",
+  "legal.relatedAdd": "Add related-party tag",
 };

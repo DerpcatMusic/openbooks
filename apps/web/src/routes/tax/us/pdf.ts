@@ -16,6 +16,7 @@ import {
   IRS_PREFIX,
   NEC_COPY_B_PAGE,
   partV,
+  pdfFor,
   PRO_FORMA_STAMP,
   type CorpInput,
   type Es1040Ctx,
@@ -41,9 +42,19 @@ const BLANKS = {
 const blank = async (name: keyof typeof BLANKS) => PDFDocument.load(await (await fetch(BLANKS[name])).arrayBuffer());
 const cents = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Hook output → form: "X" checks a box, anything else is text. A field the blank lacks is skipped, as before. */
-function write(doc: PDFDocument, values: Readonly<Record<string, string>>) {
-  const form = doc.getForm();
+/** Fields a hook wrote that the blank could not take: the download is refused, never a form with silently missing lines. */
+export class UnfilledFields extends Error {
+  constructor(
+    readonly form: string,
+    readonly fields: readonly string[],
+  ) {
+    super(`${form}: ${fields.length} field(s) could not be filled: ${fields.join(", ")}`);
+  }
+}
+/** Hook output → form: "X" checks a box, anything else is text. Returns the fields that failed (missing in the blank, wrong kind). */
+export function writeFields(doc: PDFDocument, values: Readonly<Record<string, string>>): string[] {
+  const form = doc.getForm(),
+    failed: string[] = [];
   for (const [name, v] of Object.entries(values)) {
     try {
       const f = form.getField(IRS_PREFIX + name);
@@ -54,15 +65,20 @@ function write(doc: PDFDocument, values: Readonly<Record<string, string>>) {
         tf.setText(v);
       }
     } catch (e) {
-      console.warn("irs: field", name, (e as Error).message);
+      failed.push(`${name} (${(e as Error).message})`);
     }
   }
+  return failed;
+}
+function write(doc: PDFDocument, values: Readonly<Record<string, string>>, form: string) {
+  const failed = writeFields(doc, values);
+  if (failed.length) throw new UnfilledFields(form, failed);
 }
 
 /** Fill a blank with a hook's output and flatten it, ready to be copied into a packet (several blanks share field names). */
 async function flat(name: keyof typeof BLANKS, values: Readonly<Record<string, string>>) {
   const doc = await blank(name);
-  write(doc, values);
+  write(doc, values, name);
   doc.getForm().flatten();
   return doc;
 }
@@ -75,15 +91,25 @@ async function merge(parts: readonly (readonly [PDFDocument, readonly number[] |
 
 export async function fill5472(d: IrsInput & { de?: boolean }) {
   const doc = await blank("f5472");
-  write(doc, form5472(d));
+  write(doc, form5472(d), "5472");
   return doc.save();
 }
 
+/** The 1120 blank is per tax year: a year without its blank is refused (the 2025 form would carry the wrong year's lines). */
+export class NoBlank extends Error {
+  constructor(
+    readonly form: string,
+    readonly year: number,
+  ) {
+    super(`No IRS Form ${form} blank for tax year ${year} yet`);
+  }
+}
 /** Pro forma 1120 (disregarded LLC, stamped across the top) or, with the C-corp's P&L, the real page 1. */
 export async function fill1120(d: IrsInput | CorpInput) {
+  if (!pdfFor("1120", d.year)) throw new NoBlank("1120", d.year);
   const doc = await blank("f1120");
   const corp = "revenue" in d;
-  write(doc, corp ? form1120(d) : form1120ProForma(d));
+  write(doc, corp ? form1120(d) : form1120ProForma(d), "1120");
   if (!corp) {
     const page = doc.getPage(0);
     const font = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -106,7 +132,7 @@ async function statement(d: IrsInput) {
     y = 740;
     page.drawText(ascii(`${d.legalName}   EIN ${d.ein}   Tax year ${d.year}`), { x: 50, y, size: 11, font: bold });
     page.drawText("Form 5472, Part V - Reportable transactions of a foreign-owned U.S. DE", { x: 50, y: (y -= 18), size: 11, font: bold });
-    page.drawText(ascii(`Related party: ${d.owner || ""}. Contributions to and distributions from the entity (U.S. dollars).`), {
+    page.drawText(ascii(`Related party: ${d.owner || ""}. Contributions, distributions and other transactions with the owner (U.S. dollars).`), {
       x: 50,
       y: (y -= 16),
       size: 9,
@@ -135,6 +161,7 @@ async function statement(d: IrsInput) {
   for (const [k, n] of [
     ["Total contributions to the LLC", v.contributions],
     ["Total distributions to the owner", v.distributions],
+    ...(v.other ? ([["Total other transactions with the owner", v.other]] as const) : []),
     ["Total reportable transactions (Form 5472, line 1f)", v.total],
   ] as const) {
     page.drawText(k, { x: 200, y, size: 10, font: bold });

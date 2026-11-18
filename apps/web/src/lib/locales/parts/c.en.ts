@@ -163,7 +163,7 @@ export default {
   "taxUS.proFormaText": "Only name, address, EIN, item E (total assets) — write “Foreign-owned U.S. DE” across the top. No income lines.",
   "taxUS.fileBy": "File by {date}",
   "taxUS.fileByText":
-    "The IRS doesn't take this e-filed: fax 5472 + 1120 to 855-887-7737 or mail them to the IRS in Ogden, UT (M/S 6112). Form 7004 extends to {ext}. Late or missing 5472: $25,000 penalty.",
+    "The IRS doesn't take this e-filed: fax 5472 + 1120 to 855-887-7737 or mail them to the IRS in Ogden, UT (M/S 6112). Form 7004 extends to {ext}: write \u201cForeign-owned U.S. DE\u201d across its top and fax or mail it to the same place (it can't be e-filed). Late or missing 5472: $25,000 penalty.",
   "taxUS.stateFiling": "State annual filing",
   "taxUS.israel": "Israel",
   "taxUS.israelText":
@@ -259,7 +259,8 @@ export default {
   "planner.duty.5472": "Form 5472 + pro forma 1120",
   "planner.duty.5472Text": "Every year the LLC exists. Fax or mail only. Missing it costs {amount}.",
   "planner.duty.7004": "Form 7004 extension (optional)",
-  "planner.duty.7004Text": "Moves the 5472 to {date}. File it by the original due date.",
+  "planner.duty.7004Text":
+    "Moves the 5472 to {date}. File it by the original due date, on paper: write \u201cForeign-owned U.S. DE\u201d across the top and fax it to 855-887-7737 or mail it to the IRS, 1973 Rulon White Blvd, M/S 6112, Attn: PIN Unit, Ogden, UT 84201 (it can't be e-filed).",
   "planner.duty.state": "State annual fee",
   "planner.duty.stateUnset": "State annual fee · set your state",
   "planner.duty.stateUnsetText": "Add the state of formation in Tax → profile to see its annual report and fee.",
