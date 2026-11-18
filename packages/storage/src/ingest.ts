@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { currencyOf } from "@openbooks/core";
 import type { CsvProfile, EntityMeta, StatementCheck, StatementRow } from "@openbooks/schema";
 import { ls, pySorted, pySuffix } from "./db.ts";
 
@@ -77,7 +78,8 @@ export function ingest(db: Database, inbox: string, e: string, read: Read, ctx: 
 
   const txns: [string, string, string, number, string, string, string, string][] = [];
   const stmts: [string, string, string, string, number][] = [];
-  const seen = new Set<string>();
+  const seen = new Set<string>(),
+    books = currencyOf(ctx.meta);
   for (const f of files) {
     let out: ReturnType<Read>;
     try {
@@ -92,6 +94,7 @@ export function ingest(db: Database, inbox: string, e: string, read: Read, ctx: 
       if (seen.has(id)) continue; // overlapping statements count once
       seen.add(id);
       const { key: _, ...row } = r;
+      if (row.currency === books) delete row.currency; // absent = the books' currency: the rows of a one-currency entity stay as before
       txns.push([e, id, r.date, r.amount, r.account, r.desc, r.source, JSON.stringify({ id, ...row })]);
     }
   }

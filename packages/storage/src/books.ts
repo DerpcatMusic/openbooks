@@ -215,6 +215,28 @@ export const makeBooks = (opts: BooksOptions) =>
         switch (name) {
           case "reconciliations":
             return close ? closed(movedBefore(months(getDoc(e, name, {})), months(value), close).length) : Effect.void;
+          case "anchors": {
+            // { account: [{ date, balance }] }: a balance on or before the close date stays as it was
+            if (!close) return Effect.void;
+            const pts = (v: unknown) =>
+              Object.entries((v ?? {}) as Record<string, { date: string; balance: number }[]>).flatMap(([acct, xs]) =>
+                (Array.isArray(xs) ? xs : []).map((x) => ({ id: `${acct}|${x.date}`, date: x.date, balance: x.balance })),
+              );
+            return closed(movedBefore(pts(getDoc(e, name, {})), pts(value), close).length);
+          }
+          case "transfers": {
+            // { confirmed, rejected: [{ out, in }] } ("entity/txn id"): a pair is dated by this entity's side(s); closed pairs stay decided
+            if (!close) return Effect.void;
+            const dates = new Map(storedTxns(e).map((t) => [`${e}/${t.id}`, t.date]));
+            const pairs = (v: unknown) =>
+              (["confirmed", "rejected"] as const).flatMap((k) =>
+                (((v ?? {}) as Record<string, { out: string; in: string }[]>)[k] ?? []).flatMap((p) => {
+                  const d = [dates.get(p.out), dates.get(p.in)].filter((x): x is string => !!x).sort()[0];
+                  return d ? [{ id: `${k}|${p.out}|${p.in}`, date: d }] : [];
+                }),
+              );
+            return closed(movedBefore(pairs(getDoc(e, name, {})), pairs(value), close).length);
+          }
           case "journal": {
             const after = entries(value),
               ctx = { coa: getDoc<Coa>(e, "coa", {}), from: getDoc<BooksDoc>(e, "books", {}).startDate };

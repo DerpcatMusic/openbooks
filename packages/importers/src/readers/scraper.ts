@@ -35,9 +35,16 @@ const float = (v: unknown): number => {
   throw new TypeError(`float() argument must be a string or a real number, not '${v === null ? "NoneType" : typeof v}'`);
 };
 
+/** "₪" and "NIS" are shekels; anything else must already be an ISO 4217 code. */
+const isoCurrency = (c: unknown) => {
+  const s = typeof c === "string" ? c.trim().toUpperCase() : "";
+  return s === "₪" || s === "NIS" ? "ILS" : /^[A-Z]{3}$/.test(s) ? s : undefined;
+};
+
 /**
  * Every completed movement, money out negative (cards report charges as negative chargedAmount, in shekels even when bought abroad).
  * Installments book on their charge date. Pending ones are skipped: they land on the next sync. No balance check (banks show about a year).
+ * `currency`: the row's chargedCurrency, else the account's `currency`; set only when it isn't shekels (absent = the books' currency).
  */
 export function scraperJson(file: ReaderFile): ReaderOut {
   const { data: d, isInt } = parseStatementJson(file);
@@ -68,7 +75,9 @@ export function scraperJson(file: ReaderFile): ReaderOut {
         k = `${dk}|${n}`;
       }
       const no = inst && "number" in inst ? pyS(inst.number, isInt(inst, "number")) : "";
+      const cur = isoCurrency(t.chargedCurrency) ?? isoCurrency(a.currency);
       rows.push({
+        ...(cur && cur !== "ILS" ? { currency: cur } : {}),
         date,
         amount: amt,
         desc,

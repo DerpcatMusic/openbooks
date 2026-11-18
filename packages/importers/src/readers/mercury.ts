@@ -57,6 +57,7 @@ export function mercuryJson(file: File): { rows: StatementRow[]; checks: Stateme
       memo: [s("bankDescription"), s("note"), s("externalMemo")].filter(Boolean).join(" "),
       mcat: s("mercuryCategory"),
       kind: need(t, "kind") as string,
+      currency: "USD", // Mercury accounts are dollar accounts; ingest drops it on dollar books
       source: "mercury",
       account: names.get(need(t, "accountId")) ?? "Mercury",
       file: file.name,
@@ -119,6 +120,7 @@ export function mercuryCsv(file: File): { rows: StatementRow[]; checks: Statemen
       memo: get("Bank Description") ?? "",
       mcat: get("Mercury Category") ?? "",
       kind: "",
+      currency: "USD",
       source: "mercury",
       account: get("Source Account") || "Mercury",
       file: file.name,
