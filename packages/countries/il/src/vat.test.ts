@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { vatPeriods } from "./calendar.ts";
+import { ilSettings, periodReport } from "./filings.ts";
 import { CLOSING_LENGTH, HEADER_LENGTH, RECORD_LENGTH, checkPcn874, parsePcn874, pcn874 } from "./pcn874.ts";
 import { shekel, validVatId, vatReport, type VatSaleDoc } from "./vat.ts";
 
@@ -159,5 +160,16 @@ describe("vat issues carry values, not English sentences", () => {
       ["0009", true],
       ["0010", false],
     ]);
+  });
+});
+
+describe("periodReport passes the exchange-rate hook through", () => {
+  it("a dollar invoice converts at the given rate instead of erroring", () => {
+    const inv = { id: "u", kind: "tax", status: "issued", number: "9", issued: "2026-01-05", currency: "USD", vat: 0.18, items: [{ qty: 1, price: 100 }] };
+    const ctx = { invoices: [inv as never], customers: [], rows: [], txns: [], rate: 0.18, settings: ilSettings({}), currency: "ILS" };
+    expect(periodReport(jan, ctx).issues.map((i) => i.code)).toContain("noRate");
+    const r = periodReport(jan, { ...ctx, fx: (c, d) => (c === "USD" && d === "2026-01-05" ? 3.7 : null) });
+    expect(r.issues.map((i) => i.code)).not.toContain("noRate");
+    expect(r.totals.taxableSales).toBe(370);
   });
 });

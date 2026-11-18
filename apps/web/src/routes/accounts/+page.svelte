@@ -3,8 +3,8 @@
   // reconciliation, then the chart: every account with its ledger code, type, subtype and normal side, its activity in the period
   // (click the amount to drill in). Click a row to edit it (name, code, subtype, archive); add accounts; filter; export CSV.
   // The ids ("type:slug") never change; the edits are an overlay in the "coa" doc (books.svelte.ts).
-  import { isCard, type CoaRow, type Klass } from "@openbooks/core";
-  import { S, ent, isUS, balances, accounts, chart, isBank, rowName, typeLabel, periodTxns, periodLabel, fmt, mdy } from "#lib/stores/books.svelte.ts";
+  import { checkAnchors, dailyBalances, isCard, mergeAnchors, type Anchors, type CoaRow, type Klass } from "@openbooks/core";
+  import { S, ent, isUS, accounts, chart, doc, isBank, rowName, typeLabel, periodTxns, periodLabel, fmt, mdy } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, EmptyState, Icon, IconButton, Money, PageHeader, Search, Select, Table, Tabs, type Column } from "#lib/ui/index.ts";
   import { go } from "#lib/reports/go.ts";
@@ -12,12 +12,23 @@
   import { csv } from "#lib/reports/statements.ts";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import AccountDialog from "#lib/coa/AccountDialog.svelte";
+  import AnchorDialog from "#lib/coa/AnchorDialog.svelte";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? "USD");
   const ts = $derived(periodTxns());
   const txns = $derived(S.data!.txns);
-  const bal = $derived(balances(txns.at(-1)?.date ?? ""));
+  // balances at the last transaction, from the account's known balances (opening balance, the bank's own) when it has any
+  const anchors = $derived(doc<Anchors>("anchors", {}));
+  const bal = $derived.by(() => {
+    const d = txns.at(-1)?.date;
+    if (!d) return {} as Record<string, number>;
+    const b = dailyBalances(txns, mergeAnchors(checkAnchors(S.data!.checks), anchors), d, d).balances;
+    return Object.fromEntries(Object.entries(b).map(([a, v]) => [a, v[0]!]));
+  });
+  const opening = (a: string) => [...(anchors[a] ?? [])].sort((x, y) => x.date.localeCompare(y.date))[0];
+  let anchorFor = $state<string | null>(null),
+    anchorOpen = $state(false);
 
   // bank and card accounts: statements with a total to reconcile, then accounts seen only in exports
   type Bank = { key: string; label: string; from?: string; to?: string; value: number; off: number | null };
@@ -32,6 +43,7 @@
     { key: "value", label: us ? t("accounts.balance") : t("common.moneyIn"), numeric: true },
     { key: "rec", label: t("accounts.reconciliation") },
     { key: "period", label: t("accounts.period") },
+    { key: "anchor", label: t("money.anchor.col"), numeric: true },
   ]);
 
   // the chart: every account with its code, class and activity in the period; tabs by class, search and status filters
@@ -106,6 +118,15 @@
             {#if r.from && r.to}<span class="text-sub tabular-nums">{mdy(r.from)} – {mdy(r.to)}</span>{:else}<span class="text-sub">{t("accounts.export")}</span>{/if}
           {:else if c.key === "value"}
             <Money value={r.value} currency={cur} />
+          {:else if c.key === "anchor"}
+            {@const o = opening(r.label)}
+            <button
+              type="button"
+              aria-label={t("money.anchor.edit", { account: r.label })}
+              onclick={() => ((anchorFor = r.label), (anchorOpen = true))}
+              class="rounded-md px-1 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50">
+              {#if o}<Money value={o.balance} currency={cur} />{:else}<span class="text-accent">{t("money.anchor.set")}</span>{/if}
+            </button>
           {:else if r.off === null}
             <span class="text-sub">{t("accounts.noStatement")}</span>
           {:else if Math.abs(r.off) < 0.005}
@@ -167,3 +188,4 @@
 </div>
 
 <AccountDialog bind:open={dialog} row={editing} />
+<AnchorDialog bind:open={anchorOpen} account={anchorFor} currency={cur} />

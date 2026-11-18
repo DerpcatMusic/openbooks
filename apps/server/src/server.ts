@@ -6,7 +6,24 @@ import { basename, join, normalize, resolve, sep } from "node:path";
 import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
 import { type EntityMeta, RuleInput, Schema, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
-import { ask, configureAi, decide, langOf, loadAi, mcpHttpHandler, ollamaModels, paletteTools, publicAi, runTool, testAi } from "@openbooks/tools";
+import {
+  ask,
+  configureAi,
+  decide,
+  decideTransferPair,
+  langOf,
+  loadAi,
+  mcpHttpHandler,
+  netWorth,
+  ollamaModels,
+  paletteTools,
+  publicAi,
+  ratesFor,
+  runTool,
+  testAi,
+  transferSearch,
+  transferSuggestions,
+} from "@openbooks/tools";
 import { foreign } from "./guard.ts";
 import { buildPack } from "./pack.ts";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
@@ -31,6 +48,7 @@ const KINDS = [".pdf", ".csv", ".json"];
 const ext = (f: string) => (f.includes(".") ? f.slice(f.lastIndexOf(".")).toLowerCase() : "");
 const json = (obj: unknown, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 const enc = new TextEncoder();
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
 /** Thrown inside handlers to answer with a JSON error (books.py send_json(..., code)). */
 class Reply {
@@ -264,6 +282,38 @@ export async function startServer(o: ServerOptions) {
     if (path === "/api/vault") return json({ status: await vault((v) => v.status) });
     if (path === "/api/ai/config") return json(publicAi(await run(loadAi)));
     if (path === "/api/tools") return json({ tools: paletteTools() });
+    if (path === "/api/networth") {
+      // ?currency=ILS&from=YYYY-MM-DD&to=YYYY-MM-DD: every entity's accounts, one converted balance a day (the net worth chart)
+      const to = q.get("to") || new Date().toLocaleDateString("sv"),
+        from = q.get("from") || `${+to.slice(0, 4) - 1}${to.slice(4)}`,
+        cur = q.get("currency") || "ILS";
+      if (!/^[A-Z]{3}$/.test(cur) || !isDate(from) || !isDate(to) || from > to || Date.parse(to) - Date.parse(from) > 3660 * 86400000)
+        throw new Reply({ error: "bad request" }, 400);
+      return json(await run(netWorth(cur, from, to)));
+    }
+    if (path === "/api/fx") {
+      // ?currencies=USD,EUR&from&to: Bank of Israel representative rates (ILS per unit), fetched once and cached in doc(_app, "fx")
+      const cs = (q.get("currencies") ?? "").split(",").filter(Boolean),
+        from = q.get("from") ?? "",
+        to = q.get("to") ?? "";
+      if (!cs.every((c) => /^[A-Z]{3}$/.test(c)) || !isDate(from) || !isDate(to) || from > to) throw new Reply({ error: "bad request" }, 400);
+      const t = await run(
+        ratesFor(
+          cs.flatMap((currency) => [
+            { currency, date: from },
+            { currency, date: to },
+          ]),
+        ),
+      );
+      return json({ rates: Object.fromEntries(cs.filter((c) => t[c]).map((c) => [c, t[c]])) });
+    }
+    if (path === "/api/transfers") {
+      // ?e: likely transfers touching this business (any of your accounts, any business); &ref=entity/id: every possible other side of one row
+      const e = await entity(q.get("e")),
+        ref = q.get("ref"),
+        w = Number(q.get("window")) || undefined;
+      return json({ suggestions: await run(ref ? transferSearch(ref, w) : transferSuggestions(e, w ? { window: w } : {})) });
+    }
     if (path === "/api/pack") {
       const e = await entity(q.get("e"));
       if (q.get("year") === null) throw new Reply({ error: "unknown entity" }, 404); // books.py: KeyError → this 404
@@ -413,6 +463,14 @@ export async function startServer(o: ServerOptions) {
         // {name?, short?, flag?, currency?, types?: {year: business type}}: rename or change structure
         const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types"].includes(k)));
         await books((bs) => bs.setMeta(e, patch));
+        break;
+      }
+      case "/api/transfers": {
+        // {out, in: "entity/txn id", as: "confirmed" | "rejected"}: decide a pair (confirming files both sides)
+        const ref = (v: unknown) => (typeof v === "string" && /^[a-z0-9-]+\/[A-Za-z0-9-]+$/.test(v) ? v : null);
+        const pair = { out: ref(b.out), in: ref(b.in) };
+        if (!pair.out || !pair.in || (b.as !== "confirmed" && b.as !== "rejected")) throw new Reply({ error: "bad request" }, 400);
+        await run(decideTransferPair({ out: pair.out, in: pair.in }, b.as));
         break;
       }
       case "/api/doc": {

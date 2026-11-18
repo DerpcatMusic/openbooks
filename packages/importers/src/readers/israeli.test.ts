@@ -14,9 +14,9 @@ const raw = (n: string) => readFileSync(join(FX, n));
 const file = (n: string, as = n) => ({ name: as, bytes: new Uint8Array(raw(n)) });
 const py = JSON.parse(raw("python.json").toString()) as Record<string, { rows: unknown[]; checks: unknown[]; uidAmounts: string[] }>;
 const ctx = (meta: object = {}) => ({ meta: { name: "t", ...meta }, profile: {}, siblingPdfPeriods: () => [["2025-03-01", "2025-03-31"] as [string, string]] });
-// books.py reported no checks for scraper files; the balance check (reconciliation) is added on top: `scraperChecks` is what it must be
-const same = (name: string, out: { rows: { amount: number }[]; checks: unknown[] }, scraperChecks?: unknown[]) => {
-  expect(out.rows).toEqual(py[name]!.rows);
+// books.py reported no checks for scraper files and has no per-row currency: the balance check is added on top (`scraperChecks`), currency is asserted separately
+const same = (name: string, out: { rows: { amount: number; currency?: string }[]; checks: unknown[] }, scraperChecks?: unknown[]) => {
+  expect(out.rows.map(({ currency: _, ...r }) => r)).toEqual(py[name]!.rows);
   expect(out.checks).toEqual(scraperChecks ?? py[name]!.checks);
   expect(out.rows.map((r) => uidAmount(r as never))).toEqual(py[name]!.uidAmounts);
 };
@@ -66,6 +66,21 @@ describe("israeli-bank-scrapers", () => {
     same("max", max);
     expect(max.rows[0]!.memo).toBe("-12.5 USD");
     expect(max.rows[1]!.memo).toBe("installment 2/6");
+    // the row charged in euros carries it; shekel rows leave it to the books' currency
+    expect(max.rows.filter((r) => r.currency).map((r) => r.currency)).toEqual(["EUR"]);
+    expect(hap.rows.some((r) => r.currency)).toBe(false);
+    // a foreign-currency account (per-account `currency`) and "₪" / "NIS" spellings
+    const acct = (currency: unknown, charged?: unknown) =>
+      scraperJson({
+        name: "x.json",
+        bytes: new TextEncoder().encode(
+          JSON.stringify({
+            companyId: "x",
+            accounts: [{ accountNumber: "1", currency, txns: [{ date: "2025-01-01", chargedAmount: -1, chargedCurrency: charged, description: "d" }] }],
+          }),
+        ),
+      }).rows[0]!.currency;
+    expect([acct("USD"), acct("USD", "EUR"), acct("₪"), acct(undefined, "NIS"), acct("junk")]).toEqual(["USD", "EUR", undefined, undefined, undefined]);
   });
   it("reads decoded text when read() passes it", () => {
     same("max", scraperJson({ ...file("max-sync.json"), text: raw("max-sync.json").toString() }));

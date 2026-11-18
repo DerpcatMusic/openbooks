@@ -1,18 +1,22 @@
 // Home-dashboard numbers (docs/mercury-books-spec.md section 11): net cash flow, monthly burn, runway, coverage, margins. Pure.
 // "Cash" is every bank account that is not a credit card (the same as the Cash card); a card purchase is not cash out until the card is paid.
 import type { Txn } from "@openbooks/schema";
-import { isCard, pl } from "./reports.ts";
+import { isCard, isFlow, pl } from "./reports.ts";
 
 type Row = Pick<Txn, "date" | "amount" | "category" | "account">;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const cash = (ts: readonly Row[]) => ts.filter((t) => !isCard(t.account));
 
-/** Money in, money out and the net of the cash accounts over the given transactions (a period's, already filtered). */
+/**
+ * Money in, money out and the net of the cash accounts over the given transactions (a period's, already filtered). Transfers between
+ * accounts, owner and personal movements and loan principal are not money in or out (reports.ts isFlow).
+ */
 export function cashFlow(ts: readonly Row[]) {
   let inn = 0,
     out = 0;
   for (const t of cash(ts))
-    if (t.amount > 0) inn += t.amount;
+    if (!isFlow(t.category)) continue;
+    else if (t.amount > 0) inn += t.amount;
     else out -= t.amount;
   return { in: r2(inn), out: r2(out), net: r2(inn - out) };
 }
@@ -52,7 +56,7 @@ export function burn(ts: readonly Row[], now: string): Burn | null {
     first = ymAdd(last, -2);
   if (!ts.length || ts.reduce((m, t) => (t.date < m ? t.date : m), ts[0]!.date) > `${first}-01`) return null;
   const win = ts.filter((t) => t.date.slice(0, 7) >= first && t.date.slice(0, 7) <= last);
-  const avg = r2(cashFlow(win).net / 3);
+  const avg = r2(cash(win).reduce((a, t) => a + t.amount, 0) / 3); // runway is about the cash itself: owner draws and loans move it too
   if (avg === 0) return null;
   const c = cashAt(ts, lastDay(last));
   const exp = pl(win);

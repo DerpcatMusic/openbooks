@@ -25,6 +25,8 @@ export const StatementRow = Schema.Struct({
   mcat: Schema.optionalKey(Schema.String), // Mercury category
   kind: Schema.optionalKey(Schema.String), // Mercury kind
   who: Schema.optionalKey(Schema.String), // bit counterparty
+  /** ISO 4217 of `amount` when the reader knows it and it isn't the entity's currency (ingest drops it when equal). Absent = the entity's currency. */
+  currency: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/))),
 });
 export type StatementRow = typeof StatementRow.Type;
 

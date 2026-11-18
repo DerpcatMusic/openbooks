@@ -10,6 +10,7 @@
   import { t } from "#lib/i18n.svelte.ts";
   import { PageHeader, Button, Money, Icon, Badge } from "#lib/ui/index.ts";
   import CategorySelect from "#lib/txns/CategorySelect.svelte";
+  import Transfers from "#lib/txns/Transfers.svelte";
 
   type Group = { key: string; ts: Txn[]; total: number };
   const txns = $derived($state.snapshot(S.data?.txns ?? []) as Txn[]);
@@ -131,6 +132,7 @@
 </PageHeader>
 
 <div class="mx-auto max-w-[720px] px-4 py-6 sm:px-8 sm:py-10">
+  <Transfers />
   {#if !cur}
     <div class="panel glow rise px-6 py-14 text-center sm:px-10">
       <div class="mx-auto grid size-14 place-items-center rounded-full bg-good/15 text-good"><Icon name="check" size={28} /></div>
