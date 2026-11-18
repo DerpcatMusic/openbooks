@@ -7,3 +7,4 @@ export * from "./readers/bit.ts";
 export * from "./readers/mercury.ts";
 export { csvDecode, csvTable, csvSig, csvDate, money, csvRows, mappedCsv, csvPreview, type CsvPreview } from "./readers/csv.ts"; // its py* helpers duplicate onezero/bit ones
 export * from "./connectors/index.ts";
+export * from "./fx/boi.ts";
