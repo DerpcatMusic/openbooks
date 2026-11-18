@@ -87,6 +87,19 @@ describe("vat report", () => {
   });
 });
 
+// VAT Law §47(א2), the Tax Authority's "Israel Invoices": an allocation number is needed on a tax invoice to a dealer whose amount before VAT
+// exceeds the threshold (₪10,000 for invoices of 2026-01..05). Exactly the threshold, or a buyer with no VAT id, needs none.
+it("allocation number: above the threshold and to a dealer only", () => {
+  const alloc = (o: Partial<VatSaleDoc>) =>
+    vatReport({ period: jan, docs: [doc({ id: "a", ...o })], inputs: [], rate: 0.18 }).issues.some((i) => i.code === "allocationNeeded");
+  const dealer = "123456782";
+  expect(alloc({ items: [{ qty: 1, price: 10000 }], customerVatId: dealer })).toBe(false);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer })).toBe(true);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer, alloc: "123456789" })).toBe(false);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: "123456789" })).toBe(false); // not a valid id: no dealer to deduct
+  expect(alloc({ items: [{ qty: 1, price: 12000 }] })).toBe(false); // a private buyer (no VAT id) deducts nothing
+});
+
 describe("PCN874 file", () => {
   const text = pcn874({ vatId: "514290543", report: report(), created: "2026-02-03" });
   const rows = text.split("\r\n");
