@@ -7,7 +7,7 @@
   import { api } from "#lib/api.ts";
   import { t, locale, bidi } from "#lib/i18n.svelte.ts";
   import { V, ask, refresh } from "#lib/vault/vault.svelte.ts";
-  import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Icon, Input, PageHeader, Search, Segmented, Select } from "#lib/ui/index.ts";
+  import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, Input, PageHeader, Search, Segmented, Select } from "#lib/ui/index.ts";
   import type { Tone } from "#lib/ui/index.ts";
   import FilePick from "../documents/FilePick.svelte";
   import { PROVIDERS, GROUPS, providerName, readText, guess, toProfile, canSave, type Mapping } from "./providers.ts";
@@ -18,7 +18,7 @@
     if (location.hash === "#csv") choose("csv"); // the "map columns" link after a CSV wasn't recognised on drop
   });
 
-  const WHAT: Record<string, string> = { mercury: "connections.what.mercury", plaid: "connections.what.plaid", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
+  const WHAT: Record<string, string> = { mercury: "connections.what.mercury", plaid: "connections.what.plaid", simplefin: "banks.what.simplefin", wise: "banks.what.wise", enablebanking: "banks.what.enablebanking", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
   const what = (k: string) => {
     const key = WHAT[k] ?? WHAT[PROVIDERS[k]?.group ?? ""];
     return key ? t(key) : "";
@@ -31,8 +31,10 @@
         ? [t("connections.pill.failed"), "bad"]
         : [t("connections.pill.connected"), "good"]
       : c.pending
-        ? [t(c.linkToken ? "connections.pill.plaid" : "connections.pill.waiting"), "warn"]
+        ? [t(c.authUrl ? "banks.pill.auth" : c.linkToken ? "connections.pill.plaid" : "connections.pill.waiting"), "warn"]
         : [t("connections.pill.notConnected"), "neutral"];
+  // Enable Banking consent: shown with its end date, flagged in the last 14 days
+  const daysLeft = (iso?: string) => (iso ? Math.ceil((Date.parse(iso) - Date.now()) / 864e5) : null);
   const iconOf = (type: string) => (PROVIDERS[type]?.group === "il-card" ? "wallet" : "bank");
 
   // ---------- requests: each answers with the new state ----------
@@ -78,8 +80,9 @@
     if (!pick || !ready || S.busy) return;
     const credentials = { ...f };
     f = {}; // secrets don't linger in memory or on screen
-    if (await post("/api/connect", { provider: pick, credentials })) pick = null;
+    if (await post("/api/connect", { provider: pick, credentials, origin: location.origin })) pick = null;
   }
+  const reconnect = (key: string) => post("/api/connect", { provider: key, reconnect: true, origin: location.origin });
   async function submitOtp(e: SubmitEvent, key: string) {
     e.preventDefault();
     const otpCode = (otp[key] ?? "").trim();
@@ -226,7 +229,12 @@
         <div class="flex items-start gap-2 border-t border-bad/20 bg-bad/6 px-4 py-2.5 text-[13px] text-bad sm:px-5"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span class="min-w-0 [overflow-wrap:anywhere]" dir="auto">{c.lastError}</span></div>
       {/if}
 
-      {#if c.pending && c.linkToken}
+      {#if c.pending && c.authUrl}
+        <div class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-4 sm:px-5">
+          <p class="min-w-0 flex-1 basis-64 text-[13px] text-sub">{t("banks.authLink")}</p>
+          <Button variant="primary" icon="bank" href={c.authUrl}>{t("banks.authOpen")}</Button>
+        </div>
+      {:else if c.pending && c.linkToken}
         <div class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-4 sm:px-5">
           <p class="min-w-0 flex-1 basis-64 text-[13px] text-sub">{t("connections.plaidLink")}</p>
           <Button variant="primary" icon="bank" disabled={S.busy} onclick={() => openLink(c.provider, c.linkToken!)}>{t("connections.plaidOpen")}</Button>
@@ -242,6 +250,17 @@
       {:else if c.connected}
         <dl class="divide-y divide-line border-t border-line text-[14px]">
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.lastSync")}</dt><dd class="min-w-0 text-ink-2 num">{when(c.lastSync)}</dd></div>
+          {#if c.expiresAt}
+            {@const left = daysLeft(c.expiresAt)}
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
+              <dt class="w-40 shrink-0 text-sub">{t("banks.expires")}</dt>
+              <dd class="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-ink-2 num">
+                {when(c.expiresAt)}
+                <Badge size="sm" tone={left !== null && left <= 0 ? "bad" : left !== null && left <= 14 ? "warn" : "neutral"}>{left !== null && left <= 0 ? t("banks.expired") : t("banks.daysLeft", { n: left ?? 0 })}</Badge>
+                <Button size="sm" onclick={() => reconnect(c.provider)} disabled={S.busy}>{t("banks.reconnect")}</Button>
+              </dd>
+            </div>
+          {/if}
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.accounts")}</dt><dd class="min-w-0 text-ink-2 [overflow-wrap:anywhere]" dir="auto">{c.accounts.length ? c.accounts.join(" · ") : "—"}</dd></div>
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.writes")}</dt><dd class="min-w-0 font-mono text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="ltr">inbox/{c.file}</dd></div>
         </dl>
@@ -289,6 +308,8 @@
               <p class="text-[13px] text-sub">{t("connections.onezeroHint")}</p>
             {:else if pick === "plaid"}
               <p class="text-[13px] text-sub">{t("connections.plaidHint")}</p>
+            {:else if pick === "simplefin" || pick === "wise" || pick === "enablebanking"}
+              <p class="text-[13px] text-sub">{t(`banks.hint.${pick}`)}</p>
             {:else}
               <p class="text-[13px] text-sub">{t("connections.scraperHint", { name: P.name })}</p>
             {/if}
@@ -297,6 +318,20 @@
               {#each P.fields as x (x.key)}
                 {#if x.key === "env"}
                   <Select label={x.label} bind:value={f[x.key]} options={[{ value: "", label: "…" }, { value: "sandbox", label: "sandbox" }, { value: "production", label: "production" }]} />
+                {:else if x.key === "privateKey"}
+                  <Field label={x.label} class="sm:col-span-2">
+                    {#snippet children(a)}
+                      <textarea
+                        id={a.id}
+                        rows="5"
+                        bind:value={f[x.key]}
+                        autocomplete="off"
+                        spellcheck="false"
+                        dir="ltr"
+                        placeholder="-----BEGIN PRIVATE KEY-----"
+                        class="min-w-0 rounded-lg border border-line-strong bg-panel px-3 py-2 font-mono text-[12px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent/50"></textarea>
+                    {/snippet}
+                  </Field>
                 {:else}
                 <Input
                   label={x.label}

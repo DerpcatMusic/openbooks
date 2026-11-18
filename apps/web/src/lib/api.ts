@@ -9,6 +9,8 @@ export interface Connection {
   connected: boolean;
   pending: boolean;
   linkToken?: string;
+  authUrl?: string;
+  expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: unknown[];

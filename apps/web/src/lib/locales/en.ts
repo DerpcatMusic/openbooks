@@ -22,6 +22,7 @@ import gaps3 from "./parts/gaps3.en.ts";
 import filingsIl from "./parts/filings-il.en.ts";
 import filingsUs from "./parts/filings-us.en.ts";
 import qa2 from "./parts/qa2.en.ts";
+import banks from "./parts/banks.en.ts";
 export default {
   ...a,
   ...b,
@@ -45,6 +46,7 @@ export default {
   ...filingsIl,
   ...filingsUs,
   ...qa2,
+  ...banks,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",
