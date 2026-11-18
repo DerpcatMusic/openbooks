@@ -19,7 +19,7 @@ import { Books } from "@openbooks/storage";
 import { Cause, Effect, Exit, Schema } from "effect";
 import { PNL_HTML } from "./pnl.ts";
 import { mcpSchema, type Needs, type Tool, type ToolCtx, ToolError } from "./registry.ts";
-import { balancesAt, entityOf, pl, r2, tools, UI_URI } from "./tools.ts";
+import { balancesAt, entityOf, pl, r2, tools, UI_URI, withActor } from "./tools.ts";
 
 /** Runs an Effect on the app's services (a ManagedRuntime's runPromiseExit). */
 export type Run = <A, E>(eff: Effect.Effect<A, E, Needs>) => Promise<Exit.Exit<A, E>>;
@@ -257,7 +257,7 @@ export function registerMcp(server: McpServer, run: Run) {
       (async (args: Record<string, unknown>, ctx: ServerContext) => {
         const stop = await gate(run, t, args, ctx);
         if (stop) return stop;
-        const r = await outcome(run, t.name, t.run(args, MCP_CTX));
+        const r = await outcome(run, t.name, withActor(t.run(args, MCP_CTX), MCP_CTX));
         if ("err" in r) return text(r.err, true);
         return { content: [{ type: "text", text: JSON.stringify(r.ok, null, 1) }], structuredContent: r.ok as Record<string, unknown>, isError: false };
       }) as never,

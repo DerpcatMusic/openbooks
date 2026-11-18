@@ -46,7 +46,7 @@ import {
   type RuleOverrides,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
-import { Books, taxTables } from "@openbooks/storage";
+import { Actor, type ActorKind, Books, taxTables } from "@openbooks/storage";
 import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
 import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
@@ -712,6 +712,8 @@ const invPaid = (inv: Invoice) => (inv.payments?.length ? paidOf(inv.payments) :
 /** draft | unpaid | partial | overdue | paid: the Invoices page's status (partly paid wins over overdue). A receipt documents a payment. */
 const invStatus = (inv: Invoice, now: string) => {
   if (inv.status === "draft") return "draft";
+  if (inv.status === "cancelled") return "cancelled";
+  if (inv.kind === "credit") return "credit";
   if (inv.kind === "receipt") return "paid";
   const s = displayStatus(inv.status ?? "open", invTotal(inv), invPaid(inv), inv.due ?? null, now);
   return s === "open" ? "unpaid" : s;
@@ -721,7 +723,7 @@ const list_invoices = defineTool({
   name: "list_invoices",
   title: { en: "List invoices", he: "רשימת חשבוניות" },
   description:
-    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid). Payments can be applied in part: partial = some paid, some owed.",
+    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid, cancelled; credit = a cancellation document, with negative amounts). Payments can be applied in part: partial = some paid, some owed. Issued documents never change: they are cancelled by a credit, issued in the app.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, amountDue: N, state: S })) }),
@@ -745,7 +747,7 @@ const list_invoices = defineTool({
             ...i,
             customerName: cust.get(i.customer ?? "") ?? null,
             total,
-            amountDue: state === "draft" || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
+            amountDue: ["draft", "cancelled", "credit"].includes(state) || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
             state,
           };
         }),
@@ -1691,8 +1693,34 @@ const bank_sync = defineTool({
       if (!(yield* statusOf(e)).some((c) => c.connected && (!p || c.provider === p)))
         return yield* fail("No connected bank to sync. Connect one in the app (Books → Bank connections).");
       const sync = connectorHandle(e.id, "/api/sync", p ? { provider: p } : {}) as Effect.Effect<unknown, { _tag: string }, Needs>;
-      const r = ((yield* sync.pipe(Effect.mapError(locked))) ?? {}) as { error?: string };
-      return { ok: !r.error, error: r.error ?? null, connections: yield* statusOf(e), transactions: (yield* ledgerOf(e)).length };
+      // what the bank sends is the sync's doing, whoever asked for it (the audit log's actor)
+      const r = ((yield* sync.pipe(Effect.mapError(locked), Effect.provideService(Actor, "sync"))) ?? {}) as { error?: string };
+      const transactions = (yield* ledgerOf(e).pipe(Effect.provideService(Actor, "sync"))).length;
+      return { ok: !r.error, error: r.error ?? null, connections: yield* statusOf(e), transactions };
+    }),
+});
+
+const audit_log = defineTool({
+  name: "audit_log",
+  title: { en: "Audit log", he: "יומן שינויים" },
+  description:
+    "The books' history, newest first: every change to documents, rules, categories, entity details, bank imports and connections, with when (UTC), who (ui = the app, mcp, ai = the in-app AI, sync = a bank sync), what (kind + target) and the changed items before and after (large values are a hash and a summary). Read-only: the log can't be edited.",
+  kind: "read",
+  input: input({
+    kind: Schema.optionalKey(Schema.Literals(["doc", "rules", "meta", "classify", "ingest", "secrets", "print"])),
+    target: Schema.optionalKey(S.check(Schema.isMaxLength(100)).annotate({ description: "A doc name (invoices, journal, …), rules, entity, inbox, or invoices/<number> for prints" })),
+    from: Schema.optionalKey(pattern(DATE_RE, "First day, YYYY-MM-DD (UTC)")),
+    to: Schema.optionalKey(pattern(DATE_RE, "Last day, YYYY-MM-DD (UTC)")),
+    limit: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 500 })).annotate({ description: "Default 50" })),
+  }),
+  output: Schema.Struct({
+    entries: Schema.Array(Schema.Struct({ id: N, at: S, actor: S, kind: S, target: S, before: Schema.Unknown, after: Schema.Unknown })),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const rows = yield* Books.use((b) => b.audit(e.id, { kind: a.kind, target: a.target, from: a.from, to: a.to, limit: a.limit ?? 50 })).pipe(Effect.mapError(gone(e.id)));
+      return { entries: rows.map(({ entity: _, ...r }) => r) };
     }),
 });
 
@@ -1724,6 +1752,7 @@ export const tools: readonly Tool[] = [
   split_transaction,
   bank_status,
   bank_sync,
+  audit_log,
   ...filingTools({
     entityOf,
     ledgerOf,
@@ -1752,8 +1781,11 @@ export const runTool = (name: string, args: unknown, ctx: ToolCtx & { confirmed?
       const q = yield* t.confirm(a, ctx);
       if (q) return yield* new NeedsConfirm({ message: q });
     }
-    return (yield* t.run(a, ctx)) as unknown;
+    return (yield* withActor(t.run(a, ctx), ctx)) as unknown;
   });
+/** Writes a tool makes are the caller's in the audit log: ⌘K is the user at the screen. */
+export const withActor = <A, E, R>(eff: Effect.Effect<A, E, R>, ctx: Pick<ToolCtx, "via">) =>
+  Effect.provideService(eff, Actor, (ctx.via === "palette" ? "ui" : ctx.via) satisfies ActorKind);
 
 /** The tools as a model sees them: `entity` and `confirm` are filled in by the app, not the model. */
 export function aiTools(): { name: string; description: string; input_schema: Record<string, unknown> }[] {
