@@ -72,6 +72,13 @@ describe("vat report", () => {
     expect(f.split("\r\n")[1]).toBe("S123456782202601100000000000009000000180-0000001000000000000");
     expect(checkPcn874(f)).toEqual([]);
   });
+  it("a credit document cancelling a tax invoice takes its VAT back; one cancelling a bill doesn't count", () => {
+    const sale = doc({ id: "0001", customerVatId: "123456782" });
+    const credit = (refKind: string) => doc({ id: "c", kind: "credit", ref: "0001", refKind, customerVatId: "123456782", items: [{ qty: 1, price: -1000 }] });
+    const of = (ds: VatSaleDoc[]) => vatReport({ period: jan, docs: ds, inputs: [], rate: 0.18 }).totals.outputVat;
+    expect(of([sale, credit("tax")])).toBe(0);
+    expect(of([sale, credit("bill")])).toBe(180);
+  });
   it("flags what the Tax Authority will reject", () => {
     const r = vatReport({
       period: jan,

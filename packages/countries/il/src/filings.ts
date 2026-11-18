@@ -122,7 +122,7 @@ export function uniformDocs(
   const byId = new Map(customers.map((c) => [c.id, c]));
   const out: UniformDoc[] = [];
   for (const i of invoices) {
-    const type = KIND_CODE[i.kind];
+    const type = i.kind === "credit" ? (i.refKind === "tax" ? 330 : undefined) : KIND_CODE[i.kind]; // 330: credit tax invoice
     if (!type || i.status === "draft" || !i.number) continue;
     const c = i.customer ? byId.get(i.customer) : undefined;
     out.push({
@@ -138,7 +138,7 @@ export function uniformDocs(
       vat: i.noVat ? 0 : (i.vat ?? 0),
       ...(i.currency ? { currency: i.currency } : {}),
       ...(method ? { method: method(i) } : {}),
-      ...(i.kind === "receipt" && i.ref ? { base: { type: i.refKind === "tax" ? 305 : 300, number: i.ref } } : {}),
+      ...((i.kind === "receipt" || i.kind === "credit") && i.ref ? { base: { type: i.refKind === "tax" ? 305 : 300, number: i.ref } } : {}),
     });
   }
   return out;
