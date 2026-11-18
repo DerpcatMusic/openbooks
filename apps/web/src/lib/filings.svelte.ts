@@ -3,6 +3,7 @@
 import { dueInYear, filingRows, markDone, readFilings, unmarkDone, type FilingDone, type FilingRow, type FilingsDoc } from "@openbooks/core";
 import {
   depreciation,
+  ilFacts,
   ilSettings,
   paidTotal,
   periodReport,
@@ -46,15 +47,7 @@ export function calendar(year: number, today: string): FilingRow[] {
     if (!type) return null;
     if (!isIL()) return usFacts(type);
     const fx = ilForeign(y);
-    return {
-      businessType: type,
-      vatFrequency: s.vatFrequency,
-      taxAdvances: s.taxAdvanceFrequency,
-      blAdvances: s.blAdvances,
-      vatStatus: s.vatStatus,
-      foreignHoldings: fx.foreign.length,
-      zairExcluded: fx.zairExcluded,
-    };
+    return { ...ilFacts(type, s), foreignHoldings: fx.foreign.length, zairExcluded: fx.zairExcluded };
   };
   return filingRows(dueInYear(p, year, facts), f, today);
 }

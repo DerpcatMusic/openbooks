@@ -19,3 +19,4 @@ dist/
 apps/web/build/
 _site/
 apps/web/build-demo/
+apps/web/build-local/

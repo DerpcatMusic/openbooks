@@ -18,7 +18,9 @@
     "@openbooks/core": "workspace:*",
     "@openbooks/country-il": "workspace:*",
     "@openbooks/country-us": "workspace:*",
+    "@openbooks/importers": "workspace:*",
     "@openbooks/schema": "workspace:*",
+    "@openbooks/storage": "workspace:*",
     "pdf-lib": "1.17.1"
   },
   "devDependencies": {

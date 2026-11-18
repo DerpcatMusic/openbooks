@@ -1,8 +1,7 @@
 // Transaction uid, bit-identical with books.py ingest():
 //   sha1(f"{r['source']}|{r['date']}|{r['amount']}|{r['desc']}|{r.pop('key')}").hexdigest()[:12]
 // where {amount} is Python's str(): str(int) for integer JSON literals (Mercury JSON `amount`, One Zero sync `chargedAmount`), str(float) otherwise.
-import { createHash } from "node:crypto";
-import { pyStr } from "@openbooks/core";
+import { pyStr, sha1Hex } from "@openbooks/core";
 import type { StatementRow } from "@openbooks/schema";
 
 const INT = /^-?\d+$/;
@@ -51,5 +50,5 @@ export function uidAmount(r: StatementRow): string {
 }
 
 export function uid(r: StatementRow, amount: string = uidAmount(r)): string {
-  return createHash("sha1").update(`${r.source}|${r.date}|${amount}|${r.desc}|${r.key}`, "utf8").digest("hex").slice(0, 12);
+  return sha1Hex(`${r.source}|${r.date}|${amount}|${r.desc}|${r.key}`).slice(0, 12);
 }

@@ -1,13 +1,16 @@
-// Builds the GitHub Pages site into _site/: the landing page (site/) at the root and the app in demo mode at /demo.
+// Builds the GitHub Pages site into _site/: the landing page (site/) at the root, the app in demo mode at /demo and the
+// browser-only app (your own books, kept in IndexedDB) at /app.
 // The demo's data is a snapshot of the real server's answers over examples/showcase, so every number is the engine's own.
 // bun scripts/demo/build.ts   (OPENBOOKS_PAGES_BASE defaults to /openbooks, the GitHub Pages project path)
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "../..");
 const OUT = join(ROOT, "_site");
-const base = `${process.env.OPENBOOKS_PAGES_BASE ?? "/openbooks"}/demo`;
+const pages = process.env.OPENBOOKS_PAGES_BASE ?? "/openbooks";
+const base = `${pages}/demo`;
+const appBase = `${pages}/app`;
 const sh = (cmd: string[], cwd = ROOT, env: Record<string, string> = {}) => {
   const r = Bun.spawnSync(cmd, { cwd, env: { ...process.env, ...env }, stdout: "inherit", stderr: "inherit" });
   if (r.exitCode !== 0) throw new Error(`${cmd.join(" ")} exited ${r.exitCode}`);
@@ -58,13 +61,32 @@ try {
 
 // app in demo mode
 sh(["bunx", "vp", "build"], join(ROOT, "apps/web"), { OPENBOOKS_BASE: base, VITE_DEMO: "1", OPENBOOKS_OUT: "build-demo" });
+// app in browser-only mode
+sh(["bunx", "vp", "build"], join(ROOT, "apps/web"), { OPENBOOKS_BASE: appBase, VITE_LOCAL: "1", OPENBOOKS_OUT: "build-local" });
 rmSync(OUT, { recursive: true, force: true });
 cpSync(join(ROOT, "site"), OUT, { recursive: true });
 cpSync(join(ROOT, "apps/web/build-demo"), join(OUT, "demo"), { recursive: true });
 mkdirSync(join(OUT, "demo/demo"));
 writeFileSync(join(OUT, "demo/demo/data.json"), JSON.stringify(data));
+cpSync(join(ROOT, "apps/web/build-local"), join(OUT, "app"), { recursive: true });
 // GitHub Pages answers every missing path with the root 404.html: that is the SPA fallback for deep demo links.
-cpSync(join(OUT, "demo/404.html"), join(OUT, "demo/index.html"));
-cpSync(join(OUT, "demo/404.html"), join(OUT, "404.html"));
+// Deep /app links can't use the demo's shell (different base): the root 404 bounces them to /app/, which restores the URL before the app starts.
+const demo404 = readFileSync(join(OUT, "demo/404.html"), "utf8");
+writeFileSync(join(OUT, "demo/index.html"), demo404);
+const script = (js: string) => `<script>${js}</script>`;
+const head = (html: string, js: string) => html.replace("<head>", `<head>${script(js)}`);
+writeFileSync(
+  join(OUT, "404.html"),
+  head(
+    demo404,
+    `if(location.pathname.startsWith(${JSON.stringify(appBase + "/")})){sessionStorage.obRedirect=location.href;location.replace(${JSON.stringify(appBase + "/")})}`,
+  ),
+);
+const app404 = head(
+  readFileSync(join(OUT, "app/404.html"), "utf8"),
+  `try{var r=sessionStorage.obRedirect;if(r){delete sessionStorage.obRedirect;history.replaceState(null,"",r)}}catch(e){}`,
+);
+writeFileSync(join(OUT, "app/404.html"), app404);
+writeFileSync(join(OUT, "app/index.html"), app404);
 writeFileSync(join(OUT, ".nojekyll"), "");
-console.log(`_site ready (demo at ${base}/)`);
+console.log(`_site ready (demo at ${base}/, your own books at ${appBase}/)`);
