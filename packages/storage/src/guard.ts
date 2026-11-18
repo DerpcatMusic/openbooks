@@ -3,6 +3,10 @@
 import {
   accountProblem,
   baseId,
+  billProblem,
+  issueDocs,
+  type DocProblem,
+  type IssuedDoc,
   canon,
   checkBooks,
   journalProblem,
@@ -234,4 +238,49 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
     default:
       return null;
   }
+}
+
+/** Why an issued document (or approved bill) write is refused. */
+const issuedRefusal = (p: DocProblem | { code: "deleteIssued" | "closed"; number: string }, close: string | null): Refusal => {
+  const n = "number" in p ? p.number : "";
+  switch (p.code) {
+    case "deleteIssued":
+      return { bad: `Document ${n} is issued: it can't be deleted. Issue a cancellation for it instead.` };
+    case "editIssued":
+      return { bad: `Document ${n} is issued: it can't be changed, renumbered or turned back into a draft. Only its payments can change.` };
+    case "cancelled":
+      return { bad: `Document ${n} is cancelled: it can't change any more.` };
+    case "date":
+      return { bad: "A document needs a real issue date (YYYY-MM-DD) to be issued." };
+    case "kind":
+      return { bad: "Unknown document type." };
+    case "status":
+      return { bad: "A document is cancelled only by issuing a cancellation for it." };
+    case "backdate":
+      return { bad: `A document can't be dated before the last one of its type (${p.last}).` };
+    case "cancelTarget":
+      return { bad: "A cancellation must point at an issued document that isn't already cancelled." };
+    case "closed":
+      return {
+        closed: `The books are closed through ${"close" in p ? p.close : close}: ${n ? `bill ${n}` : "this document"} is dated on or before it. Move the close date to change it.`,
+      };
+  }
+};
+/**
+ * Issued documents and approved bills against what is stored (`before`): invoices are numbered and frozen once issued, approved bills
+ * stay. The caller runs this inside the write's own transaction, so two tabs issuing at once can't take the same number.
+ */
+export function issuedWrite(b: BooksView, name: string, before: unknown, value: unknown): { value: unknown } | Refusal {
+  const list = (v: unknown) => (Array.isArray(v) ? (v as IssuedDoc[]) : []);
+  const close = closeDate(b);
+  if (name === "invoices") {
+    const r = issueDocs(list(before), list(value), close);
+    if ("problem" in r) return issuedRefusal(r.problem, close);
+    return { value: value === null || value === undefined ? value : r.docs };
+  }
+  if (name === "bills") {
+    const p = billProblem(list(before), list(value), close);
+    if (p) return issuedRefusal(p, close);
+  }
+  return { value };
 }

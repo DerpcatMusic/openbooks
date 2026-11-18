@@ -5,10 +5,10 @@ import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
-import { billProblem, classify as classifyCore, cleanRules, closedMeta, issueDocs, splitProblem, type DocProblem, type IssuedDoc } from "@openbooks/core";
+import { classify as classifyCore, cleanRules, closedMeta, splitProblem, type IssuedDoc } from "@openbooks/core";
 import type { CsvProfile, EntityMeta, RuleInput, SplitsDoc, StatementCheck, StoredTxn, Txn } from "@openbooks/schema";
 import { Actor, type ActorKind, audit, type AuditQuery, type AuditRow, readAudit } from "./audit.ts";
-import { closeDate as closeOf, docRefusal, ledgerOf, ledgerRefusal, type BooksView, type Change, type Closed, type Refusal } from "./guard.ts";
+import { closeDate as closeOf, docRefusal, issuedWrite, ledgerOf, ledgerRefusal, type BooksView, type Change, type Closed, type Refusal } from "./guard.ts";
 import { Changes, type Topic } from "./changes.ts";
 import { isEntityId, ls, migrate, openDb, pySorted } from "./db.ts";
 import { ingest, type IngestSummary, type Read } from "./ingest.ts";
@@ -20,32 +20,6 @@ export class UnknownEntity extends Data.TaggedError("UnknownEntity")<{ entity: s
 /** The write would change something dated on or before the books' close date (HTTP 409; the message says which date). */
 export class ClosedPeriod extends Data.TaggedError("ClosedPeriod")<{ message: string }> {}
 
-/** Why an issued document (or approved bill) write is refused. */
-const issuedRefusal = (p: DocProblem | { code: "deleteIssued" | "closed"; number: string }, close: string | null): BadInput | ClosedPeriod => {
-  const n = "number" in p ? p.number : "";
-  switch (p.code) {
-    case "deleteIssued":
-      return new BadInput({ message: `Document ${n} is issued: it can't be deleted. Issue a cancellation for it instead.` });
-    case "editIssued":
-      return new BadInput({ message: `Document ${n} is issued: it can't be changed, renumbered or turned back into a draft. Only its payments can change.` });
-    case "cancelled":
-      return new BadInput({ message: `Document ${n} is cancelled: it can't change any more.` });
-    case "date":
-      return new BadInput({ message: "A document needs a real issue date (YYYY-MM-DD) to be issued." });
-    case "kind":
-      return new BadInput({ message: "Unknown document type." });
-    case "status":
-      return new BadInput({ message: "A document is cancelled only by issuing a cancellation for it." });
-    case "backdate":
-      return new BadInput({ message: `A document can't be dated before the last one of its type (${p.last}).` });
-    case "cancelTarget":
-      return new BadInput({ message: "A cancellation must point at an issued document that isn't already cancelled." });
-    case "closed":
-      return new ClosedPeriod({
-        message: `The books are closed through ${"close" in p ? p.close : close}: ${n ? `bill ${n}` : "this document"} is dated on or before it. Move the close date to change it.`,
-      });
-  }
-};
 const META = {
   currency: "The books are closed: the currency can't change while a closed period is kept in it.",
   types: "The books are closed: the business type of a year with closed days can't change. Move the close date first.",
@@ -156,18 +130,9 @@ export const makeBooks = (opts: BooksOptions) =>
      * two tabs issuing at once can't take the same number or overwrite each other's issued documents. Throws BadInput / ClosedPeriod.
      */
     const docRules = (e: string, name: string, before: unknown, value: unknown) => {
-      const list = (v: unknown) => (Array.isArray(v) ? (v as IssuedDoc[]) : []);
-      const close = closeDate(e);
-      if (name === "invoices") {
-        const r = issueDocs(list(before), list(value), close);
-        if ("problem" in r) throw issuedRefusal(r.problem, close);
-        return value === null || value === undefined ? value : r.docs;
-      }
-      if (name === "bills") {
-        const p = billProblem(list(before), list(value), close);
-        if (p) throw issuedRefusal(p, close);
-      }
-      return value;
+      const r = issuedWrite(view(e), name, before, value);
+      if ("value" in r) return r.value;
+      throw "bad" in r ? new BadInput({ message: r.bad }) : new ClosedPeriod({ message: r.closed });
     };
     /** Write one doc and its audit row in one transaction (pseudo-entities are app settings, not books: not audited). No guard, no publish. */
     const writeDoc = (e: string, name: string, value: unknown, actor: ActorKind, kind: "doc" | "rules" | "classify" = "doc") =>
