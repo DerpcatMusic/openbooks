@@ -15,7 +15,10 @@ test("cash in/out leave out transfers, own money, owner equity, personal and loa
   const ts = [
     t("2025-01-01", 100, "A", "revenue:x"),
     t("2025-01-01", -40, "A", "expense:x"),
-    ...["transfer:internal", "own:transfer", "equity:owner", "personal:family", "loan:bank"].flatMap((c) => [t("2025-01-02", 999, "A", c), t("2025-01-02", -999, "A", c)]),
+    ...["transfer:internal", "own:transfer", "equity:owner", "personal:family", "loan:bank"].flatMap((c) => [
+      t("2025-01-02", 999, "A", c),
+      t("2025-01-02", -999, "A", c),
+    ]),
   ];
   expect([cashIn(ts), cashOut(ts)]).toEqual([100, 40]);
 });
@@ -70,7 +73,12 @@ test("Mercury's reported balance is an automatic anchor; a stored one on the sam
 test("account currency: what most of its rows are in, else the books'", () => {
   expect(
     accountCurrencies(
-      [t("2025-01-01", 1, "Card"), t("2025-01-01", 1, "USD acct", "x", { currency: "USD" }), t("2025-01-02", 1, "USD acct", "x", { currency: "USD" }), t("2025-01-03", 1, "USD acct")],
+      [
+        t("2025-01-01", 1, "Card"),
+        t("2025-01-01", 1, "USD acct", "x", { currency: "USD" }),
+        t("2025-01-02", 1, "USD acct", "x", { currency: "USD" }),
+        t("2025-01-03", 1, "USD acct"),
+      ],
       "ILS",
     ),
   ).toEqual({ Card: "ILS", "USD acct": "USD" });

@@ -24,7 +24,14 @@ test("same entity: out of one account into another within 4 days; never two rows
     row("il", "late", "2025-03-10", 500, "Savings"), // 9 days: too far
   ];
   expect(ids(suggestTransfers(rs, []))).toEqual([["o1", "i1"]]);
-  expect(ids(suggestTransfers(rs.filter((r) => r.id !== "i1"), []))).toEqual([]);
+  expect(
+    ids(
+      suggestTransfers(
+        rs.filter((r) => r.id !== "i1"),
+        [],
+      ),
+    ),
+  ).toEqual([]);
 });
 
 test("one-to-one: two equal transfers pair by nearest date, each row used once", () => {
@@ -50,7 +57,18 @@ test("cross currency and cross entity: converted at the rate of the day the mone
   expect(ids(suggestTransfers(rs, [], { convert: fx }))).toEqual([["w", "d"]]);
   expect(ids(suggestTransfers(rs, [], { convert: fx, tolerance: 0.01 }))).toEqual([]);
   expect(ids(suggestTransfers(rs, []))).toEqual([]); // no rates at all
-  expect(ids(suggestTransfers([{ ...rs[0]!, date: "2025-02-01" }, { ...rs[1]!, date: "2025-02-02" }], [], { convert: fx }))).toEqual([]); // no rate that day
+  expect(
+    ids(
+      suggestTransfers(
+        [
+          { ...rs[0]!, date: "2025-02-01" },
+          { ...rs[1]!, date: "2025-02-02" },
+        ],
+        [],
+        { convert: fx },
+      ),
+    ),
+  ).toEqual([]); // no rate that day
 });
 
 test("rejected pairs are never suggested again; confirmed rows are taken", () => {

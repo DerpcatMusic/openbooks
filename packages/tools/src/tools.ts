@@ -52,6 +52,7 @@ import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type 
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { filingTools } from "./filings.ts";
+import { netWorthDetail } from "./money.ts";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
 const fail = (message: string) => Effect.fail(new ToolError({ message }));
@@ -77,6 +78,7 @@ export const TYPE_LABELS: Record<string, string> = {
   exempt: "Exempt (IDF pay & grants)",
   personal: "Personal, family, refunds",
   own: "Your own money moving",
+  loan: "Loans",
   ask: "Uncategorized",
 };
 const NAMES: Record<string, string> = {
@@ -414,6 +416,47 @@ const balances = defineTool({
         cash: r2(sum(ks.filter((k) => !isCard(k)).map((k) => b[k]!))),
         cards: r2(sum(ks.filter((k) => isCard(k)).map((k) => b[k]!))),
       };
+    }),
+});
+
+const net_worth = defineTool({
+  name: "net_worth",
+  title: { en: "Net worth", he: "שווי נקי" },
+  description:
+    "Net worth across every entity's bank and card accounts at the end of a day, converted to one currency at the Bank of Israel representative rate of that day (cross rates via ILS). Each account with its own currency and balance; cards are liabilities. Rates missing for a currency and day are listed, never guessed (that account counts 0 in the total).",
+  kind: "read",
+  input: Schema.Struct({
+    currency: Schema.optionalKey(pattern(/^[A-Z]{3}$/u, "ISO 4217, default ILS")),
+    date: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    entity: Schema.optionalKey(pattern(/^[a-z0-9-]+$/u, "Only this entity's accounts. Default: every entity.")),
+  }),
+  output: Schema.Struct({
+    currency: S,
+    date: S,
+    total: N,
+    assets: N,
+    liabilities: N,
+    accounts: Schema.Array(Schema.Struct({ entity: S, account: S, currency: S, liability: Schema.Boolean, balance: N, converted: N })),
+    missing: Schema.Array(Schema.Struct({ currency: S, date: S })),
+  }),
+  run: (a: { currency?: string; date?: string; entity?: string }) =>
+    Effect.gen(function* () {
+      const cur = a.currency ?? "ILS",
+        d = a.date ?? today();
+      const nw = yield* netWorthDetail(cur, d, d);
+      const accounts = nw.series
+        .filter((s) => !a.entity || s.entity === a.entity)
+        .map((s) => ({
+          entity: s.entity,
+          account: s.account,
+          currency: s.currency,
+          liability: s.liability,
+          balance: r2(s.native[0] ?? 0),
+          converted: s.values[0] ?? 0,
+        }));
+      const assets = r2(sum(accounts.filter((x) => x.converted > 0).map((x) => x.converted))),
+        liabilities = r2(-sum(accounts.filter((x) => x.converted < 0).map((x) => x.converted)));
+      return { currency: cur, date: d, total: r2(assets - liabilities), assets, liabilities, accounts, missing: nw.missing };
     }),
 });
 
@@ -1660,6 +1703,7 @@ export const tools: readonly Tool[] = [
   get_transaction,
   profit_and_loss,
   balances,
+  net_worth,
   chart_of_accounts,
   classify,
   list_rules,

@@ -2,7 +2,7 @@
 // (OPENFRMT) file. Built by a factory so they share tools.ts's entity/ledger helpers without importing it (tools.ts lists them).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deductions, dueInYear, filingRows, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
+import { deductions, dueInYear, filingRows, fxOf, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
 import {
   ilSettings,
   iso88598,
@@ -17,6 +17,7 @@ import {
 } from "@openbooks/country-il";
 import type { EntityMeta, Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
+import { ratesFor } from "./money.ts";
 import { defineTool, ToolError, type Tool } from "./registry.ts";
 import type { input as toolInput } from "./tools.ts";
 
@@ -161,7 +162,12 @@ export function filingTools(h: Helpers): Tool[] {
           return yield* fail(`${d.type} is not VAT-registered: there is no periodic VAT report (an osek patur has only an annual turnover declaration).`);
         const freq = a.frequency ?? d.settings.vatFrequency,
           period = periodOf(`${a.period}-01`, freq);
+        const base = e.meta.currency ?? "ILS";
+        // foreign-currency documents convert at the Bank of Israel representative rate of their issue date
+        const foreign = d.invoices.flatMap((i) => (i.currency && i.currency !== base && i.issued ? [{ currency: i.currency, date: i.issued }] : []));
+        const fx = foreign.length ? fxOf(yield* ratesFor(foreign), base) : undefined;
         const r = periodReport(period, {
+          ...(fx ? { fx } : {}),
           invoices: d.invoices,
           customers: d.customers,
           rows: d.rows,

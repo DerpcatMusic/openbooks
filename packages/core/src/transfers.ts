@@ -52,6 +52,7 @@ export const DEFAULT_WINDOW = 4;
 export const SEARCH_WINDOW = 30;
 export const refOf = (r: Pick<TransferRow, "entity" | "id">) => `${r.entity}/${r.id}`;
 const key = (p: TransferPair) => `${p.out}|${p.in}`;
+const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 /** How far apart the two amounts are (a fraction of the money in), or null when they can't be compared or don't fit. */
 function fit(o: TransferRow, i: TransferRow, opt: TransferOptions): number | null {
@@ -74,15 +75,29 @@ function pairs(outs: readonly TransferRow[], ins: readonly TransferRow[], decide
   const rejected = new Set(decided.flatMap((d) => (d.rejected ?? []).map(key)));
   const window = opt.window ?? DEFAULT_WINDOW;
   const out: TransferMatch[] = [];
+  const byDate = [...ins].sort((a, b) => a.date.localeCompare(b.date));
+  const first = (d: string) => {
+    let lo = 0,
+      hi = byDate.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      if (byDate[m]!.date < d) lo = m + 1;
+      else hi = m;
+    }
+    return lo;
+  };
   for (const o of outs)
-    for (const i of ins) {
+    for (let k = first(shift(o.date, -window)); k < byDate.length; k++) {
+      const i = byDate[k]!,
+        gap = Math.abs(daysBetween(o.date, i.date));
+      if (i.date > o.date && gap > window) break;
       if (o.entity === i.entity && o.account === i.account) continue;
-      const gap = Math.abs(daysBetween(o.date, i.date));
       if (gap > window || rejected.has(key({ out: refOf(o), in: refOf(i) }))) continue;
       const diff = fit(o, i, opt);
       if (diff !== null) out.push({ out: o, in: i, gap, diff });
     }
-  const filed = (m: TransferMatch) => +!(NOT_FLOW.has(group(m.out.category)) || m.out.category === "ask") + +!(NOT_FLOW.has(group(m.in.category)) || m.in.category === "ask");
+  const filed = (m: TransferMatch) =>
+    +!(NOT_FLOW.has(group(m.out.category)) || m.out.category === "ask") + +!(NOT_FLOW.has(group(m.in.category)) || m.in.category === "ask");
   return out.sort(
     (a, b) =>
       Math.round(a.diff * 1e4) - Math.round(b.diff * 1e4) ||
@@ -112,7 +127,12 @@ export function suggestTransfers(rows: readonly TransferRow[], decided: readonly
 }
 
 /** Manual search: every possible other side of one row within SEARCH_WINDOW days (unless `window` says otherwise), best first. */
-export function transferCandidates(row: TransferRow, rows: readonly TransferRow[], decided: readonly TransfersDoc[], opt: TransferOptions = {}): TransferMatch[] {
+export function transferCandidates(
+  row: TransferRow,
+  rows: readonly TransferRow[],
+  decided: readonly TransfersDoc[],
+  opt: TransferOptions = {},
+): TransferMatch[] {
   const o = { ...opt, window: opt.window ?? SEARCH_WINDOW },
     rs = open(rows, decided).filter((r) => refOf(r) !== refOf(row));
   return row.amount < 0

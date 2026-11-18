@@ -92,6 +92,8 @@ export interface VatContext {
   rate: number;
   settings: IlSettings;
   currency?: string;
+  /** Units of `currency` per unit of a foreign currency on a date (Bank of Israel representative rate); null = unknown. */
+  fx?: (currency: string, date: string) => number | null;
 }
 export function periodReport(period: Pick<Period, "key" | "from" | "to" | "months">, c: VatContext): VatReport {
   return vatReport({
@@ -101,6 +103,7 @@ export function periodReport(period: Pick<Period, "key" | "from" | "to" | "month
     rate: c.rate,
     supplierIds: c.settings.supplierIds,
     ...(c.currency ? { baseCurrency: c.currency } : {}),
+    ...(c.fx ? { fx: c.fx } : {}),
   });
 }
 /** Sales before VAT between two dates (the VAT report's taxable + zero-rated/exempt sales): the "turnover" of Ordinance s.175(b). */

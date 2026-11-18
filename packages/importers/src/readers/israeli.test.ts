@@ -72,7 +72,10 @@ describe("israeli-bank-scrapers", () => {
       scraperJson({
         name: "x.json",
         bytes: new TextEncoder().encode(
-          JSON.stringify({ companyId: "x", accounts: [{ accountNumber: "1", currency, txns: [{ date: "2025-01-01", chargedAmount: -1, chargedCurrency: charged, description: "d" }] }] }),
+          JSON.stringify({
+            companyId: "x",
+            accounts: [{ accountNumber: "1", currency, txns: [{ date: "2025-01-01", chargedAmount: -1, chargedCurrency: charged, description: "d" }] }],
+          }),
         ),
       }).rows[0]!.currency;
     expect([acct("USD"), acct("USD", "EUR"), acct("₪"), acct(undefined, "NIS"), acct("junk")]).toEqual(["USD", "EUR", undefined, undefined, undefined]);
