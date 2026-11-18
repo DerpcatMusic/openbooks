@@ -1,4 +1,5 @@
-// books.db: one SQLite file, schema byte-for-byte books.py's (docs/architecture.md "Storage"), so both apps open the same file.
+// books.db: one SQLite file, schema byte-for-byte books.py's (docs/architecture.md "Storage"), so both apps open the same file, plus the
+// `audit` table (audit.ts) that only this app writes.
 import { Database } from "bun:sqlite";
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,8 @@ create table if not exists secret (entity text, provider text, value text not nu
 create table if not exists txn    (entity text, id text, date text, amount real, account text, desc text, source text, data text not null, primary key (entity, id));
 create index if not exists txn_date on txn (entity, date);
 create table if not exists statement (entity text, file text, sig text, checks text, ok integer, primary key (entity, file));
+create table if not exists audit  (entity text not null, at text not null, actor text not null, kind text not null, target text, before text, after text);
+create index if not exists audit_entity on audit (entity, at);
 `;
 
 /** Real entity ids (books.py Entity()); pseudo-entities (`_ai`, `_vault`, `_app`) can never match. */

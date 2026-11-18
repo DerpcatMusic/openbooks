@@ -61,3 +61,30 @@ export function checkBooks(prev: BooksDoc | null | undefined, next: BooksDoc | n
   if (close && start && (close !== wasClose || start !== was) && close < start) return "closeBeforeStart";
   return null;
 }
+
+/** The business type in force in year y: the latest `types` entry at or before it (types {"2025": "osek-zair"} carries forward). */
+const typeIn = (types: Readonly<Record<string, string>> | undefined, y: number) => {
+  const from = Object.keys(types ?? {})
+    .filter((k) => +k <= y)
+    .sort()
+    .at(-1);
+  return from ? types![from] : undefined;
+};
+/**
+ * Why an entity meta change is refused under the close date, or null: the currency can't change once anything is closed (every closed
+ * amount is in it), and the business type of a year with closed days can't change (its tax treatment is settled).
+ */
+export function closedMeta(
+  prev: { currency?: string | undefined; types?: Readonly<Record<string, string>> | undefined },
+  patch: { currency?: string | undefined; types?: Readonly<Record<string, string>> | undefined },
+  close: string | null | undefined,
+): "currency" | "types" | null {
+  if (!close) return null;
+  if (patch.currency !== undefined && (patch.currency || undefined) !== (prev.currency || undefined)) return "currency";
+  if (patch.types !== undefined) {
+    const last = +close.slice(0, 4);
+    const years = [...Object.keys(prev.types ?? {}), ...Object.keys(patch.types ?? {})].map(Number).filter((y) => y <= last);
+    if ([...years, last].some((y) => typeIn(prev.types, y) !== typeIn(patch.types, y))) return "types";
+  }
+  return null;
+}

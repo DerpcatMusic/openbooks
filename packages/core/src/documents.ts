@@ -120,8 +120,8 @@ export function issueDocs(before: readonly IssuedDoc[], after: readonly IssuedDo
  * Returns the number or id of the first bill refused, with why.
  */
 export function billProblem(
-  before: readonly { id: string; status?: string; number?: string; date?: string; [k: string]: unknown }[],
-  after: readonly { id: string; status?: string; number?: string; date?: string; [k: string]: unknown }[],
+  before: readonly { id: string; status?: string; number?: string | null; date?: string; [k: string]: unknown }[],
+  after: readonly { id: string; status?: string; number?: string | null; date?: string; [k: string]: unknown }[],
   close?: string | null,
 ): { code: "deleteIssued" | "closed"; number: string } | null {
   const ids = new Set(after.map((b) => b.id));

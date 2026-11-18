@@ -1,7 +1,8 @@
 // books.db (bun:sqlite, schema identical to books.py), ingest, the secret vault, change events. API: docs/architecture.md "Storage".
 export { BadInput, Books, booksLayer, ClosedPeriod, makeBooks, UnknownEntity, type BooksApi, type BooksOptions } from "./books.ts";
 export { isEntityId, migrate, openDb, SCHEMA } from "./db.ts";
-export { ingest, KINDS, sigOf, uid, type Read, type ReadContext, type StatementFile } from "./ingest.ts";
+export { ingest, KINDS, sigOf, uid, type IngestSummary, type Read, type ReadContext, type StatementFile } from "./ingest.ts";
+export { Actor, audit, capped, delta, readAudit, type ActorKind, type AuditKind, type AuditQuery, type AuditRow } from "./audit.ts";
 export { connections, RESERVED, taxTables, type Connection, type State } from "./state.ts";
 export * from "./vault.ts";
 export * from "./changes.ts";

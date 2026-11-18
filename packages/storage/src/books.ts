@@ -7,10 +7,16 @@ import { join } from "node:path";
 import { Context, Data, Effect, Layer } from "effect";
 import {
   accountProblem,
+  baseId,
+  billProblem,
   canon,
   checkBooks,
   classify as classifyCore,
   cleanRules,
+  closedMeta,
+  issueDocs,
+  type DocProblem,
+  type IssuedDoc,
   journalProblem,
   ledger,
   movedBefore,
@@ -28,9 +34,10 @@ import {
   type TripProblem,
 } from "@openbooks/core";
 import type { CsvProfile, EntityMeta, JournalEntry, RuleInput, SplitsDoc, StatementCheck, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
+import { Actor, type ActorKind, audit, type AuditQuery, type AuditRow, readAudit } from "./audit.ts";
 import { Changes, type Topic } from "./changes.ts";
 import { isEntityId, ls, migrate, openDb, pySorted } from "./db.ts";
-import { ingest, type Read } from "./ingest.ts";
+import { ingest, type IngestSummary, type Read } from "./ingest.ts";
 import { assemble, RESERVED, statements, taxTables, type State } from "./state.ts";
 
 export class BadInput extends Data.TaggedError("BadInput")<{ message: string }> {}
@@ -79,6 +86,36 @@ const BOOKS = {
   startLater: "The entries start date can only move earlier, never later: that would drop history the books already counted.",
   basis: "The accounting basis is cash or accrual.",
 } as const;
+/** Why an issued document (or approved bill) write is refused. */
+const docRefusal = (p: DocProblem | { code: "deleteIssued" | "closed"; number: string }, close: string | null): BadInput | ClosedPeriod => {
+  const n = "number" in p ? p.number : "";
+  switch (p.code) {
+    case "deleteIssued":
+      return new BadInput({ message: `Document ${n} is issued: it can't be deleted. Issue a cancellation for it instead.` });
+    case "editIssued":
+      return new BadInput({ message: `Document ${n} is issued: it can't be changed, renumbered or turned back into a draft. Only its payments can change.` });
+    case "cancelled":
+      return new BadInput({ message: `Document ${n} is cancelled: it can't change any more.` });
+    case "date":
+      return new BadInput({ message: "A document needs a real issue date (YYYY-MM-DD) to be issued." });
+    case "kind":
+      return new BadInput({ message: "Unknown document type." });
+    case "status":
+      return new BadInput({ message: "A document is cancelled only by issuing a cancellation for it." });
+    case "backdate":
+      return new BadInput({ message: `A document can't be dated before the last one of its type (${p.last}).` });
+    case "cancelTarget":
+      return new BadInput({ message: "A cancellation must point at an issued document that isn't already cancelled." });
+    case "closed":
+      return new ClosedPeriod({
+        message: `The books are closed through ${"close" in p ? p.close : close}: ${n ? `bill ${n}` : "this document"} is dated on or before it. Move the close date to change it.`,
+      });
+  }
+};
+const META = {
+  currency: "The books are closed: the currency can't change while a closed period is kept in it.",
+  types: "The books are closed: the business type of a year with closed days can't change. Move the close date first.",
+} as const;
 /** The machine's date, YYYY-MM-DD (the screens use the same clock). */
 const localToday = () => new Date().toLocaleDateString("sv");
 
@@ -89,7 +126,8 @@ export interface BooksApi {
   readonly home: string;
   readonly entities: Effect.Effect<readonly Listed[]>;
   createEntity: (id: string, meta: EntityMeta) => Effect.Effect<void, BadInput>;
-  setMeta: (e: string, patch: Partial<EntityMeta>) => Effect.Effect<void, UnknownEntity>;
+  /** Fails ClosedPeriod when the change would alter a closed period: the currency, or a closed year's business type. */
+  setMeta: (e: string, patch: Partial<EntityMeta>) => Effect.Effect<void, UnknownEntity | ClosedPeriod>;
   ingest: (e: string) => Effect.Effect<void, UnknownEntity>;
   ledger: (e: string) => Effect.Effect<readonly Txn[], UnknownEntity>;
   checks: (e: string) => Effect.Effect<{ checks: StatementCheck[]; unreadable: string[]; inbox: string[] }, UnknownEntity>;
@@ -107,6 +145,10 @@ export interface BooksApi {
   /** core classify() and its writes in one step, checked against the close date as a whole (no half-saved rule). */
   classify: (e: string, ids: readonly string[], category: string, rule?: string) => Effect.Effect<void, UnknownEntity | ClosedPeriod>;
   state: (e: string) => Effect.Effect<State, UnknownEntity>;
+  /** The audit trail, newest first. */
+  audit: (e: string, q?: AuditQuery) => Effect.Effect<AuditRow[], UnknownEntity>;
+  /** Count a print of an issued invoice / receipt and return the count: 1 = the original, more = a copy. Drafts are not counted (0). */
+  recordPrint: (e: string, id: string) => Effect.Effect<number, UnknownEntity | BadInput>;
 }
 
 export class Books extends Context.Service<Books, BooksApi>()("openbooks/Books") {}
@@ -276,6 +318,11 @@ export const makeBooks = (opts: BooksOptions) =>
             // a trip changes what the Taxximizer counts, not the ledger: only its own shape is checked, and only for the trips that changed
             const before = new Map(((getDoc<Trip[] | null>(e, name, []) ?? []) as Trip[]).map((x) => [x.id, x])),
               list = Array.isArray(value) ? (value as Trip[]) : [];
+            if (close) {
+              const dated = (xs: Iterable<Trip>) => [...xs].map((x) => ({ ...x, date: x.start }));
+              const n = movedBefore(dated(before.values()), dated(list), close).length;
+              if (n) return refuse(close, n);
+            }
             for (const x of list)
               if (canon(before.get(x.id)) !== canon(x)) {
                 const p = tripProblem(x);
@@ -287,12 +334,28 @@ export const makeBooks = (opts: BooksOptions) =>
             // a run is the provider's figures, checked against each other (no tax is calculated): only the runs that changed are checked
             const before = new Map(((getDoc<PayrollRun[] | null>(e, name, []) ?? []) as PayrollRun[]).map((x) => [x.id, x])),
               list = Array.isArray(value) ? (value as PayrollRun[]) : [];
+            if (close) {
+              const dated = (xs: Iterable<PayrollRun>) => [...xs].map((x) => ({ ...x, date: x.payDate }));
+              const n = movedBefore(dated(before.values()), dated(list), close).length;
+              if (n) return refuse(close, n);
+            }
             for (const x of list)
               if (canon(before.get(x.id)) !== canon(x)) {
                 const p = payrollProblem(x);
                 if (p) return bad(`Payroll run ${x.period ? `“${x.period}” ` : ""}${PAYROLL[p]}.`);
               }
             return Effect.void;
+          }
+          case "tags": {
+            if (!close) return Effect.void;
+            // which tags a closed transaction carries is settled with its period (deductions read them)
+            const dates = new Map(storedTxns(e).map((t) => [t.id, t.date])),
+              on = (v: unknown) =>
+                Object.entries(((v ?? {}) as Partial<TagsDoc>).on ?? {}).flatMap(([id, tags]) => {
+                  const date = dates.get(baseId(id));
+                  return date ? [{ id, date, tags: [...tags].sort() }] : [];
+                });
+            return closed(movedBefore(on(getDoc(e, name, null)), on(value), close).length);
           }
           case "reviewed": {
             if (!close) return Effect.void;
@@ -306,26 +369,64 @@ export const makeBooks = (opts: BooksOptions) =>
             return Effect.void;
         }
       });
-    /** The raw writes: no guard, no publish. */
-    const writeDoc = (e: string, name: string, value: unknown) =>
+    /**
+     * Issued documents and approved bills: checked (and invoices numbered) against what is stored inside the write's own transaction, so
+     * two tabs issuing at once can't take the same number or overwrite each other's issued documents. Throws BadInput / ClosedPeriod.
+     */
+    const docRules = (e: string, name: string, before: unknown, value: unknown) => {
+      const list = (v: unknown) => (Array.isArray(v) ? (v as IssuedDoc[]) : []);
+      const close = closeDate(e);
+      if (name === "invoices") {
+        const r = issueDocs(list(before), list(value), close);
+        if ("problem" in r) throw docRefusal(r.problem, close);
+        return value === null || value === undefined ? value : r.docs;
+      }
+      if (name === "bills") {
+        const p = billProblem(list(before), list(value), close);
+        if (p) throw docRefusal(p, close);
+      }
+      return value;
+    };
+    /** Write one doc and its audit row in one transaction (pseudo-entities are app settings, not books: not audited). No guard, no publish. */
+    const writeDoc = (e: string, name: string, value: unknown, actor: ActorKind, kind: "doc" | "rules" | "classify" = "doc") =>
       db
         .transaction(() => {
+          const before = getDoc<unknown>(e, name, null);
+          if (!isPseudo(e)) value = docRules(e, name, before, value);
           if (value === null || value === undefined) db.query("delete from doc where entity = ? and name = ?").run(e, name);
           else db.query("insert or replace into doc values (?, ?, ?)").run(e, name, JSON.stringify(value));
           if (name === "csv-profiles") db.query("delete from statement where entity = ?").run(e); // CSVs read differently now: re-ingest
+          if (!isPseudo(e)) audit(db, { entity: e, actor, kind, target: name, before, after: value ?? null });
         })
         .immediate();
-    // rules live in doc "rules" from now on; books.py's `rule` table is only read until the first save (getRules)
-    const writeRules = (e: string, rs: readonly RuleInput[]) => writeDoc(e, "rules", rs);
+    /** writeDoc as an Effect: the refusals docRules throws become failures. */
+    const write = (e: string, name: string, value: unknown, kind?: "doc" | "rules" | "classify") =>
+      Actor.use((actor) =>
+        Effect.suspend(() => {
+          try {
+            writeDoc(e, name, value, actor, kind);
+            return Effect.void;
+          } catch (x) {
+            if (x instanceof BadInput || x instanceof ClosedPeriod) return Effect.fail(x);
+            throw x;
+          }
+        }),
+      );
+    // rules live in doc "rules" from now on; books.py's `rule` table is only read until the first save (getRules). Before the first save
+    // the audit row's "before" is the doc's absence, so the first one records the rules from the `rule` table too.
     const putDoc = (e: string, name: string, value: unknown) =>
       on(e, () => undefined, true).pipe(
         Effect.andThen(guardDoc(e, name, value)),
-        Effect.andThen(on(e, () => writeDoc(e, name, value), true)),
+        Effect.andThen(write(e, name, value)),
         Effect.andThen(publish(e, name === "csv-profiles" ? ["docs", "statements"] : ["docs"], [name])),
       );
     const setRules = (e: string, rs: readonly RuleInput[]) => {
       const rows = cleanRules(rs);
-      return guardLedger(e, { rules: rows }).pipe(Effect.andThen(on(e, () => writeRules(e, rows))), Effect.andThen(publish(e, ["rules"])));
+      return guardLedger(e, { rules: rows }).pipe(
+        Effect.andThen(on(e, () => undefined)),
+        Effect.andThen(write(e, "rules", rows, "rules").pipe(Effect.catchTag("BadInput", (x) => Effect.die(x)))), // rules have no BadInput
+        Effect.andThen(publish(e, ["rules"])),
+      );
     };
 
     const listEntities = (): Listed[] => {
@@ -335,13 +436,26 @@ export const makeBooks = (opts: BooksOptions) =>
         .all()
         .map((r) => ({ id: r.id, ...(JSON.parse(r.meta) as EntityMeta) }));
     };
-    const doIngest = (e: string, meta: EntityMeta) =>
-      ingest(db, join(home, e, "inbox"), e, read, {
-        meta,
-        profile: getDoc(e, "profile", {}),
-        csvProfiles: getDoc<CsvProfile[] | null>(e, "csv-profiles", []) ?? [],
-      });
-    const ingestE = (e: string) => on(e, (m) => doIngest(e, m!)).pipe(Effect.tap((changed) => (changed ? publish(e, ["txns", "statements"]) : Effect.void)));
+    /** A split that adds up to the transaction as stored now (core splitOf's test). */
+    const splitsOk = (e: string) => {
+      const splits = getDoc<SplitsDoc>(e, "splits", {});
+      return (id: string, amount: number | undefined) => !!splits[id] && amount !== undefined && splitProblem(amount, splits[id]) === null;
+    };
+    const doIngest = (e: string, meta: EntityMeta, actor: ActorKind) =>
+      ingest(
+        db,
+        join(home, e, "inbox"),
+        e,
+        read,
+        { meta, profile: getDoc(e, "profile", {}), csvProfiles: getDoc<CsvProfile[] | null>(e, "csv-profiles", []) ?? [] },
+        {
+          close: closeDate(e),
+          splitsOk: splitsOk(e),
+          audit: (s) => audit(db, { entity: e, actor, kind: "ingest", target: "inbox", before: null, after: s }, true),
+        },
+      );
+    const ingestE = (e: string) =>
+      Actor.use((actor) => on(e, (m) => doIngest(e, m!, actor))).pipe(Effect.tap((changed) => (changed ? publish(e, ["txns", "statements"]) : Effect.void)));
     const ledgerE = (e: string) =>
       Effect.andThen(ingestE(e), () =>
         on(e, () => {
@@ -371,9 +485,24 @@ export const makeBooks = (opts: BooksOptions) =>
           return publish(id, ["entities"]);
         }),
       setMeta: (e, patch) =>
-        on(e, (m) => db.query("update entity set meta = ? where id = ?").run(JSON.stringify({ ...m, ...patch }), e)).pipe(
-          Effect.andThen(publish(e, ["entities", "meta"])),
-        ),
+        Actor.use((actor) =>
+          on(e, (m) => m!).pipe(
+            Effect.flatMap((m) => {
+              const close = closeDate(e),
+                p = closedMeta(m, patch, close);
+              if (p) return Effect.fail(new ClosedPeriod({ message: META[p] }));
+              return Effect.sync(() =>
+                db
+                  .transaction(() => {
+                    const next = { ...m, ...patch };
+                    db.query("update entity set meta = ? where id = ?").run(JSON.stringify(next), e);
+                    audit(db, { entity: e, actor, kind: "meta", target: "entity", before: m, after: next });
+                  })
+                  .immediate(),
+              );
+            }),
+          ),
+        ).pipe(Effect.andThen(publish(e, ["entities", "meta"]))),
       ingest: (e) => Effect.asVoid(ingestE(e)),
       ledger: ledgerE,
       checks: (e) => Effect.andThen(ingestE(e), () => on(e, () => statements(db, e))),
@@ -385,9 +514,19 @@ export const makeBooks = (opts: BooksOptions) =>
         on(e, () => classifyCore(ids, category, getRules(e), getDoc(e, "overrides", {}), rule)).pipe(
           Effect.flatMap((r) =>
             guardLedger(e, { rules: r.rules, overrides: r.overrides }).pipe(
-              Effect.andThen(on(e, () => (rule ? writeRules(e, r.rules) : undefined))),
+              Effect.andThen(
+                Actor.use((actor) =>
+                  on(e, () =>
+                    db
+                      .transaction(() => {
+                        if (rule) writeDoc(e, "rules", r.rules, actor, "classify");
+                        writeDoc(e, "overrides", r.overrides, actor, "classify");
+                      })
+                      .immediate(),
+                  ),
+                ),
+              ),
               Effect.andThen(rule ? publish(e, ["rules"]) : Effect.void),
-              Effect.andThen(on(e, () => writeDoc(e, "overrides", r.overrides))),
               Effect.andThen(publish(e, ["docs"], ["overrides"])),
             ),
           ),
@@ -400,7 +539,16 @@ export const makeBooks = (opts: BooksOptions) =>
               .query<{ name: string; value: string }, [string]>("select name, value from doc where entity = ? order by name")
               .all(e)
               .filter((d) => !RESERVED.has(d.name));
-            return assemble(db, join(home, e), e, {
+            const last = readAudit(db, e, { kind: "ingest", limit: 1 })[0],
+              blocked = (last?.after as IngestSummary | undefined)?.blocked,
+              splits = getDoc<SplitsDoc>(e, "splits", {}),
+              amounts = new Map(storedTxns(e).map((t) => [t.id, t.amount])),
+              ok = splitsOk(e);
+            const integrity = {
+              closedImport: blocked && last ? { at: last.at, ...blocked } : null,
+              brokenSplits: Object.keys(splits).filter((id) => !ok(id, amounts.get(id))),
+            };
+            return { ...assemble(db, join(home, e), e, {
               entity: { id: e, ...m! },
               entities: listEntities(),
               txns: [...txns],
@@ -409,9 +557,32 @@ export const makeBooks = (opts: BooksOptions) =>
               rules: getRules(e),
               docs: Object.fromEntries(docs.map((d) => [d.name, JSON.parse(d.value) as unknown])),
               taxTables: taxTables(getDoc("_app", "taxtables", {})),
-            });
+            }), integrity };
           });
         }),
+      audit: (e, q) => on(e, () => readAudit(db, e, q)),
+      recordPrint: (e, id) =>
+        Actor.use((actor) =>
+          on(e, () =>
+            db
+              .transaction(() => {
+                const docs = getDoc<IssuedDoc[]>(e, "invoices", []),
+                  i = docs.findIndex((d) => d.id === id),
+                  d = docs[i];
+                if (!d) return null;
+                if (!d.status || d.status === "draft") return 0;
+                const prints = (d.prints ?? 0) + 1;
+                docs[i] = { ...d, prints };
+                db.query("insert or replace into doc values (?, ?, ?)").run(e, "invoices", JSON.stringify(docs));
+                audit(db, { entity: e, actor, kind: "print", target: `invoices/${d.number ?? id}`, before: { prints: prints - 1 }, after: { prints } }, true);
+                return prints;
+              })
+              .immediate(),
+          ),
+        ).pipe(
+          Effect.flatMap((n) => (n === null ? Effect.fail(new BadInput({ message: "no such document" })) : Effect.succeed(n))),
+          Effect.tap((n) => (n ? publish(e, ["docs"], ["invoices"]) : Effect.void)),
+        ),
     });
   });
 
