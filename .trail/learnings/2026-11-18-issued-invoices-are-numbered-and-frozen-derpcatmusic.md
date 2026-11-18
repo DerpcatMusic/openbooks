@@ -22,6 +22,7 @@ touches:
 ---
 
 ## Decided
+
 - Numbering, the no-edit/no-delete/no-backdate rules and credit (cancellation) documents run inside writeDoc's SQLite immediate transaction, against the stored list read in that same transaction. That is what makes two tabs issuing at once safe across processes too (MCP stdio, books.py), not just in-process.
 - The client's `number` is ignored on issue; prints and cancelledBy are server-kept and taken from the stored copy, so a stale client can't reset them.
 - A whole-doc write from a tab that hasn't seen another tab's issue is refused ("Document N is issued: it can't be deleted"), not merged. Refusing is the safe default; the app reloads on refusal.
@@ -29,6 +30,7 @@ touches:
 - Audit rows hold only the changed items of a doc (by id or key), capped at 8,000 chars per side (past that, sha256 plus a summary). Pseudo-entities (_ai, _app, _vault) are never audited because they can hold keys. Connection changes record provider names only.
 
 ## Watch out
+
 - The audit `to` filter compares UTC ISO timestamps with "YYYY-MM-DD~", so day filters are UTC days.
 - The print count goes up when the print dialog opens (beforeprint). A cancelled dialog still counts, which errs toward marking later prints as copies.
 
