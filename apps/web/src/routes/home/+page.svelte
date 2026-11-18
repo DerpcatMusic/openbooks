@@ -3,13 +3,19 @@
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { burn as burnRate, cashDelta, cashFlow, group, isCard, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
+  import { burn as burnRate, cashDelta, cashFlow, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import { form1301 } from "@openbooks/country-il";
   import type { IlTable } from "@openbooks/country-il";
   import type { Txn } from "@openbooks/schema";
-  import { S, ent, isUS, bizType, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, taxTable, yearTxns, fmt, mdy, mon, monthYear, SERIES } from "#lib/stores/books.svelte.ts";
+  import { S, ent, isUS, bizType, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, taxTable, yearTxns, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Area, BarList, Bars, Button, Icon, Money, Segmented, Stat } from "#lib/ui/index.ts";
+  import { Area, BarList, Bars, Button, Dialog, Icon, IconButton, Money, Segmented, Stat, Switch } from "#lib/ui/index.ts";
+  import FlowCard from "#lib/home/FlowCard.svelte";
+  import InOutCard from "#lib/home/InOutCard.svelte";
+  import Insights from "#lib/home/Insights.svelte";
+  import NetWorthCard from "#lib/home/NetWorthCard.svelte";
+  import RecurringList from "#lib/home/RecurringList.svelte";
+  import { arrange, move, type CardId, type HomeLayout } from "#lib/home/layout.ts";
   import Metric from "#lib/reports/Metric.svelte";
   import PeriodPicker from "#lib/reports/PeriodPicker.svelte";
   import { go } from "#lib/reports/go.ts";
@@ -27,7 +33,8 @@
   const monthTs = (ym: string) => S.data!.txns.filter((x) => x.date.startsWith(ym));
   const ml = (ym: string) => mon(+ym.slice(5) - 1);
   const endOf = (ym: string) => `${ym}-${String(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).padStart(2, "0")}`;
-  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => a + x.amount, 0);
+  // money in (Israel): what came in from outside, not transfers, own money, owner equity, personal movements or loans
+  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => (isFlow(x.category) ? a + x.amount : a), 0);
 
   // cash (US) / money in (Israel)
   const nonCard = (b: Record<string, number>) => Object.entries(b).reduce((s, [a, v]) => (isCard(a) ? s : s + v), 0);
@@ -39,7 +46,7 @@
   type Item = { key: string; label: string; value: number; color: string };
   const inByType = $derived.by(() => {
     const m = new Map<string, number>();
-    for (const x of ts) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + x.amount);
+    for (const x of ts) if (isFlow(x.category)) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + x.amount);
     return [...m]
       .map(([key, value]) => ({ key, label: key in TYPES ? typeLabel(key) : key, value }))
       .sort((a, b) => b.value - a.value)
@@ -128,6 +135,19 @@
   const first = $derived(String(S.data!.profile.owner ?? "").split(" ")[0] || String(S.data!.profile.first ?? ""));
   const hour = new Date().getHours();
   const thisMonth = new Date().toISOString().slice(0, 7);
+  const CARD = { metrics, overview, flow, inout, insights, networth, recurring, chart: chartCard, recent: recentCard };
+
+  // the cards: order and visibility per entity (doc "home-layout"); wide cards span the row, the rest share it two to one
+  const L = $derived(arrange(doc<HomeLayout | null>("home-layout", null)));
+  const SPAN: Record<CardId, string> = { metrics: "lg:col-span-3", overview: "lg:col-span-3", flow: "lg:col-span-3", inout: "lg:col-span-2", insights: "", networth: "lg:col-span-2", recurring: "", chart: "lg:col-span-3", recent: "lg:col-span-3" };
+  let customize = $state(false);
+  const saveLayout = (order: CardId[], hidden: Set<CardId>) => saveDoc("home-layout", { order, hidden: [...hidden] });
+  const toggle = (id: CardId, on: boolean) => {
+    const h = new Set(L.hidden);
+    if (on) h.delete(id);
+    else h.add(id);
+    return saveLayout(L.order, h);
+  };
 </script>
 
 <svelte:head><title>{t("nav.home")} · OpenBooks</title></svelte:head>
@@ -143,6 +163,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <PeriodPicker />
       <Button icon="upload" href="/documents">{t("common.import")}</Button>
+      <IconButton icon="settings" data-customize label={t("charts.card.customize")} variant="secondary" onclick={() => (customize = true)} />
     </div>
   </div>
 
@@ -167,7 +188,15 @@
     </a>
   {/if}
 
-  <section class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 {us ? 'lg:grid-cols-5' : ''}" aria-label={t("home.m.title")}>
+  <div class="mt-5 grid grid-flow-dense gap-4 lg:grid-cols-3">
+    {#each L.order.filter((id) => !L.hidden.has(id)) as id (id)}
+      <div class="min-w-0 {SPAN[id]}">{@render CARD[id]()}</div>
+    {/each}
+  </div>
+</div>
+
+{#snippet metrics()}
+  <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 {us ? 'lg:grid-cols-5' : ''}" aria-label={t("home.m.title")}>
     <Metric label={t("home.m.netCash")} hint={t("home.m.netCashHint")} class="max-sm:col-span-2">
       <Money value={cf.net} currency={cur} cents={false} plus class={cf.net < 0 ? "text-bad" : ""} />
       {#snippet foot()}
@@ -196,8 +225,10 @@
       </Metric>
     {/if}
   </section>
+{/snippet}
 
-  <div class="mt-4 grid gap-4 lg:grid-cols-3">
+{#snippet overview()}
+  <div class="grid gap-4 lg:grid-cols-3">
     <section class="panel glow rise min-w-0 p-5 sm:p-6">
       {#if us}
         <Stat
@@ -276,8 +307,10 @@
       {/if}
     </section>
   </div>
+{/snippet}
 
-  <section class="panel rise mt-4 min-w-0 p-5 sm:p-6" style="animation-delay:180ms">
+{#snippet chartCard()}
+  <section class="panel rise min-w-0 p-5 sm:p-6" style="animation-delay:180ms">
     <div class="mb-5 flex flex-wrap items-center gap-3">
       <div class="min-w-0 flex-1 basis-60">
         <h2 class="text-[16px] text-ink">{t(mode === "profit" ? "home.chart.pl" : mode === "expenses" ? "home.chart.spending" : mode === "in" ? "home.chart.in" : "home.chart.earnings")}</h2>
@@ -287,8 +320,10 @@
     </div>
     {#key mode}<Bars bind:focus={hl} {...chart} height={300} currency={cur} label={t("home.chart.mode")} onselect={(r) => go("transactions", `month:${r.key}`)} />{/key}
   </section>
+{/snippet}
 
-  <section class="panel rise mt-4 min-w-0 overflow-hidden" style="animation-delay:240ms">
+{#snippet recentCard()}
+  <section class="panel rise min-w-0 overflow-hidden" style="animation-delay:240ms">
     <div class="flex items-baseline gap-3 px-4 pt-5 pb-2 sm:px-5">
       <h2 class="flex-1 text-[16px] text-ink">{t("home.recent")}</h2>
       <a href="{BASE}/transactions" class="rounded text-[14px] whitespace-nowrap text-accent-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50">{t("home.viewAll")}</a>
@@ -309,4 +344,42 @@
       {/each}
     </ul>
   </section>
-</div>
+{/snippet}
+
+{#snippet flow()}
+  <section class="panel rise min-w-0 p-5 sm:p-6"><FlowCard {ts} currency={cur} sub={periodLabel(p)} /></section>
+{/snippet}
+{#snippet inout()}
+  <section class="panel rise h-full min-w-0 p-5 sm:p-6"><InOutCard to={p.to} currency={cur} /></section>
+{/snippet}
+{#snippet insights()}
+  <section class="panel rise h-full min-w-0 p-5 sm:p-6"><Insights {p} /></section>
+{/snippet}
+{#snippet networth()}
+  <section class="panel rise h-full min-w-0 p-5 sm:p-6"><NetWorthCard currency={cur} /></section>
+{/snippet}
+{#snippet recurring()}
+  <section class="panel rise h-full min-w-0 p-5 sm:p-6">
+    <div class="mb-3 flex items-baseline gap-3">
+      <h2 class="flex-1 text-[16px] text-ink">{t("charts.rec.title")}</h2>
+      <a href="{BASE}/reports/flow" class="rounded text-[14px] whitespace-nowrap text-accent-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/50">{t("home.viewAll")}</a>
+    </div>
+    <RecurringList currency={cur} limit={4} />
+  </section>
+{/snippet}
+
+<Dialog bind:open={customize} title={t("charts.card.customize")} description={t("charts.card.customizeHint")} size="sm">
+  <ul class="divide-y divide-line">
+    {#each L.order as id, i (id)}
+      <li class="flex items-center gap-1 py-1.5">
+        <Switch class="flex-1" label={t(`charts.card.${id}`)} checked={!L.hidden.has(id)} onchange={(on) => toggle(id, on)} />
+        <IconButton size="sm" icon="chevron-up" label={t("charts.card.up", { name: t(`charts.card.${id}`) })} disabled={i === 0} onclick={() => saveLayout(move(L.order, id, -1), L.hidden)} />
+        <IconButton size="sm" icon="chevron-down" label={t("charts.card.down", { name: t(`charts.card.${id}`) })} disabled={i === L.order.length - 1} onclick={() => saveLayout(move(L.order, id, 1), L.hidden)} />
+      </li>
+    {/each}
+  </ul>
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => saveDoc("home-layout", null)}>{t("charts.card.reset")}</Button>
+    <Button variant="primary" onclick={() => (customize = false)}>{t("common.done")}</Button>
+  {/snippet}
+</Dialog>

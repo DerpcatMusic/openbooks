@@ -16,6 +16,8 @@ import {
   soldierPoints,
   taxximize,
   vatRegistered,
+  zairExclusion,
+  ZAIR_SOURCE,
   type IlRates,
 } from "./index.ts";
 
@@ -42,7 +44,15 @@ const T: IlRates = {
   pensionRate1: 0.0445,
   pensionRate2: 0.1255,
   depositPct: 0.11,
-  creditPct: 0.05,
+  creditPct: 0.055,
+  creditPctDisability: 0.05,
+  creditRate: 0.35,
+  lifeCreditRate: 0.25,
+  khPct: 0.045,
+  khIncomeCap: 293397,
+  disabilityPct: 0.035,
+  disabilityIncomeCap: 399480,
+  blDeductPct: 0.52,
   donationMin: 207,
   avgWageMonthly: 12536,
   blReducedMonthly: 7522,
@@ -82,6 +92,21 @@ describe("planner (ported self-check of web/src/lib/planner.js)", () => {
     ok(p.health, 18200 * 0.0323);
     ok(ilPlan({ turnover: 26000, expenses: 0, zair: true, points: 0, pension: 0, donations: 0, selfEmployed: true }, T).blBase, 3134 * 12);
   });
+  it("BL base is income after pension and 52% of the BL dues (btl.gov.il self-employed rates); solved in closed form here", () => {
+    // 2026 table: base X > reduced band 92,436 ⇒ X = 100,000 − 0.52 × (0.1283 X − (0.1283 − 0.0447) × 92,436) ⇒ X = 104,018.38 / 1.066716
+    const p = ilPlan({ turnover: 100000, expenses: 0, zair: false, points: 0, pension: 0, donations: 0, selfEmployed: true }, T26);
+    ok(p.blBase, (100000 + 0.52 * (0.1283 - 0.0447) * 92436) / (1 + 0.52 * 0.1283));
+    ok(p.blDed, 0.52 * p.bl);
+    // osek zair: no §47א deduction, BL on 70% of turnover
+    ok(ilPlan({ turnover: 100000, expenses: 0, zair: true, points: 0, pension: 0, donations: 0, selfEmployed: true }, T26).blBase, 70000);
+  });
+  it("pension credit: 35% on deposits up to 5.5% of qualifying income, 5% with a disability deduction (§45א(ו); 1301 guide 2025 row 76)", () => {
+    const base = { turnover: 100000, expenses: 0, zair: false, points: 0, pension: 20000, donations: 0, selfEmployed: true };
+    const p = ilPlan(base, T26);
+    ok(p.pensionDed, 11000); // §47: 11% of 100,000
+    ok(p.pensionCredit, 0.35 * 5500);
+    ok(ilPlan({ ...base, disability: true }, T26).pensionCredit, 0.35 * 5000);
+  });
   it("company: salary lever beats pure dividend in low brackets; never loses vs pure dividend", () => {
     ok(company(0, { points: 0 }, T).keep, 0);
     expect(company(100000, { points: 0 }, T, 0.23, false).salary).not.toBe(0);
@@ -90,6 +115,10 @@ describe("planner (ported self-check of web/src/lib/planner.js)", () => {
   it("small foreign-client osek wins", () => {
     const r = taxximize({ revenue: 100000, expenses: 10000, clients: "foreign", points: 2.25, fx: 3.6 }, T, { costs: { llc: 0, ccorp: 0 }, corpRate: 0.21 });
     expect(["patur", "murshe"]).toContain(r.best?.key);
+  });
+  it("no USD rate: the US structures say so instead of using a default rate", () => {
+    const r = taxximize({ revenue: 100000, expenses: 10000, clients: "foreign", points: 2.25 }, T, { costs: { llc: 500, ccorp: 900 }, corpRate: 0.21 });
+    expect(r.rows.filter((x) => !x.ok && x.why.k === "noRate").map((x) => x.key)).toEqual(["llc", "ccorp"]);
   });
   it("released soldier points", () => {
     expect(soldierPoints("2024-06", 32, 2025)).toBe(2);
@@ -109,24 +138,24 @@ describe("numerically identical to the old JS on the real 2026 tables (fixtures/
     expect(k100!.best).toBe("patur");
     expect(Math.round(k100!.rows[0]!.keep!)).toBe(83403);
     expect(k450!.best).toBe("murshe");
-    expect(Math.round(k450!.rows[1]!.keep!)).toBe(276126);
+    expect(Math.round(k450!.rows[1]!.keep!)).toBe(279728); // was 276,126 before the 5.5% pension credit and the BL base after 52% of BL
   });
   it("ilPlan scenarios", () => {
     for (const s of ref.plans) expect(ilPlan(s.input, T26)).toEqual(s.plan);
   });
-  it("advisor sample: children 20,328, pension 15,517, KH 3,627, W-8BEN 2,880, woman 1,452, disability 930, phone 563", () => {
+  it("advisor sample: children 20,328, pension 15,749, KH 3,627, W-8BEN 2,880, woman 1,452, disability 930, phone 551", () => {
     const { answers, ctx } = ref.advisor;
     const r = advise(playbook, answers, { ...ctx, T: T26 });
     expect(r.map((x) => ({ id: x.item.id, status: x.status, saving: x.saving, missing: x.missing.map((q) => q.key) }))).toEqual(ref.advisor.result);
     const save = Object.fromEntries(r.filter((x) => x.status === "save").map((x) => [x.item.id, x.saving]));
     expect(save).toEqual({
       "il-credit-children": 20328,
-      "il-pension-self-employed-47": 15517,
+      "il-pension-self-employed-47": 15749, // old JS 15,517: credit on 5% instead of 5.5% (§45א(ו))
       "il-keren-hishtalmut-self": 3627,
       "us-w8ben-royalties-treaty": 2880,
       "il-credit-woman": 1452,
       "il-disability-insurance": 930,
-      "il-phone": 563,
+      "il-phone": 551, // old JS 563: BL base now also net of 52% of BL, so the BL saved by the extra expense is smaller
     });
   });
 });
@@ -180,6 +209,32 @@ describe("pack data", () => {
 });
 
 describe("form 1301 hook", () => {
+  it("zair closed (foreign transparent holding): no zair box, 150 on actual expenses (Circular 7/2025 §3.3)", () => {
+    const txns = [txn(100000, "business:client"), txn(-5000, "expense:software")];
+    const r = form1301({ y: 2026, type: "osek-zair", T: T26, txns, zairExcluded: true });
+    expect([r.fields.zair, r.fields["150"]]).toEqual(["", "95000"]);
+  });
+  it("deductions 135/136/030 come off taxable income; 268/037 credits after the points (1301 guide 2025 rows 51, 53, 54, 76, 78א)", () => {
+    const form = { "150": "200000", "135": "30000", "136": "10000", "030": "10000", "037": "1000" };
+    const r = form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form });
+    // 135: 11% of 200,000 = 22,000; 136: 4.5% of 200,000 = 9,000; 030: 52% of 10,000 = 5,200
+    expect(r.deductions).toEqual({ "135": 22000, "136": 9000, "112": 0, "030": 5200 });
+    expect(r.taxable).toBe(200000 - 36200);
+    // 268: 35% of min(30,000 − 22,000, 5.5% of 200,000); 037: 35% of 1,000
+    ok(r.paymentCredits["268"], 2800);
+    ok(r.paymentCredits["037"], 350);
+    expect(r.due).toBe(Math.round(bands(163800, T26.brackets) - 2.25 * T26.point - 3150));
+  });
+  it("attributed foreign income is taxed with the business income, US tax credited up to the Israeli tax on it (appendix 1324)", () => {
+    const r = form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "100000" }, foreign: { income: 50000, taxPaid: 1e6 } });
+    expect(r.taxable).toBe(150000);
+    const net = bands(150000, T26.brackets) - 2.25 * T26.point;
+    ok(r.f1324.credit, net / 3);
+    expect(r.due).toBe(Math.round(net - net / 3));
+    expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "100000" }, foreign: { income: 50000, taxPaid: 100 } }).f1324.credit).toBe(
+      100,
+    );
+  });
   const txn = (amount: number, category: string) => ({
     id: "x",
     date: "2026-03-01",
@@ -250,6 +305,7 @@ describe("cross-border: IL resident + US disregarded LLC", () => {
       revenue: 100000,
       expenses: 0,
       foreignTaxPaid: 0,
+      lines: [],
     },
   ];
   const llc = {
@@ -262,28 +318,50 @@ describe("cross-border: IL resident + US disregarded LLC", () => {
     revenue: 30000,
     expenses: 10000,
     foreignTaxPaid: 500,
+    lines: [
+      { date: "2026-03-01", amount: 30000 },
+      { date: "2026-06-01", amount: -10000 },
+    ],
   };
-  it("profit attributed in ₪, zair 30% blocked, US tax credited up to the Israeli tax, forms 1301/1324/150", () => {
-    const r = il.crossBorder!({ residence: "il", facts: {} }, 2026, home, [llc], { USD: 3.6 });
-    expect(r.attributedIncome).toBe(72000);
-    expect(r.foreignTaxCredit).toBe(1800);
-    expect(r.blocked).toEqual([{ key: "zair", law: "§87ה" }]);
+  // a rate per date, as the Bank of Israel publishes them: each transaction converts on its own day
+  const fx = (c: string, d: string) => (c !== "USD" ? null : d < "2026-05-01" ? 3.7 : 3.5);
+  const me = { residence: "il", facts: {} };
+  it("profit attributed in ₪ at each transaction's rate, zair closed (Circular 7/2025 §3.3), US tax credited, forms 1301/1324/150", () => {
+    const r = il.crossBorder!(me, 2026, home, [llc], fx);
+    expect(r.attributedIncome).toBe(30000 * 3.7 - 10000 * 3.5);
+    expect(r.foreignTaxCredit).toBe(500 * 3.5); // year-end rate
+    expect(r.missingFx).toEqual([]);
+    expect(r.blocked).toEqual([{ key: "zair", law: "§87ב–87ז", url: ZAIR_SOURCE }]);
     expect(r.obligations.map((o) => o.form)).toEqual(["1301", "1324", "150"]);
   });
-  it("a C-corp is not attributed, but still reported", () => {
-    const r = il.crossBorder!({ residence: "il", facts: {} }, 2026, home, [{ ...llc, type: "llc-ccorp", treatment: "company" }], { USD: 3.6 });
-    expect([r.attributedIncome, r.foreignTaxCredit, r.blocked.length]).toEqual([0, 0, 0]);
+  it("no rate is reported as missing, never priced at a default", () => {
+    const r = il.crossBorder!(me, 2026, home, [llc], () => null);
+    expect(r.attributedIncome).toBe(0);
+    expect(r.missingFx).toEqual([
+      { currency: "USD", date: "2026-03-01" },
+      { currency: "USD", date: "2026-06-01" },
+      { currency: "USD", date: "2026-12-31" },
+    ]);
+  });
+  it("a C-corp is not attributed but still reported, and controlling it closes osek zair", () => {
+    const r = il.crossBorder!(me, 2026, home, [{ ...llc, type: "llc-ccorp", treatment: "company" }], fx);
+    expect([r.attributedIncome, r.foreignTaxCredit]).toEqual([0, 0]);
+    expect(r.blocked.map((b) => b.key)).toEqual(["zairCompany"]);
     expect(r.obligations.map((o) => o.form)).toEqual(["1301", "150"]);
   });
-  it("FTC is capped at the Israeli tax the income causes", () => {
-    const r = il.crossBorder!({ residence: "il", facts: {} }, 2026, home, [{ ...llc, foreignTaxPaid: 1e6 }], { USD: 3.6 });
-    const T = T26,
-      base = { turnover: 100000, expenses: 0, zair: true, points: 2.25, pension: 0, donations: 0, selfEmployed: true };
-    expect(r.foreignTaxCredit).toBe(ilPlan({ ...base, foreign: 72000 }, T).tax - ilPlan(base, T).tax);
+  it("osek zair stays open with no foreign or company holdings", () => {
+    expect(zairExclusion(home, [])).toEqual([]);
+  });
+  it("FTC is capped at the Israeli tax the income causes (on actual expenses: zair is closed)", () => {
+    const r = il.crossBorder!(me, 2026, home, [{ ...llc, foreignTaxPaid: 1e6 }], fx);
+    const base = { turnover: 100000, expenses: 0, zair: false, points: 2.25, pension: 0, donations: 0, selfEmployed: true };
+    expect(r.foreignTaxCredit).toBe(ilPlan({ ...base, foreign: 76000 }, T26).tax - ilPlan(base, T26).tax);
   });
 });
 
 it("VAT-registered business types", () => {
   expect(vatRegistered("osek-murshe") && vatRegistered("ltd")).toBe(true);
   expect(vatRegistered("osek-zair") || vatRegistered("osek-patur") || vatRegistered(null)).toBe(false);
+  expect(vatRegistered("osek-zair", "murshe")).toBe(true); // zair is an income-tax track; VAT status is separate (Kol Zchut עסק זעיר)
+  expect(vatRegistered("osek-patur", "murshe")).toBe(false);
 });

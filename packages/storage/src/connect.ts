@@ -4,6 +4,7 @@ import type { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { type Conn, ConnectionStore, ConnectionVault } from "@openbooks/importers";
 import { Effect, Layer } from "effect";
+import { Actor, audit } from "./audit.ts";
 import { Changes } from "./changes.ts";
 import { type Tampered, Vault, type VaultLocked } from "./vault.ts";
 
@@ -25,14 +26,22 @@ export const connectionStoreLayer = (home: string, db: Database) =>
             ),
           ),
         putRows: (e, rows) =>
-          Effect.sync(() =>
-            db
-              .transaction(() => {
-                db.query("delete from secret where entity = ?").run(e);
-                const ins = db.query("insert into secret values (?, ?, ?)");
-                for (const [p, v] of Object.entries(rows)) ins.run(e, p, JSON.stringify(v));
-              })
-              .immediate(),
+          Actor.use((actor) =>
+            Effect.sync(() =>
+              db
+                .transaction(() => {
+                  // the audit row names the connections added or removed, never their contents (credentials, tokens)
+                  const before = db
+                    .query<{ provider: string }, [string]>("select provider from secret where entity = ? order by provider")
+                    .all(e)
+                    .map((r) => r.provider);
+                  db.query("delete from secret where entity = ?").run(e);
+                  const ins = db.query("insert into secret values (?, ?, ?)");
+                  for (const [p, v] of Object.entries(rows)) ins.run(e, p, JSON.stringify(v));
+                  audit(db, { entity: e, actor, kind: "secrets", target: "connections", before, after: Object.keys(rows).sort() }, true);
+                })
+                .immediate(),
+            ),
           ).pipe(Effect.andThen(changes.publish({ entity: e, topics: ["secrets"] }))),
       });
     }),

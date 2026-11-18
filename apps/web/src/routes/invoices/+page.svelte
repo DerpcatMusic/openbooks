@@ -10,19 +10,20 @@
   import { Badge, Button, Drawer, EmptyState, Field, Icon, IconButton, Input, Money, PageHeader, Search, Segmented, Select, Stat, Switch, Table, Tabs } from "#lib/ui/index.ts";
   import type { Column, Tone } from "#lib/ui/index.ts";
   import type { Txn } from "@openbooks/schema";
-  import { today, addDays, uid, total, net, vatOf, status, nextNumber, candidates, unmatched, kindsFor, owedOf, paidAmount, isLate, applied, apply, remaining } from "./invoices.ts";
+  import { today, addDays, uid, total, net, vatOf, status, candidates, unmatched, kindsFor, owedOf, paidAmount, isLate, applied, apply, remaining, creditFor, cancellable } from "./invoices.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { il as ilSettingsNow } from "#lib/filings.svelte.ts";
   import type { Invoice, Customer, Kind, Status } from "./invoices.ts";
 
   const us = $derived(isUS());
   const cur = $derived(ent().currency ?? (us ? "USD" : "ILS"));
   const METHODS = ["העברה בנקאית", "ביט", "PayPal", "מזומן", "צ'ק", "כרטיס אשראי"];
-  const STATUS: Record<Status, Tone> = { draft: "neutral", unpaid: "accent", partial: "warn", overdue: "bad", paid: "good" };
+  const STATUS: Record<Status, Tone> = { draft: "neutral", unpaid: "accent", partial: "warn", overdue: "bad", paid: "good", cancelled: "neutral", credit: "neutral" };
   const kindLabel = (k: Kind) => t(`invoices.kind.${k}`);
 
   // VAT follows the business type in force in the document's year (an osek zair who became murshe in 2026 charges VAT from 2026).
   const yOf = (iso: string | null | undefined) => +(iso || today()).slice(0, 4);
-  const registeredIn = (iso: string | null | undefined) => !us && vatRegistered(bizType(yOf(iso)));
+  const registeredIn = (iso: string | null | undefined) => !us && vatRegistered(bizType(yOf(iso)), ilSettingsNow().vatStatus);
   const rateIn = (iso: string | null | undefined) => (registeredIn(iso) ? Number(taxTable(yOf(iso)).vatRate ?? 0) : 0);
   const pct = (r: number) => String(Math.round(r * 1000) / 10);
   const registeredNow = $derived(registeredIn(today()));
@@ -81,7 +82,8 @@
     custVatId = $state(""),
     paying = $state(false),
     paidOn = $state(today()),
-    applyAmt = $state<string | number>("");
+    applyAmt = $state<string | number>(""),
+    cancelling = $state(false);
   const saved = $derived(!!draft && invoices.some((i) => i.id === draft!.id));
   const locked = $derived(!!draft && draft.status !== "draft"); // issued documents keep their content; only payment changes
   /** VAT on the open document: frozen once issued, else the issue year's rate (unless zero-rated). */
@@ -115,6 +117,7 @@
     paying = false;
     paidOn = today();
     applyAmt = "";
+    cancelling = false;
     drawer = true;
   }
   // a link from a report (/invoices?open=<id>) opens that invoice once
@@ -175,14 +178,33 @@
     if (!custName.trim()) return toast(t("invoices.needCustomer"));
     if (!dTotal) return toast(t("invoices.needLine"));
     await save(); // freezes VAT and drops empty lines while still a draft
-    draft.number = nextNumber(invoices, draft.kind);
+    const id = draft.id;
     if (draft.kind === "receipt" || draft.paidTxn) {
       draft.status = "paid";
       draft.paidDate ??= draft.issued;
     } else draft.status = "open";
-    await save();
-    toast(t("invoices.issued", { doc: t(`invoices.doc.${draft.kind}`), number: draft.number }));
+    await save(); // the server gives the number, in the same transaction (two tabs can't take the same one)
+    const done = doc<Invoice[]>("invoices").find((i) => i.id === id);
+    if (!done?.number) {
+      if (draft?.id === id) draft.status = "draft"; // refused (backdated, closed period…): the toast said why
+      return;
+    }
+    if (draft?.id === id) draft = structuredClone($state.snapshot(done)) as Invoice;
+    toast(t("invoices.issued", { doc: t(`invoices.doc.${done.kind}`), number: done.number }));
   }
+  /** Issue the cancellation of the open document: the server copies it (negated), numbers it and marks this one cancelled. */
+  async function cancelDoc() {
+    if (!draft || !cancellable(draft)) return;
+    const src = $state.snapshot(draft) as Invoice,
+      id = uid();
+    await saveDoc("invoices", [...invoices, creditFor(src, id, today())]);
+    cancelling = false;
+    const cr = doc<Invoice[]>("invoices").find((i) => i.id === id);
+    if (!cr?.number) return;
+    edit(cr);
+    toast(t("integrity.cancelDone", { doc: t(`invoices.doc.${src.kind}`), number: src.number ?? "", credit: cr.number }));
+  }
+  const numberOf = (id: string | undefined) => invoices.find((i) => i.id === id)?.number ?? "";
   /** Apply a transaction (whole, or `applyAmt` of it) or, with x null, money received outside the books on `paidOn`. The invoice is marked paid
    *  (paidTxn / paidDate: what the receipt flow reads) once the payments cover it. */
   async function markPaid(x: Txn | null) {
@@ -354,7 +376,9 @@
     <div class="px-4 py-5 sm:px-5">
       <div class="flex flex-wrap items-center gap-2">
         <Badge tone={STATUS[st]}>{t(`invoices.status.${st}`)}</Badge>
-        {#if draft.ref}<span class="text-[13px] text-sub">{t("invoices.forDoc", { doc: t(`invoices.doc.${draft.refKind ?? "bill"}`), ref: draft.ref })}</span>{/if}
+        {#if draft.kind === "credit"}<span class="text-[13px] text-sub">{t("integrity.cancels", { doc: t(`invoices.doc.${draft.refKind ?? "bill"}`), ref: draft.ref ?? "" })}</span>
+        {:else if draft.ref}<span class="text-[13px] text-sub">{t("invoices.forDoc", { doc: t(`invoices.doc.${draft.refKind ?? "bill"}`), ref: draft.ref })}</span>{/if}
+        {#if draft.cancelledBy}<span class="text-[13px] text-sub">{t("integrity.cancelledBy", { number: numberOf(draft.cancelledBy) })}</span>{/if}
       </div>
       <div class="display mt-2 text-[32px] leading-10"><Money value={dTotal} currency={cur} class="text-ink" /></div>
       <div class="text-[13px] text-sub">
@@ -430,12 +454,12 @@
     <div class="border-t border-line px-4 py-4 sm:px-5">
       <Field label={us ? t("invoices.notesUs") : t("common.notes")}>
         {#snippet children(a)}
-          <textarea id={a.id} bind:value={draft!.notes} rows="3" dir="auto" class="w-full rounded-lg border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink outline-none hover:border-ink/30 focus:ring-2 focus:ring-accent/50"></textarea>
+          <textarea id={a.id} bind:value={draft!.notes} disabled={locked} rows="3" dir="auto" class="w-full rounded-lg border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink outline-none hover:border-ink/30 focus:ring-2 focus:ring-accent/50"></textarea>
         {/snippet}
       </Field>
     </div>
 
-    {#if draft.status !== "draft" && draft.kind !== "receipt"}
+    {#if draft.status !== "draft" && draft.status !== "cancelled" && draft.kind !== "receipt" && draft.kind !== "credit"}
       <div class="border-t border-line px-4 py-4 sm:px-5">
         <div class="text-[13px] text-ink-2">{t("invoices.payment")}</div>
         {#if draft.payments?.length}
@@ -515,9 +539,13 @@
         {#if saved}<Button variant="ghost" class="me-auto hover:text-bad" icon="trash" onclick={remove}>{t("common.delete")}</Button>{/if}
         <Button onclick={() => save().then(() => toast(t("invoices.draftSaved")))}>{t("invoices.saveDraft")}</Button>
         <Button variant="primary" onclick={issue}>{t(`invoices.issue.${draft.kind}`)}</Button>
+      {:else if cancelling}
+        <p class="me-auto basis-full text-[13px] text-ink-2">{t("integrity.cancelAsk", { doc: t(`invoices.doc.${draft.kind}`), number: draft.number ?? "" })}</p>
+        <Button variant="ghost" onclick={() => (cancelling = false)}>{t("common.cancel")}</Button>
+        <Button variant="danger" onclick={cancelDoc}>{t("integrity.cancelIssue")}</Button>
       {:else}
-        <span class="me-auto self-center text-[12px] text-faint">{t("invoices.lockedHint")}</span>
-        <Button onclick={() => save().then(() => toast(t("invoices.saved")))}>{t("invoices.saveNotes")}</Button>
+        <span class="me-auto self-center text-[12px] text-faint">{t("integrity.lockedHint")}</span>
+        {#if cancellable(draft)}<Button variant="ghost" class="hover:text-bad" onclick={() => (cancelling = true)}>{t("integrity.cancel")}</Button>{/if}
       {/if}
     {/if}
   {/snippet}

@@ -14,6 +14,7 @@
   import { installAi } from "#lib/ai.ts";
   import { toast } from "#lib/ui/toast.svelte.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { il as ilSettingsNow } from "#lib/filings.svelte.ts";
   import { navKey } from "#lib/ustax/books.ts";
 
   let { children }: { children: Snippet } = $props();
@@ -54,7 +55,7 @@
       [
         { href: "/home", label: t("nav.home"), icon: "home" },
         { href: "/transactions", label: t("nav.transactions"), icon: "list" },
-        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear())) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
+        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear()), ilSettingsNow().vatStatus) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
         { href: "/bills", label: t("nav.payableBills"), icon: "calendar" },
         { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
         { href: "/review", label: t("nav.review"), icon: "sparkle" },
@@ -73,6 +74,7 @@
         { href: "/payroll", label: t("nav.payroll"), icon: "users" },
         { href: "/documents", label: t("nav.documents"), icon: "folder" },
         { href: "/connections", label: t("nav.connections"), icon: "wallet" },
+        { href: "/history", label: t("nav.history"), icon: "list" },
       ],
     ],
     ...(S.data && !family()

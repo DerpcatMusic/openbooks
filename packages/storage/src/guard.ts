@@ -2,6 +2,11 @@
 // browser-only store (IndexedDB) refuse exactly the same writes: the close date first, then each doc's own rules.
 import {
   accountProblem,
+  baseId,
+  billProblem,
+  issueDocs,
+  type DocProblem,
+  type IssuedDoc,
   canon,
   checkBooks,
   journalProblem,
@@ -67,6 +72,8 @@ export const localToday = () => new Date().toLocaleDateString("sv");
 
 /** What the checks read of one entity's books. */
 export interface BooksView {
+  /** The entity id (transfer pairs name their sides "entity/txn id"). */
+  entity: string;
   doc: <A>(name: string, fallback: A) => A;
   rules: () => RuleInput[];
   stored: () => StoredTxn[];
@@ -88,7 +95,7 @@ export const extrasOf = (b: BooksView): LedgerExtras => ({
 export const ledgerOf = (b: BooksView): Txn[] =>
   ledger(b.stored(), b.doc("overrides", {}), b.rules(), journalOf(b), b.doc<TagsDoc | null>("tags", null) ?? undefined, extrasOf(b));
 
-const closeDate = (b: BooksView) => b.doc<{ closeDate?: string | null }>("books", {}).closeDate || null;
+export const closeDate = (b: BooksView) => b.doc<{ closeDate?: string | null }>("books", {}).closeDate || null;
 const refuse = (close: string, n: number): Closed | null =>
   n
     ? {
@@ -129,6 +136,39 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
   switch (name) {
     case "reconciliations":
       return close ? refuse(close, movedBefore(months(b.doc(name, {})), months(value), close).length) : null;
+    case "anchors": {
+      // { account: [{ date, balance }] }: a balance on or before the close date stays as it was
+      if (!close) return null;
+      const pts = (v: unknown) =>
+        Object.entries((v ?? {}) as Record<string, { date: string; balance: number }[]>).flatMap(([acct, xs]) =>
+          (Array.isArray(xs) ? xs : []).map((x) => ({ id: `${acct}|${x.date}`, date: x.date, balance: x.balance })),
+        );
+      return refuse(close, movedBefore(pts(b.doc(name, {})), pts(value), close).length);
+    }
+    case "transfers": {
+      // { confirmed, rejected: [{ out, in }] } ("entity/txn id"): a pair is dated by this entity's side(s); closed pairs stay decided
+      if (!close) return null;
+      const dates = new Map(b.stored().map((t) => [`${b.entity}/${t.id}`, t.date]));
+      const pairs = (v: unknown) =>
+        (["confirmed", "rejected"] as const).flatMap((k) =>
+          (((v ?? {}) as Record<string, { out: string; in: string }[]>)[k] ?? []).flatMap((p) => {
+            const d = [dates.get(p.out), dates.get(p.in)].filter((x): x is string => !!x).sort()[0];
+            return d ? [{ id: `${k}|${p.out}|${p.in}`, date: d }] : [];
+          }),
+        );
+      return refuse(close, movedBefore(pairs(b.doc(name, {})), pairs(value), close).length);
+    }
+    case "tags": {
+      if (!close) return null;
+      // which tags a closed transaction carries is settled with its period (deductions read them)
+      const dates = new Map(b.stored().map((t) => [t.id, t.date])),
+        on = (v: unknown) =>
+          Object.entries(((v ?? {}) as Partial<TagsDoc>).on ?? {}).flatMap(([id, tags]) => {
+            const date = dates.get(baseId(id));
+            return date ? [{ id, date, tags: [...tags].sort() }] : [];
+          });
+      return refuse(close, movedBefore(on(b.doc(name, null)), on(value), close).length);
+    }
     case "journal": {
       const after = entries(value);
       if (close) {
@@ -162,7 +202,12 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
       return p ? { bad: BOOKS[p] } : ledgerRefusal(b, { from: next.startDate });
     }
     case "trips": {
-      // a trip changes what the Taxximizer counts, not the ledger: only its own shape is checked
+      // a trip changes what the Taxximizer counts, not the ledger: a closed trip stays, and only the trips that changed are checked
+      if (close) {
+        const dated = (v: unknown) => ((Array.isArray(v) ? v : []) as Trip[]).map((x) => ({ ...x, date: x.start }));
+        const r = refuse(close, movedBefore(dated(b.doc(name, [])), dated(value), close).length);
+        if (r) return r;
+      }
       for (const x of changedItems<Trip>(b.doc(name, []), value)) {
         const p = tripProblem(x);
         if (p) return { bad: `Trip ${x.name ? `“${x.name}” ` : ""}${TRIP[p]}.` };
@@ -170,7 +215,12 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
       return null;
     }
     case "payroll": {
-      // a run is the provider's figures, checked against each other (no tax is calculated)
+      // a run is the provider's figures, checked against each other (no tax is calculated); a closed run stays
+      if (close) {
+        const dated = (v: unknown) => ((Array.isArray(v) ? v : []) as PayrollRun[]).map((x) => ({ ...x, date: x.payDate }));
+        const r = refuse(close, movedBefore(dated(b.doc(name, [])), dated(value), close).length);
+        if (r) return r;
+      }
       for (const x of changedItems<PayrollRun>(b.doc(name, []), value)) {
         const p = payrollProblem(x);
         if (p) return { bad: `Payroll run ${x.period ? `“${x.period}” ` : ""}${PAYROLL[p]}.` };
@@ -188,4 +238,49 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
     default:
       return null;
   }
+}
+
+/** Why an issued document (or approved bill) write is refused. */
+const issuedRefusal = (p: DocProblem | { code: "deleteIssued" | "closed"; number: string }, close: string | null): Refusal => {
+  const n = "number" in p ? p.number : "";
+  switch (p.code) {
+    case "deleteIssued":
+      return { bad: `Document ${n} is issued: it can't be deleted. Issue a cancellation for it instead.` };
+    case "editIssued":
+      return { bad: `Document ${n} is issued: it can't be changed, renumbered or turned back into a draft. Only its payments can change.` };
+    case "cancelled":
+      return { bad: `Document ${n} is cancelled: it can't change any more.` };
+    case "date":
+      return { bad: "A document needs a real issue date (YYYY-MM-DD) to be issued." };
+    case "kind":
+      return { bad: "Unknown document type." };
+    case "status":
+      return { bad: "A document is cancelled only by issuing a cancellation for it." };
+    case "backdate":
+      return { bad: `A document can't be dated before the last one of its type (${p.last}).` };
+    case "cancelTarget":
+      return { bad: "A cancellation must point at an issued document that isn't already cancelled." };
+    case "closed":
+      return {
+        closed: `The books are closed through ${"close" in p ? p.close : close}: ${n ? `bill ${n}` : "this document"} is dated on or before it. Move the close date to change it.`,
+      };
+  }
+};
+/**
+ * Issued documents and approved bills against what is stored (`before`): invoices are numbered and frozen once issued, approved bills
+ * stay. The caller runs this inside the write's own transaction, so two tabs issuing at once can't take the same number.
+ */
+export function issuedWrite(b: BooksView, name: string, before: unknown, value: unknown): { value: unknown } | Refusal {
+  const list = (v: unknown) => (Array.isArray(v) ? (v as IssuedDoc[]) : []);
+  const close = closeDate(b);
+  if (name === "invoices") {
+    const r = issueDocs(list(before), list(value), close);
+    if ("problem" in r) return issuedRefusal(r.problem, close);
+    return { value: value === null || value === undefined ? value : r.docs };
+  }
+  if (name === "bills") {
+    const p = billProblem(list(before), list(value), close);
+    if (p) return issuedRefusal(p, close);
+  }
+  return { value };
 }

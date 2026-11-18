@@ -300,6 +300,8 @@ export async function createEntity(meta: Entity) {
 }
 export const classify = (ids: readonly string[], category: string, rule?: string) => call("/api/category", { ids, category, rule });
 export const saveRules = (rules: readonly RuleInput[]) => call("/api/rules", { rules });
+/** Confirm (files both sides) or reject a transfer pair; sides are "entity/txn id". */
+export const decideTransfer = (out: string, inn: string, as: "confirmed" | "rejected") => call("/api/transfers", { out, in: inn, as });
 export const setForm = (values: Record<string, string | null>, year = S.year) => call("/api/form", { year, values });
 export const setProfile = (p: Record<string, unknown>) => call("/api/profile", p);
 /** Connections: /api/connect | /api/sync | /api/disconnect with the provider's body. */

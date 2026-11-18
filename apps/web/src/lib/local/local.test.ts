@@ -65,7 +65,7 @@ test("form values, docs, meta and years save; null removes", async () => {
   await call(db, "POST", "/api/form?e=acme", { year: 2025, values: { a: "1", b: "2" } });
   const s = (await call(db, "POST", "/api/form?e=acme", { year: 2025, values: { b: null } })).body;
   expect(s.form).toEqual({ "2025": { a: "1" } });
-  expect((await call(db, "POST", "/api/doc?e=acme", { name: "invoices", value: [{ n: 1 }] })).body.docs.invoices).toEqual([{ n: 1 }]);
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "customers", value: [{ n: 1 }] })).body.docs.customers).toEqual([{ n: 1 }]);
   expect((await call(db, "POST", "/api/doc?e=acme", { name: "form", value: 1 })).status).toBe(400);
   expect((await call(db, "POST", "/api/meta?e=acme", { name: "Acme Inc" })).body.entity.name).toBe("Acme Inc");
   expect((await call(db, "POST", "/api/year?e=acme", { year: 2024 })).body.years).toContain(2024);
@@ -128,4 +128,12 @@ test("the server's write checks: closed period (409), unbalanced journal (400), 
   expect((await call(db, "POST", "/api/doc?e=acme", { name: "books", value: {} })).status).toBe(200);
   const obj = { when: [{ field: "text", op: "contains", value: "WIRE" }], then: { account: "revenue:sales" } };
   expect((await call(db, "POST", "/api/rules?e=acme", { rules: [obj] })).body.rules).toEqual([obj]);
+});
+
+test("issued documents: the browser store numbers them and refuses a delete, like the server", async () => {
+  const db = await setup();
+  const inv = { id: "i1", kind: "bill", number: "9999", status: "open", issued: "2026-03-01", items: [{ desc: "work", qty: 1, price: 100 }] };
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "invoices", value: [inv] })).status).toBe(200);
+  expect(db.doc<{ number: string }[]>("acme", "invoices", [])[0]!.number).toBe("0001");
+  expect((await call(db, "POST", "/api/doc?e=acme", { name: "invoices", value: [] })).status).toBe(400);
 });

@@ -37,6 +37,23 @@
         full ? t("taxChecks.wholeYearOk", { y }) : t("taxChecks.wholeYearBad", { range: cover[0] ? range(cover[0], cover.at(-1)!) : t("taxChecks.nothing") }),
         "/documents",
       ],
+      // osek zair is closed by a foreign transparent holding or control of a company (Income Tax Circular 7/2025 §3.3)
+      ...(b.type === "osek-zair" && b.zairExcluded
+        ? [["bad", t("legal.zairExcluded"), t("legal.zairExcludedText", { why: b.blocked.map((x) => t(`legal.zairWhy.${x.key}`)).join(" ") })] as Check]
+        : []),
+      ...(b.foreignHoldings.length
+        ? [
+            [proofs.some((n) => /150/.test(n)) ? "ok" : "warn", t("legal.f150", { n: b.foreignHoldings.length }), t("legal.f150Text"), "/documents"] as Check,
+            b.foreignHoldings.some((h) => h.treatment === "transparent" || h.treatment === "partnership")
+              ? ((): Check => {
+                  if (!b.cb) return ["warn", t("legal.f1324"), t("legal.f1324Loading")];
+                  if (b.cb.missingFx.length)
+                    return ["bad", t("legal.f1324"), t("legal.f1324NoRate", { cur: [...new Set(b.cb.missingFx.map((m) => m.currency))].join(", "), n: b.cb.missingFx.length })];
+                  return ["ok", t("legal.f1324"), t("legal.f1324Text", { income: fmt(b.f1324.income), credit: fmt(b.f1324.credit) }), "return"];
+                })()
+              : (["ok", t("legal.f1324"), t("legal.f1324Company")] as Check),
+          ]
+        : []),
       [
         b.ask.length ? "warn" : "ok",
         t("taxChecks.classified"),

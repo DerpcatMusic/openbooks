@@ -52,7 +52,8 @@
   const step = $derived.by(() => {
     const raw = (peak - lo) / 4,
       p = 10 ** Math.floor(Math.log10(raw || 1));
-    return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) ?? raw;
+    // never under 1: labels are whole amounts, so 0.25 steps print as 0, 0, 1, 1 on an empty chart
+    return Math.max(1, [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) ?? raw);
   });
   const top = $derived(Math.ceil(peak / step) * step),
     bottom = $derived(Math.floor(lo / step) * step);

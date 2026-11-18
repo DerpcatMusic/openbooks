@@ -85,6 +85,16 @@ test("reconciliations: a month the close date has reached is locked", async () =
   expect((await doc("reconciliations", rec("2026-03"))).status).toBe(200);
 });
 
+test("anchors and transfer pairs: closed ones stay as they were", async () => {
+  const a = (date: string) => ({ "Mercury Checking ••0001": [{ date, balance: 100 }] });
+  expect((await doc("anchors", a("2026-01-01"))).status).toBe(409);
+  expect((await doc("anchors", a("2026-03-01"))).status).toBe(200);
+  const jan = await idOn("2026-01-15"),
+    mar = await idOn("2026-03-01");
+  expect((await doc("transfers", { rejected: [{ out: `acme/${jan}`, in: "zz-il/x" }] })).status).toBe(409);
+  expect((await doc("transfers", { rejected: [{ out: `acme/${mar}`, in: "zz-il/x" }] })).status).toBe(200);
+});
+
 test("the MCP write tools refuse with the same message", async () => {
   const H = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
   const META = {

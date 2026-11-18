@@ -17,12 +17,15 @@ import {
   createTag,
   deductions,
   emptyTags,
+  fxOf,
   displayStatus,
   group,
   haystack,
   inRange,
   cleanSplit,
   invoiceSources,
+  openAt,
+  relatedPartyTags,
   invoiceTotal,
   isCard,
   isLegacy,
@@ -31,7 +34,9 @@ import {
   paidOf,
   payerOf,
   plOf,
+  perMonth,
   pyRound,
+  recurring as detectRecurring,
   pyStr,
   relevantMoves,
   remaining,
@@ -46,12 +51,14 @@ import {
   type RuleOverrides,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
-import { Books, taxTables } from "@openbooks/storage";
-import { form1301, il, type IlTable, type Profile } from "@openbooks/country-il";
+import { Actor, type ActorKind, Books, taxTables } from "@openbooks/storage";
+import { form1301, il, zairExclusion, type IlTable, type Profile } from "@openbooks/country-il";
+import type { CrossBorder, EntityYear, Facts, FxFn } from "@openbooks/core";
 import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { filingTools } from "./filings.ts";
+import { netWorthDetail, ratesFor } from "./money.ts";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
 const fail = (message: string) => Effect.fail(new ToolError({ message }));
@@ -77,6 +84,7 @@ export const TYPE_LABELS: Record<string, string> = {
   exempt: "Exempt (IDF pay & grants)",
   personal: "Personal, family, refunds",
   own: "Your own money moving",
+  loan: "Loans",
   ask: "Uncategorized",
 };
 const NAMES: Record<string, string> = {
@@ -417,6 +425,103 @@ const balances = defineTool({
     }),
 });
 
+const net_worth = defineTool({
+  name: "net_worth",
+  title: { en: "Net worth", he: "שווי נקי" },
+  description:
+    "Net worth across every entity's bank and card accounts at the end of a day, converted to one currency at the Bank of Israel representative rate of that day (cross rates via ILS). Each account with its own currency and balance; cards are liabilities. Rates missing for a currency and day are listed, never guessed (that account counts 0 in the total).",
+  kind: "read",
+  input: Schema.Struct({
+    currency: Schema.optionalKey(pattern(/^[A-Z]{3}$/u, "ISO 4217, default ILS")),
+    date: Schema.optionalKey(pattern(DATE_RE, "YYYY-MM-DD, default today")),
+    entity: Schema.optionalKey(pattern(/^[a-z0-9-]+$/u, "Only this entity's accounts. Default: every entity.")),
+  }),
+  output: Schema.Struct({
+    currency: S,
+    date: S,
+    total: N,
+    assets: N,
+    liabilities: N,
+    accounts: Schema.Array(Schema.Struct({ entity: S, account: S, currency: S, liability: Schema.Boolean, balance: N, converted: N })),
+    missing: Schema.Array(Schema.Struct({ currency: S, date: S })),
+  }),
+  run: (a: { currency?: string; date?: string; entity?: string }) =>
+    Effect.gen(function* () {
+      const cur = a.currency ?? "ILS",
+        d = a.date ?? today();
+      const nw = yield* netWorthDetail(cur, d, d);
+      const accounts = nw.series
+        .filter((s) => !a.entity || s.entity === a.entity)
+        .map((s) => ({
+          entity: s.entity,
+          account: s.account,
+          currency: s.currency,
+          liability: s.liability,
+          balance: r2(s.native[0] ?? 0),
+          converted: s.values[0] ?? 0,
+        }));
+      const assets = r2(sum(accounts.filter((x) => x.converted > 0).map((x) => x.converted))),
+        liabilities = r2(-sum(accounts.filter((x) => x.converted < 0).map((x) => x.converted)));
+      return { currency: cur, date: d, total: r2(assets - liabilities), assets, liabilities, accounts, missing: nw.missing };
+    }),
+});
+
+const recurring = defineTool({
+  name: "recurring",
+  title: { en: "Recurring payments", he: "תשלומים קבועים" },
+  description:
+    "Subscriptions, bills and recurring income: counterparties paid or paying on a steady cadence (weekly, biweekly, monthly, quarterly, yearly; at least 3 times, amounts within 35%). Amounts negative = money out. priceChange is a step in the amount after at least two payments at the old price. Series the user hid in the app are left out unless includeDismissed.",
+  kind: "read",
+  input: input({ includeDismissed: Schema.optionalKey(Schema.Boolean) }),
+  output: Schema.Struct({
+    ...CUR,
+    recurring: Schema.Array(
+      Schema.Struct({
+        payer: S,
+        account: S,
+        accountLabel: S,
+        cadence: S,
+        amount: N,
+        perMonth: N,
+        count: I,
+        last: S,
+        next: S,
+        dismissed: Schema.Boolean,
+        priceChange: opt(Schema.Struct({ from: N, to: N, date: S })),
+      }),
+    ),
+    monthlyOut: N,
+    monthlyIn: N,
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const hidden = yield* docOf<Record<string, boolean>>(e, "recurring-dismissed", {});
+      const rs = detectRecurring(yield* ledgerOf(e), today())
+        .map((r) => ({ ...r, dismissed: !!hidden?.[r.key] }))
+        .filter((r) => a.includeDismissed || !r.dismissed);
+      const live = rs.filter((r) => !r.dismissed);
+      return {
+        currency: e.meta.currency ?? null,
+        recurring: rs.map((r) => ({
+          payer: r.payer,
+          account: r.account,
+          accountLabel: label(r.account),
+          cadence: r.cadence,
+          amount: r2(r.amount),
+          perMonth: r2(perMonth(r)),
+          count: r.count,
+          last: r.last,
+          next: r.next,
+          dismissed: r.dismissed,
+          priceChange: r.priceChange ? { from: r2(r.priceChange.from), to: r2(r.priceChange.to), date: r.priceChange.date } : null,
+        })),
+        monthlyOut: r2(-sum(live.filter((r) => r.amount < 0).map(perMonth))),
+        monthlyIn: r2(sum(live.filter((r) => r.amount > 0).map(perMonth))),
+      };
+    }),
+});
+
 const chart_of_accounts = defineTool({
   name: "chart_of_accounts",
   title: { en: "Chart of accounts", he: "מבנה החשבונות" },
@@ -669,6 +774,8 @@ const invPaid = (inv: Invoice) => (inv.payments?.length ? paidOf(inv.payments) :
 /** draft | unpaid | partial | overdue | paid: the Invoices page's status (partly paid wins over overdue). A receipt documents a payment. */
 const invStatus = (inv: Invoice, now: string) => {
   if (inv.status === "draft") return "draft";
+  if (inv.status === "cancelled") return "cancelled";
+  if (inv.kind === "credit") return "credit";
   if (inv.kind === "receipt") return "paid";
   const s = displayStatus(inv.status ?? "open", invTotal(inv), invPaid(inv), inv.due ?? null, now);
   return s === "open" ? "unpaid" : s;
@@ -678,7 +785,7 @@ const list_invoices = defineTool({
   name: "list_invoices",
   title: { en: "List invoices", he: "רשימת חשבוניות" },
   description:
-    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid). Payments can be applied in part: partial = some paid, some owed.",
+    "Invoices (US) or bills/receipts (Israel) with customer name, total, amount due and state (draft, unpaid, partial, overdue, paid, cancelled; credit = a cancellation document, with negative amounts). Payments can be applied in part: partial = some paid, some owed. Issued documents never change: they are cancelled by a credit, issued in the app.",
   kind: "read",
   input: input({}),
   output: Schema.Struct({ ...CUR, invoices: Schema.Array(Schema.Struct({ id: S, customerName: opt(S), total: N, amountDue: N, state: S })) }),
@@ -702,7 +809,7 @@ const list_invoices = defineTool({
             ...i,
             customerName: cust.get(i.customer ?? "") ?? null,
             total,
-            amountDue: state === "draft" || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
+            amountDue: ["draft", "cancelled", "credit"].includes(state) || i.kind === "receipt" ? 0 : Math.max(0, r2(total - invPaid(i))),
             state,
           };
         }),
@@ -982,17 +1089,122 @@ const taxTable = (y: number, country = "il") =>
     const row = t[String(pick)]!;
     return { ...row, year: pick, brackets: row.brackets.map(([hi, r]) => [hi ?? Infinity, r] as const) };
   });
-const ilTax = (e: Entity, y: number, txns: readonly Txn[]) =>
+/** From the entity list alone (no ledgers): how many foreign entities the person holds in year y and whether osek zair is closed. */
+const holdingsOf = (y: number) =>
+  Effect.gen(function* () {
+    const es = (yield* Books.use((b) => b.entities)).map(entityOf$);
+    const person = yield* Books.use((b) => b.doc<{ residence?: string } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const residence = person?.residence || "il";
+    const hs = es.flatMap((e) => {
+      const p = packFor(e.meta, y);
+      return p
+        ? [
+            {
+              entity: e.id,
+              type: p.type,
+              treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
+              foreign: p.pack.manifest.id !== residence,
+            },
+          ]
+        : [];
+    });
+    const foreign = hs.filter((h) => h.foreign);
+    return {
+      foreignHoldings: foreign.length,
+      zairExcluded:
+        residence === "il" &&
+        zairExclusion(
+          hs.filter((h) => !h.foreign),
+          foreign,
+        ).length > 0,
+    };
+  });
+/** The person's year across all businesses (each from its own ledger and pack): osek zair exclusions, Form 150 count, the crossBorder result. */
+const personYear = (y: number) =>
+  Effect.gen(function* () {
+    const es = (yield* Books.use((b) => b.entities)).map(entityOf$);
+    const person = yield* Books.use((b) => b.doc<{ residence?: string; facts?: Facts } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const residence = person?.residence || "il",
+      facts = person?.facts ?? {};
+    const years: EntityYear[] = [];
+    for (const e of es) {
+      const p = packFor(e.meta, y);
+      if (!p) continue;
+      const ts = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(y))),
+        r = pl(ts);
+      years.push({
+        entity: e.id,
+        country: p.pack.manifest.id,
+        type: p.type,
+        treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
+        year: y,
+        currency: e.meta.currency ?? p.pack.manifest.currency,
+        revenue: r.revenue,
+        expenses: r.cogs + r.opex,
+        foreignTaxPaid: +(facts[`foreignTax.${e.id}.${y}`] ?? 0) || 0, // the web app's taxKey
+        lines: ts.filter((t) => ["revenue", "cogs", "expense"].includes(plOf(t.category) ?? "")).map((t) => ({ date: t.date, amount: t.amount })),
+      });
+    }
+    const home = years.filter((x) => x.country === residence),
+      foreign = years.filter((x) => x.country !== residence);
+    const blocked = residence === "il" ? zairExclusion(home, foreign) : [];
+    // Bank of Israel representative rate on each line's date (cached; offline = whatever the cache has, a missing rate stays missing)
+    const fxRate: FxFn = fxOf(yield* ratesFor(foreign.flatMap((x) => x.lines.map((l) => ({ currency: x.currency, date: l.date })))), "ILS");
+    const cb: CrossBorder | null = residence === "il" && foreign.length ? il.crossBorder!({ residence, facts }, y, home, foreign, fxRate) : null;
+    return { foreign, blocked, cb };
+  });
+const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
   Effect.gen(function* () {
     // the same form1301 the Tax page uses; form values (Tax page) override the automatic ones
     const T = yield* taxTable(y);
+    const py = yield* personYear(y);
+    const zairExcluded = py.blocked.length > 0,
+      cb = py.cb,
+      foreign = cb && !cb.missingFx.length && cb.attributedIncome ? { income: cb.attributedIncome, taxPaid: cb.foreignTax } : undefined;
     const f = (yield* docOf<Record<string, Record<string, string | number | null>>>(e, "form", {}))[String(y)] ?? {};
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
     const form = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v == null ? v : String(v)])) as Record<string, string>;
-    const r = form1301({ y, txns, type: "osek-zair", T: T as unknown as IlTable, form, profile: p as Profile, today: new Date().toISOString().slice(0, 10) });
+    const r = form1301({
+      y,
+      txns,
+      type,
+      T: T as unknown as IlTable,
+      form,
+      profile: p as Profile,
+      today: new Date().toISOString().slice(0, 10),
+      zairExcluded,
+      ...(foreign ? { foreign } : {}),
+    });
     const used = Math.min(r.gross, r.credits);
+    const zair = type === "osek-zair" && !zairExcluded;
     return {
-      regime: "Israeli osek zair (30% deemed expenses), form 1301",
+      regime: zair ? "Israeli osek zair (30% deemed expenses), form 1301" : `Israeli ${type} (actual expenses), form 1301`,
+      businessType: type,
+      zairExcluded: zairExcluded
+        ? {
+            why: py.blocked.map((b) =>
+              b.key === "zair" ? "business income attributed from a transparent (pass-through) foreign entity" : "controls a closely held company",
+            ),
+            source:
+              "Income Tax Circular 7/2025 §3.3 (Ordinance §87ב–87ז): osek zair is closed; 30% deemed expenses do not apply. Confirm with an Israeli accountant.",
+            url: py.blocked[0]!.url,
+          }
+        : null,
+      crossBorder: cb
+        ? {
+            attributedIncome: r2(cb.attributedIncome),
+            foreignTax: r2(cb.foreignTax),
+            foreignTaxCredit: r2(r.f1324.credit),
+            missingRates: cb.missingFx.length,
+            onReturn: !!foreign,
+            note: cb.missingFx.length
+              ? `${cb.missingFx.length} foreign amounts have no Bank of Israel rate yet: the foreign income is NOT in this estimate.`
+              : "Foreign income converted at each transaction's Bank of Israel rate (appendix 1324).",
+            obligations: cb.obligations.map((o) => ({ form: o.form, why: o.why })),
+          }
+        : null,
+      deductions: r.deductions,
+      paymentCredits: r.paymentCredits,
       taxTableYear: T.year,
       turnover: r2(r.turnover),
       zairCeiling: T.zairCeiling ?? null,
@@ -1034,19 +1246,32 @@ const US_FIELDS: Record<string, string> = {
   ownerCountry: "Owner citizenship & tax residence",
   ownerTin: "Owner foreign TIN",
   business: "Principal business activity",
+  businessCountries: "Principal country(ies) where business is conducted (5472 line 1o)",
 };
 const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
   Effect.gen(function* () {
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
+    // 5472 Part V: equity rows plus rows carrying a related-party tag (other transactions with the owner, Reg. 1.482-1(i)(7))
+    const rel = relatedPartyTags(yield* docOf<TagsDoc>(e, "tags", emptyTags()));
+    const other = txns.filter((t) => group(t.category) !== "equity" && (t.tags ?? []).some((g) => rel.has(g)));
     const owner = txns.filter((t) => group(t.category) === "equity");
     const contrib = owner.filter((t) => t.amount > 0),
       dist = owner.filter((t) => t.amount < 0);
     const b = yield* balancesAt(e, `${y}-12-31`);
-    const assets = sum(
-      Object.entries(b)
-        .filter(([k]) => !isCard(k))
-        .map(([, v]) => v),
-    );
+    // line 1c: the balance-sheet total (bank accounts; open invoices too when the books are on the accrual basis, as the app's balance sheet)
+    const accrual = (yield* docOf<{ basis?: string | null }>(e, "books", {})).basis === "accrual";
+    const ar = accrual
+      ? openAt(
+          invoiceSources(yield* docOf<Invoice[]>(e, "invoices", []), () => ""),
+          `${y}-12-31`,
+        ).total
+      : 0;
+    const assets =
+      sum(
+        Object.entries(b)
+          .filter(([k]) => !isCard(k))
+          .map(([, v]) => v),
+      ) + ar;
     return {
       regime: "Foreign-owned US single-member LLC (disregarded entity)",
       obligations: [
@@ -1055,7 +1280,7 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
           what: "Information return: Part I total assets, Part II the foreign owner, Part V reportable transactions with the owner",
           due: `${y + 1}-04-15`,
           extendedDue: `${y + 1}-10-15`,
-          extension: "Form 7004",
+          extension: "Form 7004: on paper, 'Foreign-owned U.S. DE' across the top, faxed or mailed like the 5472 (not e-filed)",
           penalty: "25,000 USD for a late or missing 5472",
         },
         {
@@ -1068,6 +1293,7 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
       ],
       ownerContributions: { count: contrib.length, total: r2(sum(contrib.map((t) => t.amount))) },
       ownerDistributions: { count: dist.length, total: r2(-sum(dist.map((t) => t.amount))) },
+      otherOwnerTransactions: { count: other.length, net: r2(sum(other.map((t) => t.amount))) },
       totalAssetsYearEnd: r2(assets),
       missingProfileFields: Object.entries(US_FIELDS)
         .filter(([k]) => !p[k])
@@ -1079,7 +1305,7 @@ const tax_summary = defineTool({
   name: "tax_summary",
   title: { en: "Tax summary", he: "סיכום מס" },
   description:
-    "Tax picture for a year. Israeli osek zair: turnover, 70% taxable, brackets, credit points (resident, discharged soldier), credits, tax due vs withheld. US LLC: Form 5472 / pro forma 1120 obligations and due dates, owner contributions and distributions, year-end assets. Not tax advice.",
+    "Tax picture for a year. Israeli sole proprietor (osek zair / patur / murshe, by the business type in force): turnover, taxable income (70% for an eligible osek zair; actual expenses when zair is closed by a foreign transparent holding or control of a company), the person's foreign income and foreign tax credit (appendix 1324), personal deductions and credits, brackets, credit points (resident, discharged soldier), credits, tax due vs withheld. US LLC: Form 5472 / pro forma 1120 obligations and due dates, owner contributions and distributions, year-end assets. Not tax advice.",
   kind: "read",
   input: input({ year: I.check(Schema.isBetween({ minimum: 1990, maximum: 2100 })) }),
   output: Schema.Struct({ entity: S, kind: opt(S), year: I, ...CUR, uncategorized: I, regime: S }),
@@ -1090,8 +1316,9 @@ const tax_summary = defineTool({
         kind = e.meta.kind ?? null;
       const txns = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(y)));
       const out = { entity: e.id, kind, year: y, currency: e.meta.currency ?? null, uncategorized: txns.filter((t) => t.category === "ask").length };
-      if (kind === "il-osek-zair") return { ...out, ...(yield* ilTax(e, y, txns)) };
-      if (kind === "us-llc") return { ...out, ...(yield* usTax(e, y, txns)) };
+      const p = packFor(e.meta, y);
+      if (p?.pack === il) return { ...out, ...(yield* ilTax(e, y, txns, p.type)) };
+      if (p?.type === "llc-disregarded" || (!p && kind === "us-llc")) return { ...out, ...(yield* usTax(e, y, txns)) };
       return { ...out, regime: "none built in", profitAndLoss: pl(txns) };
     }),
 });
@@ -1648,8 +1875,38 @@ const bank_sync = defineTool({
       if (!(yield* statusOf(e)).some((c) => c.connected && (!p || c.provider === p)))
         return yield* fail("No connected bank to sync. Connect one in the app (Books → Bank connections).");
       const sync = connectorHandle(e.id, "/api/sync", p ? { provider: p } : {}) as Effect.Effect<unknown, { _tag: string }, Needs>;
-      const r = ((yield* sync.pipe(Effect.mapError(locked))) ?? {}) as { error?: string };
-      return { ok: !r.error, error: r.error ?? null, connections: yield* statusOf(e), transactions: (yield* ledgerOf(e)).length };
+      // what the bank sends is the sync's doing, whoever asked for it (the audit log's actor)
+      const r = ((yield* sync.pipe(Effect.mapError(locked), Effect.provideService(Actor, "sync"))) ?? {}) as { error?: string };
+      const transactions = (yield* ledgerOf(e).pipe(Effect.provideService(Actor, "sync"))).length;
+      return { ok: !r.error, error: r.error ?? null, connections: yield* statusOf(e), transactions };
+    }),
+});
+
+const audit_log = defineTool({
+  name: "audit_log",
+  title: { en: "Audit log", he: "יומן שינויים" },
+  description:
+    "The books' history, newest first: every change to documents, rules, categories, entity details, bank imports and connections, with when (UTC), who (ui = the app, mcp, ai = the in-app AI, sync = a bank sync), what (kind + target) and the changed items before and after (large values are a hash and a summary). Read-only: the log can't be edited.",
+  kind: "read",
+  input: input({
+    kind: Schema.optionalKey(Schema.Literals(["doc", "rules", "meta", "classify", "ingest", "secrets", "print"])),
+    target: Schema.optionalKey(
+      S.check(Schema.isMaxLength(100)).annotate({ description: "A doc name (invoices, journal, …), rules, entity, inbox, or invoices/<number> for prints" }),
+    ),
+    from: Schema.optionalKey(pattern(DATE_RE, "First day, YYYY-MM-DD (UTC)")),
+    to: Schema.optionalKey(pattern(DATE_RE, "Last day, YYYY-MM-DD (UTC)")),
+    limit: Schema.optionalKey(I.check(Schema.isBetween({ minimum: 1, maximum: 500 })).annotate({ description: "Default 50" })),
+  }),
+  output: Schema.Struct({
+    entries: Schema.Array(Schema.Struct({ id: N, at: S, actor: S, kind: S, target: S, before: Schema.Unknown, after: Schema.Unknown })),
+  }),
+  run: (a, ctx) =>
+    Effect.gen(function* () {
+      const e = yield* entityOf(a, ctx);
+      const rows = yield* Books.use((b) => b.audit(e.id, { kind: a.kind, target: a.target, from: a.from, to: a.to, limit: a.limit ?? 50 })).pipe(
+        Effect.mapError(gone(e.id)),
+      );
+      return { entries: rows.map(({ entity: _, ...r }) => r) };
     }),
 });
 
@@ -1660,6 +1917,7 @@ export const tools: readonly Tool[] = [
   get_transaction,
   profit_and_loss,
   balances,
+  net_worth,
   chart_of_accounts,
   classify,
   list_rules,
@@ -1680,12 +1938,15 @@ export const tools: readonly Tool[] = [
   split_transaction,
   bank_status,
   bank_sync,
+  audit_log,
+  recurring,
   ...filingTools({
     entityOf,
     ledgerOf,
     docOf,
     dedCtx,
     packFor,
+    holdingsOf,
     home: Books.use((b) => Effect.succeed(b.home)).pipe(Effect.orDie),
     input,
     label,
@@ -1708,8 +1969,11 @@ export const runTool = (name: string, args: unknown, ctx: ToolCtx & { confirmed?
       const q = yield* t.confirm(a, ctx);
       if (q) return yield* new NeedsConfirm({ message: q });
     }
-    return (yield* t.run(a, ctx)) as unknown;
+    return (yield* withActor(t.run(a, ctx), ctx)) as unknown;
   });
+/** Writes a tool makes are the caller's in the audit log: ⌘K is the user at the screen. */
+export const withActor = <A, E, R>(eff: Effect.Effect<A, E, R>, ctx: Pick<ToolCtx, "via">) =>
+  Effect.provideService(eff, Actor, (ctx.via === "palette" ? "ui" : ctx.via) satisfies ActorKind);
 
 /** The tools as a model sees them: `entity` and `confirm` are filled in by the app, not the model. */
 export function aiTools(): { name: string; description: string; input_schema: Record<string, unknown> }[] {

@@ -148,6 +148,24 @@ describe("accrual rows", () => {
       ),
     ).toEqual([]);
   });
+  it("a cancelled invoice keeps its revenue in its own month; the credit that cancels it books negative in the credit's month", () => {
+    const inv = [
+      { id: "i", kind: "invoice", number: "5", items: [{ qty: 1, price: 800 }], issued: "2026-01-15", status: "cancelled" },
+      { id: "c", kind: "credit", refKind: "invoice", number: "1", items: [{ qty: 1, price: -800 }], issued: "2026-03-02", status: "open" },
+      { id: "rc", kind: "credit", refKind: "receipt", items: [{ qty: 1, price: -30 }], issued: "2026-03-03", status: "open" }, // receipts aren't receivables
+    ];
+    const r = accrualRows(
+      [],
+      invoiceSources(inv, () => "", { ledger: true }),
+      [],
+      OPT,
+    );
+    expect(pl(span(r, "2026-01-01", "2026-01-31")).revenue).toBe(800); // January (maybe closed) is not rewritten
+    expect(pl(span(r, "2026-03-01", "2026-03-31")).revenue).toBe(-800);
+    expect(openBalances(r, "2026-02-28").ar).toBe(800);
+    expect(openBalances(r, "2026-03-31").ar).toBe(0);
+    expect(invoiceSources(inv, () => "")).toEqual([]); // aging: nothing is owed on either
+  });
   it("without invoices or bills the accrual books are the cash books", () => {
     expect(accrualRows(cash, [], [], OPT)).toEqual(cash);
   });

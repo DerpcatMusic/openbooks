@@ -4,10 +4,11 @@
   // Port of web/src/views/Planner.svelte. Maths: @openbooks/country-il (ilPlan, …) and @openbooks/country-us (corpTax).
   import { pl } from "@openbooks/core";
   import { form1301, ilPlan, isComplete, mandatoryPension, reservistPoints, type IlRates, type IlTable } from "@openbooks/country-il";
-  import { corpTax, dueOn, usDeadlines, type UsTable } from "@openbooks/country-us";
+  import { corpTax, dueOn, usDeadlines, usTable, type UsTable } from "@openbooks/country-us";
   import { S, bizType, catLabel, doc, ent, fmt, isUS, mdy, saveDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
   import { bidi, lang, t } from "#lib/i18n.svelte.ts";
   import { disallowed } from "#lib/taxtags.svelte.ts";
+  import { rateToday } from "#lib/fx.svelte.ts";
   import { Badge, Button, Card, Checkbox, Icon, Input, Money, PageHeader, Select, Table, type Column, type IconName } from "#lib/ui/index.ts";
   import { corpInput, foreignOwned, isCorp, stateName as stateNameOf, track, usFacts, usNow } from "#lib/ustax/books.ts";
   import { ilProfile } from "../tax/il/il.ts";
@@ -116,7 +117,7 @@
   const stateFee = $derived(
     (
       ({
-        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? 300) }),
+        DE: () => t("planner.stateFee.DE", { amount: fmt(UT.delawareTax ?? usTable(y).delawareTax) }),
         WY: () => t("planner.stateFee.WY", { amount: fmt(UT.wyomingMin ?? 60) }),
         NM: () => t("planner.stateFee.NM"),
       }) as Record<string, () => string>
@@ -124,7 +125,9 @@
   );
   /** A "MM-DD" due date of a year, moved to the next business day as the IRS does (a weekend or a federal holiday). */
   const dueDay = (yy: number, md: string) => dueOn(yy, +md.slice(0, 2), +md.slice(3, 5));
-  const fx = $derived(num("usdIls", 3.06));
+  // the typed rate, else today's Bank of Israel rate; never a built-in default (NaN = missing, shown as such)
+  const fx = $derived(num("usdIls", rateToday("USD") ?? NaN));
+  const noFx = $derived(cur !== "ILS" && !Number.isFinite(fx));
   type Duty = { title: string; when: string | null; text: string; link?: [string, string] };
   const duties: Duty[] = $derived([
     corp
@@ -198,11 +201,16 @@
         <p class="text-[14px] text-sub">{t("planner.noRates", { y })}</p>
         <Button class="mt-3" size="sm" href="/settings">{t("planner.addInSettings")}</Button>
       </Card>
+    {:else if noFx}
+      <Card>
+        <p class="text-[14px] text-warn">{t("fx.missing", { cur })}</p>
+        <div class="mt-3 w-full sm:w-52">{@render field(t("planner.fx"), "usdIls", "", t("planner.fxHint"))}</div>
+      </Card>
     {:else}
       <div class="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card title={t("planner.yourYear", { y })}>
           <div class="space-y-4">
-            {#if cur !== "ILS"}{@render field(t("planner.fx"), "usdIls", 3.06, t("planner.fxHint"))}{/if}
+            {#if cur !== "ILS"}{@render field(t("planner.fx"), "usdIls", fx, t("planner.fxHint"))}{/if}
             {@render field(t("planner.turnover"), "turnover", Math.round(toIls(b.turnover)), t("planner.fromBooks", { amount: fmt(b.turnover) }))}
             {@render field(t("planner.expenses"), "expenses", allowed, t("planner.expensesHint"))}
             {@render field(t("planner.foreign"), "foreign", 0, t("planner.foreignHint"))}
@@ -361,12 +369,12 @@
         </Card>
 
         <Card title={t("planner.ilReturn")} description={t(corp ? "planner.cc.ilText" : "planner.ilText")}>
-          {@render field(t("planner.fx"), "usdIls", 3.06, t("planner.fxHint"))}
+          {@render field(t("planner.fx"), "usdIls", Number.isFinite(fx) ? fx : "", noFx ? t("fx.missing", { cur }) : t("planner.fxHint"))}
           <div class="mt-3 flex flex-wrap justify-between gap-x-3 border-t border-line pt-3 text-[14px]">
             <span class="text-ink-2">{t("planner.netProfit", { y })}</span><Money value={P.net} currency={cur} />
           </div>
           <div class="flex flex-wrap justify-between gap-x-3 py-1 text-[14px]">
-            <span class="text-ink-2">{t("planner.inShekels")}</span><Money value={ilsNet} currency="ILS" cents={false} />
+            <span class="text-ink-2">{t("planner.inShekels")}</span>{#if noFx}<span class="text-warn">{t("fx.missing", { cur })}</span>{:else}<Money value={ilsNet} currency="ILS" cents={false} />{/if}
           </div>
           <p class="mt-2 text-[12px] text-faint">{t("planner.ilFooter")}</p>
         </Card>

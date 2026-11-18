@@ -19,6 +19,7 @@ export const TYPES: Readonly<Record<string, PlLine | null>> = {
   exempt: null,
   personal: null,
   own: null,
+  loan: null,
   ask: "ask",
 };
 export const group = (c: string) => (c || "ask").split(":")[0]!;
@@ -83,8 +84,12 @@ export function pl(ts: readonly Row[]): PL {
     },
   };
 }
-export const cashIn = (ts: readonly Row[]) => ts.filter((t) => t.amount > 0 && group(t.category) !== "transfer").reduce((a, t) => a + t.amount, 0);
-export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 && group(t.category) !== "transfer").reduce((a, t) => a + t.amount, 0);
+/** Types that move money without earning or spending it: between your accounts, to or from the owner, personal, loan principal. */
+export const NOT_FLOW: ReadonlySet<string> = new Set(["transfer", "own", "equity", "personal", "loan"]);
+/** The row is money really coming in or going out (not a movement between pockets). */
+export const isFlow = (c: string) => !NOT_FLOW.has(group(c));
+export const cashIn = (ts: readonly Row[]) => ts.filter((t) => t.amount > 0 && isFlow(t.category)).reduce((a, t) => a + t.amount, 0);
+export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 && isFlow(t.category)).reduce((a, t) => a + t.amount, 0);
 
 /** Bank/card accounts seen in the books (journal excluded). */
 export const accounts = (txns: readonly Txn[]) => [...new Set(txns.filter((t) => t.source !== "journal").map((t) => t.account))];
@@ -97,6 +102,74 @@ export function balances(txns: readonly Txn[], checks: readonly StatementCheck[]
   const b: Record<string, number> = Object.fromEntries(bankAccounts(txns, checks).map((a) => [a, 0]));
   for (const t of txns) if (t.date <= iso && t.account in b) b[t.account]! += t.amount;
   return b;
+}
+
+// ---------- balances over time ----------
+/** doc "anchors": account → known end-of-day balances (an opening balance is one on the day before the first transaction). */
+export type Anchors = Readonly<Record<string, readonly { date: string; balance: number }[]>>;
+const DAY_MS = 86400000;
+/** Every day from..to inclusive (YYYY-MM-DD). */
+export function days(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let t = Date.parse(`${from}T00:00:00Z`), end = Date.parse(`${to}T00:00:00Z`); t <= end; t += DAY_MS) out.push(new Date(t).toISOString().slice(0, 10));
+  return out;
+}
+/** Statement balances the bank reported (Mercury's current balance) as anchors: the balance at the end of the statement's last day. */
+export const checkAnchors = (checks: readonly StatementCheck[]): Anchors => {
+  const out: Record<string, { date: string; balance: number }[]> = {};
+  for (const c of checks) if (c.balance && c.period[1]) (out[c.label] ??= []).push({ date: c.period[1], balance: c.total });
+  return out;
+};
+/** Stored anchors over automatic ones: on the same account and date the stored one wins. */
+export function mergeAnchors(auto: Anchors, stored: Anchors): Anchors {
+  const out: Record<string, { date: string; balance: number }[]> = {};
+  for (const [a, xs] of Object.entries(auto)) out[a] = xs.filter((x) => !stored[a]?.some((y) => y.date === x.date));
+  for (const [a, xs] of Object.entries(stored)) out[a] = [...(out[a] ?? []), ...xs];
+  return out;
+}
+/**
+ * End-of-day balance of every bank/card account on each day from..to. An anchor fixes the balance on its date; days after it carry forward
+ * from the latest anchor on or before them, days before the first anchor are worked back from it. An account without anchors starts at 0.
+ */
+export function dailyBalances(txns: readonly Pick<Txn, "date" | "amount" | "account" | "source">[], anchors: Anchors, from: string, to: string) {
+  const dates = days(from, to);
+  const by = new Map<string, Map<string, number>>();
+  for (const t of txns) {
+    if (t.source === "journal") continue;
+    const m = by.get(t.account) ?? new Map<string, number>();
+    m.set(t.date, (m.get(t.date) ?? 0) + t.amount);
+    by.set(t.account, m);
+  }
+  for (const a of Object.keys(anchors)) if (anchors[a]!.length && !by.has(a)) by.set(a, new Map());
+  const balances: Record<string, number[]> = {};
+  for (const [acct, nets] of by) {
+    const sorted = [...nets].sort(([a], [b]) => (a < b ? -1 : 1));
+    const cum = (d: string) => sorted.reduce((s, [x, v]) => (x <= d ? s + v : s), 0); // ponytail: O(days × anchors) lookups on few anchors
+    const as = [...(anchors[acct] ?? [])].sort((a, b) => (a.date < b.date ? -1 : 1)).map((x) => ({ ...x, off: x.balance - cum(x.date) }));
+    let run = cum(back(from)),
+      k = 0;
+    balances[acct] = dates.map((d) => {
+      run += nets.get(d) ?? 0;
+      while (k + 1 < as.length && as[k + 1]!.date <= d) k++;
+      return Math.round((run + (as[k]?.off ?? 0)) * 100) / 100;
+    });
+  }
+  return { dates, balances };
+}
+const back = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
+/**
+ * Each bank account's currency: the one most of its rows are in (absent = the books'). ponytail: a card's odd foreign-charged row is
+ * summed into the balance as is; convert per row if mixed-currency accounts turn up.
+ */
+export function accountCurrencies(txns: readonly Pick<Txn, "account" | "source" | "currency">[], base: string): Record<string, string> {
+  const n = new Map<string, Map<string, number>>();
+  for (const t of txns) {
+    if (t.source === "journal") continue;
+    const m = n.get(t.account) ?? new Map<string, number>(),
+      c = t.currency ?? base;
+    n.set(t.account, m.set(c, (m.get(c) ?? 0) + 1));
+  }
+  return Object.fromEntries([...n].map(([a, m]) => [a, [...m].sort((x, y) => y[1] - x[1])[0]![0]]));
 }
 
 // ---------- periods: month ranges "YYYY-MM".."YYYY-MM" ----------

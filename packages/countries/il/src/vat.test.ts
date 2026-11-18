@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { vatPeriods } from "./calendar.ts";
+import { ilSettings, periodReport } from "./filings.ts";
 import { CLOSING_LENGTH, HEADER_LENGTH, RECORD_LENGTH, checkPcn874, parsePcn874, pcn874 } from "./pcn874.ts";
 import { shekel, validVatId, vatReport, type VatSaleDoc } from "./vat.ts";
 
@@ -71,6 +72,13 @@ describe("vat report", () => {
     expect(f.split("\r\n")[1]).toBe("S123456782202601100000000000009000000180-0000001000000000000");
     expect(checkPcn874(f)).toEqual([]);
   });
+  it("a credit document cancelling a tax invoice takes its VAT back; one cancelling a bill doesn't count", () => {
+    const sale = doc({ id: "0001", customerVatId: "123456782" });
+    const credit = (refKind: string) => doc({ id: "c", kind: "credit", ref: "0001", refKind, customerVatId: "123456782", items: [{ qty: 1, price: -1000 }] });
+    const of = (ds: VatSaleDoc[]) => vatReport({ period: jan, docs: ds, inputs: [], rate: 0.18 }).totals.outputVat;
+    expect(of([sale, credit("tax")])).toBe(0);
+    expect(of([sale, credit("bill")])).toBe(180);
+  });
   it("flags what the Tax Authority will reject", () => {
     const r = vatReport({
       period: jan,
@@ -85,6 +93,19 @@ describe("vat report", () => {
     });
     expect(r.issues.map((i) => i.code).sort()).toEqual(["allocationNeeded", "badCustomerId", "customerIdNeeded", "noRate", "pettyCashOver"]);
   });
+});
+
+// VAT Law §47(א2), the Tax Authority's "Israel Invoices": an allocation number is needed on a tax invoice to a dealer whose amount before VAT
+// exceeds the threshold (₪10,000 for invoices of 2026-01..05). Exactly the threshold, or a buyer with no VAT id, needs none.
+it("allocation number: above the threshold and to a dealer only", () => {
+  const alloc = (o: Partial<VatSaleDoc>) =>
+    vatReport({ period: jan, docs: [doc({ id: "a", ...o })], inputs: [], rate: 0.18 }).issues.some((i) => i.code === "allocationNeeded");
+  const dealer = "123456782";
+  expect(alloc({ items: [{ qty: 1, price: 10000 }], customerVatId: dealer })).toBe(false);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer })).toBe(true);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer, alloc: "123456789" })).toBe(false);
+  expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: "123456789" })).toBe(false); // not a valid id: no dealer to deduct
+  expect(alloc({ items: [{ qty: 1, price: 12000 }] })).toBe(false); // a private buyer (no VAT id) deducts nothing
 });
 
 describe("PCN874 file", () => {
@@ -159,5 +180,16 @@ describe("vat issues carry values, not English sentences", () => {
       ["0009", true],
       ["0010", false],
     ]);
+  });
+});
+
+describe("periodReport passes the exchange-rate hook through", () => {
+  it("a dollar invoice converts at the given rate instead of erroring", () => {
+    const inv = { id: "u", kind: "tax", status: "issued", number: "9", issued: "2026-01-05", currency: "USD", vat: 0.18, items: [{ qty: 1, price: 100 }] };
+    const ctx = { invoices: [inv as never], customers: [], rows: [], txns: [], rate: 0.18, settings: ilSettings({}), currency: "ILS" };
+    expect(periodReport(jan, ctx).issues.map((i) => i.code)).toContain("noRate");
+    const r = periodReport(jan, { ...ctx, fx: (c, d) => (c === "USD" && d === "2026-01-05" ? 3.7 : null) });
+    expect(r.issues.map((i) => i.code)).not.toContain("noRate");
+    expect(r.totals.taxableSales).toBe(370);
   });
 });

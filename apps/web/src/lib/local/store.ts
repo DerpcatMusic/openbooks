@@ -6,7 +6,7 @@ import { classify, cleanRules } from "@openbooks/core";
 import { csvPreview } from "@openbooks/importers/csv";
 import { read } from "@openbooks/importers/read";
 import type { CsvProfile, EntityMeta, RuleInput, StatementCheck, StoredTxn } from "@openbooks/schema";
-import { docRefusal, ledgerOf, ledgerRefusal, type BooksView, type Change, type Refusal } from "@openbooks/storage/guard";
+import { docRefusal, issuedWrite, ledgerOf, ledgerRefusal, type BooksView, type Change, type Refusal } from "@openbooks/storage/guard";
 import { KINDS, parseStatements } from "@openbooks/storage/parse";
 import { taxTables } from "@openbooks/storage/taxtables";
 import type { State } from "../api.ts";
@@ -94,6 +94,7 @@ export class Local {
   /** e: an entity id or a pseudo-entity (`_app`). */
   doc = <A>(e: string, name: string, fallback: A): A => (/^_[a-z]+$/.test(e) || this.meta(e) ? this.get(`doc/${e}/${name}`, fallback) : fallback);
   private view = (e: string): BooksView => ({
+    entity: e,
     doc: (name, fallback) => this.get(`doc/${e}/${name}`, fallback),
     rules: () => this.get(`rules/${e}`, []),
     stored: () => this.get(`txns/${e}`, []),
@@ -107,6 +108,9 @@ export class Local {
     if (!/^_[a-z]+$/.test(e)) {
       this.meta(e);
       this.refuse(docRefusal(this.view(e), name, value));
+      const r = issuedWrite(this.view(e), name, this.get(`doc/${e}/${name}`, null), value);
+      if (!("value" in r)) this.refuse(r);
+      else value = r.value;
     }
     await this.put("kv", `doc/${e}/${name}`, value ?? undefined);
     if (name === "csv-profiles") await this.ingest(e); // CSVs read differently now

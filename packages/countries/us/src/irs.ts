@@ -49,8 +49,11 @@ export const IRS_PREFIX = "topmostSubform[0].";
 export interface IrsTxn {
   date: string;
   desc: string;
-  /** > 0 contribution to the LLC, < 0 distribution to the owner. */
+  /** > 0 money from the owner to the LLC, < 0 money from the LLC to the owner. */
   amount: number;
+  /** Another reportable transaction with the owner (a transaction tagged related-party: a loan, an expense the owner paid, a payment
+   *  for services…), not a contribution or distribution (Reg. 1.482-1(i)(7); i5472 Part V). */
+  related?: boolean;
 }
 export interface IrsInput extends UsProfile {
   year: number;
@@ -89,14 +92,17 @@ export function irsPeriod(d: Pick<IrsInput, "year" | "formed">) {
   return { begin, end: `${y}-12-31`, initial: !!d.formed && d.formed.slice(0, 4) >= y };
 }
 
-/** Part V statement: owner transactions by date with totals (1f = contributions + distributions). */
+/** Part V statement: owner transactions by date with totals (1f = contributions + distributions + other reportable transactions). */
 export function partV(d: Pick<IrsInput, "transactions">) {
+  const kindOf = (t: IrsTxn, a: number) =>
+    t.related ? (a >= 0 ? ("Received from owner" as const) : ("Paid to owner" as const)) : a >= 0 ? ("Contribution" as const) : ("Distribution" as const);
   const rows = [...(d.transactions ?? [])]
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((t) => ({ ...t, amount: +t.amount || 0, kind: (+t.amount || 0) >= 0 ? ("Contribution" as const) : ("Distribution" as const) }));
-  const contributions = rows.reduce((s, t) => s + Math.max(0, t.amount), 0),
-    distributions = rows.reduce((s, t) => s + Math.max(0, -t.amount), 0);
-  return { rows, contributions, distributions, total: contributions + distributions };
+    .map((t) => ({ ...t, amount: +t.amount || 0, kind: kindOf(t, +t.amount || 0) }));
+  const contributions = rows.reduce((s, t) => s + (t.related ? 0 : Math.max(0, t.amount)), 0),
+    distributions = rows.reduce((s, t) => s + (t.related ? 0 : Math.max(0, -t.amount)), 0),
+    other = rows.reduce((s, t) => s + (t.related ? Math.abs(t.amount) : 0), 0);
+  return { rows, contributions, distributions, other, total: contributions + distributions + other };
 }
 
 /** Collects fields like the old setter: blanks skipped, text made WinAnsi-safe, checkboxes "X". */
@@ -145,8 +151,8 @@ export const form5472: FormHook<IrsInput & { de?: boolean }> = (d) => {
   check("Page1[0].Line1j_ReadOrder[0].c1_2[0]", initial);
   text("Page1[0].f1_16[0]", "United States");
   if (d.formed) text("Page1[0].f1_17[0]", mdy(d.formed));
-  text("Page1[0].f1_18[0]", "United States"); // ponytail: DE files only the pro forma 1120 here; adjust if owner says otherwise
-  text("Page1[0].f1_19[0]", "United States");
+  text("Page1[0].f1_18[0]", d.taxReturnCountry); // 1n: blank unless the profile names one
+  text("Page1[0].f1_19[0]", d.businessCountries); // 1o: principal country(ies) where business is conducted
   check("Page1[0].c1_3[0]"); // line 2: foreign person owns >= 50%
   check("Page1[0].c1_4[0]", de); // line 3: foreign-owned U.S. DE
   // Part II: the foreign owner
@@ -165,8 +171,9 @@ export const form5472: FormHook<IrsInput & { de?: boolean }> = (d) => {
   text("Page2[0].f2_8[0]", d.ownerCountry);
   // Part V: contributions/distributions described on the attached statement
   check("Page2[0].PartV[0].c2_6[0]", de && !!d.transactions?.length);
-  // Part VII: all "No" (37, 39, 40a, 41a, 42a, 42b, 43a; 38a/38c only apply if 37 is Yes)
-  for (const n of [1, 4, 5, 6, 7, 8, 9]) check(`Page3[0].c3_${n}[1]`);
+  // Part VII: all "No" (37, 39, 40a, 41a, 42a, 42b; 38a/38c only apply if 37 is Yes). 43a/43b: "Do not complete these lines if the
+  // reporting corporation is a foreign-owned U.S. DE" (i5472), so 43a is ticked only for a corporation.
+  for (const n of [1, 4, 5, 6, 7, 8, ...(de ? [] : [9])]) check(`Page3[0].c3_${n}[1]`);
   return out;
 };
 

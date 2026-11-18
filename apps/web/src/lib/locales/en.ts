@@ -22,6 +22,11 @@ import gaps3 from "./parts/gaps3.en.ts";
 import filingsIl from "./parts/filings-il.en.ts";
 import filingsUs from "./parts/filings-us.en.ts";
 import qa2 from "./parts/qa2.en.ts";
+import banks from "./parts/banks.en.ts";
+import money from "./parts/money.en.ts";
+import integrity from "./parts/integrity.en.ts";
+import legal from "./parts/legal.en.ts";
+import charts from "./parts/charts.en.ts";
 export default {
   ...a,
   ...b,
@@ -45,6 +50,11 @@ export default {
   ...filingsIl,
   ...filingsUs,
   ...qa2,
+  ...banks,
+  ...money,
+  ...integrity,
+  ...legal,
+  ...charts,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

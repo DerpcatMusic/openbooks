@@ -1,7 +1,8 @@
 // Israeli bank / card syncs from israeli-bank-scrapers (= books.py scraper_json + _local_day).
-import type { StatementRow } from "@openbooks/schema";
+import type { StatementCheck, StatementRow } from "@openbooks/schema";
 import { pyRound } from "@openbooks/core";
 import { pyFloatStr } from "../uid.ts";
+import { round2 } from "./csv.ts";
 import { parseStatementJson, pyFloat, pyS, pyWords, type ReaderFile, type ReaderOut } from "./onezero.ts";
 
 const ISO = /^(\d{4})-?(\d\d)-?(\d\d)(?:.(\d\d)(?::?(\d\d)(?::?(\d\d)(?:[.,](\d+))?)?)?(?:([+-])(\d\d)(?::?(\d\d)(?::?(\d\d)(?:[.,]\d+)?)?)?)?)?$/u;
@@ -35,9 +36,16 @@ const float = (v: unknown): number => {
   throw new TypeError(`float() argument must be a string or a real number, not '${v === null ? "NoneType" : typeof v}'`);
 };
 
+/** "₪" and "NIS" are shekels; anything else must already be an ISO 4217 code. */
+const isoCurrency = (c: unknown) => {
+  const s = typeof c === "string" ? c.trim().toUpperCase() : "";
+  return s === "₪" || s === "NIS" ? "ILS" : /^[A-Z]{3}$/.test(s) ? s : undefined;
+};
+
 /**
  * Every completed movement, money out negative (cards report charges as negative chargedAmount, in shekels even when bought abroad).
- * Installments book on their charge date. Pending ones are skipped: they land on the next sync. No balance check (banks show about a year).
+ * Installments book on their charge date. Pending ones are skipped: they land on the next sync. Each account with a `balance` gets a balance check (reconciliation).
+ * `currency`: the row's chargedCurrency, else the account's `currency`; set only when it isn't shekels (absent = the books' currency).
  */
 export function scraperJson(file: ReaderFile): ReaderOut {
   const { data: d, isInt } = parseStatementJson(file);
@@ -45,7 +53,10 @@ export function scraperJson(file: ReaderFile): ReaderOut {
   const src = `scraper:${pyS(d.companyId, isInt(d, "companyId"))}`,
     name = d.name || pyS(d.companyId, isInt(d, "companyId"));
   const rows: StatementRow[] = [];
+  const checks: StatementCheck[] = [];
+  const synced = typeof d.syncedAt === "string" ? localDay(d.syncedAt) : "";
   for (const a of d.accounts) {
+    const from = rows.length;
     const acct = `${pyS(name)} ••${("accountNumber" in a ? pyS(a.accountNumber, isInt(a, "accountNumber")) : "").slice(-4)}`,
       dupes = new Map<string, number>();
     for (const t of a.txns ?? []) {
@@ -68,7 +79,9 @@ export function scraperJson(file: ReaderFile): ReaderOut {
         k = `${dk}|${n}`;
       }
       const no = inst && "number" in inst ? pyS(inst.number, isInt(inst, "number")) : "";
+      const cur = isoCurrency(t.chargedCurrency) ?? isoCurrency(a.currency);
       rows.push({
+        ...(cur && cur !== "ILS" ? { currency: cur } : {}),
         date,
         amount: amt,
         desc,
@@ -80,6 +93,20 @@ export function scraperJson(file: ReaderFile): ReaderOut {
         key: `${acct}|${k}|${no}`,
       });
     }
+    // the bank's balance is as of the sync: books and bank agree when the rows since the account began add up to it
+    // (a bank that only shows the last year leaves the opening balance as the difference)
+    if (typeof a.balance === "number" && Number.isFinite(a.balance)) {
+      const mine = rows.slice(from),
+        dates = mine.map((r) => r.date).sort();
+      checks.push({
+        file: file.name,
+        label: acct,
+        period: [dates[0] ?? synced, synced > (dates.at(-1) ?? "") ? synced : (dates.at(-1) ?? "")],
+        parsed: round2(mine.reduce((s, r) => s + r.amount, 0)),
+        total: a.balance,
+        balance: true,
+      });
+    }
   }
-  return { rows, checks: [] };
+  return { rows, checks };
 }

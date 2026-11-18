@@ -195,7 +195,12 @@ const reports = (tab: string): Omit<Route, "e" | "path"> => ({
   opens: [["period picker", click("main [popovertarget]")]],
 });
 const ROUTES: Route[] = [
-  ...both("/home", { opens: [["⌘K", click("aside button[aria-keyshortcuts]")]] }),
+  ...both("/home", {
+    opens: [
+      ["⌘K", click("aside button[aria-keyshortcuts]")],
+      ["customize", click("main button[data-customize]")],
+    ],
+  }),
   ...both("/transactions", {
     opens: [
       ["drawer", click(ROW)],
@@ -212,6 +217,7 @@ const ROUTES: Route[] = [
   { e: "acme", path: "/reports/bs", ...reports("bs") },
   ...both("/reports/cf", reports("cf")),
   ...both("/reports/cfa", reports("cfa")),
+  ...both("/reports/flow", reports("flow")),
   ...both("/reports/gl", reports("gl")),
   ...both("/reports/ar", { opens: [["drill", click("main tbody td button")]] }),
   ...both("/reports/ap", { opens: [["drill", click("main tbody td button")]] }),

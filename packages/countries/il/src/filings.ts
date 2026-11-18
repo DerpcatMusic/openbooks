@@ -18,6 +18,8 @@ export interface IlSettings {
   taxAdvanceRatePct: number;
   /** Pay Bituach Leumi advances (sole proprietors). */
   blAdvances: boolean;
+  /** An osek zair's VAT status (zair is an income-tax track; for VAT it is patur or murshe). Ignored for other types. */
+  vatStatus: "patur" | "murshe";
   /** Monthly income Bituach Leumi advances are based on; null = from last year's profit. */
   blMonthlyIncome: number | null;
   /** Supplier name → licensed-dealer number (turns petty-cash inputs into named ones). */
@@ -36,6 +38,7 @@ export const ilFacts = (businessType: string, s: IlSettings) => ({
   vatFrequency: s.vatFrequency,
   taxAdvances: s.taxAdvanceRatePct > 0 ? s.taxAdvanceFrequency : ("none" as const),
   blAdvances: s.blAdvances,
+  vatStatus: s.vatStatus,
 });
 /** The IL settings out of the "filings" doc's settings bag, defaults filled in. */
 export function ilSettings(bag: Record<string, unknown> | undefined): IlSettings {
@@ -47,6 +50,7 @@ export function ilSettings(bag: Record<string, unknown> | undefined): IlSettings
     taxAdvanceFrequency: f === "bimonthly" || f === "none" ? f : "monthly",
     taxAdvanceRatePct: Math.max(0, num(s.taxAdvanceRatePct)),
     blAdvances: s.blAdvances !== false,
+    vatStatus: s.vatStatus === "murshe" ? "murshe" : "patur",
     blMonthlyIncome: typeof s.blMonthlyIncome === "number" ? s.blMonthlyIncome : null,
     supplierIds: Object.fromEntries(Object.entries(obj(s.supplierIds)).filter(([, v]) => typeof v === "string")) as Record<string, string>,
     assetClass: obj(s.assetClass) as Record<string, AssetClass>,
@@ -100,6 +104,8 @@ export interface VatContext {
   rate: number;
   settings: IlSettings;
   currency?: string;
+  /** Units of `currency` per unit of a foreign currency on a date (Bank of Israel representative rate); null = unknown. */
+  fx?: (currency: string, date: string) => number | null;
 }
 export function periodReport(period: Pick<Period, "key" | "from" | "to" | "months">, c: VatContext): VatReport {
   return vatReport({
@@ -109,6 +115,7 @@ export function periodReport(period: Pick<Period, "key" | "from" | "to" | "month
     rate: c.rate,
     supplierIds: c.settings.supplierIds,
     ...(c.currency ? { baseCurrency: c.currency } : {}),
+    ...(c.fx ? { fx: c.fx } : {}),
   });
 }
 /** Sales before VAT between two dates (the VAT report's taxable + zero-rated/exempt sales): the "turnover" of Ordinance s.175(b). */
@@ -127,7 +134,7 @@ export function uniformDocs(
   const byId = new Map(customers.map((c) => [c.id, c]));
   const out: UniformDoc[] = [];
   for (const i of invoices) {
-    const type = KIND_CODE[i.kind];
+    const type = i.kind === "credit" ? (i.refKind === "tax" ? 330 : undefined) : KIND_CODE[i.kind]; // 330: credit tax invoice
     if (!type || i.status === "draft" || !i.number) continue;
     const c = i.customer ? byId.get(i.customer) : undefined;
     out.push({
@@ -143,7 +150,7 @@ export function uniformDocs(
       vat: i.noVat ? 0 : (i.vat ?? 0),
       ...(i.currency ? { currency: i.currency } : {}),
       ...(method ? { method: method(i) } : {}),
-      ...(i.kind === "receipt" && i.ref ? { base: { type: i.refKind === "tax" ? 305 : 300, number: i.ref } } : {}),
+      ...((i.kind === "receipt" || i.kind === "credit") && i.ref ? { base: { type: i.refKind === "tax" ? 305 : 300, number: i.ref } } : {}),
     });
   }
   return out;

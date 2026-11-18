@@ -25,6 +25,8 @@ export const StatementRow = Schema.Struct({
   mcat: Schema.optionalKey(Schema.String), // Mercury category
   kind: Schema.optionalKey(Schema.String), // Mercury kind
   who: Schema.optionalKey(Schema.String), // bit counterparty
+  /** ISO 4217 of `amount` when the reader knows it and it isn't the entity's currency (ingest drops it when equal). Absent = the entity's currency. */
+  currency: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/))),
 });
 export type StatementRow = typeof StatementRow.Type;
 
@@ -93,6 +95,8 @@ export const TagsDoc = Schema.Struct({
       tax: Schema.optionalKey(TagTax),
       /** Deactivated: hidden from pickers and filters, kept on the transactions that already carry it. Absent = active. */
       inactive: Schema.optionalKey(Schema.Boolean),
+      /** Transactions with this tag are reportable transactions with the foreign owner (Form 5472 Part V, Reg. 1.482-1(i)(7)). */
+      relatedParty: Schema.optionalKey(Schema.Boolean),
     }),
   ),
   on: Schema.Record(Schema.String, Schema.Array(Schema.String)),

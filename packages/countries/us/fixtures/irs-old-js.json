@@ -47,8 +47,6 @@
     "Page1[0].Line1j_ReadOrder[0].c1_2[0]": "X",
     "Page1[0].f1_16[0]": "United States",
     "Page1[0].f1_17[0]": "03/07/2025",
-    "Page1[0].f1_18[0]": "United States",
-    "Page1[0].f1_19[0]": "United States",
     "Page1[0].c1_3[0]": "X",
     "Page1[0].c1_4[0]": "X",
     "Page1[0].f1_20[0]": "Dana Levi, 12 Herzl St, Tel Aviv, Israel",
@@ -69,8 +67,7 @@
     "Page3[0].c3_5[1]": "X",
     "Page3[0].c3_6[1]": "X",
     "Page3[0].c3_7[1]": "X",
-    "Page3[0].c3_8[1]": "X",
-    "Page3[0].c3_9[1]": "X"
+    "Page3[0].c3_8[1]": "X"
    },
    "f1120": {
     "Page1[0].PgHeader[0].f1_1[0]": "March 7",
@@ -114,8 +111,6 @@
     "Page1[0].f1_13[0]": "1",
     "Page1[0].f1_16[0]": "United States",
     "Page1[0].f1_17[0]": "06/01/2023",
-    "Page1[0].f1_18[0]": "United States",
-    "Page1[0].f1_19[0]": "United States",
     "Page1[0].c1_3[0]": "X",
     "Page1[0].c1_4[0]": "X",
     "Page1[0].f1_20[0]": "Dana",
@@ -133,8 +128,7 @@
     "Page3[0].c3_5[1]": "X",
     "Page3[0].c3_6[1]": "X",
     "Page3[0].c3_7[1]": "X",
-    "Page3[0].c3_8[1]": "X",
-    "Page3[0].c3_9[1]": "X"
+    "Page3[0].c3_8[1]": "X"
    },
    "f1120": {
     "Page1[0].NameFieldsReadOrder[0].f1_4[0]": " Studio LLC",
@@ -171,8 +165,6 @@
     "Page1[0].f1_13[0]": "1",
     "Page1[0].f1_14[0]": "99",
     "Page1[0].f1_16[0]": "United States",
-    "Page1[0].f1_18[0]": "United States",
-    "Page1[0].f1_19[0]": "United States",
     "Page1[0].c1_3[0]": "X",
     "Page1[0].c1_4[0]": "X",
     "Page2[0].c2_1[0]": "X",
@@ -184,8 +176,7 @@
     "Page3[0].c3_5[1]": "X",
     "Page3[0].c3_6[1]": "X",
     "Page3[0].c3_7[1]": "X",
-    "Page3[0].c3_8[1]": "X",
-    "Page3[0].c3_9[1]": "X"
+    "Page3[0].c3_8[1]": "X"
    },
    "f1120": {
     "Page1[0].NameFieldsReadOrder[0].f1_4[0]": "Plain LLC",
@@ -214,8 +205,6 @@
     "Page1[0].Line1j_ReadOrder[0].c1_2[0]": "X",
     "Page1[0].f1_16[0]": "United States",
     "Page1[0].f1_17[0]": "01/01/2024",
-    "Page1[0].f1_18[0]": "United States",
-    "Page1[0].f1_19[0]": "United States",
     "Page1[0].c1_3[0]": "X",
     "Page1[0].c1_4[0]": "X",
     "Page2[0].c2_1[0]": "X",
@@ -226,8 +215,7 @@
     "Page3[0].c3_5[1]": "X",
     "Page3[0].c3_6[1]": "X",
     "Page3[0].c3_7[1]": "X",
-    "Page3[0].c3_8[1]": "X",
-    "Page3[0].c3_9[1]": "X"
+    "Page3[0].c3_8[1]": "X"
    },
    "f1120": {
     "Page1[0].NameFieldsReadOrder[0].f1_4[0]": "Late LLC",

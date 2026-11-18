@@ -28,6 +28,29 @@ describe("IRS helpers", () => {
     ]);
     expect([v.contributions, v.distributions, v.total]).toEqual([500, 200, 700]);
   });
+  it("5472 line 1n/1o from the profile, never a hard-coded country (i5472: 1o = principal country(ies) where business is conducted)", () => {
+    const f = form5472({ year: 2025, legalName: "X", businessCountries: "Israel" });
+    expect(f["Page1[0].f1_19[0]"]).toBe("Israel");
+    expect(f["Page1[0].f1_18[0]"]).toBeUndefined();
+    expect(form5472({ year: 2025, taxReturnCountry: "Israel" })["Page1[0].f1_18[0]"]).toBe("Israel");
+  });
+  it("43a/43b left blank for a foreign-owned DE, answered No for a corporation (i5472: 'Do not complete these lines if ... a foreign-owned U.S. DE')", () => {
+    expect(form5472({ year: 2025 })["Page3[0].c3_9[1]"]).toBeUndefined();
+    expect(form5472({ year: 2025, de: false })["Page3[0].c3_9[1]"]).toBe("X");
+  });
+  it("Part V includes related-party transactions with the owner besides contributions and distributions (Reg. 1.482-1(i)(7))", () => {
+    const v = partV({
+      transactions: [
+        { date: "2025-01-01", desc: "capital", amount: 1000 },
+        { date: "2025-02-01", desc: "hosting the owner paid", amount: 120, related: true },
+        { date: "2025-03-01", desc: "rent to owner", amount: -300, related: true },
+      ],
+    });
+    expect(v.rows.map((r) => r.kind)).toEqual(["Contribution", "Received from owner", "Paid to owner"]);
+    expect([v.contributions, v.distributions, v.other, v.total]).toEqual([1000, 0, 420, 1420]);
+    const f = form5472({ year: 2025, transactions: v.rows });
+    expect(f["Page1[0].Line1f_ReadOrder[0].f1_12[0]"]).toBe("1,420");
+  });
   it("C-corp 5472: line 3 and Part V off", () => {
     const f = form5472({ year: 2025, legalName: "X", transactions: [{ date: "2025-01-01", desc: "a", amount: 1 }], de: false });
     expect(f["Page1[0].c1_4[0]"]).toBeUndefined();

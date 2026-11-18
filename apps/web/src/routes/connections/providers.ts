@@ -3,7 +3,7 @@
 // Labels and names are translated where read (getters), since this table is built once at load.
 import { t } from "#lib/i18n.svelte.ts";
 
-export type Group = "us" | "il-bank" | "il-card";
+export type Group = "us" | "agg" | "il-bank" | "il-card";
 export interface LoginField {
   key: string;
   type: "text" | "password" | "email" | "tel";
@@ -29,6 +29,11 @@ const F: Record<string, Partial<LoginField>> = {
   card6Digits: { inputmode: "numeric" },
   secret: { type: "password" },
   env: { placeholder: "production or sandbox" },
+  setupToken: { type: "password", mono: true },
+  wiseToken: { type: "password", mono: true },
+  appId: { mono: true },
+  privateKey: { mono: true },
+  country: { placeholder: "FI, DE, GB…" },
 };
 const p = (id: string, group: Group, fields: string, extra: { otp?: boolean } = {}): Provider => ({
   get name() {
@@ -48,6 +53,9 @@ const p = (id: string, group: Group, fields: string, extra: { otp?: boolean } = 
 export const PROVIDERS: Record<string, Provider> = {
   mercury: p("mercury", "us", "token"),
   plaid: p("plaid", "us", "clientId secret env"),
+  simplefin: p("simplefin", "agg", "setupToken"),
+  wise: p("wise", "agg", "wiseToken"),
+  enablebanking: p("enablebanking", "agg", "appId privateKey country bank"),
   onezero: p("onezero", "il-bank", "email password phoneNumber", { otp: true }),
   hapoalim: p("hapoalim", "il-bank", "userCode password"),
   leumi: p("leumi", "il-bank", "username password"),
@@ -69,6 +77,7 @@ export const PROVIDERS: Record<string, Provider> = {
 };
 export const GROUPS: [Group, string][] = [
   ["us", "connect.g.us"],
+  ["agg", "banks.g.agg"],
   ["il-bank", "connect.g.ilBank"],
   ["il-card", "connect.g.ilCard"],
 ];

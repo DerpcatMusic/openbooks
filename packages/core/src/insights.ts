@@ -1,18 +1,22 @@
 // Home-dashboard numbers (docs/mercury-books-spec.md section 11): net cash flow, monthly burn, runway, coverage, margins. Pure.
 // "Cash" is every bank account that is not a credit card (the same as the Cash card); a card purchase is not cash out until the card is paid.
 import type { Txn } from "@openbooks/schema";
-import { isCard, pl } from "./reports.ts";
+import { inPeriod, isCard, isFlow, pl, plOf, priorPeriod, type Period } from "./reports.ts";
 
 type Row = Pick<Txn, "date" | "amount" | "category" | "account">;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const cash = (ts: readonly Row[]) => ts.filter((t) => !isCard(t.account));
 
-/** Money in, money out and the net of the cash accounts over the given transactions (a period's, already filtered). */
+/**
+ * Money in, money out and the net of the cash accounts over the given transactions (a period's, already filtered). Transfers between
+ * accounts, owner and personal movements and loan principal are not money in or out (reports.ts isFlow).
+ */
 export function cashFlow(ts: readonly Row[]) {
   let inn = 0,
     out = 0;
   for (const t of cash(ts))
-    if (t.amount > 0) inn += t.amount;
+    if (!isFlow(t.category)) continue;
+    else if (t.amount > 0) inn += t.amount;
     else out -= t.amount;
   return { in: r2(inn), out: r2(out), net: r2(inn - out) };
 }
@@ -52,7 +56,7 @@ export function burn(ts: readonly Row[], now: string): Burn | null {
     first = ymAdd(last, -2);
   if (!ts.length || ts.reduce((m, t) => (t.date < m ? t.date : m), ts[0]!.date) > `${first}-01`) return null;
   const win = ts.filter((t) => t.date.slice(0, 7) >= first && t.date.slice(0, 7) <= last);
-  const avg = r2(cashFlow(win).net / 3);
+  const avg = r2(cash(win).reduce((a, t) => a + t.amount, 0) / 3); // runway is about the cash itself: owner draws and loans move it too
   if (avg === 0) return null;
   const c = cashAt(ts, lastDay(last));
   const exp = pl(win);
@@ -78,3 +82,41 @@ export const pctLabel = (v: number) => {
   const r = Math.round(v);
   return v > 0 && r < 1 ? "<1%" : `${r === 0 ? 0 : r}%`;
 };
+
+// ---------- spending against normal (Reports treemap, the anomaly insight) ----------
+export interface SpendNormal {
+  /** Ledger account (expense or cost of sales). */
+  key: string;
+  /** Spent in the period (positive). */
+  value: number;
+  /** Average spend in the `n` same-length periods before it (0 = none). */
+  avg: number;
+  /** (value - avg) / avg; null without history. */
+  change: number | null;
+}
+/** Spending per expense / cost-of-sales account in `p`, against that account's own average over the n periods before. */
+export function spendVsNormal(ts: readonly Row[], p: Period, n = 3): SpendNormal[] {
+  const spend = (q: Period) => {
+    const m = new Map<string, number>();
+    for (const t of ts)
+      if (inPeriod(t, q) && (plOf(t.category) === "expense" || plOf(t.category) === "cogs")) m.set(t.category, (m.get(t.category) ?? 0) - t.amount);
+    return m;
+  };
+  // only periods the books reach back to count toward the average
+  const first = ts.reduce((m, t) => (t.date < m ? t.date : m), "9999");
+  const now = spend(p),
+    past: Map<string, number>[] = [];
+  for (let q = priorPeriod(p), i = 0; i < n && `${q.to}-31` >= first; i++, q = priorPeriod(q)) past.push(spend(q));
+  const k = past.length;
+  return [...now]
+    .filter(([, v]) => v > 0)
+    .map(([key, value]) => {
+      const avg = k ? r2(past.reduce((a, m) => a + (m.get(key) ?? 0), 0) / k) : 0;
+      return { key, value: r2(value), avg, change: avg > 0 ? (value - avg) / avg : null };
+    })
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Bank and card fees in these transactions (positive): the bank-fees account and payment-platform fees. */
+export const bankFees = (ts: readonly Row[]) =>
+  r2(-ts.filter((t) => /^(expense:bank-fees|cogs:platform-fees)$/.test(t.category)).reduce((a, t) => a + t.amount, 0));

@@ -11,6 +11,8 @@ export interface Connection {
   connected: boolean;
   pending: boolean;
   linkToken?: string;
+  authUrl?: string;
+  expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
   accounts: unknown[];
@@ -33,6 +35,13 @@ export interface State {
   taxTables: Record<string, Record<string, unknown>>;
   inbox: string[];
   connections: Connection[];
+  /** What the books' integrity checks want the user to see. */
+  integrity?: {
+    /** The latest ingest, when the close date kept changes out of the closed period. */
+    closedImport: { at: string; close: string; added: number; removed: number; changed: number } | null;
+    /** Split transactions whose split no longer adds up (a re-import changed the amount) or whose transaction is gone: shown unsplit. */
+    brokenSplits: string[];
+  };
 }
 
 /** Docs with their own endpoints (or their own field in the state), left out of state.docs. */
@@ -44,13 +53,15 @@ export function connections(db: Database, e: string): Connection[] {
   const byKey = new Map(rows.map((r) => [r.provider, JSON.parse(r.value) as Record<string, unknown>]));
   return pySorted(byKey.keys()).map((k) => {
     const c = byKey.get(k)!;
-    const linking = Boolean(c.linkToken); // a vault-sealed row hides `pending`; Plaid's unsealed linkToken (gone once Link is done) still says it waits
+    const linking = Boolean(c.linkToken || c.authUrl); // a vault-sealed row hides `pending`; Plaid's unsealed linkToken (gone once Link is done) still says it waits
     return {
       provider: k,
       type: k.split(":")[0]!,
       connected: !linking && Boolean(c.secret || c.sealed),
       pending: linking || Boolean(c.pending),
       linkToken: c.linkToken as string | undefined,
+      authUrl: c.authUrl as string | undefined,
+      expiresAt: c.expiresAt as string | undefined,
       lastSync: (c.lastSync as string | undefined) ?? null,
       lastError: (c.lastError as string | undefined) ?? null,
       accounts: (c.accounts as unknown[] | undefined) ?? [],

@@ -17,9 +17,15 @@ export interface IlFacts {
   taxAdvances?: "monthly" | "bimonthly" | "none";
   /** Pay Bituach Leumi advances (sole proprietors). Default yes. */
   blAdvances?: boolean;
+  /** VAT status of an osek zair (an income-tax track only: it can be osek patur or osek murshe for VAT). Default patur. */
+  vatStatus?: "patur" | "murshe";
+  /** Holdings in foreign entities (Form 150 each year, Circular 7/2025 §3.11). */
+  foreignHoldings?: number;
+  /** Osek zair is closed to the person (crossborder.ts zairExclusion): the full 1301 instead of the short report. */
+  zairExcluded?: boolean;
 }
 
-const isVat = (t: string) => t === "osek-murshe" || t === "ltd";
+const isVat = (t: string, f: IlFacts) => t === "osek-murshe" || t === "ltd" || (t === "osek-zair" && f.vatStatus === "murshe");
 const sole = (t: string) => t.startsWith("osek-");
 
 export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
@@ -27,7 +33,7 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
     out: FilingDeadline[] = [],
     mm = (m: number) => ({ en: MONTHS_EN[m - 1]!, he: MONTHS_HE[m - 1]! });
 
-  if (isVat(t)) {
+  if (isVat(t, facts)) {
     for (const p of vatPeriods(year, facts.vatFrequency ?? "monthly")) {
       const m0 = +p.from.slice(5, 7),
         m1 = +p.to.slice(5, 7),
@@ -89,7 +95,7 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
       url: ORD(132),
       source: "Ordinance s.132(b)(1): 31 May for double-entry books. The Tax Authority often extends: check its notices.",
     });
-  } else if (t === "osek-zair") {
+  } else if (t === "osek-zair" && !facts.zairExcluded) {
     out.push({
       id: `il.short.${year}`,
       date: `${year + 1}-12-31`,
@@ -114,6 +120,19 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
       url: ORD(132),
       source:
         "Ordinance s.132(a): 30 April; s.132(b)(1),(1א): 31 May for double-entry books or an online self-employed report. The Tax Authority often extends.",
+    });
+  }
+  if (facts.foreignHoldings) {
+    out.push({
+      id: `il.150.${year}`,
+      date: t === "ltd" ? nextWorkday(`${year + 1}-05-31`) : nextWorkday(`${year + 1}-04-30`),
+      title: {
+        en: `Form 150: holdings in foreign entities, ${year} (attached to the annual return)`,
+        he: `טופס 150: החזקה בחבר בני אדם תושב חוץ, ${year} (נספח לדוח השנתי)`,
+      },
+      form: "150",
+      url: "https://www.gov.il/he/service/itc-150",
+      source: "Income Tax Circular 7/2025 §3.11: Form 150 is an appendix to the annual return, filed with it every year a foreign entity is held.",
     });
   }
   if (t === "osek-patur") {

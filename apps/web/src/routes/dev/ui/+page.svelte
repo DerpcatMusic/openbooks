@@ -20,7 +20,9 @@
     Input,
     Menu,
     Money,
+    NetWorth,
     PageHeader,
+    Sankey,
     Search,
     Segmented,
     Select,
@@ -31,6 +33,7 @@
     Tabs,
     Toaster,
     Tooltip,
+    Treemap,
     toast,
     type Column,
     type MenuItem,
@@ -98,6 +101,44 @@
     { key: "opex", label: L("Operating expenses including long category names", "הוצאות תפעול כולל שמות קטגוריה ארוכים"), color: "var(--color-s3)" },
   ]);
   const barRows = $derived(months.map((m, i) => ({ key: String(i), label: m, v: { rev: 8000 + ((i * 3517) % 9000), cogs: 1200 + ((i * 911) % 2000), opex: 2500 + ((i * 1733) % 3000) }, net: 4000 - ((i * 2311) % 7000) })));
+
+  // money-flow fixtures: a sankey with a surplus, a spending treemap, and a net worth series in GET /api/networth's shape
+  const flowIn = $derived([
+    { key: "in:a", label: L("Client work — Acme Studios long retainer", "עבודה ללקוח — אקמי סטודיוס ריטיינר ארוך"), value: 42000, color: "var(--color-s3)" },
+    { key: "in:b", label: L("Royalties", "תמלוגים"), value: 9800, color: "var(--color-s1)" },
+    { key: "in:c", label: L("Patreon", "פטראון"), value: 3100, color: "var(--color-s5)" },
+  ]);
+  const flowOut = $derived([
+    { key: "out:a", label: L("Contractors", "קבלני משנה"), value: 16000, color: "var(--color-s2)" },
+    { key: "out:b", label: L("Software & subscriptions", "תוכנה ומנויים"), value: 5400, color: "var(--color-s4)" },
+    { key: "out:c", label: L("Rent", "שכר דירה"), value: 6000, color: "var(--color-s5)" },
+    { key: "out:d", label: L("Bank fees", "עמלות בנק"), value: 180, color: "var(--color-s1)" },
+    { key: "out:e", label: L("Other", "אחר"), value: 2300, color: "var(--color-s6)" },
+  ]);
+  const treeItems = $derived([
+    { key: "a", label: L("Contractors", "קבלני משנה"), value: 16000, avg: 12000, change: 0.33 },
+    { key: "b", label: L("Rent", "שכר דירה"), value: 6000, avg: 6000, change: 0 },
+    { key: "c", label: L("Software & subscriptions", "תוכנה ומנויים"), value: 5400, avg: 3000, change: 0.8 },
+    { key: "d", label: L("Travel", "נסיעות"), value: 2100, avg: 4200, change: -0.5 },
+    { key: "e", label: L("Equipment", "ציוד"), value: 1900, avg: 0, change: null },
+    { key: "f", label: L("Meals", "ארוחות"), value: 640, avg: 700, change: -0.09 },
+    { key: "g", label: L("Bank fees", "עמלות בנק"), value: 180, avg: 120, change: 0.5 },
+  ]);
+  const nwDates = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2025, 9, 15 + i)).toISOString().slice(0, 10));
+  const wave = (base: number, amp: number, k: number) => nwDates.map((_, i) => Math.round(base + amp * Math.sin(i / k) + i * base * 0.0012));
+  let nwCur = $state("ILS"),
+    nwRange = $state<"3m" | "6m" | "1y" | "ytd" | "all">("1y");
+  const nwData = {
+    currency: "ILS",
+    dates: nwDates,
+    series: [
+      { entity: "llc", account: "Mercury Checking", currency: "USD", liability: false, values: wave(92000, 9000, 23) },
+      { entity: "llc", account: "Mercury Credit", currency: "USD", liability: true, values: wave(-4200, 1500, 7) },
+      { entity: "osek", account: "Bank Hapoalim", currency: "ILS", liability: false, values: wave(48000, 6000, 31) },
+      { entity: "osek", account: "Isracard", currency: "ILS", liability: true, values: wave(3100, 900, 11) },
+    ],
+    missing: [{ currency: "USD", date: "2026-08-02" }, { currency: "USD", date: "2026-08-03" }],
+  };
   const menuItems: MenuItem[] = $derived([
     { label: L("Edit", "עריכה"), icon: "edit" as const, onselect: () => void (picked = "edit") },
     { label: L("Duplicate as a recurring monthly transaction", "שכפול כתנועה חודשית קבועה"), icon: "copy" as const, onselect: () => void (picked = "dup") },
@@ -364,6 +405,25 @@
         <Skeleton lines={3} />
         <div class="flex items-center gap-3"><Skeleton round width="32px" height="32px" /><Skeleton width="60%" /></div>
       </div>
+    </Card>
+
+    <Card title={L("Sankey", "תרשים זרימה")} class="lg:col-span-2">
+      <Sankey
+        label={L("Where the money went", "לאן הלך הכסף")}
+        sources={flowIn}
+        targets={flowOut}
+        mid={{ key: "mid", label: L("Cash flow", "תזרים"), color: "var(--color-s6)" }}
+        surplus={{ key: "~s", label: L("Kept", "נשאר"), color: "var(--color-good)" }}
+        deficit={{ key: "~d", label: L("From savings", "מהחסכונות"), color: "var(--color-bad)" }}
+        onselect={n => (picked = n.key)} />
+    </Card>
+
+    <Card title={L("Treemap", "מפת ריבועים")} class="lg:col-span-2">
+      <Treemap label={L("Spending against normal", "הוצאות לעומת הרגיל")} items={treeItems} onselect={k => (picked = k)} />
+    </Card>
+
+    <Card title={L("Net worth", "שווי נקי")} class="lg:col-span-2">
+      <NetWorth label={L("Net worth", "שווי נקי")} data={nwData} bind:currency={nwCur} bind:range={nwRange} entityLabel={id => (id === "llc" ? "Example Media LLC" : L("Osek zair", "עוסק זעיר"))} />
     </Card>
 
     <Card title={L("Bars", "עמודות")} class="lg:col-span-2">

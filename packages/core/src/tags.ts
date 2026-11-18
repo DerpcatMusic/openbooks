@@ -116,5 +116,15 @@ export function setTag(d: TagsDoc, ids: readonly string[], tag: string, on: bool
 
 /** Ledger rows that carry the tag (by hand or from a rule). */
 export const withTag = <T extends { tags?: readonly string[] | undefined }>(ts: readonly T[], tag: string): T[] => ts.filter((t) => t.tags?.includes(tag));
+/** Ids of the tags that mark a transaction as a related-party transaction with the owner (Form 5472 Part V). */
+export const relatedPartyTags = (d: TagsDoc): Set<string> => new Set(d.tags.filter((t) => t.relatedParty).map((t) => t.id));
+/** The related-party tag, created (named `name`) when the books have none yet. */
+export function ensureRelatedPartyTag(d: TagsDoc, name: string): { doc: TagsDoc; id: string } {
+  const have = d.tags.find((t) => t.relatedParty && !t.inactive);
+  if (have) return { doc: d, id: have.id };
+  const next = createTag(d, name),
+    tag = next.tags.at(-1)!;
+  return { doc: { ...next, tags: next.tags.map((t) => (t === tag ? { ...t, relatedParty: true } : t)) }, id: tag.id };
+}
 /** Tag name for an id ("" once the tag is deleted). */
 export const tagName = (d: TagsDoc, id: string) => d.tags.find((t) => t.id === id)?.name ?? "";

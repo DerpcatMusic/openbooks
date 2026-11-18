@@ -2,7 +2,7 @@
 // (OPENFRMT) file. Built by a factory so they share tools.ts's entity/ledger helpers without importing it (tools.ts lists them).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deductions, dueInYear, filingRows, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
+import { deductions, dueInYear, filingRows, fxOf, readFilings, zip, type CountryPack, type DeductionInput } from "@openbooks/core";
 import {
   ilFacts,
   ilSettings,
@@ -18,6 +18,7 @@ import {
 } from "@openbooks/country-il";
 import type { EntityMeta, Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
+import { ratesFor } from "./money.ts";
 import { defineTool, ToolError, type Tool } from "./registry.ts";
 import type { input as toolInput } from "./tools.ts";
 
@@ -31,6 +32,8 @@ export interface Helpers {
   /** The deduction engine's input for the entity-year. */
   dedCtx: (e: Entity, y: number) => Effect.Effect<{ inp: DeductionInput }, ToolError, never>;
   packFor: (m: EntityMeta, y: number) => Pack | undefined;
+  /** The person's foreign holdings in year y (Form 150) and whether osek zair is closed to them. */
+  holdingsOf: (y: number) => Effect.Effect<{ foreignHoldings: number; zairExcluded: boolean }, never, never>;
   home: Effect.Effect<string, never, never>;
   input: typeof toolInput;
   label: (account: string) => string;
@@ -48,11 +51,12 @@ const nullable = <T extends Schema.Top>(s: T) => Schema.NullOr(s);
 const today = () => new Date().toLocaleDateString("sv");
 
 export function filingTools(h: Helpers): Tool[] {
-  const factsOf = (settings: Record<string, unknown>, pack: CountryPack, e: Entity) => (y: number) => {
+  type Held = Readonly<Record<number, { foreignHoldings: number; zairExcluded: boolean }>>;
+  const factsOf = (settings: Record<string, unknown>, pack: CountryPack, e: Entity, held: Held) => (y: number) => {
     const p = h.packFor(e.meta, y);
     if (!p || p.pack !== pack) return null;
     const s = ilSettings(settings);
-    return pack.manifest.id === "il" ? ilFacts(p.type, s) : { businessType: p.type };
+    return pack.manifest.id === "il" ? { ...ilFacts(p.type, s), ...held[y] } : { businessType: p.type };
   };
 
   const filing_calendar = defineTool({
@@ -91,9 +95,10 @@ export function filingTools(h: Helpers): Tool[] {
           p = h.packFor(e.meta, year);
         if (!p?.pack.deadlines)
           return yield* fail(`${e.id} has no filing calendar: its business type is not set or its country has none. Set the business type in the app.`);
+        const held = { [year - 1]: yield* h.holdingsOf(year - 1), [year]: yield* h.holdingsOf(year) };
         const doc = readFilings(yield* h.docOf<unknown>(e, "filings", null)),
           now = today(),
-          rows = filingRows(dueInYear(p.pack, year, factsOf(doc.settings, p.pack, e)), doc, now).filter((r) => !a.upcomingOnly || r.status !== "done");
+          rows = filingRows(dueInYear(p.pack, year, factsOf(doc.settings, p.pack, e, held)), doc, now).filter((r) => !a.upcomingOnly || r.status !== "done");
         const count = (s: string) => rows.filter((r) => r.status === s).length;
         return {
           entity: e.id,
@@ -156,11 +161,16 @@ export function filingTools(h: Helpers): Tool[] {
         const e = yield* h.entityOf(a, ctx),
           y = +a.period.slice(0, 4),
           d = yield* ilData(e, y);
-        if (!vatRegistered(d.type))
+        if (!vatRegistered(d.type, d.settings.vatStatus))
           return yield* fail(`${d.type} is not VAT-registered: there is no periodic VAT report (an osek patur has only an annual turnover declaration).`);
         const freq = a.frequency ?? d.settings.vatFrequency,
           period = periodOf(`${a.period}-01`, freq);
+        const base = e.meta.currency ?? "ILS";
+        // foreign-currency documents convert at the Bank of Israel representative rate of their issue date
+        const foreign = d.invoices.flatMap((i) => (i.currency && i.currency !== base && i.issued ? [{ currency: i.currency, date: i.issued }] : []));
+        const fx = foreign.length ? fxOf(yield* ratesFor(foreign), base) : undefined;
         const r = periodReport(period, {
+          ...(fx ? { fx } : {}),
           invoices: d.invoices,
           customers: d.customers,
           rows: d.rows,

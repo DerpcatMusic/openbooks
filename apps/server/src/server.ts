@@ -3,12 +3,30 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { csvPreview, handle, read } from "@openbooks/importers";
+import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
 import { type EntityMeta, isRuleInput, type RuleInput, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
-import { ask, configureAi, decide, langOf, loadAi, mcpHttpHandler, ollamaModels, paletteTools, publicAi, runTool, testAi } from "@openbooks/tools";
+import {
+  ask,
+  configureAi,
+  decide,
+  decideTransferPair,
+  langOf,
+  loadAi,
+  mcpHttpHandler,
+  netWorth,
+  ollamaModels,
+  paletteTools,
+  publicAi,
+  ratesFor,
+  runTool,
+  testAi,
+  transferSearch,
+  transferSuggestions,
+} from "@openbooks/tools";
 import { foreign } from "./guard.ts";
 import { buildPack } from "./pack.ts";
+import { Actor } from "@openbooks/storage";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
 
 export interface ServerOptions {
@@ -30,6 +48,7 @@ const KINDS = [".pdf", ".csv", ".json"];
 const ext = (f: string) => (f.includes(".") ? f.slice(f.lastIndexOf(".")).toLowerCase() : "");
 const json = (obj: unknown, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 const enc = new TextEncoder();
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
 /** Thrown inside handlers to answer with a JSON error (books.py send_json(..., code)). */
 class Reply {
@@ -244,6 +263,15 @@ export async function startServer(o: ServerOptions) {
     const q = u.searchParams,
       path = u.pathname;
     if (path === "/api/events") return events(req, server);
+    if (path === "/api/enablebanking/callback") {
+      // the bank sends the browser back here after the consent; the state (with its secret nonce) says which connection this is
+      const state = q.get("state") ?? "",
+        e = ebStateEntity(state);
+      if (!e) return new Response("Unknown authorization", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+      const r = await run(handle(e, path, { state, code: q.get("code"), error: q.get("error"), error_description: q.get("error_description") }));
+      if (r && "error" in r) return new Response(r.error, { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+      return new Response(null, { status: 302, headers: { location: "/connections" } });
+    }
     if (path === "/api/state") {
       // unknown or missing ?e= opens the first business; none yet → the app shows setup
       try {
@@ -258,6 +286,54 @@ export async function startServer(o: ServerOptions) {
     if (path === "/api/vault") return json({ status: await vault((v) => v.status) });
     if (path === "/api/ai/config") return json(publicAi(await run(loadAi)));
     if (path === "/api/tools") return json({ tools: paletteTools() });
+    if (path === "/api/networth") {
+      // ?currency=ILS&from=YYYY-MM-DD&to=YYYY-MM-DD: every entity's accounts, one converted balance a day (the net worth chart)
+      const to = q.get("to") || new Date().toLocaleDateString("sv"),
+        from = q.get("from") || `${+to.slice(0, 4) - 1}${to.slice(4)}`,
+        cur = q.get("currency") || "ILS";
+      if (!/^[A-Z]{3}$/.test(cur) || !isDate(from) || !isDate(to) || from > to || Date.parse(to) - Date.parse(from) > 3660 * 86400000)
+        throw new Reply({ error: "bad request" }, 400);
+      return json(await run(netWorth(cur, from, to)));
+    }
+    if (path === "/api/fx") {
+      // ?currencies=USD,EUR&from&to: Bank of Israel representative rates (ILS per unit), fetched once and cached in doc(_app, "fx")
+      const cs = (q.get("currencies") ?? "").split(",").filter(Boolean),
+        from = q.get("from") ?? "",
+        to = q.get("to") ?? "";
+      if (!cs.every((c) => /^[A-Z]{3}$/.test(c)) || !isDate(from) || !isDate(to) || from > to) throw new Reply({ error: "bad request" }, 400);
+      const t = await run(
+        ratesFor(
+          cs.flatMap((currency) => [
+            { currency, date: from },
+            { currency, date: to },
+          ]),
+        ),
+      );
+      return json({ rates: Object.fromEntries(cs.filter((c) => t[c]).map((c) => [c, t[c]])) });
+    }
+    if (path === "/api/transfers") {
+      // ?e: likely transfers touching this business (any of your accounts, any business); &ref=entity/id: every possible other side of one row
+      const e = await entity(q.get("e")),
+        ref = q.get("ref"),
+        w = Number(q.get("window")) || undefined;
+      return json({ suggestions: await run(ref ? transferSearch(ref, w) : transferSuggestions(e, w ? { window: w } : {})) });
+    }
+    if (path === "/api/audit") {
+      // ?e=&kind=&target=&from=YYYY-MM-DD&to=YYYY-MM-DD&limit=: the History view (read-only; nothing writes this table but the books)
+      const e = await entity(q.get("e")),
+        opt = (k: string) => q.get(k) || undefined,
+        day = (k: string) => {
+          const v = opt(k);
+          if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Reply({ error: `bad ${k}` }, 400);
+          return v;
+        };
+      const limit = Number.parseInt(q.get("limit") ?? "", 10);
+      return json({
+        entries: await books((b) =>
+          b.audit(e, { kind: opt("kind"), target: opt("target"), from: day("from"), to: day("to"), limit: Number.isFinite(limit) ? limit : 200 }),
+        ),
+      });
+    }
     if (path === "/api/pack") {
       const e = await entity(q.get("e"));
       if (q.get("year") === null) throw new Reply({ error: "unknown entity" }, 404); // books.py: KeyError → this 404
@@ -409,6 +485,14 @@ export async function startServer(o: ServerOptions) {
         await books((bs) => bs.setMeta(e, patch));
         break;
       }
+      case "/api/transfers": {
+        // {out, in: "entity/txn id", as: "confirmed" | "rejected"}: decide a pair (confirming files both sides)
+        const ref = (v: unknown) => (typeof v === "string" && /^[a-z0-9-]+\/[A-Za-z0-9-]+$/.test(v) ? v : null);
+        const pair = { out: ref(b.out), in: ref(b.in) };
+        if (!pair.out || !pair.in || (b.as !== "confirmed" && b.as !== "rejected")) throw new Reply({ error: "bad request" }, 400);
+        await run(decideTransferPair({ out: pair.out, in: pair.in }, b.as));
+        break;
+      }
       case "/api/doc": {
         // {name, value|null}: invoices, journal, customers, planner, ...
         const name = b.name;
@@ -441,12 +525,23 @@ export async function startServer(o: ServerOptions) {
         );
         break;
       }
+      case "/api/print": {
+        // {id}: an issued document is being printed; answers how many times it has been (1 = this is the original, more = a copy)
+        if (typeof b.id !== "string") return json({ error: "bad request" }, 400);
+        return json({ prints: await books((bs) => bs.recordPrint(e, b.id as string)) });
+      }
       case "/api/connect":
-      case "/api/sync":
       case "/api/disconnect": {
         // a locked vault fails VaultLocked → 423 (below); secrets never leave the connector
         const r = await run(handle(e, path, b));
         if (r && "error" in r) return json(r, 400);
+        break;
+      }
+      case "/api/sync": {
+        // what a sync brings in is the sync's doing in the audit log: the connector's writes and the ingest that follows
+        const r = await run(handle(e, path, b).pipe(Effect.provideService(Actor, "sync")));
+        if (r && "error" in r) return json(r, 400);
+        await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
         break;
       }
       default:
