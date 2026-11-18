@@ -5,6 +5,7 @@
 import type { CountryPack } from "@openbooks/core";
 import { dueOn, iso } from "./dates.ts";
 import { usTrack } from "./entity.ts";
+import { usTable } from "./tables.ts";
 
 type Deadlines = NonNullable<CountryPack["deadlines"]>;
 export type Deadline = ReturnType<Deadlines>[number];
@@ -219,8 +220,8 @@ export const usDeadlines = (y: number, f: UsDeadlineFacts): Deadline[] => {
     add(
       iso(y, 6, 1),
       "de.llc",
-      "Delaware LLC annual tax ($300), due June 1",
-      "מס שנתי ל-LLC בדלאוור (300 דולר), עד 1 ביוני",
+      `Delaware LLC annual tax ($${usTable(y).delawareTax}), due June 1`,
+      `מס שנתי ל-LLC בדלאוור (${usTable(y).delawareTax} דולר), עד 1 ביוני`,
       undefined,
       "https://corp.delaware.gov/paytaxes/",
       SRC.de,

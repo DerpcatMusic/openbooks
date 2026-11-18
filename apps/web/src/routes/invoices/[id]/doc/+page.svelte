@@ -11,6 +11,7 @@
   import { t } from "#lib/i18n.svelte.ts";
   import { total, net, vatOf, status, lineTotal, type Invoice, type Customer } from "../../invoices.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { il as ilSettingsNow } from "#lib/filings.svelte.ts";
   import { L, METHOD_EN } from "./doc.ts";
 
   let { params }: { params: { id: string } } = $props();
@@ -41,7 +42,7 @@
   const draft = $derived(inv?.status === "draft");
   const paid = $derived(!!inv && status(inv) === "paid");
   const vat = $derived(inv?.vat ?? 0);
-  const registered = $derived(!!inv && il && vatRegistered(bizType(+inv.issued.slice(0, 4))));
+  const registered = $derived(!!inv && il && vatRegistered(bizType(+inv.issued.slice(0, 4)), ilSettingsNow().vatStatus));
   const showVat = $derived(registered && inv?.vat !== undefined);
   const company = $derived(!!inv && bizType(+inv.issued.slice(0, 4)) === "ltd");
   const title = $derived(inv ? (inv.kind === "credit" && inv.refKind === "tax" ? l.creditTax : l.kind[inv.kind]) : "");

@@ -2,7 +2,7 @@
 // server (GET/POST /api/person). Until it's saved the server merges the old per-entity `advisor` docs (first non-empty answer per
 // key wins); loadPerson() stores that merge once, so the migration happens on first load and loses nothing.
 // Also: each business's EntityYear (its own books, its own pack) for the residence pack's crossBorder hook.
-import { pl, type CountryPack, type EntityYear, type Facts, type Obligation, type Person } from "@openbooks/core";
+import { pl, plOf, type CountryPack, type EntityYear, type Facts, type Obligation, type Person } from "@openbooks/core";
 import { soldierPoints } from "@openbooks/country-il";
 import { llcObligations, us } from "@openbooks/country-us";
 import { api, request, type Entity } from "./api.ts";
@@ -80,11 +80,19 @@ export function question(key: string, packs: readonly CountryPack[] = PACKS): As
 }
 
 // ---------- cross-border: every business's year, each from its own books and pack ----------
-/** Keys in person facts for the cross-border inputs (flat, so facts stay a plain answer map). */
-export const fxKey = (cur: string, y: number) => `fx.${cur}.${y}`;
+/** Key in person facts for the foreign tax paid by an entity in a year (flat, so facts stay a plain answer map). Rates are never typed: lib/fx.svelte.ts. */
 export const taxKey = (e: string, y: number) => `foreignTax.${e}.${y}`;
-/** Residence-currency per unit, when the person hasn't typed one: the Taxximizer's default for dollars. */
-export const FX_DEFAULT: Readonly<Record<string, number>> = { USD: 3.6 };
+
+/** What every business is, in year y, from the entity list alone (no books fetched): enough to decide osek zair eligibility and Form 150. */
+export function holdings(es: readonly Partial<Entity>[], y: number, residence: string) {
+  return es.flatMap((e) => {
+    const p = packOf(e, y),
+      type = typeOf(e, y);
+    if (!p || !type) return [];
+    const treatment = p.manifest.businessTypes.find((b) => b.key === type)!.treatment;
+    return [{ entity: e.id ?? "", country: p.manifest.id, type, treatment, foreign: p.manifest.id !== residence }];
+  });
+}
 
 export interface Biz {
   entity: Entity;
@@ -101,7 +109,8 @@ export async function businesses(es: readonly Entity[], y: number): Promise<Biz[
     if (!p || !type) continue;
     const st = await api.state(e.id);
     if ("setup" in st) continue;
-    const r = pl(st.txns.filter((x) => +x.date.slice(0, 4) === y));
+    const ys = st.txns.filter((x) => +x.date.slice(0, 4) === y),
+      r = pl(ys);
     out.push({
       entity: st.entity,
       pack: p,
@@ -116,6 +125,7 @@ export async function businesses(es: readonly Entity[], y: number): Promise<Biz[
         revenue: r.revenue,
         expenses: r.cogs + r.opex,
         foreignTaxPaid: 0, // the caller fills it from facts[taxKey(entity, y)]
+        lines: ys.filter((x) => ["revenue", "cogs", "expense"].includes(plOf(x.category) ?? "")).map((x) => ({ date: x.date, amount: x.amount })),
       },
     });
   }

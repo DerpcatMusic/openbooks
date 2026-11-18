@@ -35,6 +35,13 @@ export interface Form1301Input {
   capital?: { cost: number; depreciation: number };
   /** Income-tax advances paid for the year (they come off the balance; the site takes them from the Tax Authority's records). */
   advances?: number;
+  /** Osek zair is closed to the person (crossborder.ts zairExclusion): no zair box, actual expenses instead of the 30% deemed. */
+  zairExcluded?: boolean;
+  /**
+   * Foreign business income attributed to the person (a transparent foreign entity's profit, ₪ at each transaction's Bank of Israel rate)
+   * and the foreign tax paid on it in ₪: reported on appendix 1324, taxed with the personal-exertion income, credited up to the Israeli tax.
+   */
+  foreign?: { income: number; taxPaid: number };
 }
 
 /** Per-bracket breakdown for the Tax page: [{ rate, part, tax }] for brackets that hold income. */
@@ -57,9 +64,10 @@ export function form1301Auto({
   disallowed = 0,
   vat,
   capital,
-}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed" | "vat" | "capital">): Record<string, string> {
+  zairExcluded,
+}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed" | "vat" | "capital" | "zairExcluded">): Record<string, string> {
   const turnover = vat ? vat.turnover : txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
-  const zair = type === "osek-zair",
+  const zair = type === "osek-zair" && !zairExcluded,
     expenses =
       -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) -
       disallowed -
@@ -125,8 +133,9 @@ export function form1301(i: Form1301Input) {
   const turnover = i.vat ? i.vat.turnover : i.txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
   const capital = i.txns.filter((t) => group(t.category) === "capital");
   const sum = (ks: readonly string[]) => ks.reduce((a, k) => a + n(k), 0);
-  const ord = sum(ORDINARY),
-    personal = sum(PERSONAL),
+  const foreign = Math.max(0, i.foreign?.income ?? 0);
+  const ord = sum(ORDINARY) + foreign,
+    personal = sum(PERSONAL) + foreign,
     // every special-rate box with a value; 060's rate stays editable in Settings (capitalRate)
     special = RATED.filter((d) => n(d.no!)).map((d) => {
       const rate = d.no === "060" ? (T.capitalRate ?? d.rate!) : d.rate!;
@@ -135,10 +144,25 @@ export function form1301(i: Form1301Input) {
     cap15 = n("060"), // provident-fund gains on deposits from 2003–2005 (15%)
     cap25 = n("157"), // provident-fund / child-savings gains on deposits from 2006 (25%), e.g. חיסכון לכל ילד
     cap = special.reduce((a, x) => a + x.amount, 0);
+  // Personal deductions the site computes from the amounts paid (1301 guide 2025 rows 49, 51, 53, 54), on business income (150 + attributed):
+  // 135 pension §47 up to depositPct of qualifying income (the rest moves to the 268 credit), 136 study fund §17(5א), 112 loss of work capacity,
+  // 030 52% of BL paid. A year table without these rates (2024) deducts nothing.
+  const business = n("150") + foreign,
+    qualifying = Math.min(business, (T.mezakaMonthly ?? 0) * 24),
+    pensionDed = Math.min(n("135"), (T.depositPct ?? 0) * qualifying),
+    disability = Math.min(n("112"), (T.disabilityPct ?? 0) * Math.min(business, T.disabilityIncomeCap ?? 0)),
+    deductions = {
+      "135": pensionDed,
+      "136": Math.min(n("136"), (T.khPct ?? 0) * Math.min(business, T.khIncomeCap ?? 0)),
+      "112": disability,
+      "030": Math.min((T.blDeductPct ?? 0) * n("030"), Math.max(0, business - pensionDed)),
+    },
+    deducted = Object.values(deductions).reduce((a, x) => a + x, 0),
+    taxable = Math.max(0, ord - deducted);
   const resident = v("020") ? 2.25 : 0,
     soldier = v("224") ? soldierPoints(p.discharge, p.serviceMonths, i.y) : 0,
     points = resident + soldier;
-  const ordTax = bands(ord, T.brackets),
+  const ordTax = bands(taxable, T.brackets),
     capTax = special.reduce((a, x) => a + x.tax, 0),
     gross = ordTax + capTax,
     // ponytail: personal exertion's share of the bracket tax, pro rata; exact would tax it first (it sits at the bottom brackets)
@@ -147,20 +171,42 @@ export function form1301(i: Form1301Input) {
   // special-rate tax a fund withholds (a lump-sum חיסכון לכל ילד withdrawal, 25% of the real gain) is final, so the 040
   // withholding pays it and is not refunded (Altshuler 14.10.2026; the 2025 assessment of 08.10.2026 left that balance at 0).
   const creditsAvailable = resident * T.point + Math.min(soldier * T.point, personalTax),
-    credits = Math.min(creditsAvailable, ordTax),
-    due = Math.round(ordTax - credits) + Math.round(capTax),
+    credits = Math.min(creditsAvailable, ordTax);
+  // Credits for payments, after the points (1301 guide 2025 rows 73, 76, 78א): 268 pension 35% of deposits up to 5.5% of qualifying income
+  // (5% when 112 is claimed, §45א(ו)) plus what 135 could not deduct; 037 donations 35% above the minimum, up to 30% of taxable income;
+  // 036 life insurance 25%, base up to 5% of qualifying income.
+  const rate = T.creditRate ?? 0,
+    paymentCredits = {
+      "268": rate * Math.min(n("268") + n("135") - pensionDed, (disability ? (T.creditPctDisability ?? 0) : (T.creditPct ?? 0)) * qualifying),
+      "037": n("037") >= (T.donationMin ?? Infinity) ? rate * Math.min(n("037"), 0.3 * taxable) : 0,
+      "036": (T.lifeCreditRate ?? 0) * Math.min(n("036"), 0.05 * qualifying),
+    },
+    otherCredits = Math.min(
+      Object.values(paymentCredits).reduce((a, x) => a + x, 0),
+      ordTax - credits,
+    );
+  // Foreign tax credit (appendix 1324): the foreign tax, up to the Israeli tax on that income (its pro-rata share of the bracket tax after credits)
+  const israeliOnForeign = ord ? ((ordTax - credits - otherCredits) * foreign) / ord : 0,
+    foreignTaxCredit = Math.max(0, Math.min(i.foreign?.taxPaid ?? 0, israeliOnForeign));
+  const due = Math.round(ordTax - credits - otherCredits - foreignTaxCredit) + Math.round(capTax),
     withheld = sum(WITHHELD),
     advances = Math.round(i.advances ?? 0);
   return {
     fields: { ...auto, ...Object.fromEntries(Object.entries(f).filter(([, x]) => x != null)) } as Record<string, string>,
     turnover,
     capital,
-    taxable: ord,
-    rows: bracketRows(ord, T.brackets),
+    taxable,
+    rows: bracketRows(taxable, T.brackets),
     cap,
     cap15,
     cap25,
     special,
+    /** Personal deductions applied (by box) and the credits for payments (by box), in ₪. */
+    deductions,
+    paymentCredits,
+    otherCredits,
+    /** Appendix 1324: attributed foreign income, the foreign tax paid on it and the credit allowed. */
+    f1324: { income: foreign, taxPaid: i.foreign?.taxPaid ?? 0, credit: foreignTaxCredit },
     /** Documents the guide asks for, per box with a value. */
     proofs: proofsNeeded(n),
     ordTax,

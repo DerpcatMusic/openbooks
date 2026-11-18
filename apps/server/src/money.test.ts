@@ -34,8 +34,12 @@ beforeAll(async () => {
     writeFileSync(join(home, id, "inbox", file), JSON.stringify(data));
   };
   ent("llc", { name: "LLC", kind: "us-llc", currency: "USD" }, "mercury.json", {
-    accounts: [{ id: "a", name: "Mercury Checking", currentBalance: 5000 }],
-    transactions: [{ id: "w1", accountId: "a", amount: -1000, postedAt: "2026-03-03T12:00:00Z", status: "sent", counterpartyName: "Owner", kind: "other" }],
+    // a 2,000 royalty lands Mar 5, after every net-worth window below (they end Mar 4, when the balance was still 5,000)
+    accounts: [{ id: "a", name: "Mercury Checking", currentBalance: 7000 }],
+    transactions: [
+      { id: "w1", accountId: "a", amount: -1000, postedAt: "2026-03-03T12:00:00Z", status: "sent", counterpartyName: "Owner", kind: "other" },
+      { id: "r1", accountId: "a", amount: 2000, postedAt: "2026-03-05T12:00:00Z", status: "sent", counterpartyName: "Distributor", kind: "other" },
+    ],
   });
   ent("il", { name: "Osek", kind: "il-osek-zair", currency: "ILS" }, "scraper.json", {
     source: "scraper",
@@ -105,4 +109,13 @@ test("net_worth tool: the totals on one day, each account in its own currency an
     balance: 5000,
     converted: 18500,
   });
+});
+
+test("tax_summary: the LLC's income reaches the Israeli return at the Bank of Israel rate of its day", async () => {
+  const llc = (await get("/api/state?e=llc")).txns.find((t: J) => t.amount === 2000);
+  expect((await http(s.port, "POST", "/api/category?e=llc", { ids: [llc.id], category: "revenue:music-royalties" })).status).toBe(200);
+  const r = (await http(s.port, "POST", "/api/tools/run", { name: "tax_summary", args: { year: 2026 }, entity: "il" })).json() as J;
+  // 2,000 USD on Mar 5 at 3.7 = 7,400 ₪ attributed (the owner draw is equity, not an expense); every rate known, so it is on the return
+  expect(r.result.crossBorder).toMatchObject({ attributedIncome: 7400, missingRates: 0, onReturn: true });
+  expect(r.result.taxable).toBe(r.result.turnover + 7400); // osek zair closed: no 30% on the Israeli turnover either
 });

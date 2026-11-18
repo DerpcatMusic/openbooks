@@ -1,17 +1,16 @@
 <script lang="ts">
   // Cross-border: for the person's residence country, what each country's pack says about businesses abroad — the residence
   // pack's crossBorder hook (attributed income, foreign tax credit, reliefs that don't apply, forms) and the foreign pack's own
-  // forms. No maths here. Items without a cited source (docs/architecture.md open items: §87ה) are marked unverified.
+  // forms. No maths here. Amounts convert at the Bank of Israel rate of each transaction's date (lib/fx.ts); a missing rate is shown, never defaulted.
   import type { CrossBorder, Obligation } from "@openbooks/core";
   import { S, mdy } from "#lib/stores/books.svelte.ts";
   import { t, I, bidi, has } from "#lib/i18n.svelte.ts";
-  import { businesses, foreignObligations, packById, withFact, fxKey, taxKey, FX_DEFAULT, type Biz, type Person } from "#lib/person.ts";
+  import { businesses, foreignObligations, packById, withFact, taxKey, type Biz, type Person } from "#lib/person.ts";
+  import { rateOf } from "#lib/fx.svelte.ts";
   import { Badge, Card, Input, Money, Skeleton } from "#lib/ui/index.ts";
 
   let { person, y, onsave }: { person: Person; y: number; onsave: (p: Person) => void } = $props();
 
-  /** Laws the packs cite without a source yet (docs/architecture.md § Open items). */
-  const UNCITED = new Set(["§87ה"]);
   const home = $derived(packById(person.residence));
   const name = (id: string) => {
     const p = packById(id);
@@ -37,17 +36,10 @@
   const paid = (b: Biz): Biz => ({ ...b, year: { ...b.year, foreignTaxPaid: +(person.facts[taxKey(b.entity.id, y)] ?? 0) || 0 } });
   const own = $derived((biz ?? []).filter((b) => b.year.country === person.residence));
   const abroad = $derived((biz ?? []).filter((b) => b.year.country !== person.residence).map(paid));
-  const curs = $derived([...new Set(abroad.map((b) => b.year.currency))]);
-  const rate = (c: string) => {
-    const v = person.facts[fxKey(c, y)];
-    return v === undefined ? FX_DEFAULT[c] : +v;
-  };
-  const fx = $derived(Object.fromEntries(curs.map((c) => [c, rate(c) ?? NaN])));
-  const missingFx = $derived(curs.filter((c) => !Number.isFinite(fx[c])));
   const cb = $derived.by((): CrossBorder | { error: string } | null => {
-    if (!home?.crossBorder || !abroad.length || missingFx.length) return null;
+    if (!home?.crossBorder || !abroad.length) return null;
     try {
-      return home.crossBorder(person, y, own.map((b) => b.year), abroad.map((b) => b.year), fx);
+      return home.crossBorder(person, y, own.map((b) => b.year), abroad.map((b) => b.year), rateOf);
     } catch (x) {
       return { error: String((x as Error).message || x) };
     }
@@ -108,24 +100,12 @@
         </li>
       {/each}
     </ul>
-    <div class="mt-2 flex flex-wrap gap-4">
-      {#each curs as c (c)}
-        <Input
-          class="w-full sm:w-52"
-          numeric
-          type="number"
-          step="any"
-          min="0"
-          label={t("you.cb.fx", { cur: c, y })}
-          hint={t("you.cb.fxHint", { cur: c, home: home.manifest.currency })}
-          value={Number.isFinite(fx[c]) ? String(fx[c]) : ""}
-          onchange={(e) => set(fxKey(c, y), e.currentTarget.value)} />
-      {/each}
-    </div>
-
-    {#if missingFx.length}
-      <p class="mt-4 text-[13px] text-warn">{t("you.cb.fxMissing", { cur: missingFx.join(", ") })}</p>
-    {:else if cb && "error" in cb}
+    {#if cb && "missingFx" in cb && cb.missingFx.length}
+      <p class="mt-4 text-[13px] text-warn" role="status">
+        {t("legal.fxMissingDates", { cur: [...new Set(cb.missingFx.map((m) => m.currency))].join(", "), n: cb.missingFx.length })}
+      </p>
+    {/if}
+    {#if cb && "error" in cb}
       <p class="mt-4 text-[13px] text-bad" dir="ltr">{cb.error}</p>
     {:else if cb}
       <div class="mt-5 grid gap-3 sm:grid-cols-2">
@@ -147,8 +127,7 @@
             {#each cb.blocked as x (x.key)}
               <li class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-ink-2">
                 <span>{has(`you.cb.blocked.${x.key}`) ? t(`you.cb.blocked.${x.key}`) : x.key}</span>
-                <span class="text-[12px] text-faint" dir="auto">{x.law}</span>
-                {#if UNCITED.has(x.law)}<Badge size="sm" tone="warn" icon="alert">{t("you.cb.unverified")}</Badge>{/if}
+                {#if x.url}<a class="text-[12px] text-accent-ink hover:underline" href={x.url} target="_blank" rel="noreferrer" dir="auto">{x.law}</a>{:else}<span class="text-[12px] text-faint" dir="auto">{x.law}</span>{/if}
               </li>
             {/each}
           </ul>
@@ -177,8 +156,8 @@
         {/each}
       </div>
     {/if}
-    {#if cb && "blocked" in cb && cb.blocked.some((x) => UNCITED.has(x.law))}
-      <p class="mt-4 flex items-start gap-2 text-[12px] text-faint"><Badge size="sm" tone="warn" icon="alert">{t("you.cb.unverified")}</Badge><span>{t("you.cb.unverifiedNote")}</span></p>
+    {#if cb && "blocked" in cb && cb.blocked.length}
+      <p class="mt-4 text-[12px] text-faint">{t("legal.confirmAccountant")}</p>
     {/if}
   {/if}
 </Card>

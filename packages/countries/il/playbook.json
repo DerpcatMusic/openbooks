@@ -445,10 +445,10 @@
    }
   ],
   "rule": "Premiums paid by you for yourself, your spouse or your child. Life insurance gets a 25% credit, within the 5%-of-qualifying-income cap shared with pension.",
-  "saving": "0.25 * min(premium, 0.05*min(profit,qualifyingIncomeCap))",
+  "saving": "lifeCreditRate * min(premium, 0.05*min(profit, 24*mezakaMonthly))",
   "values": {
-   "rate": 0.25,
-   "qualifyingIncomeCap2025": 225600
+   "rate": "tables/<year>.json lifeCreditRate (0.25)",
+   "qualifyingIncomeCap": "24 x mezakaMonthly in tables/<year>.json (232,800 for 2025 and 2026)"
   },
   "how_en": "Annual certificate from the insurer (אישור שנתי למס) attached to form 1301.",
   "how_he": "אישור שנתי למס מחברת הביטוח, מצורף לדוח.",
@@ -475,15 +475,13 @@
     "type": "number"
    }
   ],
-  "rule": "Mandatory minimum for the self-employed: 4.45% of income up to half the average wage, 12.55% above that up to the average wage. Tax-optimal deposit ≈ 16% of min(profit, 225,600): 11% is deducted, 5% earns a 35% credit (credit base up to 116,400). Allowed for osek zair too.",
-  "saving": "0.11*min(profit,225600)*marginalRate + 0.35*0.05*min(profit,116400)",
+  "rule": "Mandatory minimum for the self-employed: 4.45% of income up to half the average wage, 12.55% above that up to the average wage. Tax-optimal deposit ≈ 16.5% of min(profit, 232,800): 11% is deducted, 5.5% earns a 35% credit (5% if you also deduct loss-of-work-capacity insurance, §45א(ו)). Allowed for osek zair too.",
+  "saving": "depositPct*min(profit,24*mezakaMonthly)*marginalRate + creditRate*creditPct*min(profit,24*mezakaMonthly)",
   "values": {
-   "deductPct": 0.11,
-   "creditPct": 0.05,
-   "creditRate": 0.35,
-   "deductCeiling2025": 225600,
-   "creditCeiling2025": 116400,
-   "2026": "frozen (assumed same)"
+   "deductPct": "tables/<year>.json depositPct (0.11)",
+   "creditPct": "tables/<year>.json creditPct (0.055; creditPctDisability 0.05)",
+   "creditRate": "tables/<year>.json creditRate (0.35)",
+   "qualifyingIncomeCap": "24 x mezakaMonthly in tables/<year>.json (232,800 for 2025 and 2026)"
   },
   "how_en": "Deposit by Dec 31 (reservists get an extension); certificate from the fund attached to form 1301.",
   "how_he": "להפקיד עד 31.12 (ללוחמי מילואים יש הארכה). אישור שנתי מהקופה מצורף לדוח.",
@@ -512,11 +510,11 @@
    }
   ],
   "rule": "The policy runs to at least age 60. The deduction is up to 3.5% of business / salary income, subject to a ceiling.",
-  "saving": "min(disabilityPremium, 0.035*min(profit,356100)) * marginalRate",
+  "saving": "min(disabilityPremium, disabilityPct*min(profit,disabilityIncomeCap)) * marginalRate",
   "values": {
-   "pct": 0.035,
-   "incomeCeiling2025": 356100,
-   "maxDeduction2025": 12463
+   "pct": "tables/<year>.json disabilityPct (0.035)",
+   "incomeCeiling": "tables/<year>.json disabilityIncomeCap (399,480 for 2025)",
+   "maxDeduction2025": 13982
   },
   "how_en": "Insurer certificate attached to form 1301.",
   "how_he": "אישור מס מחברת הביטוח, מצורף לדוח.",
@@ -544,7 +542,7 @@
    }
   ],
   "rule": "4.5% of income (≤ ceiling) is deductible. Depositing up to 7% (≤ the tax-free-gains cap) keeps all gains tax-free after 6 years. Allowed for osek zair (§87ד keeps §17(5א)).",
-  "saving": "min(khDeposits, 0.045*min(profit,293397)) * marginalRate; plus tax-free yield on up to 20,566/yr",
+  "saving": "min(khDeposits, khPct*min(profit,khIncomeCap)) * marginalRate; plus tax-free yield on up to 20,566/yr",
   "values": {
    "incomeCeiling": {
     "2025": 293397,

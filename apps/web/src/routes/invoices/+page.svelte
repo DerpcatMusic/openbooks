@@ -12,6 +12,7 @@
   import type { Txn } from "@openbooks/schema";
   import { today, addDays, uid, total, net, vatOf, status, candidates, unmatched, kindsFor, owedOf, paidAmount, isLate, applied, apply, remaining, creditFor, cancellable } from "./invoices.ts";
   import { vatRegistered } from "@openbooks/country-il";
+  import { il as ilSettingsNow } from "#lib/filings.svelte.ts";
   import type { Invoice, Customer, Kind, Status } from "./invoices.ts";
 
   const us = $derived(isUS());
@@ -22,7 +23,7 @@
 
   // VAT follows the business type in force in the document's year (an osek zair who became murshe in 2026 charges VAT from 2026).
   const yOf = (iso: string | null | undefined) => +(iso || today()).slice(0, 4);
-  const registeredIn = (iso: string | null | undefined) => !us && vatRegistered(bizType(yOf(iso)));
+  const registeredIn = (iso: string | null | undefined) => !us && vatRegistered(bizType(yOf(iso)), ilSettingsNow().vatStatus);
   const rateIn = (iso: string | null | undefined) => (registeredIn(iso) ? Number(taxTable(yOf(iso)).vatRate ?? 0) : 0);
   const pct = (r: number) => String(Math.round(r * 1000) / 10);
   const registeredNow = $derived(registeredIn(today()));

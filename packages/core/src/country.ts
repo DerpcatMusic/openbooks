@@ -68,7 +68,11 @@ export interface EntityYear {
   readonly revenue: number;
   readonly expenses: number; // positive
   readonly foreignTaxPaid: number; // tax withheld/paid in the entity's country, its currency
+  /** The year's P&L rows, signed (revenue > 0, expenses < 0), in the entity's currency: the residence pack converts each on its own date. */
+  readonly lines: readonly { readonly date: string; readonly amount: number }[];
 }
+/** Residence-currency units per one unit of `currency` on `date` (YYYY-MM-DD); null when the rate is unknown. Never a default. */
+export type FxFn = (currency: string, date: string) => number | null;
 
 export interface Obligation {
   readonly form: string;
@@ -79,11 +83,15 @@ export interface Obligation {
 export interface CrossBorder {
   /** Income the residence country taxes the person on, in the residence currency. */
   readonly attributedIncome: number;
+  /** Foreign tax paid on that income, in the residence currency (before the cap). */
+  readonly foreignTax: number;
   /** Credit for foreign tax, capped at the residence tax on that income. */
   readonly foreignTaxCredit: number;
-  /** Reliefs that do not apply to the attributed income (e.g. IL osek zair's 30% deemed expenses). */
-  readonly blocked: readonly { readonly key: string; readonly law: string }[];
+  /** Reliefs that do not apply (e.g. IL osek zair's 30% deemed expenses), with the law and where it is written. */
+  readonly blocked: readonly { readonly key: string; readonly law: string; readonly url?: string }[];
   readonly obligations: readonly Obligation[];
+  /** Currency and date of every amount that had no rate: attributedIncome and foreignTaxCredit leave them out, so they are incomplete while this is non-empty. */
+  readonly missingFx: readonly { readonly currency: string; readonly date: string }[];
 }
 
 /** A form hook: form id → field values computed from the books (strings, as printed on the form). Overrides are applied by the caller. */
@@ -120,9 +128,9 @@ export interface CountryPack<Table = unknown> {
   deadlines?: (year: number, facts: { businessType: string; vatFrequency?: "monthly" | "bimonthly" }) => FilingDeadline[];
   /**
    * Residence pack only: fold foreign entities' results into the person's home tax. `home`: the person's entities in this country;
-   * `fx`: residence-currency units per one unit of each foreign currency for year y. Called by the server/UI once per person-year.
+   * `fx`: the rate on each transaction's date (residence currency per unit). Called by the server/UI once per person-year.
    */
-  crossBorder?(person: Person, y: number, home: readonly EntityYear[], foreign: readonly EntityYear[], fx: Readonly<Record<string, number>>): CrossBorder;
+  crossBorder?(person: Person, y: number, home: readonly EntityYear[], foreign: readonly EntityYear[], fx: FxFn): CrossBorder;
 }
 
 /** Shared table lookup: closest earlier year, else the earliest. */

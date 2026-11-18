@@ -136,6 +136,16 @@
         <Card title={t("filings.settings")} description={t("filings.settingsHint")}>
           <div class="space-y-3">
             <Input label={t("filings.vatId")} value={s.vatId} dir="ltr" inputmode="numeric" placeholder="514290543" onchange={(e) => patchIl({ vatId: e.currentTarget.value.replace(/\D/g, "") })} />
+            {#if bizType() === "osek-zair"}
+              <Select
+                label={t("legal.vatStatus")}
+                value={s.vatStatus}
+                options={[
+                  { value: "patur", label: t("legal.vatStatus.patur") },
+                  { value: "murshe", label: t("legal.vatStatus.murshe") },
+                ]}
+                onchange={(v) => patchIl({ vatStatus: v as "patur" | "murshe" })} />
+            {/if}
             {#if vatBooks()}
               <Select label={t("filings.vatFrequency")} value={s.vatFrequency} options={[{ value: "monthly", label: t("filings.monthly") }, { value: "bimonthly", label: t("filings.bimonthly") }]} onchange={(v) => patchIl({ vatFrequency: v as "monthly" | "bimonthly" })} />
             {/if}

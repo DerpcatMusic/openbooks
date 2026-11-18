@@ -1,6 +1,6 @@
 // The US tax inputs the TaxUS and Planner pages share, read from the open books for tax year y (owner money, year-end assets,
 // the C-corp's P&L for its 1120). The maths is the US pack's (irs.ts); this only gathers the numbers.
-import { group, isCard, migrateBill, pl } from "@openbooks/core";
+import { group, migrateBill, openAt, outsideNet, pl, relatedPartyTags } from "@openbooks/core";
 import {
   splitCityStateZip,
   untreatedMealsHalf,
@@ -16,24 +16,49 @@ import {
   type UsTable,
   type Vendor1099,
 } from "@openbooks/country-us";
-import { balances, bizType, doc, S, saveDoc, taxTable, yearTxns } from "../stores/books.svelte.ts";
+import { balances, bizType, doc, S, saveDoc, tagsDoc, taxTable, yearTxns } from "../stores/books.svelte.ts";
+import { apSources, arSources, basis, ledgerRows, prSources } from "../stores/basis.svelte.ts";
+import { bsStatement } from "../reports/statements.ts";
 import { disallowed, result } from "../taxtags.svelte.ts";
 
 export const isCorp = (y = S.year) => bizType(y) === "llc-ccorp";
-/** Transactions with the owner (equity:*): contributions > 0, distributions < 0. */
-export const ownerTxns = (y = S.year) => yearTxns(y).filter((t) => group(t.category) === "equity");
-/** Bank balances (not cards) at the end of the year: 5472 line 1c / 1120 item D. */
-export const totalAssets = (y = S.year) =>
-  Object.entries(balances(`${y}-12-31`))
-    .filter(([a]) => !isCard(a))
-    .reduce((s, [, v]) => s + v, 0);
+/** Transactions with the owner: equity:* (contributions > 0, distributions < 0) and any row carrying a related-party tag (5472 Part V,
+ *  Reg. 1.482-1(i)(7): rent, services, loans… between the LLC and its owner). */
+export const ownerTxns = (y = S.year) => {
+  const rel = relatedPartyTags(tagsDoc());
+  return yearTxns(y).filter((t) => group(t.category) === "equity" || (t.tags ?? []).some((g) => rel.has(g)));
+};
+/** 5472 line 1c / 1120 item D: total assets at year end as the balance sheet shows them (bank accounts, plus receivables on the accrual basis). */
+export const totalAssets = (y = S.year) => {
+  const iso = `${y}-12-31`,
+    accrual = basis() === "accrual";
+  const { totals } = bsStatement(
+    [
+      {
+        iso,
+        balances: balances(iso),
+        upto: (S.data?.txns ?? []).filter((x) => x.date <= iso),
+        open: { ar: openAt(arSources(), iso), ap: openAt(apSources(), iso), pr: openAt(prSources(), iso) },
+        outside: accrual ? { total: outsideNet(ledgerRows(), iso), prior: outsideNet(ledgerRows(), `${y - 1}-12-31`) } : undefined,
+      },
+    ],
+    (k) => k,
+    accrual,
+  );
+  return totals[0]!.assets;
+};
 
 export function irsInput(y = S.year): IrsInput {
   return {
     year: y,
     ...S.data?.profile,
     totalAssets: totalAssets(y),
-    transactions: ownerTxns(y).map((t) => ({ date: t.date, desc: t.memo ? `${t.desc} · ${t.memo}` : t.desc, amount: t.amount })),
+    transactions: ownerTxns(y).map((t) => ({
+      date: t.date,
+      desc: t.memo ? `${t.desc} · ${t.memo}` : t.desc,
+      amount: t.amount,
+      ...(group(t.category) === "equity" ? {} : { related: true }),
+    })),
   };
 }
 

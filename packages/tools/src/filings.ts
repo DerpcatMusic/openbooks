@@ -31,6 +31,8 @@ export interface Helpers {
   /** The deduction engine's input for the entity-year. */
   dedCtx: (e: Entity, y: number) => Effect.Effect<{ inp: DeductionInput }, ToolError, never>;
   packFor: (m: EntityMeta, y: number) => Pack | undefined;
+  /** The person's foreign holdings in year y (Form 150) and whether osek zair is closed to them. */
+  holdingsOf: (y: number) => Effect.Effect<{ foreignHoldings: number; zairExcluded: boolean }, never, never>;
   home: Effect.Effect<string, never, never>;
   input: typeof toolInput;
   label: (account: string) => string;
@@ -48,12 +50,13 @@ const nullable = <T extends Schema.Top>(s: T) => Schema.NullOr(s);
 const today = () => new Date().toLocaleDateString("sv");
 
 export function filingTools(h: Helpers): Tool[] {
-  const factsOf = (settings: Record<string, unknown>, pack: CountryPack, e: Entity) => (y: number) => {
+  type Held = Readonly<Record<number, { foreignHoldings: number; zairExcluded: boolean }>>;
+  const factsOf = (settings: Record<string, unknown>, pack: CountryPack, e: Entity, held: Held) => (y: number) => {
     const p = h.packFor(e.meta, y);
     if (!p || p.pack !== pack) return null;
     const s = ilSettings(settings);
     return pack.manifest.id === "il"
-      ? { businessType: p.type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances }
+      ? { businessType: p.type, vatFrequency: s.vatFrequency, taxAdvances: s.taxAdvanceFrequency, blAdvances: s.blAdvances, vatStatus: s.vatStatus, ...held[y] }
       : { businessType: p.type };
   };
 
@@ -93,9 +96,10 @@ export function filingTools(h: Helpers): Tool[] {
           p = h.packFor(e.meta, year);
         if (!p?.pack.deadlines)
           return yield* fail(`${e.id} has no filing calendar: its business type is not set or its country has none. Set the business type in the app.`);
+        const held = { [year - 1]: yield* h.holdingsOf(year - 1), [year]: yield* h.holdingsOf(year) };
         const doc = readFilings(yield* h.docOf<unknown>(e, "filings", null)),
           now = today(),
-          rows = filingRows(dueInYear(p.pack, year, factsOf(doc.settings, p.pack, e)), doc, now).filter((r) => !a.upcomingOnly || r.status !== "done");
+          rows = filingRows(dueInYear(p.pack, year, factsOf(doc.settings, p.pack, e, held)), doc, now).filter((r) => !a.upcomingOnly || r.status !== "done");
         const count = (s: string) => rows.filter((r) => r.status === s).length;
         return {
           entity: e.id,
@@ -158,7 +162,7 @@ export function filingTools(h: Helpers): Tool[] {
         const e = yield* h.entityOf(a, ctx),
           y = +a.period.slice(0, 4),
           d = yield* ilData(e, y);
-        if (!vatRegistered(d.type))
+        if (!vatRegistered(d.type, d.settings.vatStatus))
           return yield* fail(`${d.type} is not VAT-registered: there is no periodic VAT report (an osek patur has only an annual turnover declaration).`);
         const freq = a.frequency ?? d.settings.vatFrequency,
           period = periodOf(`${a.period}-01`, freq);

@@ -116,6 +116,8 @@
       <div class="flex justify-between gap-3 py-1 text-[13px] {cls}"><span class="min-w-0">{label}</span><span class="shrink-0 num">{value}</span></div>
     {/snippet}
     <div class="mt-4">
+      {#if b.f1324.income}{@render line(t("legal.ret.foreign"), fmt(b.f1324.income), "text-sub")}{/if}
+      {#each Object.entries(b.deductions).filter(([, v]) => v) as [no, v] (no)}{@render line(t("legal.ret.deduction", { no }), fmt(-v), "text-sub")}{/each}
       {@render line(t("taxReturn.business"), fmt(b.taxable))}
       {#each b.rows as r (r.rate)}{@render line(t("taxReturn.bracket", { rate: pct(r.rate), part: fmt(r.part) }), fmt(r.tax), "ps-3 text-sub")}{/each}
       {#each b.special as x (x.no)}{@render line(t("taxReturn.fundProfit", { field: x.no, rate: Math.round(x.rate * 100) }), fmt(x.tax), "text-sub")}{/each}
@@ -124,6 +126,8 @@
       {@render line(t("taxReturn.resident", { pts: b.resident }), "", "text-sub")}
       {#if b.soldier}{@render line(t("taxReturn.soldier", { pts: b.soldier.toFixed(2) }), "", "text-sub")}{/if}
       {@render line(t("taxReturn.credits", { pts: (b.credits / b.T.point).toFixed(2), point: fmt(b.T.point) }), fmt(-b.credits), "text-good")}
+      {#if b.otherCredits}{@render line(t("legal.ret.credits", { boxes: Object.keys(b.paymentCredits).filter((k) => b.paymentCredits[k as keyof typeof b.paymentCredits]).join(", ") }), fmt(-b.otherCredits), "text-good")}{/if}
+      {#if b.f1324.credit}{@render line(t("legal.ret.ftc"), fmt(-b.f1324.credit), "text-good")}{/if}
       <div class="my-2 h-px bg-line"></div>
       {@render line(t("taxReturn.due"), fmt(b.due), "font-medium")}
       {#if b.withheld}{@render line(t("taxReturn.withheld"), fmt(-b.withheld), "text-sub")}{/if}

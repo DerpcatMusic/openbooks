@@ -18,7 +18,8 @@ const legacy = [
 const keepLayout = ["docs/*.md", "packages/countries/*/tables/*.json"];
 
 export default defineConfig({
-  test: { include: ["packages/**/*.test.ts", "apps/**/*.test.ts"] },
+  // tests never reach the real Bank of Israel: rates come from a fake server the test starts, or stay missing
+  test: { include: ["packages/**/*.test.ts", "apps/**/*.test.ts"], env: { OPENBOOKS_BOI_API: "http://127.0.0.1:9/EXR" } },
   fmt: { printWidth: 160, ignorePatterns: [...legacy, ...keepLayout] },
   lint: { ignorePatterns: legacy, options: { typeAware: true, typeCheck: true } },
 });

@@ -32,7 +32,7 @@ export function validVatId(id: string): boolean {
 
 /** A customer must be identified on a sale above this amount before VAT (PCN874 spec Appendix C note A; the spec says the amount can change). */
 export const IDENTIFY_ABOVE = 5000;
-/** The allocation number (מספר הקצאה) is required from this net amount on, by invoice date (tables/deductions.json il.recordkeeping). */
+/** The allocation number (מספר הקצאה) is required above this net amount, by invoice date (tables/deductions.json il.recordkeeping). */
 export const allocationThreshold = (date: string) => (date < "2026-01-01" ? 20000 : date < "2026-06-01" ? 10000 : 5000);
 
 export interface VatSaleDoc {
@@ -190,7 +190,10 @@ export function vatReport(inp: VatReportInput): VatReport {
     if (!d.number) issues.push({ level: "error", code: "noNumber", ref: d.id });
     if (id && !validVatId(id)) issues.push({ level: "warn", code: "badCustomerId", ref: doc, receipt });
     if (!id && absNet > IDENTIFY_ABOVE && !d.noVat) issues.push({ level: "error", code: "customerIdNeeded", ref: doc, receipt, v: IDENTIFY_ABOVE });
-    if (taxable && absNet >= allocationThreshold(d.issued) && !digits(d.alloc))
+    // VAT Law §47(א2) ("Israel Invoices"): a tax invoice to a dealer whose amount before VAT *exceeds* the threshold needs an allocation number;
+    // a private buyer deducts no input VAT, so none is asked for. The buyer is a dealer when a valid VAT id is on the document (the books
+    // cannot tell an osek patur's id from a murshe's; ponytail: a patur buyer with an id is still flagged).
+    if (taxable && absNet > allocationThreshold(d.issued) && id && validVatId(id) && !digits(d.alloc))
       issues.push({ level: "warn", code: "allocationNeeded", ref: doc, receipt, v: allocationThreshold(d.issued) });
     const common = { side: "sale" as const, group: "0000", alloc: digits(d.alloc).slice(-9), taxable, equipment: false, label, doc, receipt, src: [d.id] };
     if (d.noVat && !id) {

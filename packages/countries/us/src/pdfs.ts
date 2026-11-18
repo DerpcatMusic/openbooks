@@ -79,6 +79,9 @@ export const IRS_PDFS: readonly IrsPdf[] = [
     sha256: "68a8f00078be6dd6a4912cc4209df317b31840d5fe19560222d39df9f2f7ff49",
   },
 ];
-/** The blank for a form and tax year, or undefined while the IRS has not published that year's form (Schedule C 2026 comes out around December). */
-export const pdfFor = (form: "schedule-c" | "schedule-se" | "8995" | "1040-es" | "1099-nec", year: number): IrsPdf | undefined =>
+/**
+ * The blank for a form and tax year, or undefined while the IRS has not published that year's form (Schedule C 2026 comes out around December).
+ * The 1120 (pro forma or real) is per tax year too; the 5472 blank is revision-dated (Rev. December 2023) and serves every year.
+ */
+export const pdfFor = (form: "schedule-c" | "schedule-se" | "8995" | "1040-es" | "1099-nec" | "1120", year: number): IrsPdf | undefined =>
   IRS_PDFS.find((p) => (form === "1099-nec" ? p.id === `1099-nec-${year}` : p.id === form && p.taxYear === year));

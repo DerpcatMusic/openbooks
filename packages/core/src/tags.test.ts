@@ -4,6 +4,8 @@ import {
   activeTags,
   createGroup,
   createTag,
+  ensureRelatedPartyTag,
+  relatedPartyTags,
   deleteGroup,
   deleteTag,
   emptyTags,
@@ -149,5 +151,15 @@ describe("tags on ledger rows: one per group, by hand over rules", () => {
   });
   it("ungrouped tags are all kept; deleted tags fall away", () => {
     expect(ledger([row("a")], {}, [rule(["solo", "ghost"])], [], { ...d, on: { a: ["sales"] } })[0]!.tags).toEqual(["sales", "solo"]);
+  });
+});
+
+describe("related-party tag (Form 5472 Part V)", () => {
+  it("is created once and found again", () => {
+    const a = ensureRelatedPartyTag(emptyTags(), "Related party");
+    expect(a.doc.tags).toEqual([{ id: a.id, name: "Related party", relatedParty: true }]);
+    const b = ensureRelatedPartyTag(a.doc, "Other name");
+    expect(b).toEqual({ doc: a.doc, id: a.id });
+    expect([...relatedPartyTags(a.doc)]).toEqual([a.id]);
   });
 });

@@ -16,13 +16,17 @@ export interface UsProfile {
   ownerCountry?: string;
   ownerTin?: string;
   business?: string;
+  /** Form 5472 line 1o: principal country(ies) where the reporting company conducts business (never "worldwide"; i5472). */
+  businessCountries?: string;
+  /** Form 5472 line 1n: country(ies) under whose laws the company files an income tax return as a resident; blank when none (a DE files none). */
+  taxReturnCountry?: string;
   /** Individual track (Schedule C / SE / 1040-ES): the taxpayer as on the 1040, their SSN or ITIN, phone for the 1099-NEC payer box. */
   taxpayerName?: string;
   ssn?: string;
   phone?: string;
 }
 
-export const PROFILE_FIELDS: Readonly<Record<Exclude<keyof UsProfile, "taxpayerName" | "ssn" | "phone">, string>> = {
+export const PROFILE_FIELDS: Readonly<Record<Exclude<keyof UsProfile, "taxpayerName" | "ssn" | "phone" | "taxReturnCountry">, string>> = {
   legalName: "Legal name",
   ein: "EIN",
   state: "State of formation",
@@ -35,6 +39,7 @@ export const PROFILE_FIELDS: Readonly<Record<Exclude<keyof UsProfile, "taxpayerN
   ownerCountry: "Owner citizenship & tax residence",
   ownerTin: "Owner foreign TIN",
   business: "Principal business activity",
+  businessCountries: "Principal country(ies) where business is conducted (5472 line 1o)",
 };
 /** What an individual's return and 1099-NEC payer box need beyond PROFILE_FIELDS (the owner is a US person: no foreign-owner fields). */
 export const INDIVIDUAL_FIELDS = ["taxpayerName", "ssn", "address", "cityStateZip", "business", "naics"] as const;

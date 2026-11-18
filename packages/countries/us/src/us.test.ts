@@ -11,7 +11,7 @@ describe("us pack", () => {
       ["State annual report", undefined],
     ]);
     expect(o[2]!.why).toContain("WY");
-    expect(missingProfile({ ein: "1" }).length).toBe(11);
+    expect(missingProfile({ ein: "1" }).length).toBe(12); // incl. 5472 line 1o, principal country(ies) of business (i5472)
   });
   it("playbook and strings", () => {
     expect(us.playbook.length).toBe(9);

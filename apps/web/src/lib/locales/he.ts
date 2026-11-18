@@ -24,6 +24,7 @@ import qa2 from "./parts/qa2.he.ts";
 import banks from "./parts/banks.he.ts";
 import money from "./parts/money.he.ts";
 import integrity from "./parts/integrity.he.ts";
+import legal from "./parts/legal.he.ts";
 export default {
   ...a,
   ...b,
@@ -50,6 +51,7 @@ export default {
   ...banks,
   ...money,
   ...integrity,
+  ...legal,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

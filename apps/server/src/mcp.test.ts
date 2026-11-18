@@ -7,6 +7,9 @@ import { createInterface } from "node:readline";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
+
+// No network in tests: Bank of Israel rates point at a closed port, so they stay missing (money.test.ts covers rates with a fake BoI)
+const NO_NET = { OPENBOOKS_BOI_API: "http://127.0.0.1:9/EXR" };
 import { http, ROOT, type Running, startTs, testBooks } from "./testing.ts";
 
 const MAIN = join(ROOT, "apps/server/src/main.ts");
@@ -24,7 +27,7 @@ class Rpc {
   q: J[] = [];
   waiters: ((m: J) => void)[] = [];
   constructor(cmd: string[], home: string) {
-    this.p = spawn(cmd[0]!, cmd.slice(1), { cwd: ROOT, env: { ...process.env, OPENBOOKS_HOME: home }, stdio: ["pipe", "pipe", "ignore"] });
+    this.p = spawn(cmd[0]!, cmd.slice(1), { cwd: ROOT, env: { ...process.env, ...NO_NET, OPENBOOKS_HOME: home }, stdio: ["pipe", "pipe", "ignore"] });
     createInterface(this.p.stdout!).on("line", (l) => {
       const m = JSON.parse(l) as J;
       const w = this.waiters.shift();
@@ -272,7 +275,12 @@ describe("openbooks mcp (stdio)", () => {
     expect(us.ownerContributions).toEqual({ count: 2, total: 510 }); // 500 wire + 10 journal
     expect(us.obligations[0].due).toBe("2027-04-15");
     const il = await s.tool("tax_summary", { entity: "zz-il", year: 2026 });
-    expect(il).toMatchObject({ turnover: 10000, taxable: 7000, grossTax: 700, credits: 700, due: 0 });
+    // these books also hold a US disregarded LLC: income attributed from a transparent entity closes osek zair (Income Tax Circular 7/2025
+    // §3.3), so no 30% deemed expenses (taxable = turnover with no expenses), the full 1301, and the LLC's income waits for Bank of Israel rates
+    expect(il).toMatchObject({ businessType: "osek-zair", turnover: 10000, taxable: 10000, grossTax: 1000, credits: 1000, due: 0 });
+    expect(il.zairExcluded.why).toEqual(["business income attributed from a transparent (pass-through) foreign entity"]);
+    expect(il.crossBorder).toMatchObject({ onReturn: false, obligations: [{ form: "1301" }, { form: "1324" }, { form: "150" }] });
+    expect(il.crossBorder.missingRates).toBeGreaterThan(0);
 
     // deductions: a tag carries a tax rule; apply_tax_tag needs the user's yes; the summary counts the tagged expense by that rule
     const dedTx = host[0]!.id;
@@ -401,7 +409,7 @@ describe("/mcp (Streamable HTTP)", () => {
   const port = 8942;
   beforeAll(async () => {
     [home, clean] = testBooks();
-    srv = await startTs(home, { OPENBOOKS_PORT: String(port) });
+    srv = await startTs(home, { ...NO_NET, OPENBOOKS_PORT: String(port) });
   });
   afterAll(() => {
     srv.stop();
@@ -495,7 +503,7 @@ test("SDK Client round trip over stdio (openbooks mcp)", { timeout: 30_000 }, as
       new StdioClientTransport({
         command: "bun",
         args: [MAIN, "mcp"],
-        env: { ...process.env, OPENBOOKS_HOME: home } as Record<string, string>,
+        env: { ...process.env, ...NO_NET, OPENBOOKS_HOME: home } as Record<string, string>,
         stderr: "ignore",
       }),
     );
