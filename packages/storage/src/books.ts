@@ -239,6 +239,8 @@ export const makeBooks = (opts: BooksOptions) =>
                   .transaction(() => {
                     const next = { ...m, ...patch };
                     db.query("update entity set meta = ? where id = ?").run(JSON.stringify(next), e);
+                    // the import mode decides which bank rows a statement yields: re-read them now, not at the next sync
+                    if ("import" in patch && (patch.import || "") !== (m.import || "")) db.query("delete from statement where entity = ?").run(e);
                     audit(db, { entity: e, actor, kind: "meta", target: "entity", before: m, after: next });
                   })
                   .immediate(),

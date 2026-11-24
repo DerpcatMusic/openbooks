@@ -115,7 +115,9 @@ export function onezeroJson(file: ReaderFile, ctx: { meta: EntityMeta; siblingPd
   const { data, isInt } = parseStatementJson(file);
   const cut = ctx.siblingPdfPeriods().reduce((m, p) => (p[1] > m ? p[1] : m), "");
   const rows: StatementRow[] = [];
+  const checks: StatementCheck[] = [];
   for (const a of data.accounts) {
+    const acctRows: StatementRow[] = [];
     for (const t of a.txns ?? []) {
       const date: string = t.date.slice(0, 10),
         amt: number = t.chargedAmount;
@@ -130,10 +132,26 @@ export function onezeroJson(file: ReaderFile, ctx: { meta: EntityMeta; siblingPd
           page: rows.length + 1,
           key: "identifier" in t ? pyS(t.identifier, isInt(t, "identifier")) : "",
         };
-        rows.push(intAmount(r, t, "chargedAmount"));
+        const row = intAmount(r, t, "chargedAmount");
+        rows.push(row);
+        acctRows.push(row);
       }
     }
-    // no reconciliation row: a filtered slice (credits after the last PDF) can't add up to the bank balance
+    // When full-bank import ("all") is enabled and One Zero returned a live balance, emit a balance anchor
+    // so Net Worth and Reconciliation track the true One Zero balance automatically.
+    if (ctx.meta.import === "all" && typeof a.balance === "number" && Number.isFinite(a.balance) && acctRows.length > 0) {
+      const ds = acctRows.map((r) => r.date).sort();
+      // the live balance includes every row of the account (PDF-covered credits too), so the anchor sits at its latest activity
+      const last = (a.txns ?? []).reduce((m: string, t: { date: string }) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), ds.at(-1)!);
+      checks.push({
+        file: file.name,
+        label: "One Zero",
+        period: [ds[0]!, last],
+        parsed: pyRound(acctRows.reduce((s, r) => s + r.amount, 0)),
+        total: a.balance,
+        balance: true,
+      });
+    }
   }
-  return { rows, checks: [] };
+  return { rows, checks };
 }

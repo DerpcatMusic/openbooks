@@ -3,19 +3,33 @@
   // Secrets never reach the browser: the state only says whether a connection works. Login fields are type=password where
   // secret, autocomplete off, never pre-filled, and cleared right after the request. A locked vault answers 423: the unlock
   // prompt (lib/vault) opens and the request is resent.
-  import { S, ent, load, toast, saveDoc, upload, doc } from "#lib/stores/books.svelte.ts";
-  import { api } from "#lib/api.ts";
+  import { S, ent, load, setMeta, toast, saveDoc, upload, doc } from "#lib/stores/books.svelte.ts";
+  import { api, type Connection } from "#lib/api.ts";
   import { t, locale, bidi } from "#lib/i18n.svelte.ts";
   import { V, ask, refresh } from "#lib/vault/vault.svelte.ts";
   import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, Input, PageHeader, Search, Segmented, Select } from "#lib/ui/index.ts";
   import type { Tone } from "#lib/ui/index.ts";
   import FilePick from "../documents/FilePick.svelte";
+  import AssetsSection from "./AssetsSection.svelte";
   import { PROVIDERS, GROUPS, providerName, readText, guess, toProfile, canSave, type Mapping } from "./providers.ts";
   import { onMount } from "svelte";
+
+  const STALE_MS = 24 * 60 * 60 * 1000;
+  let nowMs = $state(Date.now());
+  let openHistory = $state<Record<string, boolean>>({});
+  let reconnectKey = $state<string | null>(null);
 
   onMount(() => {
     void refresh();
     if (location.hash === "#csv") choose("csv"); // the "map columns" link after a CSV wasn't recognised on drop
+    // poll-ok: update relative sync timestamps in the UI
+    const tick = setInterval(() => (nowMs = Date.now()), 60_000);
+    return () => clearInterval(tick);
+  });
+
+  $effect(() => {
+    void S.rev;
+    nowMs = Date.now();
   });
 
   const WHAT: Record<string, string> = { mercury: "connections.what.mercury", plaid: "connections.what.plaid", simplefin: "banks.what.simplefin", wise: "banks.what.wise", enablebanking: "banks.what.enablebanking", onezero: "connections.what.onezero", "il-bank": "connections.what.ilBank", "il-card": "connections.what.ilCard" };
@@ -25,17 +39,38 @@
   };
   const conns = $derived(S.data?.connections ?? []);
   const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" }) : t("common.never"));
-  const pill = (c: (typeof conns)[number]): [string, Tone] =>
-    c.connected
-      ? c.lastError
-        ? [t("connections.pill.failed"), "bad"]
-        : [t("connections.pill.connected"), "good"]
-      : c.pending
-        ? [t(c.authUrl ? "banks.pill.auth" : c.linkToken ? "connections.pill.plaid" : "connections.pill.waiting"), "warn"]
-        : [t("connections.pill.notConnected"), "neutral"];
+  const relativeSync = (iso: string | null, now: number) => {
+    if (!iso) return t("sync.never");
+    const ts = Date.parse(iso);
+    if (!Number.isFinite(ts)) return t("sync.never");
+    const diff = Math.max(0, now - ts);
+    if (diff < 60_000) return t("sync.justNow");
+    if (diff < 3_600_000) return t("sync.minsAgo", { n: Math.floor(diff / 60_000) });
+    if (diff < 86_400_000) return t("sync.hoursAgo", { n: Math.floor(diff / 3_600_000) });
+    return t("sync.daysAgo", { n: Math.floor(diff / 86_400_000) });
+  };
+  const isStale = (c: Connection, now: number) => {
+    if (!c.connected || c.pending || c.needsYou) return false;
+    if (!c.lastSync) return true;
+    const ts = Date.parse(c.lastSync);
+    return !Number.isFinite(ts) || now - ts > STALE_MS;
+  };
+  const pill = (c: Connection, now: number): [string, Tone] =>
+    c.needsYou
+      ? [t("sync.needsYou"), "warn"]
+      : c.connected
+        ? c.lastError
+          ? [t("connections.pill.failed"), "bad"]
+          : isStale(c, now)
+            ? [t("sync.stale"), "warn"]
+            : [t("connections.pill.connected"), "good"]
+        : c.pending
+          ? [t(c.authUrl ? "banks.pill.auth" : c.linkToken ? "connections.pill.plaid" : "connections.pill.waiting"), "warn"]
+          : [t("connections.pill.notConnected"), "neutral"];
   // Enable Banking consent: shown with its end date, flagged in the last 14 days
   const daysLeft = (iso?: string) => (iso ? Math.ceil((Date.parse(iso) - Date.now()) / 864e5) : null);
   const iconOf = (type: string) => (PROVIDERS[type]?.group === "il-card" ? "wallet" : "bank");
+  const toggleHistory = (key: string) => (openHistory = { ...openHistory, [key]: !openHistory[key] });
 
   // ---------- requests: each answers with the new state ----------
   async function post(path: "/api/connect" | "/api/sync" | "/api/disconnect", body: unknown) {
@@ -68,21 +103,31 @@
   const P = $derived(pick && pick !== "csv" ? PROVIDERS[pick] : null);
   const ready = $derived(!!P && P.fields.every((x) => String(f[x.key] ?? "").trim()));
   let pane = $state<HTMLElement>();
-  function choose(k: string | null) {
+  function choose(k: string | null, forReconnect: string | null = null) {
+    reconnectKey = forReconnect;
     pick = k;
     f = {};
     if (k === "csv") resetCsv();
-    // phones: the form opens under the bank list, out of view
-    if (k && matchMedia("(max-width: 767px)").matches) requestAnimationFrame(() => pane?.scrollIntoView({ block: "start", behavior: "smooth" }));
+    // phones (or jumping from a "Needs you" action): bring the form into view
+    if (k && (forReconnect || matchMedia("(max-width: 767px)").matches)) requestAnimationFrame(() => pane?.scrollIntoView({ block: "start", behavior: "smooth" }));
   }
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     if (!pick || !ready || S.busy) return;
     const credentials = { ...f };
     f = {}; // secrets don't linger in memory or on screen
-    if (await post("/api/connect", { provider: pick, credentials, origin: location.origin })) pick = null;
+    const target = reconnectKey && reconnectKey.split(":")[0] === pick ? reconnectKey : pick;
+    const body = target === reconnectKey ? { provider: target, reconnect: true, credentials, origin: location.origin } : { provider: pick, credentials, origin: location.origin };
+    if (await post("/api/connect", body)) {
+      pick = null;
+      reconnectKey = null;
+    }
   }
   const reconnect = (key: string) => post("/api/connect", { provider: key, reconnect: true, origin: location.origin });
+  function actOnNeedsYou(c: Connection) {
+    if (c.type === "enablebanking") return void reconnect(c.provider);
+    if (PROVIDERS[c.type]) choose(c.type, c.provider);
+  }
   async function submitOtp(e: SubmitEvent, key: string) {
     e.preventDefault();
     const otpCode = (otp[key] ?? "").trim();
@@ -211,12 +256,20 @@
   {/if}
 
   {#each conns as c (c.provider)}
-    {@const [label, tone] = pill(c)}
+    {@const [label, tone] = pill(c, nowMs)}
+    {@const stale = isStale(c, nowMs)}
+    {@const history = c.history ?? []}
     <Card flush>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 sm:px-5">
         <span class="grid size-9 shrink-0 place-items-center rounded-full bg-fill text-sub"><Icon name={iconOf(c.type)} size={17} /></span>
         <div class="min-w-0 flex-1 basis-48">
-          <div class="flex flex-wrap items-center gap-2"><span class="text-[15px] text-ink" dir="auto">{providerName(c.provider)}</span><Badge size="sm" {tone}>{label}</Badge></div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[15px] text-ink" dir="auto">{providerName(c.provider)}</span>
+            <Badge size="sm" {tone}>{label}</Badge>
+            {#if c.connected}
+              <span class={["text-[12px] num", stale ? "text-warn" : "text-sub"]} title={when(c.lastSync)}>{relativeSync(c.lastSync, nowMs)}</span>
+            {/if}
+          </div>
           <div class="text-[13px] text-sub">{what(c.type)}</div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -224,6 +277,16 @@
           <Button variant="ghost" onclick={() => disconnect(c.provider, c.connected)}>{c.connected ? t("connections.disconnect") : t("common.cancel")}</Button>
         </div>
       </div>
+
+      {#if c.needsYou && !c.pending}
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-warn/25 bg-warn/8 px-4 py-3 text-[13px] sm:px-5">
+          <Icon name="alert" size={15} class="shrink-0 text-warn" />
+          <p class="min-w-0 flex-1 basis-56 text-ink-2">{t(`sync.reason.${c.needsYou.reason}`)}</p>
+          <Button size="sm" variant="primary" onclick={() => actOnNeedsYou(c)} disabled={S.busy}>
+            {t(c.needsYou.action === "code" ? "sync.action.code" : "sync.action.reconnect")}
+          </Button>
+        </div>
+      {/if}
 
       {#if c.lastError}
         <div class="flex items-start gap-2 border-t border-bad/20 bg-bad/6 px-4 py-2.5 text-[13px] text-bad sm:px-5"><Icon name="alert" size={15} class="mt-0.5 shrink-0" /><span class="min-w-0 [overflow-wrap:anywhere]" dir="auto">{c.lastError}</span></div>
@@ -249,7 +312,17 @@
         </form>
       {:else if c.connected}
         <dl class="divide-y divide-line border-t border-line text-[14px]">
-          <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.lastSync")}</dt><dd class="min-w-0 text-ink-2 num">{when(c.lastSync)}</dd></div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:px-5">
+            <dt class="w-40 shrink-0 text-sub">{t("connections.lastSync")}</dt>
+            <dd class="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-ink-2 num">
+              <span>{relativeSync(c.lastSync, nowMs)}</span>
+              {#if c.lastSync}<span class="text-[12px] text-sub">· {when(c.lastSync)}</span>{/if}
+              {#if stale}
+                <Badge size="sm" tone="warn" icon="alert">{t("sync.stale")}</Badge>
+                <span class="text-[12px] text-warn">{t("sync.staleHint")}</span>
+              {/if}
+            </dd>
+          </div>
           {#if c.expiresAt}
             {@const left = daysLeft(c.expiresAt)}
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
@@ -263,6 +336,46 @@
           {/if}
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.accounts")}</dt><dd class="min-w-0 text-ink-2 [overflow-wrap:anywhere]" dir="auto">{c.accounts.length ? c.accounts.join(" · ") : "—"}</dd></div>
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.writes")}</dt><dd class="min-w-0 font-mono text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="ltr">inbox/{c.file}</dd></div>
+          {#if c.type === "onezero"}
+            <div class="px-4 py-3 sm:px-5">
+              <Checkbox
+                label={t("connections.onezero.importAll")}
+                description={t("connections.onezero.importAllHint")}
+                checked={(ent() as { import?: string }).import === "all"}
+                onchange={(on) => void setMeta({ import: on ? "all" : "" } as Record<string, unknown>)} />
+            </div>
+          {/if}
+          {#if history.length}
+            <div>
+              <button
+                type="button"
+                aria-expanded={!!openHistory[c.provider]}
+                onclick={() => toggleHistory(c.provider)}
+                class="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-start text-[13px] text-sub transition-colors hover:bg-hover outline-none focus-visible:ring-2 focus-visible:ring-accent/50 sm:px-5">
+                <span class="flex items-center gap-2">
+                  <span>{t("sync.history")}</span>
+                  <span class="text-[12px] text-faint num">({t("sync.historyCount", { n: history.length })})</span>
+                </span>
+                <Icon name={openHistory[c.provider] ? "chevron-up" : "chevron-down"} size={14} class="shrink-0" />
+              </button>
+              {#if openHistory[c.provider]}
+                <ul class="divide-y divide-line border-t border-line bg-fill/40 text-[13px]">
+                  {#each history as run, idx (`${run.startedAt}-${idx}`)}
+                    <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2 sm:px-5">
+                      <Badge size="sm" tone={run.ok ? "good" : "bad"}>{t(run.ok ? "sync.ok" : "sync.failed")}</Badge>
+                      <span class="text-ink-2 num">{when(run.startedAt)}</span>
+                      <span class="text-[12px] text-sub">{t(run.auto ? "sync.auto" : "sync.manual")}</span>
+                      {#if run.ok}
+                        <span class="ms-auto text-[12px] text-sub num">{run.rowsAdded > 0 ? t("sync.rowsAdded", { n: run.rowsAdded }) : t("sync.noNewRows")}</span>
+                      {:else if run.error}
+                        <span class="min-w-0 basis-full text-[12px] text-bad [overflow-wrap:anywhere]" dir="auto">{run.error}</span>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
+          {/if}
         </dl>
       {/if}
     </Card>
@@ -297,7 +410,10 @@
           <EmptyState icon="bank" title={t("connections.pickTitle")} text={t("connections.pickHint")} />
         {:else if P}
           <form class="space-y-3" onsubmit={submit} autocomplete="off">
-            <div class="text-[15px] text-ink">{P.name}</div>
+            <div class="flex flex-wrap items-center gap-2 text-[15px] text-ink">
+              <span>{reconnectKey ? t("sync.reconnecting", { name: bidi(providerName(reconnectKey)) }) : P.name}</span>
+              {#if reconnectKey}<Badge size="sm" tone="warn">{t("sync.action.reconnect")}</Badge>{/if}
+            </div>
             {#if pick === "mercury"}
               <ol class="list-decimal space-y-1 ps-5 text-[13px] text-sub">
                 <li>{t("connections.mercury1")}</li>
@@ -457,6 +573,8 @@
       </ul>
     </Card>
   {/if}
+
+  <AssetsSection />
 
   <div class="space-y-2 text-[13px] text-sub">
     <p class="flex items-start gap-2"><Icon name="shield" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.privacy")}</span></p>

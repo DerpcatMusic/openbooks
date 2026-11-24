@@ -1,17 +1,21 @@
 <script lang="ts">
   import { BASE } from "#lib/nav.ts";
+  import { untrack } from "svelte";
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { burn as burnRate, cashDelta, cashFlow, cashIn, cashOut, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
+  import { baseOf, burn as burnRate, cashDelta, cashFlow, cashIn, cashOut, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
-  import { S, ent, isUS, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc } from "#lib/stores/books.svelte.ts";
+  import { api, type CombinedFlow, type CombinedFlowTxn, type TransferJourney } from "#lib/api.ts";
+  import { S, ent, isUS, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc, setEntity, decideTransfer } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Area, Badge, BarList, Bars, Button, Dialog, Icon, IconButton, Money, Segmented, Stat, Switch } from "#lib/ui/index.ts";
+  import { Area, Badge, BarList, Bars, Button, Dialog, Icon, IconButton, Money, Segmented, Skeleton, Stat, Switch } from "#lib/ui/index.ts";
+  import { moneyText } from "#lib/ui/money.ts";
   import { ilYear } from "../tax/il/il.ts";
   import FlowCard from "#lib/home/FlowCard.svelte";
   import InOutCard from "#lib/home/InOutCard.svelte";
   import Insights from "#lib/home/Insights.svelte";
+  import MarketsStrip from "#lib/home/MarketsStrip.svelte";
   import NetWorthCard from "#lib/home/NetWorthCard.svelte";
   import RecurringList from "#lib/home/RecurringList.svelte";
   import { arrange, move, type CardId, type HomeLayout } from "#lib/home/layout.ts";
@@ -33,7 +37,7 @@
   const ml = (ym: string) => mon(+ym.slice(5) - 1);
   const endOf = (ym: string) => `${ym}-${String(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate()).padStart(2, "0")}`;
   // money in (Israel): what came in from outside, not transfers, own money, owner equity, personal movements or loans
-  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => (isFlow(x.category) ? a + x.amount : a), 0);
+  const sumOf = (xs: readonly Txn[]) => xs.reduce((a, x) => (isFlow(x.category) ? a + baseOf(x) : a), 0);
 
   // cash (US) / money in (Israel)
   const nonCard = (b: Record<string, number>) => Object.entries(b).reduce((s, [a, v]) => (isCard(a) ? s : s + v), 0);
@@ -45,7 +49,7 @@
   type Item = { key: string; label: string; value: number; color: string };
   const inByType = $derived.by(() => {
     const m = new Map<string, number>();
-    for (const x of ts) if (isFlow(x.category)) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + x.amount);
+    for (const x of ts) if (isFlow(x.category)) m.set(group(x.category), (m.get(group(x.category)) ?? 0) + baseOf(x));
     return [...m]
       .map(([key, value]) => ({ key, label: key in TYPES ? typeLabel(key) : key, value }))
       .sort((a, b) => b.value - a.value)
@@ -67,7 +71,7 @@
       const v: Record<string, number> = {};
       for (const x of monthTs(ym)) {
         const k = keyOf(x);
-        if (ls.some((l) => l.key === k)) v[k] = (v[k] ?? 0) + sign * x.amount;
+        if (ls.some((l) => l.key === k)) v[k] = (v[k] ?? 0) + sign * baseOf(x);
       }
       return { key: ym, label: ml(ym), sub: monthYear(ym), v };
     });
@@ -152,7 +156,128 @@
   const ask = $derived(S.data!.txns.filter((x) => x.category === "ask").length);
   const first = $derived(String(S.data!.profile.owner ?? "").split(" ")[0] || String(S.data!.profile.first ?? ""));
   const hour = new Date().getHours();
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const todayIso = new Date().toLocaleDateString("sv");
+  const curYear = Number(todayIso.slice(0, 4));
+  const thisMonth = todayIso.slice(0, 7);
+  const multiEntity = $derived((S.data?.entities.length ?? 0) > 1);
+  let homeScopePref = $state<"merged" | "single" | null>(
+    typeof localStorage !== "undefined" ? ((localStorage.getItem("ob-home-scope") as "merged" | "single" | null) ?? null) : null,
+  );
+  const homeScope = $derived<"merged" | "single">(multiEntity ? (homeScopePref ?? "merged") : "single");
+  const setHomeScope = (v: "merged" | "single") => {
+    homeScopePref = v;
+    try {
+      localStorage.setItem("ob-home-scope", v);
+    } catch {}
+  };
+  const mergedCurrencies = $derived([...new Set(["USD", "ILS", ...(S.data?.entities ?? []).map((e) => e.currency ?? "USD")])]);
+  let mergedCurPref = $state<string | null>(
+    typeof localStorage !== "undefined" ? localStorage.getItem("ob-merged-cur") : null,
+  );
+  const mergedCur = $derived(mergedCurPref && mergedCurrencies.includes(mergedCurPref) ? mergedCurPref : cur);
+  const setMergedCur = (c: string) => {
+    mergedCurPref = c;
+    try {
+      localStorage.setItem("ob-merged-cur", c);
+    } catch {}
+  };
+
+  // Live span: defaults to YTD through TODAY when viewing the current year (constantly updating via SSE);
+  // switches automatically to the full tax year or custom range whenever the user explicitly picks one.
+  const isLiveYtd = $derived(!S.period && S.year === curYear);
+  const liveSpan = $derived.by(() => {
+    if (isLiveYtd) return { from: `${curYear}-01-01`, to: todayIso };
+    const from = `${p.from}-01`;
+    const toEnd = endOf(p.to);
+    return { from, to: toEnd > todayIso && p.to === thisMonth ? todayIso : toEnd };
+  });
+
+  let mergedFlow = $state<CombinedFlow | null>(null);
+  let mergedBusy = $state(false);
+  $effect(() => {
+    if (homeScope !== "merged" || !multiEntity) return;
+    void S.v;
+    void S.rev;
+    const { from, to } = liveSpan;
+    const c = mergedCur;
+    let stale = false;
+    // untracked: this effect sets mergedFlow, so reading it here would refetch forever. An answer for another currency or span is
+    // dropped at once so its amounts are never shown under the new label.
+    untrack(() => {
+      if (mergedFlow && (mergedFlow.currency !== c || mergedFlow.from !== from || mergedFlow.to !== to)) mergedFlow = null;
+      mergedBusy = !mergedFlow;
+    });
+    api
+      .flow(c, from, to)
+      .then((d) => {
+        if (!stale) {
+          mergedFlow = d;
+          mergedBusy = false;
+        }
+      })
+      .catch(() => {
+        if (!stale) mergedBusy = false;
+      });
+    return () => {
+      stale = true;
+    };
+  });
+  const mergedEntityNames = $derived((S.data?.entities ?? []).map((e) => `${e.flag ?? ""} ${e.short || e.name || e.id}`.trim()).join(" + "));
+  // Highlight: one slice of the merged money stays lit (a business's money in, spending, fees, moves between banks), the rest dims.
+  let focus = $state<string | null>(null);
+  const mergedEnts = $derived(mergedFlow?.entities ?? []);
+  const entTag = (id: string) => {
+    const e = mergedEnts.find((x) => x.id === id);
+    return `${e?.flag ?? ""} ${e?.name ?? id}`.trim();
+  };
+  const entFlag = (id: string) => mergedEnts.find((x) => x.id === id)?.flag || entTag(id);
+  const sliceOf = (x: CombinedFlowTxn) => (x.category === "expense:bank-fees" ? "fees" : x.amount > 0 ? `in:${x.entity}` : "out");
+  const IN_COLORS = ["var(--color-s3)", "var(--color-s1)", "var(--color-s5)", "var(--color-s6)"];
+  const slices = $derived([
+    ...mergedEnts.map((e, i) => ({ key: `in:${e.id}`, label: t("charts.merged.hl.in", { name: entTag(e.id) }), color: IN_COLORS[i % IN_COLORS.length]! })),
+    { key: "out", label: t("charts.merged.hl.out"), color: "var(--color-s2)" },
+    { key: "fees", label: t("charts.merged.hl.fees"), color: "var(--color-bad)" },
+    { key: "moved", label: t("charts.merged.hl.moved"), color: "var(--color-s4)" },
+  ]);
+  const lit = (k: string) => !focus || focus === k;
+  // a business card stays lit for its own money in and for spending or fees (every business has some)
+  const entLit = (id: string) => !focus || focus === `in:${id}` || focus === "out" || focus === "fees";
+  const mergedChart = $derived.by(() => {
+    const m = new Map<string, Record<string, number>>();
+    for (const r of mergedFlow?.monthly ?? []) m.set(r.month, { moved: r.moved });
+    for (const x of mergedFlow?.txns ?? []) {
+      const ym = x.date.slice(0, 7),
+        v = m.get(ym) ?? {},
+        k = sliceOf(x);
+      v[k] = (v[k] ?? 0) + Math.abs(x.amount);
+      m.set(ym, v);
+    }
+    const net = new Map((mergedFlow?.monthly ?? []).map((r) => [r.month, r.net]));
+    return {
+      series: slices,
+      layout: "group" as const,
+      line: { key: "net", label: t("charts.inout.net"), color: "var(--color-ink)" },
+      rows: [...m].sort(([a], [b]) => a.localeCompare(b)).map(([ym, v]) => ({ key: ym, label: ml(ym), sub: monthYear(ym), v, net: net.get(ym) ?? 0 })),
+    };
+  });
+  const activity = $derived(
+    [...(mergedFlow?.txns ?? [])]
+      .filter((x) => !focus || focus === "moved" || sliceOf(x) === focus)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 12),
+  );
+
+  // Transfer lifecycle: detected → confirmed (both sides filed as transfers) or rejected (both sides count again as money in / out).
+  let settling = $state(false);
+  async function settle(js: readonly TransferJourney[], as: "confirmed" | "rejected") {
+    settling = true;
+    try {
+      for (const j of js) for (const l of j.legs) if (!l.confirmed) await decideTransfer(l.out.ref, l.in.ref, as);
+    } finally {
+      settling = false;
+    }
+  }
+
   const CARD = { metrics, overview, flow, inout, insights, networth, recurring, chart: chartCard, recent: recentCard };
 
   // the cards: order and visibility per entity (doc "home-layout"); wide cards span the row, the rest share it two to one
@@ -173,44 +298,212 @@
 <div class="px-4 pt-6 pb-10 sm:px-8">
   <div class="flex flex-wrap items-end gap-3">
     <div class="min-w-0 flex-1 basis-60">
-      <div class="text-[13px] text-sub">{ent().flag} <bdi>{ent().name}</bdi></div>
+      <div class="flex flex-wrap items-center gap-2 text-[13px] text-sub">
+        {#if homeScope === "merged"}
+          <span>{mergedEntityNames}</span>
+        {:else}
+          <span>{ent().flag} <bdi>{ent().name}</bdi></span>
+        {/if}
+        {#if isLiveYtd}
+          <Badge size="sm" tone="good"><span class="me-1 inline-block size-1.5 rounded-full bg-good"></span>{t("charts.merged.live")}</Badge>
+        {:else if !S.period}
+          <Badge size="sm">{t("charts.merged.taxYear", { y: S.year })}</Badge>
+        {/if}
+      </div>
       <h1 class="display mt-0.5 text-[28px] leading-9 text-ink [overflow-wrap:anywhere]">
         {t(hour < 12 ? "home.greet.morning" : hour < 18 ? "home.greet.afternoon" : "home.greet.evening")}{#if first}, <bdi>{first}</bdi>{/if}
       </h1>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      {#if multiEntity}
+        <Segmented
+          value={homeScope}
+          onchange={(k) => setHomeScope(k as "merged" | "single")}
+          size="sm"
+          label={t("charts.merged.scope")}
+          items={[
+            { key: "merged", label: t("charts.merged.all") },
+            { key: "single", label: t("charts.merged.one") },
+          ]} />
+        {#if homeScope === "merged"}
+          <Segmented
+            value={mergedCur}
+            onchange={setMergedCur}
+            size="sm"
+            label={t("charts.nw.currency")}
+            items={mergedCurrencies.map((c) => ({ key: c, label: c }))} />
+        {/if}
+      {/if}
       <PeriodPicker />
       <Button icon="upload" href="/documents">{t("common.import")}</Button>
-      <IconButton icon="settings" data-customize label={t("charts.card.customize")} variant="secondary" onclick={() => (customize = true)} />
+      {#if homeScope === "single"}
+        <IconButton icon="settings" data-customize label={t("charts.card.customize")} variant="secondary" onclick={() => (customize = true)} />
+      {/if}
     </div>
   </div>
 
-  {#if S.data && !S.data.txns.length}
-    <div class="rise mt-5 rounded-2xl border border-line bg-panel p-5">
-      <h2 class="text-[16px] text-ink">{t("home.start.title")}</h2>
-      <p class="mt-1 max-w-[60ch] text-[14px] text-sub">{t("home.start.text")}</p>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <Button variant="primary" icon="upload" href="/documents">{t("home.start.import")}</Button>
-        <Button href="/connections">{t("home.start.connect")}</Button>
+  {#if homeScope === "merged" && multiEntity}
+    {#if mergedFlow?.transfers?.journeys.length}
+      {@const tr = mergedFlow.transfers}
+      <div class="rise mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-accent/25 bg-accent/8 px-4 py-2.5 text-[13px] text-ink-2 sm:px-5">
+        <span class="min-w-0 flex-1">
+          {t("charts.merged.moved", { n: tr.journeys.length, amount: moneyText(tr.moved, mergedCur, false), fees: moneyText(tr.fees, mergedCur, false) })}
+          {#if tr.pending}<span class="text-warn"> {t("charts.merged.pending", { n: tr.pending })}</span>{/if}
+        </span>
+        {#if tr.pending}
+          <Button size="sm" disabled={settling} onclick={() => settle(tr.journeys, "confirmed")}>{t("charts.merged.confirmAll")}</Button>
+        {/if}
       </div>
+    {/if}
+    {#if (mergedFlow?.totals?.uncatCount ?? 0) > 0}
+      <a
+        href="{BASE}/review"
+        class="rise mt-4 flex w-full items-center gap-3 rounded-2xl border border-warn/25 bg-warn/8 px-4 py-3 text-start outline-none transition hover:bg-warn/12 focus-visible:ring-2 focus-visible:ring-accent/50 sm:px-5">
+        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-warn/15 text-warn"><Icon name="sparkle" size={16} /></span>
+        <span class="min-w-0 flex-1 text-[14px] text-ink">{t("charts.merged.uncatAll", { n: mergedFlow!.totals!.uncatCount })}</span>
+        <span class="shrink-0 text-[14px] whitespace-nowrap text-accent-ink">{t("home.reviewGo")}</span>
+      </a>
+    {/if}
+
+    {#if mergedBusy && !mergedFlow}
+      <div class="mt-5 grid gap-4 lg:grid-cols-3"><Skeleton class="h-36" /><Skeleton class="h-36" /><Skeleton class="h-36" /></div>
+    {:else if mergedFlow}
+      <div class="mt-5 grid gap-4 lg:grid-cols-3">
+        <div class="lg:col-span-3">
+          <Segmented value={focus ?? "all"} onchange={(k) => (focus = k === "all" ? null : k)} size="sm" label={t("charts.merged.hl.label")} items={[{ key: "all", label: t("charts.merged.hl.all") }, ...slices]} />
+        </div>
+        <section class="panel glow rise min-w-0 p-5 sm:p-6">
+          <Stat label={t("charts.merged.net")} value={mergedFlow.totals?.net ?? 0} currency={mergedCur} hint={isLiveYtd ? t("charts.merged.live") : periodLabel(p)} />
+          <div class="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-sub">
+            <span>{t("charts.flow.in")}: <Money value={mergedFlow.totals?.in ?? 0} currency={mergedCur} cents={false} class="text-good" /></span>
+            <span>{t("charts.flow.out")}: <Money value={mergedFlow.totals?.out ?? 0} currency={mergedCur} cents={false} class="text-ink" /></span>
+          </div>
+        </section>
+
+        <section class="panel rise min-w-0 p-5 sm:p-6 lg:col-span-2" style="animation-delay:60ms">
+          <h2 class="text-[13px] text-sub">{t("charts.merged.byEntity")}</h2>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            {#each mergedFlow.totals?.byEntity ?? [] as be (be.id)}
+              <button
+                type="button"
+                style:opacity={entLit(be.id) ? 1 : 0.35}
+                onclick={() => {
+                  setHomeScope("single");
+                  void setEntity(be.id);
+                }}
+                class="flex flex-col gap-1.5 rounded-xl border border-line bg-bg/50 p-3.5 text-start transition hover:border-line-strong hover:bg-hover">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="truncate text-[14px] font-medium text-ink">{be.flag} <bdi>{be.name}</bdi></span>
+                  <Money value={be.net} currency={mergedCur} cents={false} plus class="text-[14px] {be.net >= 0 ? 'text-good' : 'text-bad'}" />
+                </div>
+                <div class="flex flex-wrap gap-x-4 text-[12px] text-sub">
+                  <span>{t("charts.flow.in")} <Money value={be.in} currency={mergedCur} cents={false} class="text-ink-2" /></span>
+                  <span>{t("charts.flow.out")} <Money value={be.out} currency={mergedCur} cents={false} class="text-ink-2" /></span>
+                  {#if be.uncatCount > 0}<span class="text-warn">{be.uncatCount} ?</span>{/if}
+                </div>
+              </button>
+            {/each}
+          </div>
+        </section>
+
+        <section class="panel rise min-w-0 p-5 sm:p-6 lg:col-span-3">
+          <NetWorthCard currency={mergedCur} />
+        </section>
+
+        {#if mergedChart.rows.length > 0}
+          <section class="panel rise min-w-0 p-5 sm:p-6 lg:col-span-3">
+            <div class="mb-4">
+              <h2 class="text-[16px] text-ink">{t("charts.merged.monthly")}</h2>
+              <p class="text-[13px] text-sub">{t("charts.merged.sub", { entities: mergedEntityNames, cur: mergedCur })}</p>
+            </div>
+            <Bars bind:focus {...mergedChart} height={260} currency={mergedCur} label={t("charts.merged.monthly")} />
+          </section>
+        {/if}
+
+        <section class="panel rise min-w-0 p-5 transition-opacity sm:p-6 lg:col-span-2" style:opacity={lit("moved") ? 1 : 0.35}>
+          <h2 class="text-[16px] text-ink">{t("charts.merged.journeys")}</h2>
+          <p class="text-[13px] text-sub">{t("charts.merged.journeysSub")}</p>
+          {#if mergedFlow.transfers?.journeys.length}
+            <ul class="mt-3 max-h-[28rem] divide-y divide-line overflow-y-auto">
+              {#each mergedFlow.transfers.journeys as j (j.legs[0]!.out.ref)}
+                {@const open = j.legs.some((l) => !l.confirmed)}
+                <li class="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-2.5 text-[13px]">
+                  <span class="text-sub tabular-nums">{mdy(j.legs[0]!.out.date)}</span>
+                  <span class="text-ink">{entFlag(j.legs[0]!.out.entity)} <bdi>{j.legs[0]!.out.account}</bdi></span>
+                  <Money value={j.legs[0]!.out.native} currency={j.legs[0]!.out.currency} cents={false} class="text-ink-2" />
+                  {#each j.legs as l (l.in.ref)}
+                    <Icon name="arrow" size={12} class="text-faint rtl:-scale-x-100" />
+                    <span class="text-ink">{entFlag(l.in.entity)} <bdi>{l.in.account}</bdi></span>
+                    <Money value={l.in.native} currency={l.in.currency} cents={false} plus class="text-good" />
+                  {/each}
+                  <span class="ms-auto flex flex-wrap items-center gap-2">
+                    {#if j.fee > 0}<span class="text-bad" style:opacity={lit("fees") || lit("moved") ? 1 : 0.35}>{t("charts.merged.fee", { amount: moneyText(j.fee, mergedCur, false) })}</span>{/if}
+                    {#if open}
+                      <Badge size="sm" tone="warn">{t("charts.merged.detected")}</Badge>
+                      <Button size="sm" disabled={settling} onclick={() => settle([j], "confirmed")}>{t("charts.merged.confirm")}</Button>
+                      <Button size="sm" variant="ghost" disabled={settling} onclick={() => settle([j], "rejected")}>{t("charts.merged.reject")}</Button>
+                    {:else}
+                      <Badge size="sm" tone="good">{t("charts.merged.confirmed")}</Badge>
+                    {/if}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="py-6 text-[14px] text-sub">{t("charts.merged.noJourneys")}</p>
+          {/if}
+        </section>
+
+        <section class="panel rise min-w-0 overflow-hidden transition-opacity" style:opacity={focus === "moved" ? 0.35 : 1}>
+          <h2 class="px-4 pt-5 pb-2 text-[16px] text-ink sm:px-5">{t("charts.merged.activity")}</h2>
+          <ul>
+            {#each activity as x (`${x.entity}/${x.id}`)}
+              <li class="flex items-center gap-3 border-t border-line px-4 py-2.5 first:border-t-0 sm:px-5">
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[14px] text-ink" dir="auto">{x.who ? `${x.who} · bit` : x.desc}</span>
+                  <span class="block truncate text-[12px] text-sub">{mdy(x.date)} · {entFlag(x.entity)} <bdi>{x.account}</bdi> · {catLabel(x.category)}</span>
+                </span>
+                <Money value={x.amount} currency={mergedCur} plus cents={false} class="text-[14px] {x.amount > 0 ? 'text-good' : 'text-ink'}" />
+              </li>
+            {/each}
+          </ul>
+        </section>
+
+        <section class="panel rise min-w-0 p-5 sm:p-6 lg:col-span-3">
+          <FlowCard {ts} currency={mergedCur} sub={isLiveYtd ? t("charts.merged.live") : periodLabel(p)} from={liveSpan.from} to={liveSpan.to} height={360} />
+        </section>
+      </div>
+    {/if}
+  {:else}
+    {#if S.data && !S.data.txns.length}
+      <div class="rise mt-5 rounded-2xl border border-line bg-panel p-5">
+        <h2 class="text-[16px] text-ink">{t("home.start.title")}</h2>
+        <p class="mt-1 max-w-[60ch] text-[14px] text-sub">{t("home.start.text")}</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <Button variant="primary" icon="upload" href="/documents">{t("home.start.import")}</Button>
+          <Button href="/connections">{t("home.start.connect")}</Button>
+        </div>
+      </div>
+    {/if}
+
+    {#if ask}
+      <a
+        href="{BASE}/review"
+        class="rise mt-5 flex w-full items-center gap-3 rounded-2xl border border-warn/25 bg-warn/8 px-4 py-3 text-start outline-none transition hover:bg-warn/12 focus-visible:ring-2 focus-visible:ring-accent/50 sm:px-5">
+        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-warn/15 text-warn"><Icon name="sparkle" size={16} /></span>
+        <span class="min-w-0 flex-1 text-[14px] text-ink">{t("home.ask", { n: ask })} <span class="text-sub max-sm:hidden">· {t("home.askHint")}</span></span>
+        <span class="shrink-0 text-[14px] whitespace-nowrap text-accent-ink">{t("home.reviewGo")}</span>
+      </a>
+    {/if}
+
+    <div class="mt-5 grid grid-flow-dense gap-4 lg:grid-cols-3">
+      {#each L.order.filter((id) => !L.hidden.has(id)) as id (id)}
+        <div class="min-w-0 {SPAN[id]}">{@render CARD[id]()}</div>
+      {/each}
     </div>
   {/if}
 
-  {#if ask}
-    <a
-      href="{BASE}/review"
-      class="rise mt-5 flex w-full items-center gap-3 rounded-2xl border border-warn/25 bg-warn/8 px-4 py-3 text-start outline-none transition hover:bg-warn/12 focus-visible:ring-2 focus-visible:ring-accent/50 sm:px-5">
-      <span class="grid size-8 shrink-0 place-items-center rounded-full bg-warn/15 text-warn"><Icon name="sparkle" size={16} /></span>
-      <span class="min-w-0 flex-1 text-[14px] text-ink">{t("home.ask", { n: ask })} <span class="text-sub max-sm:hidden">· {t("home.askHint")}</span></span>
-      <span class="shrink-0 text-[14px] whitespace-nowrap text-accent-ink">{t("home.reviewGo")}</span>
-    </a>
-  {/if}
-
-  <div class="mt-5 grid grid-flow-dense gap-4 lg:grid-cols-3">
-    {#each L.order.filter((id) => !L.hidden.has(id)) as id (id)}
-      <div class="min-w-0 {SPAN[id]}">{@render CARD[id]()}</div>
-    {/each}
-  </div>
+  <MarketsStrip context={homeScope === "merged" && multiEntity ? "merged" : us ? "us" : "il"} />
 </div>
 
 {#snippet metrics()}

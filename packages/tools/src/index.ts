@@ -13,6 +13,7 @@ export {
   ratesFor,
   transferSearch,
   transferSuggestions,
+  withBase,
   type CombinedFlow,
   type CombinedFlowTxn,
   type NetWorth,

@@ -27,6 +27,8 @@ import money from "./parts/money.en.ts";
 import integrity from "./parts/integrity.en.ts";
 import legal from "./parts/legal.en.ts";
 import charts from "./parts/charts.en.ts";
+import markets from "./parts/markets.en.ts";
+import assets from "./parts/assets.en.ts";
 export default {
   ...a,
   ...b,
@@ -55,6 +57,8 @@ export default {
   ...integrity,
   ...legal,
   ...charts,
+  ...markets,
+  ...assets,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",
@@ -97,10 +101,10 @@ export default {
   "nav.transactions": "Transactions",
   "nav.invoices": "Invoices",
   "nav.bills": "Bills & receipts",
-  "nav.review": "Review",
+  "nav.review": "To do",
   "nav.reports": "Reports",
   "nav.counterparties": "Counterparties",
-  "nav.section.books": "Books",
+  "nav.section.books": "More",
   "nav.rules": "Rules",
   "nav.accounts": "Chart of accounts",
   "nav.journal": "Journal entries",
@@ -329,6 +333,14 @@ export default {
   "txn.source": "Source",
   "txn.by": "Categorized by",
   "txn.by.you": "You",
+  "txn.by.auto": "Automatic: a transfer between your own accounts",
+  "txn.link.to": "Sent to",
+  "txn.link.from": "From",
+  "txn.link.ref": "Reference",
+  "txn.link.arrives": "Arrives as",
+  "txn.link.fee": "Bank fee",
+  "txn.link.open": "Open at the bank",
+  "txn.link.openReceipts": "Open at the bank · {n} receipts",
   "txn.by.rule": "Rule “{rule}”",
   "txn.by.none": "Nothing yet",
   "txn.ruleSaved": "Rule saved: “{rule}” → {cat}",

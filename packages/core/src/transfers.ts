@@ -5,7 +5,7 @@
 // A pair fits when: one row is money out and the other money in; they sit in different accounts (never two rows of one account); they are
 // dated within `window` days of each other; and the amounts agree: in one currency within `same` (fees aside, near exact), across currencies
 // within `tolerance` after converting at the rate of the day the money left (a missing rate = no match, never 1:1).
-import type { EntityMeta } from "@openbooks/schema";
+import type { EntityMeta, TransferLink } from "@openbooks/schema";
 import { daysBetween } from "./accrual.ts";
 import { group, NOT_FLOW } from "./reports.ts";
 
@@ -18,6 +18,9 @@ export interface TransferRow {
   account: string;
   desc: string;
   category: string;
+  memo?: string | undefined;
+  /** What the bank says about the other side (Mercury, Wise): exact converted amount, reference, counterparty. */
+  link?: TransferLink | undefined;
 }
 /** A decided pair: `${entity}/${txn id}` of the money out and of the money in. */
 export interface TransferPair {
@@ -38,6 +41,12 @@ export interface TransferOptions {
   same?: number;
   /** `amount` in `from` as `to` on `date`; null = no rate. */
   convert?: (amount: number, from: string, to: string, date: string) => number | null;
+  /**
+   * Rank every same-currency pair before any cross-currency one. A cross-currency amount difference mixes an FX spread with the
+   * fee, so the closer-looking pair is often the wrong one (Mercury USD → Wise USD → ILS: the direct Mercury → ILS match can look
+   * nearer than the real chain). Off by default, so the one-off transfer dialog keeps its old order.
+   */
+  preferSame?: boolean;
 }
 export interface TransferMatch {
   out: TransferRow;
@@ -46,6 +55,10 @@ export interface TransferMatch {
   gap: number;
   /** How far the amounts differ, as a fraction of the money in. */
   diff: number;
+  /** Implied transfer / wire / FX fee in `in.currency` (converted outflow minus received inflow, clamped >= 0). */
+  fee: number;
+  /** How the bank's own data backs the pair: 2 = exact converted amount or shared reference, 1 = names the other side, 0 = amounts only. */
+  evidence: number;
 }
 
 export const DEFAULT_WINDOW = 4;
@@ -54,14 +67,50 @@ export const refOf = (r: Pick<TransferRow, "entity" | "id">) => `${r.entity}/${r
 const key = (p: TransferPair) => `${p.out}|${p.in}`;
 const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
-/** How far apart the two amounts are (a fraction of the money in), or null when they can't be compared or don't fit. */
-function fit(o: TransferRow, i: TransferRow, opt: TransferOptions): number | null {
+/** How far apart the two amounts are (a fraction of the money in) + implied fee, or null when they can't be compared or don't fit. */
+function fit(o: TransferRow, i: TransferRow, opt: TransferOptions): { diff: number; fee: number } | null {
   const want = i.amount;
-  const got = o.currency === i.currency ? -o.amount : (opt.convert?.(-o.amount, o.currency, i.currency, o.date) ?? null);
-  if (got === null || !(want > 0)) return null;
+  if (!(want > 0)) return null;
+  // the bank said what arrives on the other side: compare with that, near exact, instead of with our own conversion
+  const told = o.link?.to?.currency === i.currency ? o.link.to.amount : null;
+  const got = told ?? sent(o, i, opt.convert);
+  if (got === null) return null;
   const diff = Math.abs(got - want) / want;
-  const tol = o.currency === i.currency ? (opt.same ?? 0.005) : (opt.tolerance ?? 0.03);
-  return Math.abs(got - want) <= 0.01 || diff <= tol ? diff : null;
+  const tol = told !== null || o.currency === i.currency ? (opt.same ?? 0.005) : (opt.tolerance ?? 0.03);
+  if (Math.abs(got - want) <= 0.01 || diff <= tol) {
+    return { diff, fee: impliedFee(o, i, opt.convert) };
+  }
+  return null;
+}
+
+/** The money out of `o`, in `i`'s currency at the rate of the day it left; null = no rate. */
+const sent = (o: TransferRow, i: TransferRow, convert: TransferOptions["convert"]) =>
+  o.currency === i.currency ? -o.amount : (convert?.(-o.amount, o.currency, i.currency, o.date) ?? null);
+
+/** What the move cost, in `i`'s currency: sent minus received (wire fee, FX spread against the BoI rate), never below 0. */
+export function impliedFee(o: TransferRow, i: TransferRow, convert?: TransferOptions["convert"]): number {
+  const got = sent(o, i, convert);
+  return got !== null && got > i.amount + 0.01 ? Math.round((got - i.amount) * 100) / 100 : 0;
+}
+
+const norm = (x: string | undefined) =>
+  (x ?? "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+/** The first word of an account name ("Wise USD" → "wise", "One Zero ••1234" → "one"), the bank it belongs to. */
+const bankWord = (account: string) => norm(account).split(" ")[0] ?? "";
+/** How strongly the banks' own data ties `o` to `i` (see TransferMatch.evidence). */
+export function evidence(o: TransferRow, i: TransferRow): number {
+  const to = o.link?.to;
+  if (to && to.currency === i.currency && Math.abs(to.amount - i.amount) <= Math.max(0.01, 0.005 * i.amount)) return 2;
+  const ref = norm(o.link?.ref);
+  if (ref.length >= 4 && (norm(i.link?.ref) === ref || ` ${norm(`${i.desc} ${i.memo ?? ""}`)} `.includes(` ${ref} `))) return 2;
+  const names = (p: string | undefined, account: string) => {
+    const w = bankWord(account);
+    return w.length >= 3 && ` ${norm(p)} `.includes(` ${w} `);
+  };
+  return names(o.link?.party, i.account) || names(i.link?.party, o.account) ? 1 : 0;
 }
 
 /** Rows that can be a side: a stored transaction (no split line, no journal), not in a pair already decided either way. */
@@ -93,13 +142,16 @@ function pairs(outs: readonly TransferRow[], ins: readonly TransferRow[], decide
       if (i.date > o.date && gap > window) break;
       if (o.entity === i.entity && o.account === i.account) continue;
       if (gap > window || rejected.has(key({ out: refOf(o), in: refOf(i) }))) continue;
-      const diff = fit(o, i, opt);
-      if (diff !== null) out.push({ out: o, in: i, gap, diff });
+      const m = fit(o, i, opt);
+      if (m !== null) out.push({ out: o, in: i, gap, diff: m.diff, fee: m.fee, evidence: evidence(o, i) });
     }
   const filed = (m: TransferMatch) =>
     +!(NOT_FLOW.has(group(m.out.category)) || m.out.category === "ask") + +!(NOT_FLOW.has(group(m.in.category)) || m.in.category === "ask");
+  const tier = (m: TransferMatch) => (opt.preferSame && m.out.currency !== m.in.currency ? 1 : 0);
   return out.sort(
     (a, b) =>
+      b.evidence - a.evidence ||
+      tier(a) - tier(b) ||
       Math.round(a.diff * 1e4) - Math.round(b.diff * 1e4) ||
       a.gap - b.gap ||
       filed(a) - filed(b) ||
@@ -148,6 +200,60 @@ export function transferCandidates(
         decided,
         o,
       );
+}
+
+/**
+ * Detect unconfirmed inter-entity and cross-account transfer legs (e.g., Mercury -> Wise -> Israeli bank, allowing for
+ * wire/Wise fees up to 2.5% same-currency and 5% cross-currency FX spread within 7 days) so a merged multi-entity view
+ * automatically deduplicates the transferred principal without double-counting income or expenses.
+ */
+export function detectMergedTransfers(
+  rows: readonly TransferRow[],
+  decided: readonly TransfersDoc[],
+  opt: Pick<TransferOptions, "convert"> = {},
+): { matches: TransferMatch[]; dedupRefs: Set<string> } {
+  // Only rows still open to being a movement: a row you filed as income or spending is never silently taken out of the totals.
+  const movable = rows.filter((r) => r.category === "ask" || NOT_FLOW.has(group(r.category)));
+  const matches = suggestTransfers(movable, decided, {
+    ...opt,
+    window: 7,
+    same: 0.025,
+    tolerance: 0.05,
+    preferSame: true,
+  }).filter((m) => m.out.entity !== m.in.entity || m.out.account !== m.in.account);
+  const dedupRefs = new Set<string>();
+  for (const m of matches) {
+    dedupRefs.add(refOf(m.out));
+    dedupRefs.add(refOf(m.in));
+  }
+  return { matches, dedupRefs };
+}
+
+/**
+ * Chain pairs into journeys, oldest first: a pair continues a journey when it leaves the account the journey's money last landed in
+ * (same entity, account and currency), on or up to `window` days after it landed, for about the same amount (within `same`).
+ * Mercury → Wise, then Wise → One Zero is one journey of two legs; each pair belongs to exactly one journey.
+ */
+export function transferJourneys(ms: readonly TransferMatch[], window = 7, same = 0.025): TransferMatch[][] {
+  const sorted = [...ms].sort((a, b) => a.out.date.localeCompare(b.out.date) || refOf(a.out).localeCompare(refOf(b.out)));
+  const js: TransferMatch[][] = [];
+  for (const m of sorted) {
+    const j = js.find((j) => {
+      const l = j.at(-1)!.in,
+        gap = daysBetween(l.date, m.out.date);
+      return (
+        l.entity === m.out.entity &&
+        l.account === m.out.account &&
+        l.currency === m.out.currency &&
+        gap >= 0 &&
+        gap <= window &&
+        Math.abs(-m.out.amount - l.amount) <= Math.max(0.01, same * l.amount)
+      );
+    });
+    if (j) j.push(m);
+    else js.push([m]);
+  }
+  return js;
 }
 
 /**

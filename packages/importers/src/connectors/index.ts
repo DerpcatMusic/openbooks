@@ -51,7 +51,25 @@ export interface Pending {
   country?: string;
   validUntil?: string;
 }
-/** One `secret` row as stored: {secret, pending, lastSync, lastError, accounts} in plaintext mode, or with `sealed` instead of secret/pending. */
+/** Why a connection needs human action before automatic sync can continue. */
+export type NeedsYouReason = "otp" | "auth" | "expired" | "password" | "blocked" | "link";
+export type NeedsYouAction = "code" | "reconnect";
+export interface NeedsYou {
+  reason: NeedsYouReason;
+  action: NeedsYouAction;
+}
+/** One recorded sync attempt for a connection (newest first, capped at MAX_HISTORY). */
+export interface SyncRun {
+  startedAt: string;
+  endedAt: string;
+  ok: boolean;
+  error?: string | null;
+  rowsAdded: number;
+  auto?: boolean;
+}
+export const MAX_HISTORY = 20;
+
+/** One `secret` row as stored: {secret, pending, lastSync, lastError, accounts, needsYou, history} in plaintext mode, or with `sealed` instead of secret/pending. */
 export interface Conn {
   secret?: Record<string, string>;
   pending?: Pending;
@@ -63,6 +81,8 @@ export interface Conn {
   sealed?: unknown;
   lastSync?: string | null;
   lastError?: string | null;
+  needsYou?: NeedsYou | null;
+  history?: SyncRun[];
   accounts?: string[];
   [k: string]: unknown;
 }
@@ -437,19 +457,93 @@ const runSync = (dir: string, key: string, c: Conn) => {
   return scraperSync(dir, t, s, f);
 };
 
-/** Syncs one connection, records lastSync/lastError, saves. Returns the error message or null. */
-const syncOne = (e: string, conns: Record<string, Conn>, key: string) =>
+/** Classify a sync error that needs human intervention (OTP/2FA, expired token/consent, bad password, blocked account). */
+export function classifyNeedsYou(message: string, providerType: string): NeedsYou | null {
+  const m = message.toLowerCase();
+  if (
+    m.includes("one-time code") ||
+    m.includes("2fa") ||
+    m.includes("two-factor") ||
+    m.includes("sms code") ||
+    m.includes("sms verification") ||
+    m.includes("otp") ||
+    m.includes("captcha")
+  ) {
+    return { reason: "otp", action: providerType === "onezero" ? "reconnect" : "code" };
+  }
+  if (m.includes("account is blocked") || m.includes("locked the login") || m.includes("account_blocked")) {
+    return { reason: "blocked", action: "reconnect" };
+  }
+  if (
+    m.includes("rejected the login") ||
+    m.includes("rejected the username/password") ||
+    m.includes("wants a new password") ||
+    m.includes("password change") ||
+    m.includes("invalid_password") ||
+    m.includes("change_password")
+  ) {
+    return { reason: providerType === "onezero" ? "expired" : "password", action: "reconnect" };
+  }
+  if (
+    m.includes("expired") ||
+    m.includes("revoked") ||
+    m.includes("refused the token") ||
+    m.includes("refused the api token") ||
+    m.includes("refused the access url") ||
+    m.includes("refused the request") ||
+    m.includes("item_login_required") ||
+    m.includes("invalid_access_token") ||
+    m.includes("access_not_granted")
+  ) {
+    return { reason: "expired", action: "reconnect" };
+  }
+  if (m.includes("log in to your bank") || m.includes("strong customer authentication") || m.includes("payment is required") || m.includes("reconnect")) {
+    return { reason: "auth", action: "reconnect" };
+  }
+  return null;
+}
+
+const countInboxRows = async (dir: string, file: string): Promise<number> => {
+  const doc = await readJson(path.join(dir, "inbox", file));
+  if (!doc) return 0;
+  if (Array.isArray(doc.transactions)) return doc.transactions.length;
+  if (Array.isArray(doc.accounts)) {
+    return (doc.accounts as { txns?: unknown[] }[]).reduce((n, a) => n + (Array.isArray(a?.txns) ? a.txns.length : 0), 0);
+  }
+  return 0;
+};
+
+const pushHistory = (c: Conn, entry: SyncRun) => {
+  const prev = Array.isArray(c.history) ? c.history : [];
+  c.history = [entry, ...prev].slice(0, MAX_HISTORY);
+};
+
+/** Syncs one connection, records lastSync/lastError/needsYou/history, saves. Returns the error message or null. */
+const syncOne = (e: string, conns: Record<string, Conn>, key: string, auto = false) =>
   Effect.gen(function* () {
     const store = yield* ConnectionStore;
+    const dir = store.dir(e);
+    const file = inboxFile(key);
     const c = conns[key]!;
-    const r = yield* runSync(store.dir(e), key, c).pipe(
+    const startedAt = now();
+    const before = yield* Effect.promise(() => countInboxRows(dir, file));
+    const r = yield* runSync(dir, key, c).pipe(
       Effect.map((accounts) => ({ accounts })),
       Effect.catchTag("ConnectorError", (x) => Effect.succeed({ error: x.message })),
       // never the defect's message: it could carry request data
       Effect.catchDefect((d) => Effect.succeed({ error: `Sync failed: ${(d as { code?: string; name?: string })?.code ?? (d as Error)?.name ?? "Error"}` })),
     );
-    if ("accounts" in r) Object.assign(c, { accounts: r.accounts, lastSync: now(), lastError: null });
-    else c.lastError = r.error;
+    const endedAt = now();
+    if ("accounts" in r) {
+      const after = yield* Effect.promise(() => countInboxRows(dir, file));
+      const rowsAdded = Math.max(0, after - before);
+      Object.assign(c, { accounts: r.accounts, lastSync: endedAt, lastError: null, needsYou: null });
+      pushHistory(c, { startedAt, endedAt, ok: true, rowsAdded, ...(auto ? { auto: true } : {}) });
+    } else {
+      c.lastError = r.error;
+      c.needsYou = classifyNeedsYou(r.error, kind(key));
+      pushHistory(c, { startedAt, endedAt, ok: false, error: r.error, rowsAdded: 0, ...(auto ? { auto: true } : {}) });
+    }
     yield* save(e, conns);
     return c.lastError ?? null;
   });
@@ -465,6 +559,8 @@ export interface Status {
   expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
+  needsYou: NeedsYou | null;
+  history: SyncRun[];
   accounts: string[];
   file: string;
 }
@@ -475,20 +571,35 @@ export const status = (e: string) =>
     const [store, vault] = [yield* ConnectionStore, yield* ConnectionVault];
     const conns = yield* store.rows(e);
     const out: Status[] = [];
+    const nowMs = Date.now();
     for (const k of Object.keys(conns).sort()) {
       const c = yield* vault
         .reveal(e, k, conns[k]!)
         .pipe(Effect.orElseSucceed(() => ({ ...conns[k]!, secret: conns[k]!.secret ?? (conns[k]!.sealed ? {} : undefined) })));
+      const connected = !!c.secret && !c.linkToken && !c.authUrl;
+      const pending = !!c.pending || !!c.linkToken || !!c.authUrl; // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
+      const expired = !!c.expiresAt && Number.isFinite(Date.parse(c.expiresAt)) && Date.parse(c.expiresAt) <= nowMs;
+      const needsYou: NeedsYou | null = pending
+        ? c.authUrl
+          ? { reason: "auth", action: "reconnect" }
+          : c.linkToken
+            ? { reason: "link", action: "reconnect" }
+            : { reason: "otp", action: "code" }
+        : expired
+          ? { reason: "expired", action: "reconnect" }
+          : (c.needsYou ?? (c.lastError ? classifyNeedsYou(c.lastError, kind(k)) : null));
       out.push({
         provider: k,
         type: kind(k),
-        connected: !!c.secret && !c.linkToken && !c.authUrl,
-        pending: !!c.pending || !!c.linkToken || !!c.authUrl, // a locked vault hides `pending`; the unsealed linkToken still says the row waits for Plaid Link
+        connected,
+        pending,
         linkToken: c.linkToken,
         authUrl: c.authUrl,
         expiresAt: c.expiresAt,
         lastSync: c.lastSync ?? null,
         lastError: c.lastError ?? null,
+        needsYou,
+        history: Array.isArray(c.history) ? c.history.slice(0, MAX_HISTORY) : [],
         accounts: c.accounts ?? [],
         file: inboxFile(k),
       });
@@ -501,7 +612,7 @@ type Result = { error: string } | Record<string, never>;
 const err = (error: string): Result => ({ error });
 
 /** Sync one connection (exact key) or, without one, every connected one. Errors of several are joined with "; ". */
-export const sync = (e: string, provider = "") =>
+export const sync = (e: string, provider = "", opts?: { auto?: boolean }) =>
   Effect.gen(function* () {
     const p = provider.trim();
     if (p && !KEY.test(p)) return err("Unknown provider");
@@ -510,7 +621,7 @@ export const sync = (e: string, provider = "") =>
     const keys = p ? [p] : Object.keys(conns).filter((k) => conns[k]!.secret);
     const errs: string[] = [];
     for (const k of keys) {
-      const x = yield* syncOne(e, conns, k);
+      const x = yield* syncOne(e, conns, k, opts?.auto === true);
       if (x) errs.push(x);
     }
     return errs.length ? err(errs.join("; ")) : ({} as Result);
@@ -551,17 +662,17 @@ export const connect = (e: string, body: Body) =>
       const token = field("token");
       if (!token) return err("Paste the API token");
       yield* mercury(token, "/accounts", { limit: 1 }); // validates before saving
-      conns[p] = { ...conns[p], secret: { token }, lastError: null };
+      conns[p] = { ...conns[p], secret: { token }, lastError: null, needsYou: null };
     } else if (t === "simplefin") {
       const token = field("setupToken");
       if (!token) return err("Paste the setup token");
       const accessUrl = yield* simplefinClaim(token); // claims the one-time token: nothing is saved unless that works
-      conns[p] = { ...conns[p], secret: { accessUrl }, lastError: null };
+      conns[p] = { ...conns[p], secret: { accessUrl }, lastError: null, needsYou: null };
     } else if (t === "wise") {
       const token = field("wiseToken");
       if (!token) return err("Paste the API token");
       yield* wiseCheck(token);
-      conns[p] = { ...conns[p], secret: { token }, lastError: null };
+      conns[p] = { ...conns[p], secret: { token }, lastError: null, needsYou: null };
     } else if (t === "enablebanking") {
       // step 1: the app's credentials pick a bank and start the authorization; the browser follows authUrl, the callback route finishes
       const old = conns[p]?.secret;
@@ -575,7 +686,13 @@ export const connect = (e: string, body: Body) =>
       if (!redirect) return err("Open OpenBooks at http://127.0.0.1 or http://localhost to connect Enable Banking");
       const state = ebState(e, p);
       const a = yield* ebStart(f, redirect, state);
-      conns[p] = { ...conns[p], pending: { ...f, state, bank: a.bank, country: a.country, validUntil: a.validUntil }, authUrl: a.url, lastError: null };
+      conns[p] = {
+        ...conns[p],
+        pending: { ...f, state, bank: a.bank, country: a.country, validUntil: a.validUntil },
+        authUrl: a.url,
+        lastError: null,
+        needsYou: null,
+      };
       yield* save(e, conns);
       return {} as Result;
     } else if (t === "onezero" && body.otpCode) {
@@ -585,7 +702,11 @@ export const connect = (e: string, body: Body) =>
       const r = yield* scrape({ action: "verify", companyId: "oneZero", otpContext: pend.otpContext, otpCode: str(body.otpCode).trim() });
       const c = conns[p]!;
       delete c.pending;
-      Object.assign(c, { secret: { email: pend.email!, password: pend.password!, otpLongTermToken: r.otpLongTermToken ?? "" }, lastError: null });
+      Object.assign(c, {
+        secret: { email: pend.email!, password: pend.password!, otpLongTermToken: r.otpLongTermToken ?? "" },
+        lastError: null,
+        needsYou: null,
+      });
     } else if (t === "onezero") {
       // One Zero step 1: sends the SMS
       const f = { email: field("email"), password: field("password"), phoneNumber: field("phoneNumber") };
@@ -603,7 +724,7 @@ export const connect = (e: string, body: Body) =>
       const c = conns[p]!;
       delete c.pending;
       delete c.linkToken;
-      Object.assign(c, { secret: { clientId: k.clientId, secret: k.secret, env: k.env, accessToken: str(d.access_token) }, lastError: null });
+      Object.assign(c, { secret: { clientId: k.clientId, secret: k.secret, env: k.env, accessToken: str(d.access_token) }, lastError: null, needsYou: null });
     } else if (t === "plaid") {
       // Plaid step 1: the keys buy a Link token the browser opens Plaid Link with; the keys wait as pending
       const f = { clientId: field("clientId"), secret: field("secret"), env: field("env") };
@@ -624,8 +745,23 @@ export const connect = (e: string, body: Body) =>
       // any israeli-bank-scrapers company: log in and sync first; nothing is saved unless that works
       const creds: Record<string, string> = {};
       for (const [k, v] of Object.entries(cr)) if ((typeof v === "string" || Number.isInteger(v)) && String(v).trim()) creds[k] = String(v).trim();
-      const accounts = yield* scraperSync(store.dir(e), t, creds, inboxFile(p));
-      conns[p] = { secret: creds, accounts, lastSync: now(), lastError: null };
+      const dir = store.dir(e);
+      const file = inboxFile(p);
+      const startedAt = now();
+      const before = yield* Effect.promise(() => countInboxRows(dir, file));
+      const accounts = yield* scraperSync(dir, t, creds, file);
+      const after = yield* Effect.promise(() => countInboxRows(dir, file));
+      const endedAt = now();
+      const prevHist = Array.isArray(conns[p]?.history) ? conns[p]!.history! : [];
+      conns[p] = {
+        ...conns[p],
+        secret: creds,
+        accounts,
+        lastSync: endedAt,
+        lastError: null,
+        needsYou: null,
+        history: [{ startedAt, endedAt, ok: true, rowsAdded: Math.max(0, after - before) }, ...prevHist].slice(0, MAX_HISTORY),
+      };
       yield* save(e, conns);
       return {} as Result;
     }
@@ -664,6 +800,7 @@ export const enableBankingCallback = (e: string, body: Body) =>
     };
     c.expiresAt = s.validUntil;
     c.lastError = null;
+    c.needsYou = null;
     yield* save(e, conns);
     const x = yield* syncOne(e, conns, key);
     return x ? err(x) : ({} as Result);

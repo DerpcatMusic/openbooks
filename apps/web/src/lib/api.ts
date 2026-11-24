@@ -1,8 +1,22 @@
 // Typed client for the local server's HTTP API (identical in books.py and apps/server; docs/architecture.md § HTTP API).
 // Stateless: the books store (stores/books.svelte.ts) decides which entity and what to do with the State that comes back.
-import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
+import type { AssetAccount, AssetKind, AssetValuation, CryptoChain, EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 
 export type Entity = { id: string } & EntityMeta;
+export type NeedsYouReason = "otp" | "auth" | "expired" | "password" | "blocked" | "link";
+export type NeedsYouAction = "code" | "reconnect";
+export interface NeedsYou {
+  reason: NeedsYouReason;
+  action: NeedsYouAction;
+}
+export interface SyncRun {
+  startedAt: string;
+  endedAt: string;
+  ok: boolean;
+  error?: string | null;
+  rowsAdded: number;
+  auto?: boolean;
+}
 export interface Connection {
   provider: string;
   type: string;
@@ -13,6 +27,8 @@ export interface Connection {
   expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
+  needsYou?: NeedsYou | null;
+  history?: SyncRun[];
   accounts: unknown[];
   file: string;
 }
@@ -77,12 +93,38 @@ export interface CombinedFlowTxn {
   nativeAmount: number;
   nativeCurrency: string;
 }
+export interface TransferJourneySide {
+  ref: string;
+  entity: string;
+  account: string;
+  date: string;
+  desc: string;
+  native: number;
+  currency: string;
+  amount: number;
+}
+export interface TransferJourney {
+  legs: { out: TransferJourneySide; in: TransferJourneySide; fee: number; confirmed: boolean }[];
+  sent: number;
+  received: number;
+  fee: number;
+}
 export interface CombinedFlow {
   currency: string;
   from: string;
   to: string;
   entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
   txns: CombinedFlowTxn[];
+  /** Money moved between your own accounts, as journeys (Mercury → Wise → One Zero); each leg's cost is an expense:bank-fees row in `txns`. */
+  transfers?: { moved: number; fees: number; pending: number; journeys: TransferJourney[] };
+  monthly?: { month: string; in: number; out: number; net: number; moved: number }[];
+  totals?: {
+    in: number;
+    out: number;
+    net: number;
+    uncatCount: number;
+    byEntity: { id: string; name: string; flag: string; in: number; out: number; net: number; uncatCount: number }[];
+  };
   missing: { currency: string; date: string }[];
 }
 /** One side of a suggested transfer (GET /api/transfers). */
@@ -101,6 +143,31 @@ export interface TransferSuggestion {
   in: TransferSide;
   gap: number;
   diff: number;
+}
+/** One live/delayed market instrument from GET /api/markets (server-side quotes; public data). */
+export interface MarketQuote {
+  id: string;
+  symbol: string;
+  group: "world" | "il";
+  label: string;
+  format: "index" | "price" | "fx" | "yield";
+  currency?: string;
+  last: number;
+  change: number | null;
+  changePct: number | null;
+  asOf: string | null;
+  series: number[];
+  source: "yahoo" | "stooq";
+  delayed: boolean;
+  stale: boolean;
+}
+export interface MarketsResponse {
+  world: MarketQuote[];
+  il: MarketQuote[];
+  asOf: string;
+  stale: boolean;
+  delayed: boolean;
+  sources: ("yahoo" | "stooq")[];
 }
 
 export class ApiError extends Error {
@@ -149,6 +216,41 @@ export const api = {
   /** BoI representative rates, ILS per unit: currency → date → rate. */
   fx: (currencies: readonly string[], from: string, to: string) =>
     request<{ rates: Record<string, Record<string, number>> }>(`/api/fx?currencies=${currencies.map(encodeURIComponent).join(",")}&from=${from}&to=${to}`),
+  /** Live/delayed market quotes grouped into Worldwide and Israel (GET /api/markets). */
+  markets: () => request<MarketsResponse>("/api/markets"),
+  /** Asset accounts (pensions, savings wrappers, brokerage, read-only crypto wallets) in doc("assets"). */
+  assets: (e: string) => request<{ assets: AssetAccount[] }>(withEntity("/api/assets", e)),
+  saveAsset: (
+    e: string,
+    asset: {
+      id?: string;
+      kind: AssetKind;
+      name: string;
+      provider?: string;
+      currency: string;
+      valuations?: AssetValuation[];
+      value?: number;
+      date?: string;
+      address?: string;
+      chain?: CryptoChain;
+    },
+  ) => request<State>(withEntity("/api/assets", e), asset),
+  deleteAsset: (e: string, id: string) => request<State>(withEntity("/api/assets/delete", e), { id }),
+  refreshAssets: (e: string, opts: { id?: string; force?: boolean } = {}, onCounts?: (c: { refreshed: number; failed: number }) => void) =>
+    request<State>(withEntity("/api/assets/refresh", e), opts, (r) =>
+      onCounts?.({
+        refreshed: Number(r.headers.get("X-OpenBooks-Assets-Refreshed") ?? 0),
+        failed: Number(r.headers.get("X-OpenBooks-Assets-Failed") ?? 0),
+      }),
+    ),
+  importAssets: (e: string, f: File, onCounts?: (c: { added: number; updated: number; skipped: number }) => void) =>
+    request<State>(withEntity(`/api/assets/import?name=${encodeURIComponent(f.name)}`, e), f, (r) =>
+      onCounts?.({
+        added: Number(r.headers.get("X-OpenBooks-Assets-Added") ?? 0),
+        updated: Number(r.headers.get("X-OpenBooks-Assets-Updated") ?? 0),
+        skipped: Number(r.headers.get("X-OpenBooks-Assets-Skipped") ?? 0),
+      }),
+    ),
   /** Likely transfers touching this business; `ref` ("entity/txn id"): every possible other side of one row (manual search, wider window). */
   transfers: (e: string, ref?: string) =>
     request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),

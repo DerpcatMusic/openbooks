@@ -258,7 +258,7 @@
     ...(tg.tags.length ? [{ key: "tags", label: t("tags.col"), class: "max-xl:hidden" }] : []),
     { key: "amount", label: t("common.amount"), numeric: true },
   ]);
-  const why = (x: Txn) => (x.why === "manual" ? t("txns.why.manual") : x.why === "split" ? t("gaps2.why.split") : x.why ? t("txns.why.rule", { rule: bidi(x.why) }) : t("txns.why.none"));
+  const why = (x: Txn) => (x.why === "manual" ? t("txns.why.manual") : x.why === "split" ? t("gaps2.why.split") : x.why === "auto-transfer" ? t("txn.by.auto") : x.why ? t("txns.why.rule", { rule: bidi(x.why) }) : t("txns.why.none"));
 </script>
 
 <PageHeader title={t("nav.transactions")}>

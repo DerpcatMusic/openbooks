@@ -71,12 +71,26 @@ export function check(cmd: Partial<ScrapeCmd> | null): string | null {
 }
 
 async function chrome(): Promise<string | null> {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
   const dirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
-  for (const bin of ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"])
-    for (const d of dirs) if (fs.existsSync(path.join(d, bin))) return path.join(d, bin);
-  const mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-  if (fs.existsSync(mac)) return mac;
+  for (const bin of ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "brave-browser"]) {
+    for (const d of dirs) {
+      const full = path.join(d, bin);
+      if (fs.existsSync(full)) return full;
+    }
+  }
+  for (const extra of [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/snap/bin/chromium",
+  ]) {
+    if (fs.existsSync(extra)) return extra;
+  }
   try {
     // `npx puppeteer browsers install chrome` puts one in puppeteer's cache
     const p = (await import("puppeteer")).default.executablePath();
@@ -85,11 +99,42 @@ async function chrome(): Promise<string | null> {
   return null;
 }
 
+function friendlyError(id: Id, r: ScrapeResult): ScrapeResult {
+  const name = short(id);
+  const et = r.errorType ?? "";
+  if (et === "INVALID_PASSWORD") {
+    return {
+      ...r,
+      name,
+      errorMessage:
+        id === ONE_ZERO
+          ? "One Zero rejected the login or expired the SMS token. Disconnect and re-verify with a fresh SMS code."
+          : `${name} rejected the username/password. Double-check credentials and reconnect.`,
+    };
+  }
+  if (et === "CHANGE_PASSWORD") {
+    return { ...r, name, errorMessage: `${name} requires a password change on the bank's website before syncing.` };
+  }
+  if (et === "ACCOUNT_BLOCKED") {
+    return { ...r, name, errorMessage: `${name} temporarily locked the login. Unlock on the bank's site/app before retrying.` };
+  }
+  if (et === "TWO_FACTOR_RETRIEVER_MISSING") {
+    return { ...r, name, errorMessage: `${name} requested 2FA verification. Reconnect in Connections to complete SMS verification.` };
+  }
+  return { ...r, name };
+}
+
 async function exec(cmd: ScrapeCmd): Promise<ScrapeResult> {
   const bad = check(cmd);
   if (bad) return fail("INVALID_INPUT", bad, cmd?.companyId);
   const id = cmd.companyId as Id;
-  const opts = { companyId: id, startDate: new Date(cmd.startDate || Date.now() - 365 * 864e5) } as ScraperOptions;
+  const opts = {
+    companyId: id,
+    startDate: new Date(cmd.startDate || Date.now() - 365 * 864e5),
+    combineInstallments: false,
+    additionalTransactionInformation: true,
+    defaultTimeout: 45_000,
+  } as ScraperOptions;
   if (id !== ONE_ZERO) {
     const executablePath = await chrome();
     if (!executablePath)
@@ -104,18 +149,16 @@ async function exec(cmd: ScrapeCmd): Promise<ScrapeResult> {
   const otp = scraper as unknown as { otpContext?: string }; // the library keeps it in memory; we hand it back across calls
   if (cmd.action === "trigger") {
     const r = await scraper.triggerTwoFactorAuth(cmd.phoneNumber!);
-    return r.success ? { success: true, otpContext: otp.otpContext! } : (r as ScrapeResult);
+    return r.success ? { success: true, otpContext: otp.otpContext! } : friendlyError(id, r as ScrapeResult);
   }
   if (cmd.action === "verify") {
     otp.otpContext = cmd.otpContext!;
     const r = await scraper.getLongTermTwoFactorToken(cmd.otpCode!);
-    return r.success ? { success: true, otpLongTermToken: r.longTermTwoFactorAuthToken } : (r as ScrapeResult);
+    return r.success ? { success: true, otpLongTermToken: r.longTermTwoFactorAuthToken } : friendlyError(id, r as ScrapeResult);
   }
   const credentials = Object.fromEntries(loginFields(id).map((k) => [k, String(cmd.credentials![k]).trim()])) as unknown as ScraperCredentials;
   const r = await scraper.scrape(credentials);
-  return r.success
-    ? { success: true, name: short(id), accounts: (r.accounts ?? []) as unknown as ScrapedAccount[] }
-    : { ...(r as ScrapeResult), name: short(id) };
+  return r.success ? { success: true, name: short(id), accounts: (r.accounts ?? []) as unknown as ScrapedAccount[] } : friendlyError(id, r as ScrapeResult);
 }
 
 /** Never throws. The result goes through JSON so in-process and subprocess runs hand back the same plain data. */

@@ -3,6 +3,7 @@
 // (fx.ts, reports.ts dailyBalances, transfers.ts); this file reads the books and keeps the rates.
 import {
   accountCurrencies,
+  assetDailyValues,
   cashIn,
   cashOut,
   checkAnchors,
@@ -10,6 +11,8 @@ import {
   currencyOf,
   dailyBalances,
   decideTransfer,
+  detectMergedTransfers,
+  impliedFee,
   isCard,
   MAX_GAP_DAYS,
   mergeAnchors,
@@ -18,6 +21,7 @@ import {
   suggestTransfers,
   transferAccounts,
   transferCandidates,
+  transferJourneys,
   type Anchors,
   type RateTable,
   type TransferMatch,
@@ -26,6 +30,7 @@ import {
   type TransfersDoc,
 } from "@openbooks/core";
 import { fetchBoiRates } from "@openbooks/importers";
+import type { AssetAccount } from "@openbooks/schema";
 import { Books } from "@openbooks/storage";
 import { Data, Effect } from "effect";
 
@@ -95,6 +100,25 @@ export const ratesFor = (rows: readonly { currency: string; date: string }[]) =>
   return ensureRates(need);
 };
 
+/**
+ * The rows with `baseAmount` set where they're in another currency than the books' (`base`): the amount at the Bank of Israel rate of
+ * the row's day, so every total adds like with like. A row whose rate is missing keeps no baseAmount (see FxDoc: never 1:1).
+ */
+export const withBase = <T extends { date: string; amount: number; currency?: string | undefined }>(txns: readonly T[], base: string) =>
+  Effect.gen(function* () {
+    const foreign = txns.filter((t) => t.currency && t.currency !== base);
+    if (!foreign.length) return txns as T[];
+    const table = yield* ratesFor([
+      ...foreign.map((t) => ({ currency: t.currency!, date: t.date })),
+      ...foreign.map((t) => ({ currency: base, date: t.date })),
+    ]);
+    return txns.map((t) => {
+      if (!t.currency || t.currency === base) return t;
+      const x = convert(table, t.amount, t.currency, base, t.date);
+      return x === null ? t : { ...t, baseAmount: Math.round(x * 100) / 100 };
+    });
+  });
+
 // ---------- net worth ----------
 export interface NetWorthExcluded {
   entity: string;
@@ -120,18 +144,20 @@ export const netWorth = (currency: string, from: string, to: string) =>
 export const netWorthDetail = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {
     const bs = yield* Books;
-    const raw: { entity: string; account: string; currency: string; values: number[] }[] = [];
+    const raw: { entity: string; account: string; currency: string; values: number[]; isAsset?: boolean }[] = [];
     const excluded: NetWorthExcluded[] = [];
     let dates: string[] = [];
     for (const e of yield* bs.entities) {
       const txns = yield* bs.ledger(e.id).pipe(Effect.orDie),
         { checks } = yield* bs.checks(e.id).pipe(Effect.orDie),
-        stored = yield* bs.doc<Anchors>(e.id, "anchors", {}).pipe(Effect.orDie);
+        stored = yield* bs.doc<Anchors>(e.id, "anchors", {}).pipe(Effect.orDie),
+        assets = yield* bs.doc<AssetAccount[]>(e.id, "assets", []).pipe(Effect.orDie);
       const base = currencyOf(e),
         cur = accountCurrencies(txns, base);
       const anchors = mergeAnchors(checkAnchors(checks), stored);
       const d = dailyBalances(txns, anchors, from, to);
       dates = d.dates;
+      const usedNames = new Set<string>();
       for (const [account, values] of Object.entries(d.balances)) {
         const hasAnchor = (anchors[account]?.length ?? 0) > 0;
         const acctTxns = txns.filter((t) => t.source !== "journal" && t.account === account);
@@ -143,18 +169,54 @@ export const netWorthDetail = (currency: string, from: string, to: string) =>
           excluded.push({ entity: e.id, account, reason: "credits-only" });
           continue;
         }
+        usedNames.add(account);
         raw.push({ entity: e.id, account, currency: cur[account] ?? base, values });
       }
+      if (Array.isArray(assets)) {
+        for (const a of assets) {
+          if (!a || !Array.isArray(a.valuations) || !a.valuations.length) continue;
+          if (!a.valuations.some((v) => v.date <= to)) continue;
+          const values = assetDailyValues(a.valuations, dates);
+          let label = a.name;
+          if (usedNames.has(label) && a.provider) label = `${a.name} (${a.provider})`;
+          if (usedNames.has(label)) {
+            let n = 2;
+            while (usedNames.has(`${label} #${n}`)) n++;
+            label = `${label} #${n}`;
+          }
+          usedNames.add(label);
+          raw.push({ entity: e.id, account: label, currency: a.currency || base, values, isAsset: true });
+        }
+      }
     }
-    const table = yield* ensureRates(Object.fromEntries([...new Set([currency, ...raw.map((s) => s.currency)])].map((c) => [c, [from, to] as const])));
+    const rateNeed: Record<string, [string, string]> = {};
+    const addNeed = (c: string, a: string, b: string) => {
+      if (a > b) return;
+      const r = rateNeed[c];
+      if (!r) rateNeed[c] = [a, b];
+      else rateNeed[c] = [a < r[0] ? a : r[0], b > r[1] ? b : r[1]];
+    };
+    if (dates.length) {
+      addNeed(currency, from, to);
+      for (const s of raw) {
+        if (s.isAsset) {
+          const firstIdx = s.values.findIndex((v) => v !== 0);
+          if (firstIdx >= 0) addNeed(s.currency, dates[firstIdx]!, to);
+        } else {
+          addNeed(s.currency, from, to);
+        }
+      }
+    }
+    const table = yield* ensureRates(rateNeed);
     const missing = new Map<string, { currency: string; date: string }>();
     const series = raw.map((s) => ({
       entity: s.entity,
       account: s.account,
       currency: s.currency,
-      liability: isCard(s.account),
+      liability: s.isAsset ? false : isCard(s.account),
       native: s.values,
       values: s.values.map((v, i) => {
+        if (s.isAsset && v === 0) return 0;
         const x = convert(table, v, s.currency, currency, dates[i]!);
         if (x !== null) return Math.round(x * 100) / 100;
         for (const c of [s.currency, currency]) if (rateOn(table, c, dates[i]!) === null) missing.set(`${c}|${dates[i]}`, { currency: c, date: dates[i]! });
@@ -187,18 +249,60 @@ export interface CombinedFlowTxn {
   nativeCurrency: string;
 }
 
+export interface TransferSideOut {
+  ref: string;
+  entity: string;
+  account: string;
+  date: string;
+  desc: string;
+  native: number;
+  currency: string;
+  /** Absolute amount in the flow's currency. */
+  amount: number;
+}
+export interface TransferJourneyOut {
+  legs: { out: TransferSideOut; in: TransferSideOut; fee: number; confirmed: boolean }[];
+  sent: number;
+  received: number;
+  fee: number;
+}
+
 export interface CombinedFlow {
   currency: string;
   from: string;
   to: string;
   entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
   txns: CombinedFlowTxn[];
+  /**
+   * Money moved between your own accounts and businesses in the span, as journeys (Mercury → Wise → One Zero is one journey of two
+   * legs). Confirmed legs are filed as transfers; detected ones are only left out of the totals until you confirm or reject them.
+   * What each leg cost (wire fee, FX spread against the BoI rate) is booked in `txns` as an expense:bank-fees row and counted as out.
+   */
+  transfers: {
+    /** Sum of what left the first account of each journey. */
+    moved: number;
+    fees: number;
+    /** Detected legs waiting to be confirmed. */
+    pending: number;
+    journeys: TransferJourneyOut[];
+  };
+  /** Monthly combined inflows, outflows, and net across all entities in `currency`. */
+  monthly: { month: string; in: number; out: number; net: number; moved: number }[];
+  /** Worldwide totals and per-entity breakdown after transfer deduplication. */
+  totals: {
+    in: number;
+    out: number;
+    net: number;
+    uncatCount: number;
+    byEntity: { id: string; name: string; flag: string; in: number; out: number; net: number; uncatCount: number }[];
+  };
   missing: { currency: string; date: string }[];
 }
 
 /**
  * Every entity's real cash-flow transactions (inflows & outflows, excluding internal/inter-entity transfers, owner draws, and loans)
- * in [from, to], converted to `currency` at Bank of Israel daily rates so the Sankey can show combined earnings and per-bank subtrees.
+ * in [from, to], converted to `currency` at Bank of Israel daily rates. Also runs fee-aware transfer detection across entities
+ * (e.g. Mercury -> Wise -> One Zero) to auto-deduplicate unconfirmed inter-entity transfers and surface their wire/FX fees.
  */
 export const combinedFlow = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {
@@ -217,14 +321,37 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       nativeCurrency: string;
     }[] = [];
     const entities: CombinedFlow["entities"] = [];
+    const allTransferRows: TransferRow[] = [];
+    // every row of every date: a confirmed transfer that left Dec 31 and arrived Jan 2 still resolves (and books its fee) in January
+    const anyDate = new Map<string, TransferRow>();
+    const decidedDocs: TransfersDoc[] = [];
+    const uncatByEntity = new Map<string, number>();
 
     for (const e of yield* bs.entities) {
       const txns = yield* bs.ledger(e.id).pipe(Effect.orDie);
+      const decided = yield* bs.doc<TransfersDoc>(e.id, "transfers", {}).pipe(Effect.orDie);
+      decidedDocs.push(decided);
       const base = currencyOf(e);
       const accts = new Set<string>();
+      let uncat = 0;
       for (const t of txns) {
         if (t.source === "journal") continue;
+        const row: TransferRow = {
+          entity: e.id,
+          id: t.id,
+          date: t.date,
+          amount: t.amount,
+          currency: t.currency ?? base,
+          account: t.account,
+          desc: t.desc,
+          category: t.category,
+          memo: t.memo,
+          link: t.link,
+        };
+        anyDate.set(refOf(row), row);
         if (t.date < from || t.date > to) continue;
+        if (t.category === "ask") uncat++;
+        allTransferRows.push(row);
         const ok = (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
         if (!ok) continue;
         accts.add(t.account);
@@ -242,6 +369,7 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
           nativeCurrency: t.currency ?? base,
         });
       }
+      uncatByEntity.set(e.id, uncat);
       entities.push({
         id: e.id,
         name: e.short || e.name || e.id,
@@ -251,24 +379,126 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       });
     }
 
-    const currencies = [...new Set([currency, ...raw.map((r) => r.nativeCurrency)])];
-    const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [from, to] as const]))) : {};
+    // confirmed pairs that arrived in the span (the sending leg may be earlier)
+    const confirmedPairs: { key: string; out: TransferRow; in: TransferRow }[] = [];
+    for (const d of decidedDocs)
+      for (const p of d.confirmed ?? []) {
+        const o = anyDate.get(p.out),
+          i = anyDate.get(p.in);
+        if (o && i && i.date >= from && i.date <= to) confirmedPairs.push({ key: `${p.out}|${p.in}`, out: o, in: i });
+      }
+    const lo = confirmedPairs.reduce((m, p) => (p.out.date < m ? p.out.date : m), from);
+    const currencies = [
+      ...new Set([currency, ...raw.map((r) => r.nativeCurrency), ...allTransferRows.map((r) => r.currency), ...confirmedPairs.map((p) => p.out.currency)]),
+    ];
+    const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [lo, to] as const]))) : {};
+    const conv = (a: number, f: string, t: string, d: string) => (f === t ? a : convert(table, a, f, t, d));
+
+    // Every movement in the span: confirmed pairs (both sides in range) plus detected, unconfirmed ones (left out of the totals).
+    const { matches, dedupRefs } = detectMergedTransfers(allTransferRows, decidedDocs, { convert: conv });
+    const confirmed = new Map(confirmedPairs.map((p) => [p.key, p]));
+    const legs = [
+      ...[...confirmed.values()].map((p) => ({ out: p.out, in: p.in, gap: 0, diff: 0, fee: impliedFee(p.out, p.in, conv), evidence: 0, confirmed: true })),
+      ...matches.map((m) => ({ ...m, confirmed: false })),
+    ];
+    const round2 = (n: number) => Math.round(n * 100) / 100;
     const missing = new Map<string, { currency: string; date: string }>();
+    const noteMissing = (cur: string, date: string) => {
+      for (const c of [cur, currency]) if (rateOn(table, c, date) === null) missing.set(`${c}|${date}`, { currency: c, date });
+    };
+    // a movement whose rate is missing counts as 0 here but is listed in `missing`, so the 0 is never presented as real
+    const inCur = (r: TransferRow, n: number) => {
+      const v = conv(n, r.currency, currency, r.date);
+      if (v === null) noteMissing(r.currency, r.date);
+      return round2(Math.abs(v ?? 0));
+    };
+    const side = (r: TransferRow): TransferSideOut => ({
+      ref: refOf(r),
+      entity: r.entity,
+      account: r.account,
+      date: r.date,
+      desc: r.desc,
+      native: r.amount,
+      currency: r.currency,
+      amount: inCur(r, r.amount),
+    });
+    const entityName = new Map(entities.map((e) => [e.id, e]));
+    const journeys: TransferJourneyOut[] = transferJourneys(legs).map((j) => {
+      const ls = j.map((m) => ({
+        out: side(m.out),
+        in: side(m.in),
+        fee: inCur(m.in, m.fee),
+        confirmed: (m as (typeof legs)[number]).confirmed,
+      }));
+      return { legs: ls, sent: ls[0]!.out.amount, received: ls.at(-1)!.in.amount, fee: round2(ls.reduce((a, l) => a + l.fee, 0)) };
+    });
+    // The cost of moving money is real spending: one expense:bank-fees row per leg, on the sender's side, the day it arrived.
+    for (const j of journeys)
+      for (const l of j.legs) {
+        if (!(l.fee > 0)) continue;
+        const e = entityName.get(l.out.entity);
+        raw.push({
+          entity: l.out.entity,
+          entityName: e?.name ?? l.out.entity,
+          flag: e?.flag ?? "",
+          account: l.out.account,
+          id: `fee~${l.in.ref}`,
+          date: l.in.date,
+          category: "expense:bank-fees",
+          desc: `${l.out.account} → ${l.in.account}`,
+          nativeAmount: -l.fee,
+          nativeCurrency: currency,
+        });
+      }
+
     const txns: CombinedFlowTxn[] = [];
+    const byMonth = new Map<string, { in: number; out: number }>();
+    const byEnt = new Map<string, { in: number; out: number }>();
+    for (const e of entities) byEnt.set(e.id, { in: 0, out: 0 });
 
     for (const r of raw) {
-      const converted = r.nativeCurrency === currency ? r.nativeAmount : convert(table, r.nativeAmount, r.nativeCurrency, currency, r.date);
+      if (dedupRefs.has(refOf(r))) continue;
+      const converted = conv(r.nativeAmount, r.nativeCurrency, currency, r.date);
       if (converted === null) {
-        for (const c of [r.nativeCurrency, currency]) {
-          if (rateOn(table, c, r.date) === null) missing.set(`${c}|${r.date}`, { currency: c, date: r.date });
-        }
+        noteMissing(r.nativeCurrency, r.date);
         continue;
       }
-      txns.push({
-        ...r,
-        amount: Math.round(converted * 100) / 100,
-      });
+      const amt = Math.round(converted * 100) / 100;
+      txns.push({ ...r, amount: amt });
+      const ym = r.date.slice(0, 7);
+      const mb = byMonth.get(ym) ?? { in: 0, out: 0 };
+      if (amt > 0) mb.in += amt;
+      else mb.out += Math.abs(amt);
+      byMonth.set(ym, mb);
+      const eb = byEnt.get(r.entity) ?? { in: 0, out: 0 };
+      if (amt > 0) eb.in += amt;
+      else eb.out += Math.abs(amt);
+      byEnt.set(r.entity, eb);
     }
+
+    const movedByMonth = new Map<string, number>();
+    for (const j of journeys) {
+      const ym = j.legs[0]!.out.date.slice(0, 7);
+      movedByMonth.set(ym, (movedByMonth.get(ym) ?? 0) + j.sent);
+      if (!byMonth.has(ym)) byMonth.set(ym, { in: 0, out: 0 });
+    }
+    const monthly = [...byMonth.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, v]) => ({ month, in: round2(v.in), out: round2(v.out), net: round2(v.in - v.out), moved: round2(movedByMonth.get(month) ?? 0) }));
+    const entityBreakdown = entities.map((e) => {
+      const v = byEnt.get(e.id) ?? { in: 0, out: 0 };
+      return {
+        id: e.id,
+        name: e.name,
+        flag: e.flag,
+        in: round2(v.in),
+        out: round2(v.out),
+        net: round2(v.in - v.out),
+        uncatCount: uncatByEntity.get(e.id) ?? 0,
+      };
+    });
+    const totalIn = round2(entityBreakdown.reduce((a, x) => a + x.in, 0));
+    const totalOut = round2(entityBreakdown.reduce((a, x) => a + x.out, 0));
 
     return {
       currency,
@@ -276,6 +506,20 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       to,
       entities,
       txns,
+      transfers: {
+        moved: round2(journeys.reduce((a, j) => a + j.sent, 0)),
+        fees: round2(journeys.reduce((a, j) => a + j.fee, 0)),
+        pending: legs.filter((l) => !l.confirmed).length,
+        journeys: journeys.sort((a, b) => b.legs[0]!.out.date.localeCompare(a.legs[0]!.out.date)),
+      },
+      monthly,
+      totals: {
+        in: totalIn,
+        out: totalOut,
+        net: round2(totalIn - totalOut),
+        uncatCount: entityBreakdown.reduce((a, x) => a + x.uncatCount, 0),
+        byEntity: entityBreakdown,
+      },
       missing: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency)),
     } satisfies CombinedFlow;
   });
@@ -302,6 +546,8 @@ const transferBooks = Effect.gen(function* () {
           account: t.account,
           desc: t.desc,
           category: t.category,
+          memo: t.memo,
+          link: t.link,
         });
   }
   const table = new Set(rows.map((r) => r.currency)).size > 1 ? yield* ratesFor(rows) : {};

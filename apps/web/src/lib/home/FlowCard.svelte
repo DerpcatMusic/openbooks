@@ -81,15 +81,20 @@
       })),
   );
 
-  const activeRows = $derived<HubFlowTxn[]>(scope === "all" && multiEntity && combined && !combinedFailed ? combined.txns : localHubRows);
+  // the combined answer counts only when it is for this currency and span (a retained USD answer is never shown as ILS)
+  const merged = $derived(scope === "all" && multiEntity);
+  const fresh = $derived(!!combined && !combinedFailed && combined.currency === currency && combined.from === span.from && combined.to === span.to);
+  // this business's own rows stand in only while they are already in the displayed currency
+  const native = $derived(!merged || (ent().currency ?? "ILS") === currency);
+  const activeRows = $derived<HubFlowTxn[]>(merged && fresh ? combined!.txns : native ? localHubRows : []);
   const distinctAccounts = $derived(new Set(activeRows.map((r) => `${r.entity}:${r.account}`)).size);
   const useHubs = $derived(viaBanks && (scope === "all" || distinctAccounts > 1));
 
-  const flat = $derived(flowData(ts, mode, catLabel, t("charts.flow.other")));
+  const flat = $derived(flowData(native || fresh ? ts : [], mode, catLabel, t("charts.flow.other")));
   const multi = $derived(
     useHubs
       ? hubFlowData(activeRows, {
-          scope: scope === "all" && multiEntity && combined && !combinedFailed ? "all" : "this",
+          scope: merged && fresh ? "all" : "this",
           mode,
           label: catLabel,
           other: t("charts.flow.other"),

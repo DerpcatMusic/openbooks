@@ -39,6 +39,31 @@ export function pySum(xs: readonly number[], isInt: (i: number) => boolean): num
   return lo && Number.isFinite(lo) ? hi + lo : hi;
 }
 
+/** What Mercury says about where a payment went: the converted amount of an international wire, the memo the other side sees, its fee. */
+function mercuryLink(t: Json): StatementRow["link"] {
+  const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const fx = (t.currencyExchangeInfo ?? null) as Json | null,
+    det = (t.details ?? null) as Json | null;
+  const bank =
+    s(((det?.electronicRoutingInfo ?? det?.domesticWireRoutingInfo) as Json | null)?.bankName) ||
+    s((((det?.internationalWireRoutingInfo as Json | null)?.bankDetails ?? null) as Json | null)?.bankName);
+  const to =
+    fx && typeof fx.convertedToAmount === "number" && /^[A-Z]{3}$/.test(s(fx.convertedToCurrency)) && s(fx.convertedToCurrency) !== "USD"
+      ? { amount: Math.abs(fx.convertedToAmount), currency: s(fx.convertedToCurrency) }
+      : undefined;
+  const receipts = Array.isArray(t.attachments) ? (t.attachments as Json[]).filter((a) => a.attachmentType === "receipt").length : 0;
+  const party = [s(t.counterpartyName), bank].filter(Boolean).join(" · ");
+  const link = {
+    ...(to ? { to } : {}),
+    ...(s(t.externalMemo) ? { ref: s(t.externalMemo) } : {}),
+    ...(party ? { party } : {}),
+    ...(fx && typeof fx.feeAmount === "number" && fx.feeAmount > 0 ? { fee: fx.feeAmount } : {}),
+    ...(s(t.dashboardLink) ? { url: s(t.dashboardLink) } : {}),
+    ...(receipts ? { receipts } : {}),
+  };
+  return Object.keys(link).length ? link : undefined;
+}
+
 /** Mercury API dump {accounts, transactions} -> every posted transaction, reconciled per account against Mercury's balance. */
 export function mercuryJson(file: File): { rows: StatementRow[]; checks: StatementCheck[] } {
   // Python's json.loads tells 12 (int) from 12.0 (float); the uid and sum() care, so parseJson/intAmount carry it.
@@ -50,6 +75,7 @@ export function mercuryJson(file: File): { rows: StatementRow[]; checks: Stateme
   txns.forEach((t, i) => {
     if (["cancelled", "failed", "reversed", "blocked"].includes(t.status as string)) return;
     const s = (k: string) => (t[k] as string | null | undefined) || "";
+    const link = mercuryLink(t);
     const r: StatementRow = {
       date: head(t.postedAt || need(t, "createdAt"), 10),
       amount: need(t, "amount") as number,
@@ -63,6 +89,7 @@ export function mercuryJson(file: File): { rows: StatementRow[]; checks: Stateme
       file: file.name,
       page: i + 1,
       key: need(t, "id") as string,
+      ...(link ? { link } : {}),
     };
     rows.push(intAmount(r, t, "amount"));
   });

@@ -26,6 +26,8 @@ import money from "./parts/money.he.ts";
 import integrity from "./parts/integrity.he.ts";
 import legal from "./parts/legal.he.ts";
 import charts from "./parts/charts.he.ts";
+import markets from "./parts/markets.he.ts";
+import assets from "./parts/assets.he.ts";
 export default {
   ...a,
   ...b,
@@ -54,6 +56,8 @@ export default {
   ...integrity,
   ...legal,
   ...charts,
+  ...markets,
+  ...assets,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",
@@ -96,10 +100,10 @@ export default {
   "nav.transactions": "תנועות",
   "nav.invoices": "חשבוניות",
   "nav.bills": "חשבונות וקבלות",
-  "nav.review": "לסיווג",
+  "nav.review": "לטיפול",
   "nav.reports": "דוחות",
   "nav.counterparties": "לקוחות וספקים",
-  "nav.section.books": "הנהלת חשבונות",
+  "nav.section.books": "עוד",
   "nav.rules": "כללי סיווג",
   "nav.accounts": "לוח חשבונות",
   "nav.journal": "פקודות יומן",
@@ -328,6 +332,14 @@ export default {
   "txn.source": "מקור",
   "txn.by": "סווג על ידי",
   "txn.by.you": "על ידך",
+  "txn.by.auto": "אוטומטי: העברה בין החשבונות שלך",
+  "txn.link.to": "נשלח אל",
+  "txn.link.from": "מאת",
+  "txn.link.ref": "אסמכתא",
+  "txn.link.arrives": "מגיע כ־",
+  "txn.link.fee": "עמלת בנק",
+  "txn.link.open": "פתיחה באתר הבנק",
+  "txn.link.openReceipts": "פתיחה באתר הבנק · {n} קבלות",
   "txn.by.rule": "הכלל “{rule}”",
   "txn.by.none": "עדיין לא סווג",
   "txn.ruleSaved": "הכלל נשמר: “{rule}” ← {cat}",

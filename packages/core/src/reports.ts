@@ -3,7 +3,9 @@
 import type { StatementCheck, Txn } from "@openbooks/schema";
 import { MCAT_ACCOUNT, mcatKey } from "./mcat.ts";
 
-type Row = Pick<Txn, "date" | "amount" | "category">;
+type Row = Pick<Txn, "date" | "amount" | "category"> & { baseAmount?: number | undefined };
+/** What a row counts for in totals: its amount in the books' currency (a foreign-currency row converted at its day's rate). */
+export const baseOf = (t: Row) => t.baseAmount ?? t.amount;
 export type PlLine = "revenue" | "other" | "cogs" | "expense" | "ask";
 
 /** Account type → where it lands in the P&L (null = not P&L: transfers, equity, personal, own money, exempt). */
@@ -25,9 +27,10 @@ export const TYPES: Readonly<Record<string, PlLine | null>> = {
 export const group = (c: string) => (c || "ask").split(":")[0]!;
 export const plOf = (c: string): PlLine | null => TYPES[group(c)] ?? null;
 export const isBiz = (c: string) => plOf(c) === "revenue";
-export const isCard = (account: string) => /credit|card/i.test(account);
+/** A card account by its name: "credit"/"card", or an Israeli card issuer's scraped account ("Max ••1234", "Visa Cal ••…", "Isracard ••…"). */
+export const isCard = (account: string) => /credit|card|^max\b|visa ?cal|isracard|\bamex\b|american express|diners|כרטיס|אשראי/i.test(account);
 
-const sum = (ts: readonly Row[]) => ts.reduce((a, t) => a + t.amount, 0);
+const sum = (ts: readonly Row[]) => ts.reduce((a, t) => a + baseOf(t), 0);
 
 export interface AccountTotal {
   key: string;
@@ -38,7 +41,7 @@ export function byAccount(ts: readonly Row[]): AccountTotal[] {
   const m = new Map<string, AccountTotal>();
   for (const t of ts) {
     const a = m.get(t.category) ?? { key: t.category, value: 0, count: 0 };
-    a.value += t.amount;
+    a.value += baseOf(t);
     a.count++;
     m.set(t.category, a);
   }
@@ -88,8 +91,8 @@ export function pl(ts: readonly Row[]): PL {
 export const NOT_FLOW: ReadonlySet<string> = new Set(["transfer", "own", "equity", "personal", "loan"]);
 /** The row is money really coming in or going out (not a movement between pockets). */
 export const isFlow = (c: string) => !NOT_FLOW.has(group(c));
-export const cashIn = (ts: readonly Row[]) => ts.filter((t) => t.amount > 0 && isFlow(t.category)).reduce((a, t) => a + t.amount, 0);
-export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 && isFlow(t.category)).reduce((a, t) => a + t.amount, 0);
+export const cashIn = (ts: readonly Row[]) => ts.filter((t) => t.amount > 0 && isFlow(t.category)).reduce((a, t) => a + baseOf(t), 0);
+export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 && isFlow(t.category)).reduce((a, t) => a + baseOf(t), 0);
 
 /** Bank/card accounts seen in the books (journal excluded). */
 export const accounts = (txns: readonly Txn[]) => [...new Set(txns.filter((t) => t.source !== "journal").map((t) => t.account))];

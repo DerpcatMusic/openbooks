@@ -1,5 +1,6 @@
 // Israeli bank / card syncs from israeli-bank-scrapers (= books.py scraper_json + _local_day).
-import type { StatementCheck, StatementRow } from "@openbooks/schema";
+import { TransferLink, type StatementCheck, type StatementRow } from "@openbooks/schema";
+import { Schema } from "effect";
 import { pyRound } from "@openbooks/core";
 import { pyFloatStr } from "../uid.ts";
 import { round2 } from "./csv.ts";
@@ -91,6 +92,7 @@ export function scraperJson(file: ReaderFile): ReaderOut {
         file: file.name,
         page: rows.length + 1,
         key: `${acct}|${k}|${no}`,
+        ...(Schema.is(TransferLink)(t.link) ? { link: t.link } : {}),
       });
     }
     // the bank's balance is as of the sync: books and bank agree when the rows since the account began add up to it
