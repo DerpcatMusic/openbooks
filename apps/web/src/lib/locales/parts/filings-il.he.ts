@@ -97,6 +97,7 @@ export default {
   "vat.issue.badCustomerId": "{ref}: מספר העוסק של הלקוח לא עובר את בדיקת ספרת הביקורת.",
   "vat.issue.customerIdNeeded": "{ref}: חובה מספר עוסק של הלקוח בעסקה מעל {v}.",
   "vat.issue.allocationNeeded": "{ref}: חשבונית מס בסכום כזה דורשת מספר הקצאה מרשות המסים (סף {v}).",
+  "vat.issue.allocationInvalid": "{ref}: מספר ההקצאה חייב להיות בן 9 ספרות שאינן כולן אפסים שהונפקו מרשות המסים (אינו מאומת מקוונת).",
   "vat.issue.badSupplierId": "{ref}: מספר העוסק של הספק לא עובר את בדיקת ספרת הביקורת.",
   "vat.issue.pettyCashOver": "תשומות בלי מספר ספק (קופה קטנה) עוברות את הסכום המותר, {v}. העודף עלול להיפסל.",
   "vat.issue.pettyCashBig": "לחלק ממסמכי התשומות שמעל הסף אין מספר ספק.",

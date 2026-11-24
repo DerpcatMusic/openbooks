@@ -96,13 +96,20 @@ export function ilDeadlines(year: number, facts: IlFacts): FilingDeadline[] {
       source: "Ordinance s.132(b)(1): 31 May for double-entry books. The Tax Authority often extends: check its notices.",
     });
   } else if (t === "osek-zair" && !facts.zairExcluded) {
+    // Ordinary statutory deadline for the osek-zair short report is March 31 of the following year (gov.il/he/service/report-and-payment-for-micro-business-owner).
+    // Documented ITA extensions: 2024 → 2025-12-31 (notice 2025-000092), 2025 → 2026-06-30.
+    const shortDue = year === 2024 ? "2025-12-31" : year === 2025 ? "2026-06-30" : nextWorkday(`${year + 1}-03-31`);
     out.push({
       id: `il.short.${year}`,
-      date: `${year + 1}-12-31`,
+      date: shortDue,
       title: { en: `Short year-end report ${year} (small business, exempt from the annual return)`, he: `דיווח מקוצר ${year} (בעל עסק זעיר, פטור מדוח שנתי)` },
+      url: "https://www.gov.il/he/service/report-and-payment-for-micro-business-owner",
       source:
-        "Tax Authority notice 2025-000092 of 4 Dec 2025: the short report for tax year 2024 could be filed until 31.12.2025. Same pattern assumed for later years.",
-      unverified: true,
+        year === 2024
+          ? "Tax Authority notice 2025-000092: extended to 31.12.2025 for tax year 2024."
+          : year === 2025
+            ? "Tax Authority extension for tax year 2025: 30.06.2026 (ordinary deadline is 31 March)."
+            : "ITA micro-business guidance: ordinary deadline is 31 March of the following year (shifted to next workday if on a rest day).",
     });
     out.push({
       id: `il.zair-coordination.${year}`,

@@ -1,7 +1,8 @@
 <script lang="ts">
   // Pre-filing review (old web/src/views/TaxChecks.svelte): statements reconcile and cover the year, everything classified, the
   // 1301 boxes agree with each other and with the books, certificates and forms are in the proof pack, then what's left to do.
-  import { S, fmt, dmy } from "#lib/stores/books.svelte.ts";
+  import { brokenSplits } from "@openbooks/core";
+  import { S, fmt, dmy, splitsDoc } from "#lib/stores/books.svelte.ts";
   import { t, bidi, ltr } from "#lib/i18n.svelte.ts";
   import { Button, Icon, type IconName } from "#lib/ui/index.ts";
   import { ilYear } from "./il.ts";
@@ -25,18 +26,25 @@
       f294 = b.n("294");
     const bl = b.txns.filter((x) => x.desc.includes("ביטוח לאומי"));
     const has830 = proofs.some((n) => /830/.test(n));
+    const broken = brokenSplits(b.txns, splitsDoc());
     return [
       ...sts.map((c): Check => [
         c.parsed === c.total ? "ok" : "bad",
         t("taxChecks.reconciles", { range: range(c.period[0]!, c.period[1]!) }),
         t("taxChecks.reconcilesText", { read: fmt(c.parsed, 2), total: fmt(c.total, 2) }),
       ]),
+      ...(broken.length
+        ? [["bad", t("legal.brokenSplits", { n: broken.length }), t("legal.brokenSplitsText"), "/transactions"] as Check]
+        : []),
       [
         full ? "ok" : "bad",
         t("taxChecks.wholeYear"),
         full ? t("taxChecks.wholeYearOk", { y }) : t("taxChecks.wholeYearBad", { range: cover[0] ? range(cover[0], cover.at(-1)!) : t("taxChecks.nothing") }),
         "/documents",
       ],
+      ...(b.unresolvedHoldings.length
+        ? [["bad", t("legal.unresolvedBanner", { n: b.unresolvedHoldings.length }), t("legal.ilTreatmentHint"), "/you#cross-border"] as Check]
+        : []),
       // osek zair is closed by a foreign transparent holding or control of a company (Income Tax Circular 7/2025 §3.3)
       ...(b.type === "osek-zair" && b.zairExcluded
         ? [["bad", t("legal.zairExcluded"), t("legal.zairExcludedText", { why: b.blocked.map((x) => t(`legal.zairWhy.${x.key}`)).join(" ") })] as Check]

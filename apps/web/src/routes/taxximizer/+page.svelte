@@ -112,6 +112,14 @@
   const tick = (v: number) => ltr("₪" + compact.format(axis(v)));
   const xTicks = $derived(W < 420 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]);
   let hoverKey = $state<string | null>(null);
+  let hoverIdx = $state<number>(-1);
+  const hoverPt = $derived(hoverIdx >= 0 ? curve[hoverIdx] ?? null : null);
+  const moveCurve = (e: PointerEvent) => {
+    if (!curve.length) return;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / (rect.width || 1)));
+    hoverIdx = Math.round(frac * (curve.length - 1));
+  };
 
   const MODES = $derived(["books", "whatif"].map((key) => ({ key, label: t(`taxximizer.mode.${key}`) })));
   const CLIENTS = $derived(["business", "consumer", "foreign"].map((key) => ({ key, label: t(`taxximizer.clients.${key}`) })));
@@ -356,20 +364,57 @@
         </section>
 
         <Card title={t("taxximizer.chartTitle")} description={t("taxximizer.chartSub")}>
-          <div bind:clientWidth={cw} class="w-full" dir="ltr">
-            <svg viewBox="-4 -6 {W + 8} {H + 28}" width="100%" height={H + 28} role="img" aria-label={t("taxximizer.chartAria")} class="block overflow-visible">
+          <div bind:clientWidth={cw} class="relative w-full" dir="ltr">
+            <svg
+              viewBox="-4 -6 {W + 8} {H + 28}"
+              width="100%"
+              height={H + 28}
+              role="img"
+              aria-label={t("taxximizer.chartAria")}
+              class="block overflow-visible"
+              onpointermove={moveCurve}
+              onpointerleave={() => (hoverIdx = -1)}>
               {#each [0.25, 0.5, 0.75, 1] as g (g)}
                 <line x1="0" x2={W} y1={sy(maxKeep * g)} y2={sy(maxKeep * g)} stroke="var(--color-line)" />
                 <text x="2" y={sy(maxKeep * g) - 4} class="fill-faint text-[11px]">{tick(maxKeep * g)}</text>
               {/each}
               <line x1={sx(i.revenue)} x2={sx(i.revenue)} y1="0" y2={H} stroke="var(--color-sub)" stroke-dasharray="3 3" />
+              {#if hoverPt}
+                <line x1={sx(hoverPt.rev)} x2={sx(hoverPt.rev)} y1="0" y2={H} stroke="var(--color-line-strong)" />
+              {/if}
               {#each Object.keys(COLORS) as key (key)}
                 <path d={line(key)} fill="none" stroke={COLORS[key]} stroke-width={hoverKey === key ? 3 : 1.75} opacity={hoverKey && hoverKey !== key ? 0.2 : 1} />
+                {#if hoverPt}
+                  {@const pt = hoverPt.rows.find((z) => z.key === key)}
+                  {#if pt?.ok}
+                    <circle cx={sx(hoverPt.rev)} cy={sy(pt.keep)} r={hoverKey === key ? 4.5 : 3.25} fill="var(--color-panel)" stroke={COLORS[key]} stroke-width="2" />
+                  {/if}
+                {/if}
               {/each}
               {#each xTicks as g (g)}
                 <text x={sx(MAXR * g)} y={H + 18} text-anchor={g === 0 ? "start" : g === 1 ? "end" : "middle"} class="fill-faint text-[11px]">{tick(MAXR * g)}</text>
               {/each}
             </svg>
+            {#if hoverPt}
+              {@const hx = sx(hoverPt.rev)}
+              {@const cardW = Math.min(220, W)}
+              <div
+                class="pointer-events-none absolute top-2 z-20 rounded-xl border border-line-strong bg-panel/96 p-2.5 text-[12px] shadow-[var(--shadow)] backdrop-blur"
+                dir="auto"
+                style:width="{cardW}px"
+                style:left="{hx + 14 + cardW > W ? Math.max(0, hx - 14 - cardW) : hx + 14}px">
+                <div class="mb-1.5 border-b border-line pb-1 text-sub">{t("taxximizer.hoverRev")} <span class="num text-ink">{ils(hoverPt.rev)}</span></div>
+                {#each hoverPt.rows.filter((z) => z.ok).sort((a, b) => (b.ok ? b.keep : 0) - (a.ok ? a.keep : 0)) as x (x.key)}
+                  {#if x.ok}
+                    <div class="flex items-center gap-2 py-0.5">
+                      <span class="size-2 shrink-0 rounded-full" style:background={COLORS[x.key]}></span>
+                      <span class="min-w-0 flex-1 truncate text-ink-2">{L(x)}</span>
+                      <span class="num text-ink">{ils(x.keep)}</span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
           </div>
           <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-sub">
             {#each r.rows as x (x.key)}

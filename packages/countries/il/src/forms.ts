@@ -5,6 +5,7 @@ import { ORDINARY, PERSONAL, RATED, WITHHELD, proofsNeeded } from "./catalog.ts"
 import { group, isBiz, plOf } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { bands, soldierPoints } from "./calc.ts";
+import { foreignTaxCreditCap } from "./crossborder.ts";
 import type { IlTable } from "./schema.ts";
 
 export interface Profile {
@@ -42,6 +43,11 @@ export interface Form1301Input {
    * and the foreign tax paid on it in ₪: reported on appendix 1324, taxed with the personal-exertion income, credited up to the Israeli tax.
    */
   foreign?: { income: number; taxPaid: number };
+  /**
+   * Automatic boxes derived from tagged expenses (form1301FromBooks: donations 037, study fund 136, life 036, disability 112).
+   * Merged BEFORE calculating tax so displayed boxes and calculated tax always agree 100%; user overrides in `form` still win.
+   */
+  bookBoxes?: Readonly<Record<string, string>>;
 }
 
 /** Per-bracket breakdown for the Tax page: [{ rate, part, tax }] for brackets that hold income. */
@@ -122,9 +128,9 @@ export function refundIndexation(amount: number, y: number, today: string, paid 
   return Math.round(linked - amount + (linked * 0.04 * days) / 365);
 }
 
-/** Everything the return needs for a year (the Tax page and tax_summary). */
+/** Everything the return needs for a year (the Tax page, Home, Documents, Print, and MCP tax_summary). */
 export function form1301(i: Form1301Input) {
-  const auto = form1301Auto(i),
+  const auto = { ...form1301Auto(i), ...i.bookBoxes },
     f = i.form ?? {},
     p = i.profile ?? {},
     T = i.T;
@@ -168,8 +174,8 @@ export function form1301(i: Form1301Input) {
     // ponytail: personal exertion's share of the bracket tax, pro rata; exact would tax it first (it sits at the bottom brackets)
     personalTax = ord ? (ordTax * personal) / ord : 0;
   // the discharged-soldier credit (s.39א) only offsets tax on personal exertion. Credit points come off the bracket tax only:
-  // special-rate tax a fund withholds (a lump-sum חיסכון לכל ילד withdrawal, 25% of the real gain) is final, so the 040
-  // withholding pays it and is not refunded (Altshuler 14.10.2026; the 2025 assessment of 08.10.2026 left that balance at 0).
+  // special-rate tax a fund withholds (e.g. a lump-sum child-savings or provident-fund withdrawal at 25% of the real gain) is final,
+  // so box 040 withholding settles it and is not refunded against unused credit points.
   const creditsAvailable = resident * T.point + Math.min(soldier * T.point, personalTax),
     credits = Math.min(creditsAvailable, ordTax);
   // Credits for payments, after the points (1301 guide 2025 rows 73, 76, 78א): 268 pension 35% of deposits up to 5.5% of qualifying income
@@ -185,9 +191,13 @@ export function form1301(i: Form1301Input) {
       Object.values(paymentCredits).reduce((a, x) => a + x, 0),
       ordTax - credits,
     );
-  // Foreign tax credit (appendix 1324): the foreign tax, up to the Israeli tax on that income (its pro-rata share of the bracket tax after credits)
-  const israeliOnForeign = ord ? ((ordTax - credits - otherCredits) * foreign) / ord : 0,
-    foreignTaxCredit = Math.max(0, Math.min(i.foreign?.taxPaid ?? 0, israeliOnForeign));
+  // Foreign tax credit (appendix 1324): uses the exact same shared Ordinance §204 cap formula as ilCrossBorder().
+  const foreignTaxCredit = foreignTaxCreditCap({
+    netOrdinaryTax: ordTax - credits - otherCredits,
+    ordinaryIncome: ord,
+    foreignIncome: foreign,
+    foreignTaxPaid: i.foreign?.taxPaid ?? 0,
+  });
   const due = Math.round(ordTax - credits - otherCredits - foreignTaxCredit) + Math.round(capTax),
     withheld = sum(WITHHELD),
     advances = Math.round(i.advances ?? 0);

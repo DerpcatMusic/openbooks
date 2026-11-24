@@ -1,9 +1,9 @@
 <script lang="ts">
   // Documents: statements in inbox/ (they feed the books) and the year's proofs (certificates the return needs), with a
   // checklist of what this year still needs. IL: preview report + proof pack. Drop files anywhere (the shell) or use Add.
-  import { S, isUS, upload, fileUrl, packUrl, mdy, yearTxns, bizType, taxTable } from "#lib/stores/books.svelte.ts";
+  import { S, isUS, upload, fileUrl, packUrl, closePackUrl, mdy } from "#lib/stores/books.svelte.ts";
   import { t, lang } from "#lib/i18n.svelte.ts";
-  import { form1301, type IlTable } from "@openbooks/country-il";
+  import { ilYear } from "../tax/il/il.ts";
   import { Badge, Button, Card, EmptyState, Icon, PageHeader, Select, Table } from "#lib/ui/index.ts";
   import FilePick from "./FilePick.svelte";
 
@@ -17,7 +17,7 @@
         { label: t("documents.ein"), why: t("documents.einWhy"), ok: has(/ein|cp.?575|147c/i) },
         { label: t("documents.articles"), why: t("documents.articlesWhy"), ok: has(/articles|formation|certificate/i) },
       ];
-    const b = form1301({ y: S.year, txns: yearTxns(), type: bizType() ?? "", T: taxTable(S.year) as unknown as IlTable, form: d.form[S.year] ?? {}, profile: d.profile });
+    const b = ilYear(S.year);
     // one line per box with a value that the 1301 guide says to back with documents (catalog: form/fields-2025.json)
     return b.proofs.map((x) => {
       const forms = x.proof.map((d) => d.match(/^\d{3,4}/)?.[0]).filter((d) => !!d);
@@ -43,6 +43,7 @@
 
 <PageHeader title={t("documents.title")} sub={t("documents.sub")}>
   {#snippet actions()}
+    <Button icon="download" href={closePackUrl(S.year)} target="_blank">{t("legal.closePack", { year: S.year })}</Button>
     {#if !us}
       <Button icon="file" href="/print/{S.year}?e={encodeURIComponent(S.e)}" target="_blank">{t("documents.preview")}</Button>
       <Button variant="primary" icon="printer" href={packUrl(S.year)} target="_blank">{t("documents.pack", { year: S.year })}</Button>

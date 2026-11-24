@@ -39,11 +39,17 @@
   let w = $state(600),
     hover = $state(-1),
     hidden = $state(new Set<string>());
+  const seriesSig = $derived(series.map((s) => s.key).join("|"));
+  $effect(() => {
+    void seriesSig;
+    hidden = new Set();
+    hover = -1;
+  });
   const on = $derived(series.filter(s => !hidden.has(s.key)));
   const lv = (r: BarRow) => (line ? Number(r[line.key] ?? 0) : 0);
-  const padL = $derived(compact ? 0 : 48),
+  const padL = $derived(compact ? 0 : 56),
     padB = $derived(compact ? 0 : 28),
-    padT = 10,
+    padT = 12,
     H = $derived(height - padB - padT);
   const tot = (r: BarRow) => on.reduce((a, s) => a + Math.max(0, r.v[s.key] ?? 0), 0);
   const peak = $derived(Math.max(1, ...rows.map(r => (layout === "stack" ? tot(r) : Math.max(0, ...on.map(s => r.v[s.key] ?? 0)))), ...(line ? rows.map(lv) : [])));
@@ -148,12 +154,13 @@
   </svg>
 
   {#if hr && !compact}
-    {@const left = padL + hover * band + band / 2}
+    {@const cx = padL + hover * band + band / 2}
+    {@const placeRight = cx + 14 + cardW <= w}
+    {@const cardLeft = placeRight ? cx + 14 : Math.max(padL, cx - 14 - cardW)}
     <div
-      class="pointer-events-none absolute top-0 z-20 rounded-xl border border-line-strong bg-panel/95 p-3 text-[13px] shadow-[var(--shadow)] backdrop-blur"
+      class="pointer-events-none absolute top-2 z-20 rounded-xl border border-line-strong bg-panel/96 p-3 text-[13px] shadow-[var(--shadow)] backdrop-blur"
       style:width="{cardW}px"
-      style:left="{Math.min(Math.max(left - cardW / 2, 0), w - cardW)}px"
-      style:transform="translateY(-8px)">
+      style:left="{cardLeft}px">
       <div class="mb-2 text-ink">{hr.sub ?? hr.label}</div>
       {#each on.filter(s => hr.v[s.key]) as s (s.key)}
         <div class="flex items-start gap-2 py-0.5 transition-opacity" style:opacity={dim(s.key) < 1 ? 0.45 : 1}>

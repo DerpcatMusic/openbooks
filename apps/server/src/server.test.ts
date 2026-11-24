@@ -192,6 +192,23 @@ describe("vault", () => {
   }, 30_000);
 });
 
+test("close-pack: reproducible accountant ZIP includes CSV statements, proofs, ledger CSV, and manifest", async () => {
+  const r = await http(s.port, "GET", "/api/close-pack?e=noa&year=2025");
+  expect(r.status).toBe(200);
+  expect(r.type).toBe("application/zip");
+  // ZIP local file header magic "PK\x03\x04"
+  expect(r.body[0]).toBe(0x50);
+  expect(r.body[1]).toBe(0x4b);
+  const text = r.body.toString("latin1"); // uncompressed store zip entries contain literal paths & JSON text
+  expect(text).toContain("manifest.json");
+  expect(text).toContain("README.txt");
+  expect(text).toContain("ledger-2025.csv");
+  expect(text).toContain("openbooks-close-pack/v1");
+  expect(text).toContain("statements/mercury-new.csv");
+  expect(text).toContain("proofs/mystery.csv");
+  expect((await http(s.port, "GET", "/api/close-pack?e=noa&year=nope")).status).toBe(400);
+});
+
 const chrome = (() => {
   try {
     return execSync("command -v google-chrome-stable || command -v chromium || command -v google-chrome", { shell: "/bin/sh" }).toString().trim();

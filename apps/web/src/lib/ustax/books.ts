@@ -9,7 +9,10 @@ import {
   usTrack,
   type CorpInput,
   type IrsInput,
+  type IrsTxn,
+  type Part5472Treatment,
   type Payer,
+  type RelatedParty5472,
   type UsDeadlineFacts,
   type UsInputs,
   type UsReturn,
@@ -48,17 +51,39 @@ export const totalAssets = (y = S.year) => {
   return totals[0]!.assets;
 };
 
+/** Saved Form 5472 overrides & off-bank events (doc "form5472"): treatment per txn, party assignments, additional related parties, manual events. */
+export interface Form5472Doc {
+  treatments?: Record<string, Part5472Treatment>;
+  parties?: Record<string, string>;
+  relatedParties?: RelatedParty5472[];
+  events?: Record<string, IrsTxn[]>;
+}
+export const form5472Doc = (): Form5472Doc => doc<Form5472Doc>("form5472", {});
+export const saveForm5472Doc = (next: Form5472Doc) => saveDoc("form5472", next);
+
 export function irsInput(y = S.year): IrsInput {
+  const fdoc = form5472Doc();
+  const bankTxns: IrsTxn[] = ownerTxns(y).map((t) => {
+    const eq = group(t.category) === "equity";
+    const tr = fdoc.treatments?.[t.id];
+    const pid = fdoc.parties?.[t.id];
+    return {
+      id: t.id,
+      date: t.date,
+      desc: t.memo ? `${t.desc} · ${t.memo}` : t.desc,
+      amount: t.amount,
+      ...(eq ? {} : { related: true }),
+      ...(tr ? { treatment: tr } : {}),
+      ...(pid ? { partyId: pid } : {}),
+    };
+  });
+  const manualEvents = (fdoc.events?.[String(y)] ?? []).map((ev) => ({ ...ev }));
   return {
     year: y,
     ...S.data?.profile,
     totalAssets: totalAssets(y),
-    transactions: ownerTxns(y).map((t) => ({
-      date: t.date,
-      desc: t.memo ? `${t.desc} · ${t.memo}` : t.desc,
-      amount: t.amount,
-      ...(group(t.category) === "equity" ? {} : { related: true }),
-    })),
+    relatedParties: fdoc.relatedParties ?? [],
+    transactions: [...bankTxns, ...manualEvents],
   };
 }
 

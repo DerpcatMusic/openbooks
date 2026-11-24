@@ -14,9 +14,11 @@ describe("IL deadlines", () => {
   it("bimonthly VAT filers get 6 reports", () => {
     expect(ilDeadlines(2026, { businessType: "ltd", vatFrequency: "bimonthly" }).filter((x) => x.id.startsWith("il.vat."))).toHaveLength(6);
   });
-  it("osek patur has no VAT report; zair has the short report; Ltd no personal advances", () => {
+  it("osek patur has no VAT report; zair short report defaults to March 31 (with documented 2024/2025 extensions); Ltd no personal advances", () => {
     expect(ilDeadlines(2026, { businessType: "osek-patur" }).some((x) => x.id.startsWith("il.vat."))).toBe(false);
-    expect(ilDeadlines(2026, { businessType: "osek-zair" }).some((x) => x.id.startsWith("il.short."))).toBe(true);
+    expect(ilDeadlines(2026, { businessType: "osek-zair" }).find((x) => x.id === "il.short.2026")).toMatchObject({ date: "2027-03-31" });
+    expect(ilDeadlines(2025, { businessType: "osek-zair" }).find((x) => x.id === "il.short.2025")).toMatchObject({ date: "2026-06-30" });
+    expect(ilDeadlines(2024, { businessType: "osek-zair" }).find((x) => x.id === "il.short.2024")).toMatchObject({ date: "2025-12-31" });
     const l = ilDeadlines(2026, { businessType: "ltd" });
     expect(l.some((x) => x.id.startsWith("il.adv.bl."))).toBe(false);
     expect(l.some((x) => x.id === "il.1214.2026")).toBe(true);

@@ -8,24 +8,11 @@ import { llcObligations, us } from "@openbooks/country-us";
 import { api, request, type Entity } from "./api.ts";
 import { PACKS } from "./i18n.svelte.ts";
 import { ME } from "./me.svelte.ts";
-import { normalizeFacts } from "./facts.ts";
-export { answerOf, normalizeFacts, profileFromPerson, withFact } from "./facts.ts";
+import { holdings, ilTreatmentKey, ilTreatmentOf, normalizeFacts, packOf, taxDateKey, taxKey, typeOf } from "./facts.ts";
+export { answerOf, holdings, ilTreatmentKey, ilTreatmentOf, normalizeFacts, packOf, profileFromPerson, taxDateKey, taxKey, typeOf, withFact } from "./facts.ts";
 
 export type { Person };
 
-/** The business type in force in tax year y: the latest change on or before y, else the legacy kind's default. */
-export function typeOf(e: Partial<Entity>, y: number): string | undefined {
-  const t = e.types ?? {},
-    from = Object.keys(t)
-      .filter((k) => +k <= y)
-      .sort()
-      .at(-1);
-  return from ? t[from] : e.kind ? PACKS.find((p) => e.kind! in p.manifest.legacyKinds)?.manifest.legacyKinds[e.kind] : undefined;
-}
-export const packOf = (e: Partial<Entity>, y: number): CountryPack | undefined => {
-  const ty = typeOf(e, y);
-  return ty ? PACKS.find((p) => p.manifest.businessTypes.some((b) => b.key === ty)) : undefined;
-};
 export const packById = (id: string): CountryPack | undefined => PACKS.find((p) => p.manifest.id === id);
 /** Residence when nothing is saved: the first business whose pack can be a residence pack (has crossBorder). */
 export const defaultResidence = (es: readonly Partial<Entity>[], y: number) =>
@@ -80,20 +67,6 @@ export function question(key: string, packs: readonly CountryPack[] = PACKS): As
 }
 
 // ---------- cross-border: every business's year, each from its own books and pack ----------
-/** Key in person facts for the foreign tax paid by an entity in a year (flat, so facts stay a plain answer map). Rates are never typed: lib/fx.svelte.ts. */
-export const taxKey = (e: string, y: number) => `foreignTax.${e}.${y}`;
-
-/** What every business is, in year y, from the entity list alone (no books fetched): enough to decide osek zair eligibility and Form 150. */
-export function holdings(es: readonly Partial<Entity>[], y: number, residence: string) {
-  return es.flatMap((e) => {
-    const p = packOf(e, y),
-      type = typeOf(e, y);
-    if (!p || !type) return [];
-    const treatment = p.manifest.businessTypes.find((b) => b.key === type)!.treatment;
-    return [{ entity: e.id ?? "", country: p.manifest.id, type, treatment, foreign: p.manifest.id !== residence }];
-  });
-}
-
 export interface Biz {
   entity: Entity;
   pack: CountryPack;
@@ -109,6 +82,9 @@ export async function businesses(es: readonly Entity[], y: number): Promise<Biz[
     if (!p || !type) continue;
     const st = await api.state(e.id);
     if ("setup" in st) continue;
+    // Also honor profile.formed in case formation date was set on the US tax form before entity.meta.formed was populated
+    const formed = st.entity.formed || (typeof st.profile?.formed === "string" ? st.profile.formed : undefined);
+    if (formed && formed > `${y}-12-31`) continue;
     const ys = st.txns.filter((x) => +x.date.slice(0, 4) === y),
       r = pl(ys);
     out.push({

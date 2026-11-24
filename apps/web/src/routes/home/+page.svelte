@@ -3,13 +3,12 @@
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { burn as burnRate, cashDelta, cashFlow, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
-  import { form1301 } from "@openbooks/country-il";
-  import type { IlTable } from "@openbooks/country-il";
+  import { burn as burnRate, cashDelta, cashFlow, cashIn, cashOut, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
-  import { S, ent, isUS, bizType, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, taxTable, yearTxns, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc } from "#lib/stores/books.svelte.ts";
+  import { S, ent, isUS, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc } from "#lib/stores/books.svelte.ts";
   import { t } from "#lib/i18n.svelte.ts";
-  import { Area, BarList, Bars, Button, Dialog, Icon, IconButton, Money, Segmented, Stat, Switch } from "#lib/ui/index.ts";
+  import { Area, Badge, BarList, Bars, Button, Dialog, Icon, IconButton, Money, Segmented, Stat, Switch } from "#lib/ui/index.ts";
+  import { ilYear } from "../tax/il/il.ts";
   import FlowCard from "#lib/home/FlowCard.svelte";
   import InOutCard from "#lib/home/InOutCard.svelte";
   import Insights from "#lib/home/Insights.svelte";
@@ -82,21 +81,26 @@
   const mo = (n: number | null | undefined) => (n == null ? "—" : n < 1 ? t("home.m.lt1") : t("home.m.mo", { n }));
   const signed = (n: number) => (n > 0 ? "+" : "") + fmt(n);
 
-  // the big chart: each earning (or spending) type per month
-  let mode = $state("revenue"),
+  // Unified monthly chart (consolidates P&L, cash in/out, and revenue/expense breakdowns without repeating graphs)
+  let mode = $state("profit"),
     hl = $state<string | null>(null); // the ledger account / type hovered anywhere on the page
   const MODES = $derived(
     us
       ? [
+          { key: "profit", label: t("home.mode.profit") },
+          { key: "inout", label: t("home.mode.inout") },
           { key: "revenue", label: t("home.mode.revenue") },
           { key: "expenses", label: t("home.mode.expenses") },
-          { key: "profit", label: t("home.mode.profit") },
         ]
       : [
           { key: "revenue", label: t("home.mode.business") },
           { key: "in", label: t("home.mode.in") },
+          { key: "inout", label: t("home.mode.inout") },
         ],
   );
+  $effect(() => {
+    if (!MODES.some((m) => m.key === mode)) mode = MODES[0]!.key;
+  });
   const chart = $derived.by(() => {
     if (mode === "profit")
       return {
@@ -111,6 +115,21 @@
           return { key: ym, label: ml(ym), sub: monthYear(ym), v: { rev: x.revenue + x.other, exp: x.cogs + x.opex }, net: x.net };
         }),
       };
+    if (mode === "inout")
+      return {
+        series: [
+          { key: "in", label: t("charts.flow.in"), color: "var(--color-s3)" },
+          { key: "out", label: t("charts.flow.out"), color: "var(--color-s2)" },
+        ],
+        layout: "group" as const,
+        line: { key: "net", label: t("charts.inout.net"), color: "var(--color-s1)" },
+        rows: months.map((ym) => {
+          const mt = monthTs(ym),
+            inn = cashIn(mt),
+            out = cashOut(mt);
+          return { key: ym, label: ml(ym), sub: monthYear(ym), v: { in: inn, out }, net: inn - out };
+        }),
+      };
     const lines = mode === "revenue" ? revLines : mode === "expenses" ? expLines : inByType;
     return {
       series: series(lines),
@@ -120,14 +139,13 @@
     };
   });
 
-  // Israel: this tax year's return in brief (form1301 from the IL pack, with the user's typed form values)
-  const zair = $derived(bizType() === "osek-zair");
+  // Israel: uses the exact same unified ilYear() calculation as Form 1301, Print, Checks, and MCP
   const tb = $derived.by(() => {
-    if (us) return null;
-    const T = taxTable(S.year) as unknown as IlTable & { zairCeiling?: number };
-    const r = form1301({ y: S.year, txns: yearTxns(), type: bizType() ?? "", T, form: S.data!.form[S.year] ?? {}, profile: S.data!.profile });
-    return { ...r, ceiling: T.zairCeiling ?? 0 };
+    if (us || !S.data) return null;
+    const r = ilYear(S.year);
+    return { ...r, ceiling: (r.T as { zairCeiling?: number }).zairCeiling ?? 0 };
   });
+  const zair = $derived(!!tb?.zair);
   const ceilPct = $derived(tb?.ceiling ? (tb.turnover / tb.ceiling) * 100 : 0);
 
   const recent = $derived(ts.filter((x) => group(x.category) !== "transfer").slice(-7).reverse());
@@ -255,9 +273,6 @@
     <section class="panel rise min-w-0 p-5 sm:p-6" style="animation-delay:60ms">
       <Stat label={us ? t("home.mode.revenue") : t("home.mode.business")} value={revenue} currency={cur} delta={delta(revenue, prevRevenue)} hint={!us && zair ? t("home.taxedAt70") : ""} />
       {#if revLines.length}
-        <div class="mt-5">
-          <Bars bind:focus={hl} compact legend={false} height={80} label={t("home.chart.earnings")} currency={cur} series={series(revLines)} rows={perMonth(revLines, (x) => x.category)} />
-        </div>
         <h2 class="mt-5 text-[13px] text-sub">{t("home.byLedger")}</h2>
         <BarList bind:focus={hl} currency={cur} items={revLines} onselect={(k) => go("transactions", `cat:${k}`)} />
       {:else}
@@ -269,21 +284,23 @@
       {#if us}
         <Stat label={t("home.mode.expenses")} value={expenses} currency={cur} delta={delta(expenses, prevExpenses)} invert />
         {#if expLines.length}
-          <div class="mt-5">
-            <Bars bind:focus={hl} compact legend={false} height={80} label={t("home.chart.spending")} currency={cur} series={series(expLines)} rows={perMonth(expLines, (x) => x.category, -1)} />
-          </div>
           <h2 class="mt-5 text-[13px] text-sub">{t("home.byLedger")}</h2>
           <BarList bind:focus={hl} currency={cur} items={expLines} onselect={(k) => go("transactions", `cat:${k}`)} />
         {/if}
       {:else if tb}
-        <Stat
-          label={t(tb.balance < 0 ? "home.refund" : "home.taxToPay", { year: S.year })}
-          value={Math.abs(tb.balance)}
-          currency={cur}
-          class={tb.balance <= 0 ? "[&_[data-ui=money]]:text-good" : "[&_[data-ui=money]]:text-bad"}
-          hint={t("home.afterPoints", { points: tb.points.toFixed(2) })} />
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <Stat
+            label={t(tb.balance < 0 ? "home.refund" : "home.taxToPay", { year: S.year })}
+            value={Math.abs(tb.balance)}
+            currency={cur}
+            class={tb.balance <= 0 ? "[&_[data-ui=money]]:text-good" : "[&_[data-ui=money]]:text-bad"}
+            hint={t("home.afterPoints", { points: tb.points.toFixed(2) })} />
+          {#if tb.unresolvedHoldings.length || tb.missingFx.length}
+            <Badge size="sm" tone="warn">{t("legal.1301.incomplete")}</Badge>
+          {/if}
+        </div>
         <dl class="mt-5 divide-y divide-line text-[14px]">
-          {#each [[t("home.turnover"), tb.turnover], [t("home.taxable"), tb.taxable], [t("home.taxBefore"), tb.gross], [t("home.credits"), -tb.credits], [t("home.withheld"), -tb.withheld]] as const as [l, v] (l)}
+          {#each [[t("home.turnover"), tb.turnover], [t("home.taxable"), tb.taxable], [t("home.taxBefore"), tb.gross], [t("home.credits"), -(tb.credits + tb.otherCredits + tb.f1324.credit)], [t("home.withheld"), -(tb.withheld + tb.advances)]] as const as [l, v] (l)}
             <div class="flex items-baseline justify-between gap-3 py-2.5"><dt class="min-w-0 text-ink-2">{l}</dt><dd><Money value={v} currency={cur} cents={false} /></dd></div>
           {/each}
         </dl>
@@ -313,8 +330,10 @@
   <section class="panel rise min-w-0 p-5 sm:p-6" style="animation-delay:180ms">
     <div class="mb-5 flex flex-wrap items-center gap-3">
       <div class="min-w-0 flex-1 basis-60">
-        <h2 class="text-[16px] text-ink">{t(mode === "profit" ? "home.chart.pl" : mode === "expenses" ? "home.chart.spending" : mode === "in" ? "home.chart.in" : "home.chart.earnings")}</h2>
-        <p class="text-[13px] text-sub">{periodLabel(p)} · {mode === "profit" ? t("home.chart.net", { amount: fmt(now.net) }) : t("home.chart.hint")}</p>
+        <h2 class="text-[16px] text-ink">{t(mode === "profit" ? "home.chart.pl" : mode === "inout" ? "home.chart.inout" : mode === "expenses" ? "home.chart.spending" : mode === "in" ? "home.chart.in" : "home.chart.earnings")}</h2>
+        <p class="text-[13px] text-sub">
+          {periodLabel(p)} · {mode === "profit" ? t("home.chart.net", { amount: fmt(now.net) }) : mode === "inout" ? t("home.chart.net", { amount: fmt(cf.net) }) : t("home.chart.hint")}
+        </p>
       </div>
       <Segmented bind:value={mode} items={MODES} label={t("home.chart.mode")} />
     </div>

@@ -111,11 +111,20 @@ test("net_worth tool: the totals on one day, each account in its own currency an
   });
 });
 
-test("tax_summary: the LLC's income reaches the Israeli return at the Bank of Israel rate of its day", async () => {
+test("tax_summary: the LLC's income reaches the Israeli return once Israeli treatment is set, at the Bank of Israel rate of its day", async () => {
   const llc = (await get("/api/state?e=llc")).txns.find((t: J) => t.amount === 2000);
   expect((await http(s.port, "POST", "/api/category?e=llc", { ids: [llc.id], category: "revenue:music-royalties" })).status).toBe(200);
+  // Before Israeli tax treatment is set for 2026, the LLC stays explicitly unresolved instead of silently treated as transparent.
+  const unresolved = (await http(s.port, "POST", "/api/tools/run", { name: "tax_summary", args: { year: 2026 }, entity: "il" })).json() as J;
+  expect(unresolved.result.crossBorder).toMatchObject({
+    attributedIncome: 0,
+    onReturn: false,
+    unresolvedHoldings: [{ entity: "llc", country: "us", type: "llc-disregarded" }],
+  });
+
+  // Once the owner sets Israeli treatment for llc in 2026 to transparent (Circular 5/2004), its 2,000 USD on Mar 5 at 3.7 = 7,400 ₪ is attributed.
+  expect((await http(s.port, "POST", "/api/person", { residence: "il", facts: { "ilTreatment.llc.2026": "transparent" } })).status).toBe(200);
   const r = (await http(s.port, "POST", "/api/tools/run", { name: "tax_summary", args: { year: 2026 }, entity: "il" })).json() as J;
-  // 2,000 USD on Mar 5 at 3.7 = 7,400 ₪ attributed (the owner draw is equity, not an expense); every rate known, so it is on the return
   expect(r.result.crossBorder).toMatchObject({ attributedIncome: 7400, missingRates: 0, onReturn: true });
   expect(r.result.taxable).toBe(r.result.turnover + 7400); // osek zair closed: no 30% on the Israeli turnover either
 });

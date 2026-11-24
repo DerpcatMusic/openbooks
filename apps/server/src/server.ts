@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSyn
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
 import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
-import { type EntityMeta, isRuleInput, type RuleInput, type StatementCheck } from "@openbooks/schema";
+import { type EntityMeta, isRuleInput, type RuleInput, type SplitsDoc, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import {
   ask,
@@ -25,7 +25,7 @@ import {
   transferSuggestions,
 } from "@openbooks/tools";
 import { foreign } from "./guard.ts";
-import { buildPack } from "./pack.ts";
+import { buildClosePackage, buildPack } from "./pack.ts";
 import { Actor } from "@openbooks/storage";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
 
@@ -334,6 +334,32 @@ export async function startServer(o: ServerOptions) {
         ),
       });
     }
+    if (path === "/api/close-pack") {
+      const e = await entity(q.get("e"));
+      const year = Number.parseInt(q.get("year") ?? "", 10);
+      if (!Number.isInteger(year)) throw new Reply({ error: "bad year" }, 400);
+      const st = await books((b) => b.state(e));
+      const fxRates = await books((b) => b.doc<Record<string, unknown>>("_app", "fx", {}));
+      const bytes = buildClosePackage({
+        dir: join(home, e),
+        entity: e,
+        entityMeta: st.entity as unknown as Record<string, unknown>,
+        year,
+        basis: (st.docs?.books as { basis?: string } | undefined)?.basis ?? "cash",
+        txns: st.txns,
+        splits: st.docs?.splits as SplitsDoc | undefined,
+        checks: st.checks as StatementCheck[],
+        formOverrides: (st.form?.[year] ?? {}) as Record<string, unknown>,
+        fxRates,
+        profile: st.profile ?? {},
+      });
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${e}-close-pack-${year}.zip"`,
+        },
+      });
+    }
     if (path === "/api/pack") {
       const e = await entity(q.get("e"));
       if (q.get("year") === null) throw new Reply({ error: "unknown entity" }, 404); // books.py: KeyError → this 404
@@ -480,8 +506,8 @@ export async function startServer(o: ServerOptions) {
         await books((bs) => Effect.flatMap(bs.doc(e, "profile", {}), (p) => bs.putDoc(e, "profile", { ...p, ...b })));
         break;
       case "/api/meta": {
-        // {name?, short?, flag?, currency?, types?: {year: business type}}: rename or change structure
-        const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types"].includes(k)));
+        // {name?, short?, flag?, currency?, formed?, disposed?, types?: {year: business type}}: rename or change structure
+        const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types", "formed", "disposed"].includes(k)));
         await books((bs) => bs.setMeta(e, patch));
         break;
       }

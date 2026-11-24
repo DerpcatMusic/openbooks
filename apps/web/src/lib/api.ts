@@ -128,6 +128,7 @@ export const api = {
   transfers: (e: string, ref?: string) =>
     request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),
   packUrl: (e: string, year: number) => withEntity(`/api/pack?year=${year}`, e),
+  closePackUrl: (e: string, year: number) => withEntity(`/api/close-pack?year=${year}`, e),
   fileUrl: (e: string, name: string, sub = "inbox") => `/files/${e}/${sub}/${encodeURIComponent(name)}`,
 };
 

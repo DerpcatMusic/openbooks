@@ -27,6 +27,7 @@ import {
   openAt,
   relatedPartyTags,
   invoiceTotal,
+  isBiz,
   isCard,
   isLegacy,
   migrateBill,
@@ -49,11 +50,26 @@ import {
   withOverrides,
   type DeductionInput,
   type RuleOverrides,
+  readFilings,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
 import { Actor, type ActorKind, Books, taxTables } from "@openbooks/storage";
-import { form1301, il, zairExclusion, type IlTable, type Profile } from "@openbooks/country-il";
-import type { CrossBorder, EntityYear, Facts, FxFn } from "@openbooks/core";
+import {
+  depreciation,
+  form1301,
+  form1301FromBooks,
+  il,
+  ilSettings,
+  paidTotal,
+  periodReport,
+  vatRegistered,
+  zairExclusion,
+  type CustomerDoc,
+  type IlTable,
+  type InvoiceDoc,
+  type Profile,
+} from "@openbooks/country-il";
+import type { CrossBorder, EntityYear, Facts, FxFn, ResidenceTreatment } from "@openbooks/core";
 import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type Vendor1099 } from "@openbooks/country-us";
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
@@ -1089,28 +1105,41 @@ const taxTable = (y: number, country = "il") =>
     const row = t[String(pick)]!;
     return { ...row, year: pick, brackets: row.brackets.map(([hi, r]) => [hi ?? Infinity, r] as const) };
   });
+/** Year-specific Israeli treatment for a foreign holding (matches apps/web/src/lib/person.ts ilTreatmentOf). */
+function ilTreatmentFor(facts: Facts, entityId: string, y: number, manifestTreatment: EntityYear["treatment"]): ResidenceTreatment {
+  const saved = facts[`ilTreatment.${entityId}.${y}`];
+  if (saved === "transparent" || saved === "company" || saved === "unresolved") return saved;
+  return manifestTreatment === "company" ? "company" : "unresolved";
+}
+
 /** From the entity list alone (no ledgers): how many foreign entities the person holds in year y and whether osek zair is closed. */
 const holdingsOf = (y: number) =>
   Effect.gen(function* () {
     const es = (yield* Books.use((b) => b.entities)).map(entityOf$);
-    const person = yield* Books.use((b) => b.doc<{ residence?: string } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const person = yield* Books.use((b) => b.doc<{ residence?: string; facts?: Facts } | null>("_app", "person", null)).pipe(Effect.orDie);
     const residence = person?.residence || "il";
-    const hs = es.flatMap((e) => {
+    const facts = person?.facts ?? {};
+    const hs: { entity: string; type: string; treatment: EntityYear["treatment"]; ilTreatment?: ResidenceTreatment; foreign: boolean }[] = [];
+    for (const e of es) {
+      const prof = yield* docOf<Record<string, unknown>>(e, "profile", {});
+      const formed = e.meta.formed || (typeof prof.formed === "string" ? prof.formed : undefined);
+      if (formed && formed > `${y}-12-31`) continue;
       const p = packFor(e.meta, y);
-      return p
-        ? [
-            {
-              entity: e.id,
-              type: p.type,
-              treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
-              foreign: p.pack.manifest.id !== residence,
-            },
-          ]
-        : [];
-    });
+      if (!p) continue;
+      const treatment = p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment;
+      const foreign = p.pack.manifest.id !== residence;
+      hs.push({
+        entity: e.id,
+        type: p.type,
+        treatment,
+        ...(foreign && residence === "il" ? { ilTreatment: ilTreatmentFor(facts, e.id, y, treatment) } : {}),
+        foreign,
+      });
+    }
     const foreign = hs.filter((h) => h.foreign);
     return {
       foreignHoldings: foreign.length,
+      unresolvedHoldings: foreign.filter((h) => h.ilTreatment === "unresolved").length,
       zairExcluded:
         residence === "il" &&
         zairExclusion(
@@ -1128,41 +1157,126 @@ const personYear = (y: number) =>
       facts = person?.facts ?? {};
     const years: EntityYear[] = [];
     for (const e of es) {
+      const prof = yield* docOf<Record<string, unknown>>(e, "profile", {});
+      const formed = e.meta.formed || (typeof prof.formed === "string" ? prof.formed : undefined);
+      if (formed && formed > `${y}-12-31`) continue;
       const p = packFor(e.meta, y);
       if (!p) continue;
       const ts = (yield* ledgerOf(e)).filter((t) => t.date.startsWith(String(y))),
         r = pl(ts);
+      const treatment = p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment;
+      const foreign = p.pack.manifest.id !== residence;
+      const dt = facts[`foreignTaxDate.${e.id}.${y}`];
       years.push({
         entity: e.id,
         country: p.pack.manifest.id,
         type: p.type,
-        treatment: p.pack.manifest.businessTypes.find((b) => b.key === p.type)!.treatment,
+        treatment,
+        ...(foreign && residence === "il" ? { ilTreatment: ilTreatmentFor(facts, e.id, y, treatment) } : {}),
         year: y,
         currency: e.meta.currency ?? p.pack.manifest.currency,
         revenue: r.revenue,
         expenses: r.cogs + r.opex,
         foreignTaxPaid: +(facts[`foreignTax.${e.id}.${y}`] ?? 0) || 0, // the web app's taxKey
+        ...(typeof dt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dt) ? { foreignTaxDate: dt } : {}),
         lines: ts.filter((t) => ["revenue", "cogs", "expense"].includes(plOf(t.category) ?? "")).map((t) => ({ date: t.date, amount: t.amount })),
       });
     }
     const home = years.filter((x) => x.country === residence),
       foreign = years.filter((x) => x.country !== residence);
     const blocked = residence === "il" ? zairExclusion(home, foreign) : [];
-    // Bank of Israel representative rate on each line's date (cached; offline = whatever the cache has, a missing rate stays missing)
-    const fxRate: FxFn = fxOf(yield* ratesFor(foreign.flatMap((x) => x.lines.map((l) => ({ currency: x.currency, date: l.date })))), "ILS");
+    // Bank of Israel representative rate on each line's date + any recorded foreign-tax payment date (cached; missing stays missing)
+    const todayIso = today();
+    const defaultTaxDate = `${y}-12-31` > todayIso && todayIso.startsWith(`${y}-`) ? todayIso : `${y}-12-31`;
+    const fxNeeded = foreign.flatMap((x) => [
+      ...x.lines.map((l) => ({ currency: x.currency, date: l.date })),
+      ...(x.foreignTaxPaid > 0 ? [{ currency: x.currency, date: x.foreignTaxDate || defaultTaxDate }] : []),
+    ]);
+    const fxRate: FxFn = fxOf(yield* ratesFor(fxNeeded), "ILS");
     const cb: CrossBorder | null = residence === "il" && foreign.length ? il.crossBorder!({ residence, facts }, y, home, foreign, fxRate) : null;
     return { foreign, blocked, cb };
   });
 const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
   Effect.gen(function* () {
-    // the same form1301 the Tax page uses; form values (Tax page) override the automatic ones
+    // Unified single tax calculation matching the web app's ilYear() on every input:
+    // deductions (disallowed + bookBoxes), VAT-exclusive figures, equipment depreciation (appendix 1342), advances, and person profile.
     const T = yield* taxTable(y);
     const py = yield* personYear(y);
     const zairExcluded = py.blocked.length > 0,
       cb = py.cb,
       foreign = cb && !cb.missingFx.length && cb.attributedIncome ? { income: cb.attributedIncome, taxPaid: cb.foreignTax } : undefined;
+    const zair = type === "osek-zair" && !zairExcluded;
     const f = (yield* docOf<Record<string, Record<string, string | number | null>>>(e, "form", {}))[String(y)] ?? {};
-    const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
+    const rawProfile = yield* docOf<Record<string, unknown>>(e, "profile", {});
+    const person = yield* Books.use((b) => b.doc<{ facts?: Record<string, unknown> } | null>("_app", "person", null)).pipe(Effect.orDie);
+    const pf = person?.facts ?? {};
+    const profile: Profile = {
+      ...(rawProfile as Profile),
+      ...(typeof pf.dischargeDate === "string" && pf.dischargeDate
+        ? { discharge: pf.dischargeDate }
+        : typeof pf.discharge === "string" && pf.discharge
+          ? { discharge: pf.discharge }
+          : {}),
+      ...(pf.serviceMonths !== undefined
+        ? { serviceMonths: Number(pf.serviceMonths) }
+        : pf.fullService === true
+          ? { serviceMonths: 23 }
+          : pf.fullService === false
+            ? { serviceMonths: 0 }
+            : {}),
+    };
+    // Run the deduction engine for year y (same as web taxtags.svelte.ts): gives disallowed expenses, bookBoxes, and vatReclaimable.
+    const ded = deductions((yield* dedCtx(e, y)).inp);
+    const cut = ded.totals.nonDeductible;
+    const bookBoxes = form1301FromBooks(ded.byRule);
+    const filingsDoc = readFilings(yield* docOf<unknown>(e, "filings", null));
+    const settings = ilSettings(filingsDoc.settings);
+    const advances = paidTotal(settings.advancesPaid, y, "tax");
+    // VAT-exclusive turnover & reclaimed input VAT when VAT-registered and not filing as osek zair
+    let vat: { turnover: number; reclaimed: number } | undefined;
+    if (!zair && vatRegistered(type, settings.vatStatus)) {
+      const invoices = yield* docOf<InvoiceDoc[]>(e, "invoices", []);
+      const customers = yield* docOf<CustomerDoc[]>(e, "customers", []);
+      const rate = Number((T as { vatRate?: number }).vatRate ?? 0.18);
+      const baseCur = e.meta.currency ?? "ILS";
+      const invFx = fxOf(
+        yield* ratesFor(invoices.filter((i) => i.currency && i.currency !== baseCur && i.issued).map((i) => ({ currency: i.currency!, date: i.issued }))),
+        baseCur,
+      );
+      const rep = periodReport(
+        { key: String(y), from: `${y}-01-01`, to: `${y}-12-31`, months: 12 },
+        { invoices, customers, rows: ded.rows, txns: yield* ledgerOf(e), rate, settings, currency: baseCur, fx: invFx },
+      );
+      const fromDocs = rep.totals.taxableSales + rep.totals.zeroExempt;
+      const reclaimed = ded.totals.vatReclaimable;
+      const turnover = fromDocs > 0 ? fromDocs : Math.round(txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0) / (1 + rate));
+      vat = { turnover, reclaimed };
+    }
+    // Equipment depreciation register through year y (appendix 1342) when not osek zair
+    let capital: { cost: number; depreciation: number } | undefined;
+    if (!zair) {
+      const allTxns = yield* ledgerOf(e);
+      const assetYears = [...new Set(allTxns.map((t) => +t.date.slice(0, 4)).filter((yy) => yy <= y))].sort((a, b) => a - b);
+      const depRule = (il.deductions?.rules ?? []).find((r) => r.id === "il.depreciation");
+      const rates = (depRule?.values ?? {}) as Record<string, number>;
+      const assets = [];
+      for (const yy of assetYears) {
+        const yd = yy === y ? ded : deductions((yield* dedCtx(e, yy)).inp);
+        for (const r of yd.rows) {
+          if (r.rule !== "il.depreciation") continue;
+          assets.push({
+            id: r.id,
+            date: r.date,
+            desc: r.desc,
+            cost: Math.max(0, r.gross - r.vatReclaimable),
+            rule: r.rule,
+            ...(settings.assetClass[r.id] ? { cls: settings.assetClass[r.id] } : {}),
+          });
+        }
+      }
+      const dep = depreciation(assets, rates, y);
+      if (dep.rows.length || dep.totals.bought) capital = { cost: dep.totals.bought, depreciation: dep.totals.amount };
+    }
     const form = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v == null ? v : String(v)])) as Record<string, string>;
     const r = form1301({
       y,
@@ -1170,13 +1284,17 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
       type,
       T: T as unknown as IlTable,
       form,
-      profile: p as Profile,
-      today: new Date().toISOString().slice(0, 10),
+      bookBoxes,
+      profile,
+      disallowed: cut,
+      advances,
+      today: today(),
       zairExcluded,
       ...(foreign ? { foreign } : {}),
+      ...(vat ? { vat } : {}),
+      ...(capital ? { capital } : {}),
     });
     const used = Math.min(r.gross, r.credits);
-    const zair = type === "osek-zair" && !zairExcluded;
     return {
       regime: zair ? "Israeli osek zair (30% deemed expenses), form 1301" : `Israeli ${type} (actual expenses), form 1301`,
       businessType: type,
@@ -1196,15 +1314,21 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
             foreignTax: r2(cb.foreignTax),
             foreignTaxCredit: r2(r.f1324.credit),
             missingRates: cb.missingFx.length,
+            unresolvedHoldings: cb.unresolved ?? [],
             onReturn: !!foreign,
-            note: cb.missingFx.length
-              ? `${cb.missingFx.length} foreign amounts have no Bank of Israel rate yet: the foreign income is NOT in this estimate.`
-              : "Foreign income converted at each transaction's Bank of Israel rate (appendix 1324).",
+            note: cb.unresolved?.length
+              ? `${cb.unresolved.length} foreign holding(s) have an unresolved Israeli tax treatment for ${y}: totals exclude those entities until resolved.`
+              : cb.missingFx.length
+                ? `${cb.missingFx.length} foreign amounts have no Bank of Israel rate yet: the foreign income is NOT in this estimate.`
+                : "Foreign income converted at each transaction's Bank of Israel rate (appendix 1324).",
             obligations: cb.obligations.map((o) => ({ form: o.form, why: o.why })),
           }
         : null,
       deductions: r.deductions,
       paymentCredits: r.paymentCredits,
+      bookBoxes,
+      disallowedExpenses: r2(cut),
+      advancesPaid: r.advances,
       taxTableYear: T.year,
       turnover: r2(r.turnover),
       zairCeiling: T.zairCeiling ?? null,
@@ -1324,14 +1448,24 @@ const tax_summary = defineTool({
 });
 
 // ---------- deductions (smart tax tags: tag.tax = { rule, pct }, rules from the country pack's tables/deductions.json) ----------
-/** The business type in force in year y (latest `types` entry on or before it, else the legacy kind's default) and its pack. */
+/** The business type in force in year y (respects formation/disposal dates; never falls back to legacy kind when types exist for later years only). */
 function packFor(m: EntityMeta, y: number) {
-  const from = Object.keys(m.types ?? {})
+  if (m.formed && m.formed > `${y}-12-31`) return undefined;
+  if (m.disposed && m.disposed < `${y}-01-01`) return undefined;
+  const types = m.types ?? {},
+    keys = Object.keys(types),
+    from = keys
       .filter((k) => +k <= y)
       .sort()
       .at(-1),
     packs = [il, us],
-    type = from ? m.types![from] : m.kind ? packs.find((p) => m.kind! in p.manifest.legacyKinds)?.manifest.legacyKinds[m.kind] : undefined;
+    type = from
+      ? types[from]
+      : keys.length
+        ? undefined
+        : m.kind
+          ? packs.find((p) => m.kind! in p.manifest.legacyKinds)?.manifest.legacyKinds[m.kind]
+          : undefined;
   const pack = type ? packs.find((p) => p.manifest.businessTypes.some((b) => b.key === type)) : undefined;
   return type && pack?.deductions ? { type, pack, table: pack.deductions } : undefined;
 }

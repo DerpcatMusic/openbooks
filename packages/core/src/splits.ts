@@ -46,8 +46,44 @@ export const cleanSplit = (lines: readonly SplitLine[]): SplitLine[] =>
     return { account: l.account.trim(), amount: cents(l.amount) / 100, ...(memo ? { memo } : {}), ...(tags.length ? { tags } : {}) };
   });
 
-/** The lines of a transaction if its stored split still adds up to it (a re-import with a different amount silently drops the split). */
+/** The lines of a transaction if its stored split still adds up to it (a re-import with a different amount drops the split; surface it via brokenSplits). */
 export const splitOf = (doc: SplitsDoc | undefined, id: string, amount: number): readonly SplitLine[] | undefined => {
   const lines = doc?.[id];
   return lines && splitProblem(amount, lines) === null ? lines : undefined;
 };
+
+export interface BrokenSplit {
+  id: string;
+  date: string;
+  desc: string;
+  txnAmount: number;
+  splitTotal: number;
+  diff: number;
+  problem: SplitProblem;
+}
+
+/**
+ * Find every stored transaction whose saved split no longer matches its current bank amount (e.g. after a re-import changed the
+ * deposit or a line became invalid), so pre-close checks and reconciliation never lose sight of silently dropped splits.
+ */
+export function brokenSplits(stored: readonly { id: string; date: string; desc: string; amount: number }[], doc: SplitsDoc | undefined): BrokenSplit[] {
+  if (!doc) return [];
+  const out: BrokenSplit[] = [];
+  for (const t of stored) {
+    const lines = doc[t.id];
+    if (!lines) continue;
+    const problem = splitProblem(t.amount, lines);
+    if (!problem) continue;
+    const splitTotal = lines.reduce((a, l) => a + (Number.isFinite(l.amount) ? cents(l.amount) : 0), 0) / 100;
+    out.push({
+      id: t.id,
+      date: t.date,
+      desc: t.desc,
+      txnAmount: t.amount,
+      splitTotal,
+      diff: remaining(t.amount, lines),
+      problem,
+    });
+  }
+  return out;
+}

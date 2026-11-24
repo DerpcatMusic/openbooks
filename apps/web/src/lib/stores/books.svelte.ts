@@ -224,6 +224,7 @@ export const mdy = (iso: string) => new Intl.DateTimeFormat(locale(), { dateStyl
 export const mdyEn = (iso: string) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(dateOf(iso));
 export const fileUrl = (name: string, sub = "inbox") => api.fileUrl(S.e, name, sub);
 export const packUrl = (y: number) => api.packUrl(S.e, y);
+export const closePackUrl = (y: number) => api.closePackUrl(S.e, y);
 
 // ---------- loading and writes: every write answers with the new State ----------
 export function toast(msg: string, action?: Toast["action"]) {

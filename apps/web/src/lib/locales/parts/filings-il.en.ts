@@ -98,6 +98,7 @@ export default {
   "vat.issue.badCustomerId": "{ref}: the customer's business number does not pass the check digit.",
   "vat.issue.customerIdNeeded": "{ref}: a customer's business number is required for a sale above {v}.",
   "vat.issue.allocationNeeded": "{ref}: a tax invoice at this size needs an allocation number from the Tax Authority (threshold {v}).",
+  "vat.issue.allocationInvalid": "{ref}: the allocation number must be 9 non-zero digits issued by the Tax Authority (not verified online).",
   "vat.issue.badSupplierId": "{ref}: the supplier's business number does not pass the check digit.",
   "vat.issue.pettyCashOver": "Inputs without a supplier number (petty cash) exceed the permitted amount of {v}. The excess may be disallowed.",
   "vat.issue.pettyCashBig": "Some input documents above the threshold have no supplier number.",

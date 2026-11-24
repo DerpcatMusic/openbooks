@@ -1,8 +1,9 @@
 import { expect, test } from "vite-plus/test";
-import { arrange, CARDS, move } from "./layout.ts";
+import { arrange, CARDS, DEFAULT_HIDDEN, move } from "./layout.ts";
 
 test("home layout: saved order kept, new cards slot in after their default neighbour, unknown ids dropped", () => {
   expect(arrange(null).order).toEqual([...CARDS]);
+  expect([...arrange(null).hidden]).toEqual([...DEFAULT_HIDDEN]);
   const { order, hidden } = arrange({ order: ["recent", "metrics", "gone", "chart"], hidden: ["flow", "nope"] });
   expect(order.slice(0, 2)).toEqual(["recent", "metrics"]);
   expect(order.indexOf("overview")).toBe(order.indexOf("metrics") + 1);

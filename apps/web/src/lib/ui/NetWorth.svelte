@@ -46,7 +46,7 @@
   const step = $derived.by(() => {
     const raw = (hi - lo) / 4,
       p = 10 ** Math.floor(Math.log10(raw || 1));
-    return [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? raw;
+    return Math.max(1, [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? raw);
   });
   const top = $derived(Math.ceil(hi / step) * step),
     bottom = $derived(Math.floor(lo / step) * step);
