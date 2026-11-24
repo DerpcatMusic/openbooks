@@ -204,3 +204,42 @@ test("isAutoCardPayoff & ledger: Mercury Credit card payments auto-classify as t
   // Manual override always wins over auto-transfer
   expect(rows.find((r) => r.id === "p3")).toMatchObject({ category: "expense:other", why: "manual" });
 });
+
+test("ledger files an Israeli card bill as a transfer only when that card's own account is in the books", () => {
+  const mk = (id: string, account: string, amount: number, desc: string, date = "2026-04-10") => ({
+    id,
+    date,
+    amount,
+    desc,
+    source: "scraper:hapoalim",
+    account,
+    file: "f",
+    page: 1,
+  });
+  const bill = mk("bill", "Hapoalim ••1234", -2450, "מקס איט פיננסים");
+  const charge = mk("c1", "Max ••5678", -120, "סופר");
+  expect(ledger([bill], {}, []).find((r) => r.id === "bill")!.category).toBe("ask"); // no card account: the bill is the spending
+  expect(ledger([bill, charge], {}, []).find((r) => r.id === "bill")).toMatchObject({ category: "transfer:internal", why: "auto-transfer" });
+  expect(ledger([charge], {}, [])[0]!.category).toBe("ask"); // the card's charges stay spending
+});
+
+test("ledger pairs an exact move between two of the same books' accounts, unless rejected or closed", () => {
+  const mk = (id: string, account: string, amount: number, date: string) => ({ id, date, amount, desc: id, source: "bank", account, file: "f", page: 1 });
+  const rows = [mk("o", "Hapoalim", -5000, "2026-03-01"), mk("i", "Savings", 5000, "2026-03-03"), mk("x", "Hapoalim", 5000, "2026-03-20")];
+  const cat = (extra = {}) => Object.fromEntries(ledger(rows, {}, [], [], undefined, extra).map((r) => [r.id, r.category]));
+  expect(cat()).toEqual({ o: "transfer:internal", i: "transfer:internal", x: "ask" });
+  expect(cat({ transfers: { rejected: [{ out: "il/o", in: "il/i" }] } })).toEqual({ o: "ask", i: "ask", x: "ask" });
+  expect(cat({ close: "2026-03-31" })).toEqual({ o: "ask", i: "ask", x: "ask" });
+  // a filed row is never re-filed
+  expect(Object.fromEntries(ledger(rows, { o: "expense:rent" }, []).map((r) => [r.id, r.category]))).toMatchObject({ o: "expense:rent", i: "ask" });
+});
+
+test("totals add a foreign-currency row at its converted amount, never its raw number", async () => {
+  const { pl, cashIn } = await import("./reports.ts");
+  const rows = [
+    { date: "2026-03-01", amount: 1000, category: "revenue:services" }, // ₪
+    { date: "2026-03-02", amount: 500, baseAmount: 1850, category: "revenue:services", currency: "USD" }, // $500 at 3.7
+  ];
+  expect(pl(rows).revenue).toBe(2850);
+  expect(cashIn(rows)).toBe(2850);
+});

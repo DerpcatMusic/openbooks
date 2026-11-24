@@ -51,6 +51,8 @@
 
   type Item = { href: string; label: string; icon: string; sub?: boolean };
   type NavGroup = { label: string | null; collapsible?: boolean; items: Item[] };
+  // Six things a business owner opens daily; everything else lives under "More" (opens itself when you're on one of its pages).
+  const taxOn = $derived(!(S.data && !family()));
   const NAV: NavGroup[] = $derived([
     {
       label: null,
@@ -59,35 +61,30 @@
         { href: "/transactions", label: t("nav.transactions"), icon: "list" },
         { href: "/review", label: t("nav.review"), icon: "sparkle" },
         { href: "/reports", label: t("nav.reports"), icon: "report" },
-        { href: "/connections", label: t("nav.connections"), icon: "wallet" },
+        ...(taxOn ? [{ href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" }] : []),
+        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear()), ilSettingsNow().vatStatus) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
       ],
     },
-    ...(S.data && !family()
-      ? []
-      : ([
-          {
-            label: t("nav.section.tax"),
-            items: [
-              { href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" },
-              { href: "/filings", label: t("nav.filings"), icon: "form" },
-              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "file" } : { href: "/tax/il", label: t("nav.form1301"), icon: "file" },
-              { href: "/you", label: t("nav.you"), icon: "user" },
-            ],
-          },
-        ] as NavGroup[])),
     {
       label: t("nav.section.books"),
       collapsible: true,
       items: [
+        { href: "/connections", label: t("nav.connections"), icon: "wallet" },
+        ...(taxOn
+          ? [
+              { href: "/filings", label: t("nav.filings"), icon: "form" },
+              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "file" } : { href: "/tax/il", label: t("nav.form1301"), icon: "file" },
+              { href: "/you", label: t("nav.you"), icon: "user" },
+            ]
+          : []),
         { href: "/documents", label: t("nav.documents"), icon: "folder" },
-        { href: "/rules", label: t("nav.rules"), icon: "rules" },
-        { href: "/tags", label: t("nav.tags"), icon: "tag" },
         { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
         { href: "/reconciliation", label: t("nav.reconciliation"), icon: "tick" },
-        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear()), ilSettingsNow().vatStatus) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
         { href: "/bills", label: t("nav.payableBills"), icon: "file" },
         { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
         { href: "/counterparties", label: t("nav.counterparties"), icon: "users" },
+        { href: "/rules", label: t("nav.rules"), icon: "rules" },
+        { href: "/tags", label: t("nav.tags"), icon: "tag" },
         { href: "/journal", label: t("nav.journal"), icon: "file" },
         { href: "/payroll", label: t("nav.payroll"), icon: "users" },
         { href: "/planner", label: t("nav.planner"), icon: "sparkle" },

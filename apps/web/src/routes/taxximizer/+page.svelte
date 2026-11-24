@@ -22,6 +22,7 @@
   import Ask from "./Ask.svelte";
   import Deductions from "./Deductions.svelte";
   import Leverage from "./Leverage.svelte";
+  import Moves from "./Moves.svelte";
 
   type Saved = Partial<{ mode: string; revenue: number; expenses: number; vatExpenses: number; clients: TaxximizeInput["clients"]; points: number; paturOk: boolean; fx: number; costs: Record<string, number | undefined> }>;
   const y = $derived(S.year);
@@ -487,6 +488,7 @@
         </Card>
 
         <Deductions {y} revenue={P.revenue} points={i.points} T={isUS() ? null : T} />
+        {#if !isUS()}<Moves base={{ turnover: i.revenue, expenses: i.expenses, zair: !zairBlocked && bizType(y) === "osek-zair", points: i.points, pension: 0, donations: 0, selfEmployed: true }} {T} fx={fx ?? null} />{/if}
 
         <section class="panel min-w-0 overflow-hidden" role="presentation" onpointerover={hoverRow} onpointerleave={() => (hoverKey = null)}>
           <Table caption={t("taxximizer.title")} {columns} {rows} key={(x) => x.key} selected={(x) => x.key === hoverKey}>

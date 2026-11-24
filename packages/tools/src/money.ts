@@ -98,6 +98,25 @@ export const ratesFor = (rows: readonly { currency: string; date: string }[]) =>
   return ensureRates(need);
 };
 
+/**
+ * The rows with `baseAmount` set where they're in another currency than the books' (`base`): the amount at the Bank of Israel rate of
+ * the row's day, so every total adds like with like. A row whose rate is missing keeps no baseAmount (see FxDoc: never 1:1).
+ */
+export const withBase = <T extends { date: string; amount: number; currency?: string | undefined }>(txns: readonly T[], base: string) =>
+  Effect.gen(function* () {
+    const foreign = txns.filter((t) => t.currency && t.currency !== base);
+    if (!foreign.length) return txns as T[];
+    const table = yield* ratesFor([
+      ...foreign.map((t) => ({ currency: t.currency!, date: t.date })),
+      ...foreign.map((t) => ({ currency: base, date: t.date })),
+    ]);
+    return txns.map((t) => {
+      if (!t.currency || t.currency === base) return t;
+      const x = convert(table, t.amount, t.currency, base, t.date);
+      return x === null ? t : { ...t, baseAmount: Math.round(x * 100) / 100 };
+    });
+  });
+
 // ---------- net worth ----------
 export interface NetWorthExcluded {
   entity: string;

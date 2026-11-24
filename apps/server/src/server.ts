@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { accrualRows, billSources, chartOfAccounts, invoiceSources, payrollSources, plOf, type Coa, type PayrollRun } from "@openbooks/core";
+import { accrualRows, billSources, chartOfAccounts, currencyOf, invoiceSources, payrollSources, plOf, type Coa, type PayrollRun } from "@openbooks/core";
 import { csvPreview, ebStateEntity, handle, read, status as connectorStatus, sync as syncConnector } from "@openbooks/importers";
 import { type EntityMeta, isRuleInput, type RuleInput, type SplitsDoc, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
@@ -22,6 +22,7 @@ import {
   paletteTools,
   publicAi,
   ratesFor,
+  withBase,
   refreshLawSources,
   runTool,
   testAi,
@@ -107,7 +108,8 @@ export async function startServer(o: ServerOptions) {
   const state = async (e: string) => {
     const s = await books((b) => b.state(e));
     const connections = await run(connectorStatus(e));
-    return json({ ...s, connections });
+    const txns = await run(withBase(s.txns, currencyOf(s.entity)));
+    return json({ ...s, txns, connections });
   };
   /** books.py Entity(eid): a known id ([a-z0-9-]+, JSON-era folders migrate on the way) or KeyError → 404. */
   const entity = async (id: string | null) => {

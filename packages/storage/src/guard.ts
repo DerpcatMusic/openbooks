@@ -90,6 +90,8 @@ export const extrasOf = (b: BooksView): LedgerExtras => ({
   splits: b.doc<SplitsDoc>("splits", {}),
   coa: b.doc<Coa>("coa", {}),
   from: b.doc<BooksDoc>("books", {}).startDate,
+  transfers: b.doc<{ rejected?: { out: string; in: string }[] }>("transfers", {}),
+  close: b.doc<{ closeDate?: string | null }>("books", {}).closeDate || null,
 });
 /** The ledger rows, tags applied: what the screens show. */
 export const ledgerOf = (b: BooksView): Txn[] =>

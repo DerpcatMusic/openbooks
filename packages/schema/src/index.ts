@@ -53,7 +53,14 @@ export type StoredTxn = typeof StoredTxn.Type;
 
 export const Why = Schema.String; // "manual" | "journal" | "" (ask) | the matching rule text
 /** A ledger row: a stored transaction (or a journal line) with its ledger account and, when it has any, its tag ids (by hand + rules). */
-export const Txn = Schema.Struct({ ...StoredTxn.fields, category: Schema.String, why: Why, tags: Schema.optionalKey(Schema.Array(Schema.String)) });
+export const Txn = Schema.Struct({
+  ...StoredTxn.fields,
+  category: Schema.String,
+  why: Why,
+  tags: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** `amount` in the books' currency at the Bank of Israel rate of its day, when the row is in another currency (set by the server). */
+  baseAmount: Schema.optionalKey(Schema.Finite),
+});
 export type Txn = typeof Txn.Type;
 
 /** Reconciliation line a reader reports (statement table, `checks` column). */
