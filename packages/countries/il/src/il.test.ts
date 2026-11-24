@@ -14,6 +14,7 @@ import {
   mandatoryPension,
   reservistPoints,
   soldierPoints,
+  strategyPlays,
   taxximize,
   vatRegistered,
   zairExclusion,
@@ -194,8 +195,8 @@ describe("advisor (ported self-check of web/src/lib/advisor.js)", () => {
 });
 
 describe("pack data", () => {
-  it("every year decodes; 2025+ complete", () => {
-    expect(isComplete(il.table(2024))).toBe(false);
+  it("every year decodes and is complete (2024+)", () => {
+    expect(isComplete(il.table(2024))).toBe(true);
     expect(isComplete(il.table(2026))).toBe(true);
     expect(il.table(2030).year).toBe(2026);
     expect(il.table(2000).year).toBe(2024);
@@ -265,7 +266,7 @@ describe("form 1301 hook", () => {
     expect(form1301({ y: 2026, type: "osek-murshe", T: T26, txns }).fields["150"]).toBe("94000");
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns, disallowed: 1000 }).fields["150"]).toBe("70000");
   });
-  it("real 2025 return matches the Tax Authority's assessment (08.10.2026): fund tax is final, nothing back", () => {
+  it("lump-sum child-savings / provident-fund withdrawal: 25% fund tax is final, credit points only offset bracket tax", () => {
     const T25 = il.table(2025) as IlRates;
     const r = form1301({
       y: 2025,
@@ -276,20 +277,46 @@ describe("form 1301 hook", () => {
       profile: { discharge: "2025-02-17", serviceMonths: 32 },
       form: { "150": "18413", "157": "3015", "040": "754", "020": "X", "224": "2025" },
     });
-    expect(r.gross).toBeCloseTo(2595.05, 2); // site: 2,595
+    expect(r.gross).toBeCloseTo(2595.05, 2);
     expect(r.soldier).toBeCloseTo(10 / 6, 4); // Mar–Dec 2025 at 1/6 a month (s.39א)
-    expect(Math.round(r.creditsAvailable)).toBe(8375); // assessment: 8,375 = 2.25 points + soldier credit capped at the tax on business income
-    expect(Math.round(r.credits)).toBe(1841); // they wipe the bracket tax only
-    expect(r.due).toBe(754); // the 25% on the חיסכון לכל ילד gain stays
-    expect(r.balance).toBe(0); // assessment: "יתרה אפס"; Altshuler: no refund on a lump-sum withdrawal
+    expect(Math.round(r.creditsAvailable)).toBe(8375); // 2.25 points + soldier credit capped at tax on business income
+    expect(Math.round(r.credits)).toBe(1841); // credit points wipe bracket tax only
+    expect(r.due).toBe(754); // the 25% special-rate tax on box 157 stays
+    expect(r.balance).toBe(0); // final tax settled by box 040 withholding; no refund against unused points
     expect(r.indexation).toBe(0);
   });
   it("child savings: 157 at 25%, 060 at 15%, withheld tax in 040 is final even when credits exceed the bracket tax", () => {
     const r = form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "150": "18413", "157": "3015", "040": "754", "020": "X" } });
-    expect(r.capTax).toBeCloseTo(753.75, 2); // Altshuler withheld 753.83 on a 3,015 real gain
+    expect(r.capTax).toBeCloseTo(753.75, 2);
     expect(r.due).toBe(754);
     expect(r.balance).toBe(0);
     expect(form1301({ y: 2026, type: "osek-zair", T: T26, txns: [], form: { "060": "1000" } }).capTax).toBeCloseTo(150, 2);
+  });
+  it("bookBoxes (tagged donations, study fund, insurance) feed the tax calculation directly; typed form values override", () => {
+    const withBooks = form1301({
+      y: 2026,
+      type: "osek-murshe",
+      T: T26,
+      txns: [],
+      form: { "150": "200000" },
+      bookBoxes: { "037": "1000", "136": "9000" },
+    });
+    const withoutBooks = form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "200000" } });
+    expect(withBooks.fields["037"]).toBe("1000");
+    expect(withBooks.fields["136"]).toBe("9000");
+    expect(withBooks.deductions["136"]).toBe(9000);
+    ok(withBooks.paymentCredits["037"], 350);
+    expect(withBooks.due).toBeLessThan(withoutBooks.due);
+    // Explicit user override still wins over bookBoxes
+    const overridden = form1301({
+      y: 2026,
+      type: "osek-murshe",
+      T: T26,
+      txns: [],
+      form: { "150": "200000", "037": "0" },
+      bookBoxes: { "037": "1000" },
+    });
+    expect(overridden.paymentCredits["037"]).toBe(0);
   });
 });
 
@@ -335,12 +362,12 @@ describe("cross-border: IL resident + US disregarded LLC", () => {
     expect(r.obligations.map((o) => o.form)).toEqual(["1301", "1324", "150"]);
   });
   it("no rate is reported as missing, never priced at a default", () => {
-    const r = il.crossBorder!(me, 2026, home, [llc], () => null);
+    const r = il.crossBorder!(me, 2025, home, [{ ...llc, year: 2025 }], () => null);
     expect(r.attributedIncome).toBe(0);
     expect(r.missingFx).toEqual([
       { currency: "USD", date: "2026-03-01" },
       { currency: "USD", date: "2026-06-01" },
-      { currency: "USD", date: "2026-12-31" },
+      { currency: "USD", date: "2025-12-31" },
     ]);
   });
   it("a C-corp is not attributed but still reported, and controlling it closes osek zair", () => {
@@ -352,10 +379,27 @@ describe("cross-border: IL resident + US disregarded LLC", () => {
   it("osek zair stays open with no foreign or company holdings", () => {
     expect(zairExclusion(home, [])).toEqual([]);
   });
-  it("FTC is capped at the Israeli tax the income causes (on actual expenses: zair is closed)", () => {
-    const r = il.crossBorder!(me, 2026, home, [{ ...llc, foreignTaxPaid: 1e6 }], fx);
-    const base = { turnover: 100000, expenses: 0, zair: false, points: 2.25, pension: 0, donations: 0, selfEmployed: true };
-    expect(r.foreignTaxCredit).toBe(ilPlan({ ...base, foreign: 76000 }, T26).tax - ilPlan(base, T26).tax);
+  it("FTC uses the exact same proportional-after-credits formula in ilCrossBorder and form1301", () => {
+    // Audit synthetic case: ₪180,000 domestic revenue, ₪35,000 attributed foreign profit, ₪14,000 foreign tax, 0 domestic expenses
+    const h = [{ ...home[0]!, type: "osek-murshe", revenue: 180000, expenses: 0 }];
+    const f = [{ ...llc, currency: "ILS", revenue: 35000, expenses: 0, foreignTaxPaid: 14000, lines: [{ date: "2026-06-01", amount: 35000 }] }];
+    const cb = il.crossBorder!(me, 2026, h, f, fx);
+    const r1301 = form1301({ y: 2026, type: "osek-murshe", T: T26, txns: [], form: { "150": "180000" }, foreign: { income: 35000, taxPaid: 14000 } });
+    ok(cb.foreignTaxCredit, r1301.f1324.credit);
+  });
+  it("unresolved Israeli treatment does not silently attribute foreign LLC profit or block zair, but still lists Form 150 and unresolved warning", () => {
+    const r = il.crossBorder!(me, 2026, home, [{ ...llc, ilTreatment: "unresolved" }], fx);
+    expect(r.attributedIncome).toBe(0);
+    expect(r.foreignTaxCredit).toBe(0);
+    expect(r.blocked).toEqual([]);
+    expect(r.unresolved).toEqual([{ entity: "us", country: "us", type: "llc-disregarded" }]);
+    expect(r.obligations.map((o) => o.form)).toEqual(["1301", "150"]);
+  });
+  it("explicit foreignTaxDate avoids failing on a future Dec 31 FX rate mid-year", () => {
+    const fxNov = (c: string, d: string) => (c === "USD" && d <= "2026-11-24" ? 3.6 : null);
+    const r = il.crossBorder!(me, 2026, home, [{ ...llc, ilTreatment: "transparent", foreignTaxPaid: 500, foreignTaxDate: "2026-11-10" }], fxNov);
+    expect(r.missingFx).toEqual([]);
+    expect(r.foreignTax).toBe(500 * 3.6);
   });
 });
 
@@ -364,4 +408,34 @@ it("VAT-registered business types", () => {
   expect(vatRegistered("osek-zair") || vatRegistered("osek-patur") || vatRegistered(null)).toBe(false);
   expect(vatRegistered("osek-zair", "murshe")).toBe(true); // zair is an income-tax track; VAT status is separate (Kol Zchut עסק זעיר)
   expect(vatRegistered("osek-patur", "murshe")).toBe(false);
+});
+
+describe("strategyPlays", () => {
+  it("generates situation-adaptive legal plays for IL osek + US disregarded LLC with statutory citations", () => {
+    const plays = strategyPlays(
+      {
+        year: 2026,
+        types: ["osek-murshe", "llc-disregarded"],
+        currentType: "osek-murshe",
+        holdings: [{ entity: "llc", name: "Dolmen Gate LLC", country: "us", type: "llc-disregarded", ilTreatment: "unresolved" }],
+        revenueIls: 320_000,
+        expensesIls: 40_000,
+        clients: "foreign",
+        points: 2.25,
+        paturOk: true,
+        zairExcluded: false,
+        pensionDeposited: 0,
+        khDeposited: 0,
+        uncategorizedExpenseIls: 15_000,
+        fx: 3.6,
+      },
+      T26,
+    );
+    const ids = plays.map((p) => p.id);
+    expect(ids).toContain("strategy.kh");
+    expect(ids).toContain("strategy.pension");
+    expect(ids).toContain("strategy.crossborder-resolve");
+    expect(ids).toContain("strategy.classify-expenses");
+    expect(plays.every((p) => p.statute.length > 0 && p.sourceUrl.startsWith("https://"))).toBe(true);
+  });
 });

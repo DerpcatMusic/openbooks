@@ -5,6 +5,19 @@ export interface FlowItem {
   label: string;
   value: number;
   color: string;
+  /** Optional subtitle / parent tag for hub nodes (e.g. "2 accounts" or parent business name). */
+  sub?: string;
+  /** True if this middle hub can be clicked to expand child accounts (or collapse back). */
+  expandable?: boolean;
+  /** True if this middle hub is currently an expanded child node. */
+  isChild?: boolean;
+  /** Parent hub key when `isChild` is true. */
+  parentKey?: string;
+}
+export interface FlowHubEdge {
+  from: string;
+  to: string;
+  value: number;
 }
 export interface FlowNode extends FlowItem {
   col: 0 | 1 | 2;
@@ -99,6 +112,142 @@ export function sankey(sources: readonly FlowItem[], targets: readonly FlowItem[
     mOut += n.h;
   }
   return { nodes: [...L, M!, ...R], links, total };
+}
+
+/**
+ * Multi-hub three-column sankey layout: sources (col 0) → business/bank hubs or expanded child accounts (col 1) → targets (col 2).
+ * Each hub's inflow and outflow are balanced with surplus/deficit links so every column and hub conserves flow accurately.
+ */
+export function sankeyHubs(
+  sources: readonly FlowItem[],
+  hubs: readonly FlowItem[],
+  targets: readonly FlowItem[],
+  edges: readonly FlowHubEdge[],
+  o: Omit<FlowOpts, "mid">,
+) {
+  const { width, height, nodeW = 12, gap = 8, minSlot = 36, inset = 0 } = o;
+  const srcList = sources.filter((s) => s.value > 0).map((s) => ({ ...s }));
+  const dstList = targets.filter((t) => t.value > 0).map((t) => ({ ...t }));
+  const hubList = hubs.filter((h) => h.value > 0).map((h) => ({ ...h }));
+  if (!hubList.length) return { nodes: [] as FlowNode[], links: [] as FlowLink[], total: 0 };
+
+  const srcKeys = new Set(srcList.map((s) => s.key));
+  const hubKeys = new Set(hubList.map((h) => h.key));
+  const dstKeys = new Set(dstList.map((d) => d.key));
+
+  // Aggregate directed edges: col0→col1 and col1→col2
+  const inEdges: FlowHubEdge[] = [];
+  const outEdges: FlowHubEdge[] = [];
+  const hubIn = new Map<string, number>();
+  const hubOut = new Map<string, number>();
+  for (const e of edges) {
+    if (e.value <= 0) continue;
+    if (srcKeys.has(e.from) && hubKeys.has(e.to)) {
+      inEdges.push(e);
+      hubIn.set(e.to, (hubIn.get(e.to) ?? 0) + e.value);
+    } else if (hubKeys.has(e.from) && dstKeys.has(e.to)) {
+      outEdges.push(e);
+      hubOut.set(e.from, (hubOut.get(e.from) ?? 0) + e.value);
+    }
+  }
+
+  // Balance each hub individually: excess inflow goes to surplus, excess outflow comes from deficit.
+  let totalSurplus = 0;
+  let totalDeficit = 0;
+  for (const h of hubList) {
+    const hi = hubIn.get(h.key) ?? 0;
+    const ho = hubOut.get(h.key) ?? 0;
+    if (hi > ho + 0.005) {
+      const diff = hi - ho;
+      totalSurplus += diff;
+      outEdges.push({ from: h.key, to: o.surplus.key, value: diff });
+      hubOut.set(h.key, hi);
+    } else if (ho > hi + 0.005) {
+      const diff = ho - hi;
+      totalDeficit += diff;
+      inEdges.push({ from: o.deficit.key, to: h.key, value: diff });
+      hubIn.set(h.key, ho);
+    }
+    h.value = Math.max(hi, ho);
+  }
+  const activeHubs = hubList.filter((h) => h.value > 0);
+  if (totalSurplus > 0.005) dstList.push({ ...o.surplus, value: totalSurplus });
+  if (totalDeficit > 0.005) srcList.push({ ...o.deficit, value: totalDeficit });
+
+  const total = activeHubs.reduce((a, h) => a + h.value, 0);
+  if (!total) return { nodes: [] as FlowNode[], links: [] as FlowLink[], total: 0 };
+
+  const fit = (col: readonly FlowItem[], colMinSlot: number) => {
+    const room = height - gap * (col.length - 1);
+    let k = room / total;
+    for (let i = 0; i < col.length; i++) {
+      const small = col.filter((c) => c.value * k < colMinSlot);
+      const big = total - small.reduce((a, c) => a + c.value, 0);
+      const next = big > 0 ? Math.max(0, room - small.length * colMinSlot) / big : k;
+      if (Math.abs(next - k) < 1e-9) break;
+      k = Math.min(k, next);
+    }
+    return k;
+  };
+  const hubSlot = Math.max(minSlot, 40);
+  const k = Math.min(fit(srcList, minSlot), fit(activeHubs, hubSlot), fit(dstList, minSlot), height / total);
+  const xs = [inset, (width - nodeW) / 2, width - inset - nodeW];
+  const place = (col: readonly FlowItem[], c: 0 | 1 | 2): FlowNode[] => {
+    const ms = c === 1 ? hubSlot : minSlot;
+    const slot = (v: number) => Math.max(v * k, ms);
+    const used = col.reduce((a, s) => a + slot(s.value), 0) + gap * (col.length - 1);
+    let y = Math.max(0, (height - used) / 2);
+    return col.map((s) => {
+      const sl = slot(s.value),
+        h = s.value * k;
+      const n: FlowNode = { ...s, col: c, x: xs[c]!, y: y + (sl - h) / 2, h, cy: y + sl / 2 };
+      y += sl + gap;
+      return n;
+    });
+  };
+  const L = place(srcList, 0),
+    M = place(activeHubs, 1),
+    R = place(dstList, 2);
+
+  const byKey = new Map<string, FlowNode>();
+  for (const n of [...L, ...M, ...R]) byKey.set(`${n.col}:${n.key}`, n);
+
+  const srcOff = new Map<string, number>(L.map((n) => [n.key, n.y]));
+  const hubInOff = new Map<string, number>(M.map((n) => [n.key, n.y]));
+  const hubOutOff = new Map<string, number>(M.map((n) => [n.key, n.y]));
+  const dstOff = new Map<string, number>(R.map((n) => [n.key, n.y]));
+
+  // Order edges by target/source vertical order to minimize band crossings.
+  const idxMap = (arr: readonly FlowNode[]) => new Map(arr.map((n, i) => [n.key, i]));
+  const lIdx = idxMap(L),
+    mIdx = idxMap(M),
+    rIdx = idxMap(R);
+
+  const links: FlowLink[] = [];
+  for (const e of [...inEdges].sort((a, b) => (lIdx.get(a.from) ?? 0) - (lIdx.get(b.from) ?? 0) || (mIdx.get(a.to) ?? 0) - (mIdx.get(b.to) ?? 0))) {
+    const from = byKey.get(`0:${e.from}`),
+      to = byKey.get(`1:${e.to}`);
+    if (!from || !to) continue;
+    const w = e.value * k;
+    const y0 = srcOff.get(from.key)!,
+      y1 = hubInOff.get(to.key)!;
+    links.push({ from, to, value: e.value, y0, y1, w });
+    srcOff.set(from.key, y0 + w);
+    hubInOff.set(to.key, y1 + w);
+  }
+  for (const e of [...outEdges].sort((a, b) => (mIdx.get(a.from) ?? 0) - (mIdx.get(b.from) ?? 0) || (rIdx.get(a.to) ?? 0) - (rIdx.get(b.to) ?? 0))) {
+    const from = byKey.get(`1:${e.from}`),
+      to = byKey.get(`2:${e.to}`);
+    if (!from || !to) continue;
+    const w = e.value * k;
+    const y0 = hubOutOff.get(from.key)!,
+      y1 = dstOff.get(to.key)!;
+    links.push({ from, to, value: e.value, y0, y1, w });
+    hubOutOff.set(from.key, y0 + w);
+    dstOff.set(to.key, y1 + w);
+  }
+
+  return { nodes: [...L, ...M, ...R], links, total };
 }
 
 /** The band between two node edges as an SVG path (cubic, horizontal tangents). */

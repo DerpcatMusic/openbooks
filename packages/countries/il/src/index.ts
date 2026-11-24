@@ -27,7 +27,7 @@ export const il: CountryPack<IlTable> = {
   deadlines: (y, facts) => ilDeadlines(y, facts as IlFacts),
   crossBorder(person, y, home, foreign, fx) {
     const T = pickTable(tables, y);
-    if (!isComplete(T)) throw new Error(`il ${T.year}: tax table lacks BL/pension rates`);
+    if (!T.brackets?.length || !T.point) throw new Error(`il ${T.year}: tax table lacks brackets/point`);
     return ilCrossBorder(T, person, y, home, foreign, fx);
   },
 };

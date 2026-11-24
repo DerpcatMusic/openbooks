@@ -119,7 +119,7 @@ export function onezeroJson(file: ReaderFile, ctx: { meta: EntityMeta; siblingPd
     for (const t of a.txns ?? []) {
       const date: string = t.date.slice(0, 10),
         amt: number = t.chargedAmount;
-      if (date > cut && (amt > 0 || ctx.meta.import === "all")) {
+      if ((amt > 0 && date > cut) || (amt < 0 && ctx.meta.import === "all")) {
         const r: StatementRow = {
           date,
           amount: amt,

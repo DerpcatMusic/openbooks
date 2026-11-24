@@ -33,8 +33,8 @@ export const unmarkFiled = (id: string) => saveFilings(unmarkDone(filings(), id)
 
 /** The open books have a country calendar (the pack has `deadlines` and the year has a business type). */
 export const hasCalendar = () => !!S.data && !!pack()?.deadlines && !!bizType();
-export const isIL = () => family() === "il";
-export const vatBooks = (y = S.year) => isIL() && vatRegistered(bizType(y), il().vatStatus);
+export const isIL = (y = S.year) => pack(y)?.manifest.id === "il";
+export const vatBooks = (y = S.year) => isIL(y) && vatRegistered(bizType(y), il().vatStatus);
 
 /** Deadlines due in calendar `year` with their status today. */
 export function calendar(year: number, today: string): FilingRow[] {
@@ -52,30 +52,25 @@ export function calendar(year: number, today: string): FilingRow[] {
   return filingRows(dueInYear(p, year, facts), f, today);
 }
 
+import { rateOf } from "./fx.svelte.ts";
+
 // ---------- Israeli VAT ----------
-/** BoI representative rates for the foreign-currency invoices, fetched once per (currencies, range) from /api/fx (the server caches them). */
-let rates = $state<{ key: string; table: RateTable }>({ key: "", table: {} });
-const asked = new Set<string>();
+/** Single shared reactive FX resolver (fx.svelte.ts): invalidates automatically on SSE/external/sync updates. */
 function fxFor(invoices: readonly InvoiceDoc[], base: string) {
   const need = invoices.filter((i) => i.currency && i.currency !== base && i.issued);
   if (!need.length) return undefined;
-  const cs = [...new Set(need.map((i) => i.currency!))].sort(),
-    ds = need.map((i) => i.issued).sort(),
-    key = `${cs.join(",")}|${ds[0]}|${ds.at(-1)}`;
-  if (rates.key !== key && !asked.has(key)) {
-    asked.add(key);
-    // after this read: a derived may not write state, the answer lands on its own and the report recomputes
-    void api
-      .fx(cs, ds[0]!, ds.at(-1)!)
-      .then((r) => (rates = { key, table: r.rates }))
-      .catch(() => asked.delete(key));
-  }
-  return fxOf(rates.table, base);
+  if (base === "ILS") return rateOf;
+  return (currency: string, date: string) => {
+    if (currency === base) return 1;
+    const a = rateOf(currency, date);
+    const b = rateOf(base, date);
+    return a !== null && b !== null && b !== 0 ? a / b : null;
+  };
 }
 
 /** Everything the VAT report reads for tax year y, or null (not Israeli, no type). */
 export function vatCtx(y: number): VatContext | null {
-  if (!isIL() || !S.data) return null;
+  if (!isIL(y) || !S.data) return null;
   const res = resultOf(y);
   return {
     invoices: doc<InvoiceDoc[]>("invoices"),
@@ -114,7 +109,7 @@ export function register(y: number): { rows: DepRow[]; totals: ReturnType<typeof
   const assets = (S.data?.years ?? [])
     .filter((yy) => yy <= y)
     .flatMap((yy) => resultOf(yy)?.rows ?? [])
-    .filter((r) => r.rule === "il.depreciation")
+    .filter((r) => r.rule === "il.depreciation" || r.rule === "il.vehicle.purchase")
     .map((r) => ({
       id: r.id,
       date: r.date,

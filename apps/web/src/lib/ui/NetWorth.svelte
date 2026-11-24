@@ -46,7 +46,7 @@
   const step = $derived.by(() => {
     const raw = (hi - lo) / 4,
       p = 10 ** Math.floor(Math.log10(raw || 1));
-    return [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? raw;
+    return Math.max(1, [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? raw);
   });
   const top = $derived(Math.ceil(hi / step) * step),
     bottom = $derived(Math.floor(lo / step) * step);
@@ -73,12 +73,13 @@
   const bd = $derived(hover >= 0 ? breakdown(data, idx[hover]!) : []);
   const missing = $derived(data.missing.filter((m) => m.date >= from));
   const missingCur = $derived([...new Set(missing.map((m) => m.currency))].join(", "));
+  const excludedNames = $derived((data.excluded ?? []).map((x) => x.account).join(", "));
   const RANGES = $derived((["3m", "6m", "1y", "ytd", "all"] as const).map((key) => ({ key, label: t(`charts.nw.range.${key}`) })));
   const cardW = $derived(Math.min(280, w));
 </script>
 
 <div data-ui="networth" class="min-w-0">
-  <div class="flex flex-wrap items-end gap-3">
+  <div class="flex flex-wrap items-end justify-between gap-3">
     <div class="min-w-0 flex-1 basis-48">
       <div class="display text-[26px] leading-8 text-ink"><Money value={hover >= 0 ? pts[hover]! : last} {currency} cents={false} /></div>
       <div class="mt-0.5 text-[13px] text-sub">
@@ -87,9 +88,18 @@
         {/if}
       </div>
     </div>
-    <Segmented bind:value={currency} items={currencies.map((c) => ({ key: c, label: c }))} label={t("charts.nw.currency")} size="sm" />
-    <Segmented value={range} onchange={(k) => (range = k as Range)} items={RANGES} label={t("charts.nw.range")} size="sm" />
+    <div class="flex max-w-full flex-wrap items-center gap-2">
+      <Segmented bind:value={currency} items={currencies.map((c) => ({ key: c, label: c }))} label={t("charts.nw.currency")} size="sm" />
+      <Segmented value={range} onchange={(k) => (range = k as Range)} items={RANGES} label={t("charts.nw.range")} size="sm" class="max-w-full overflow-x-auto" />
+    </div>
   </div>
+
+  {#if excludedNames}
+    <p class="mt-3 flex items-start gap-2 rounded-xl border border-line bg-tint px-3 py-2 text-[12px] text-sub" role="status">
+      <Icon name="info" size={14} class="mt-0.5 shrink-0 text-faint" />
+      <span>{t("charts.nw.excluded", { accounts: excludedNames })}</span>
+    </p>
+  {/if}
 
   {#if missing.length}
     <p class="mt-3 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn/8 px-3 py-2 text-[13px] text-ink-2" role="status">

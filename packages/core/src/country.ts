@@ -57,17 +57,24 @@ export interface Person {
   readonly facts: Facts; // isWoman, childBirthYears, parentRole, discharge, serviceMonths, degreeType, combatReserveDaysPrevYear, …
 }
 
+/** Explicit residence-country tax treatment for a foreign entity in a specific year (independent of the foreign country's entity classification). */
+export type ResidenceTreatment = "unresolved" | "transparent" | "company";
+
 /** What any pack reports for one entity-year, in that entity's currency; the residence pack converts with fx. */
 export interface EntityYear {
   readonly entity: string;
   readonly country: string;
   readonly type: string; // business type key in force that year
   readonly treatment: BusinessType["treatment"]; // from the entity's own pack manifest
+  /** Year-specific residence-country tax position (e.g. Israeli Circular 5/2004 election); when "unresolved", income is not silently attributed. */
+  readonly ilTreatment?: ResidenceTreatment;
   readonly year: number;
   readonly currency: string;
   readonly revenue: number;
   readonly expenses: number; // positive
   readonly foreignTaxPaid: number; // tax withheld/paid in the entity's country, its currency
+  /** Date foreign tax was paid/withheld (YYYY-MM-DD) for FX conversion; falls back to min(today, year-end). */
+  readonly foreignTaxDate?: string;
   /** The year's P&L rows, signed (revenue > 0, expenses < 0), in the entity's currency: the residence pack converts each on its own date. */
   readonly lines: readonly { readonly date: string; readonly amount: number }[];
 }
@@ -92,6 +99,8 @@ export interface CrossBorder {
   readonly obligations: readonly Obligation[];
   /** Currency and date of every amount that had no rate: attributedIncome and foreignTaxCredit leave them out, so they are incomplete while this is non-empty. */
   readonly missingFx: readonly { readonly currency: string; readonly date: string }[];
+  /** Foreign entities whose residence-country tax treatment has not been resolved for this year (totals are incomplete until confirmed). */
+  readonly unresolved?: readonly { readonly entity: string; readonly country: string; readonly type: string }[];
 }
 
 /** A form hook: form id → field values computed from the books (strings, as printed on the form). Overrides are applied by the caller. */

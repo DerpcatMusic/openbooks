@@ -3,6 +3,27 @@
 import type { Obligation } from "@openbooks/core";
 import type { UsTable } from "./schema.ts";
 
+export interface PartVIIAnswers {
+  /** Line 37: Does the reporting corporation import goods from a foreign related party? */
+  q37?: boolean;
+  /** Line 38a (only if 37 is Yes): basis/inventory cost > customs value? */
+  q38a?: boolean;
+  /** Line 38c (only if 37 is Yes): documents in existence and available in the U.S.? */
+  q38c?: boolean;
+  /** Line 39: Foreign parent corporation participant in any CSA? */
+  q39?: boolean;
+  /** Line 40a: Deduction disallowed under section 267A? */
+  q40a?: boolean;
+  /** Line 41a: FDII / FDDEI transactions with foreign related party? */
+  q41a?: boolean;
+  /** Line 42a: Loan using safe-haven interest rate (100%–130% AFR)? */
+  q42a?: boolean;
+  /** Line 42b: Loan using interest rate outside safe-haven range? */
+  q42b?: boolean;
+  /** Line 43a (corporations only, NOT foreign-owned U.S. DE): covered debt instrument under Reg. §1.385-3? */
+  q43a?: boolean;
+}
+
 export interface UsProfile {
   legalName?: string;
   ein?: string;
@@ -12,21 +33,39 @@ export interface UsProfile {
   cityStateZip?: string;
   naics?: string;
   owner?: string;
+  /** English / WinAnsi legal spelling for IRS PDFs (required when `owner` is non-ASCII, e.g. Hebrew). */
+  ownerLegalName?: string;
   ownerAddress?: string;
   ownerCountry?: string;
+  /** Form 5472 Part II line 4c: principal country(ies) where the 25% foreign shareholder conducts business. */
+  ownerBusinessCountry?: string;
+  /** Form 5472 Part II line 4d: country of citizenship, organization, or incorporation. */
+  ownerCitizenship?: string;
+  /** Form 5472 Part II line 4e: country(ies) under whose laws the owner files an income tax return as a resident. */
+  ownerResidence?: string;
   ownerTin?: string;
   business?: string;
   /** Form 5472 line 1o: principal country(ies) where the reporting company conducts business (never "worldwide"; i5472). */
   businessCountries?: string;
   /** Form 5472 line 1n: country(ies) under whose laws the company files an income tax return as a resident; blank when none (a DE files none). */
   taxReturnCountry?: string;
+  /** Explicit Form 5472 Part VII Yes/No answers (never silently assumed "No"). */
+  partVII?: PartVIIAnswers;
   /** Individual track (Schedule C / SE / 1040-ES): the taxpayer as on the 1040, their SSN or ITIN, phone for the 1099-NEC payer box. */
   taxpayerName?: string;
   ssn?: string;
   phone?: string;
 }
 
-export const PROFILE_FIELDS: Readonly<Record<Exclude<keyof UsProfile, "taxpayerName" | "ssn" | "phone" | "taxReturnCountry">, string>> = {
+export const PROFILE_FIELDS: Readonly<
+  Record<
+    Exclude<
+      keyof UsProfile,
+      "taxpayerName" | "ssn" | "phone" | "taxReturnCountry" | "ownerLegalName" | "ownerBusinessCountry" | "ownerCitizenship" | "ownerResidence" | "partVII"
+    >,
+    string
+  >
+> = {
   legalName: "Legal name",
   ein: "EIN",
   state: "State of formation",
@@ -57,7 +96,7 @@ export function llcObligations(y: number, T: UsTable, p: UsProfile = {}): (Oblig
     {
       form: "1120 (pro forma)",
       country: "us",
-      why: "name, address, EIN, total assets; 'Foreign-owned U.S. DE' across the top; 5472 attached; fax or mail",
+      why: "name, address, EIN, item E (initial/final/name/address change); 'Foreign-owned U.S. DE' across the top; 5472 attached; fax or mail",
       due: `${y + 1}-${T.dueMonthDay}`,
       extendedDue: `${y + 1}-${T.extendedMonthDay}`,
     },

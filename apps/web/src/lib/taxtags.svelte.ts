@@ -23,13 +23,13 @@ import { S, bizType, coa, doc, ent, family, pack, saveTags, tagsDoc, taxTable } 
 
 /** The business trips (doc "trips"). */
 export const trips = () => doc<Trip[]>("trips", []);
-/** The pack's table, when the open business has a type and its country ships rules. */
-export const table = () => (bizType() ? (pack()?.deductions ?? null) : null);
-export const hasRules = () => !!table();
+/** The pack's table, when the open business has a type for year y and its country ships rules. */
+export const table = (y = S.year) => (bizType(y) ? (pack(y)?.deductions ?? null) : null);
+export const hasRules = (y = S.year) => !!table(y);
 /** Every rule of the table with this business's edits (doc "taxrules": rule id → { incomeTaxPct, vatPct, cap }). */
-export const allRules = (): DeductionRule[] => withOverrides(table()?.rules ?? [], doc<RuleOverrides>("taxrules", {}));
+export const allRules = (y = S.year): DeductionRule[] => withOverrides(table(y)?.rules ?? [], doc<RuleOverrides>("taxrules", {}));
 /** Rules a tag or an account can point at for the business type in force that year. */
-export const rulesFor = (y = S.year) => taggableRules(allRules(), bizType(y) ?? "");
+export const rulesFor = (y = S.year) => taggableRules(allRules(y), bizType(y) ?? "");
 export const ruleOf = (id: string | undefined) => allRules().find((r) => r.id === id);
 export const ruleName = (r: DeductionRule | string | undefined) => {
   const x = typeof r === "string" ? ruleOf(r) : r;
@@ -43,11 +43,11 @@ function inputFor(y: number): DeductionInput | null {
     ty = bizType(y);
   if (!d || !ty) return null;
   const car = Number(personNow()?.facts.carPrice);
-  const vat = family() === "il" ? ((taxTable(y) as { vatRate?: number }).vatRate ?? 0.18) : undefined;
+  const vat = pack(y)?.manifest.id === "il" ? ((taxTable(y) as { vatRate?: number }).vatRate ?? 0.18) : undefined;
   return {
     txns: d.txns,
     tags: $state.snapshot(tagsDoc()) as TagsDoc,
-    rules: allRules(),
+    rules: allRules(y),
     accountRules: Object.fromEntries(Object.entries(coa()).flatMap(([k, v]) => (v.taxRule ? [[k, v.taxRule]] : []))),
     type: ty,
     year: y,
@@ -62,8 +62,8 @@ function inputFor(y: number): DeductionInput | null {
 let memo: { key: unknown[]; inp: DeductionInput; res: DeductionResult; sug?: TagSuggestion[] } | null = null;
 function run(y: number) {
   const d = S.data;
-  if (!d || !bizType(y) || !table()) return null;
-  const key = [d.txns, d.docs, d.attachments, d.profile, y, personNow()?.facts, S.e];
+  if (!d || !bizType(y) || !table(y)) return null;
+  const key = [d.txns, d.docs, d.attachments, d.profile, d.taxTables, bizType(y), ent().currency, y, personNow()?.facts, S.e];
   if (!memo || memo.key.some((k, i) => k !== key[i])) {
     const inp = inputFor(y)!;
     memo = { key, inp, res: deductions(inp) };
@@ -74,8 +74,8 @@ const perYear = new Map<number, { key: unknown[]; res: DeductionResult }>();
 /** Deductions of any year (own memo per year, so the filings can read several years without evicting the open year's run). */
 export function resultOf(y: number): DeductionResult | null {
   const d = S.data;
-  if (!d || !bizType(y) || !table()) return null;
-  const key = [d.txns, d.docs, d.attachments, d.profile, y, personNow()?.facts, S.e];
+  if (!d || !bizType(y) || !table(y)) return null;
+  const key = [d.txns, d.docs, d.attachments, d.profile, d.taxTables, bizType(y), ent().currency, y, personNow()?.facts, S.e];
   const hit = perYear.get(y);
   if (hit && !hit.key.some((k, i) => k !== key[i])) return hit.res;
   const res = deductions(inputFor(y)!);

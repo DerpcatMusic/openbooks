@@ -3,15 +3,18 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
+import { accrualRows, billSources, chartOfAccounts, invoiceSources, payrollSources, plOf, type Coa, type PayrollRun } from "@openbooks/core";
 import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
-import { type EntityMeta, isRuleInput, type RuleInput, type StatementCheck } from "@openbooks/schema";
+import { type EntityMeta, isRuleInput, type RuleInput, type SplitsDoc, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import {
   ask,
+  combinedFlow,
   configureAi,
   decide,
   decideTransferPair,
   langOf,
+  listLawSources,
   loadAi,
   mcpHttpHandler,
   netWorth,
@@ -19,13 +22,14 @@ import {
   paletteTools,
   publicAi,
   ratesFor,
+  refreshLawSources,
   runTool,
   testAi,
   transferSearch,
   transferSuggestions,
 } from "@openbooks/tools";
 import { foreign } from "./guard.ts";
-import { buildPack } from "./pack.ts";
+import { buildClosePackage, buildPack } from "./pack.ts";
 import { Actor } from "@openbooks/storage";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
 
@@ -270,6 +274,7 @@ export async function startServer(o: ServerOptions) {
       if (!e) return new Response("Unknown authorization", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
       const r = await run(handle(e, path, { state, code: q.get("code"), error: q.get("error"), error_description: q.get("error_description") }));
       if (r && "error" in r) return new Response(r.error, { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
+      await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
       return new Response(null, { status: 302, headers: { location: "/connections" } });
     }
     if (path === "/api/state") {
@@ -283,6 +288,18 @@ export async function startServer(o: ServerOptions) {
       }
     }
     if (path === "/api/person") return json(await person());
+    if (path === "/api/laws") {
+      const jur = q.get("jurisdiction");
+      const primaryOnly = q.get("primary") === "1" || q.get("primary") === "true";
+      return json(
+        await run(
+          listLawSources({
+            primaryOnly,
+            ...(jur === "il" || jur === "us" || jur === "treaty" ? { jurisdiction: jur } : {}),
+          }),
+        ),
+      );
+    }
     if (path === "/api/vault") return json({ status: await vault((v) => v.status) });
     if (path === "/api/ai/config") return json(publicAi(await run(loadAi)));
     if (path === "/api/tools") return json({ tools: paletteTools() });
@@ -294,6 +311,15 @@ export async function startServer(o: ServerOptions) {
       if (!/^[A-Z]{3}$/.test(cur) || !isDate(from) || !isDate(to) || from > to || Date.parse(to) - Date.parse(from) > 3660 * 86400000)
         throw new Reply({ error: "bad request" }, 400);
       return json(await run(netWorth(cur, from, to)));
+    }
+    if (path === "/api/flow") {
+      // ?currency=USD&from=YYYY-MM-DD&to=YYYY-MM-DD: all entities' real inflows/outflows converted at daily BoI rates
+      const to = q.get("to") || new Date().toLocaleDateString("sv"),
+        from = q.get("from") || `${to.slice(0, 4)}-01-01`,
+        cur = q.get("currency") || "ILS";
+      if (!/^[A-Z]{3}$/.test(cur) || !isDate(from) || !isDate(to) || from > to || Date.parse(to) - Date.parse(from) > 3660 * 86400000)
+        throw new Reply({ error: "bad request" }, 400);
+      return json(await run(combinedFlow(cur, from, to)));
     }
     if (path === "/api/fx") {
       // ?currencies=USD,EUR&from&to: Bank of Israel representative rates (ILS per unit), fetched once and cached in doc(_app, "fx")
@@ -332,6 +358,67 @@ export async function startServer(o: ServerOptions) {
         entries: await books((b) =>
           b.audit(e, { kind: opt("kind"), target: opt("target"), from: day("from"), to: day("to"), limit: Number.isFinite(limit) ? limit : 200 }),
         ),
+      });
+    }
+    if (path === "/api/close-pack") {
+      const e = await entity(q.get("e"));
+      const year = Number.parseInt(q.get("year") ?? "", 10);
+      if (!Number.isInteger(year)) throw new Reply({ error: "bad year" }, 400);
+      const st = await books((b) => b.state(e));
+      const fxRates = await books((b) => b.doc<Record<string, unknown>>("_app", "fx", {}));
+      const booksMeta = (st.docs?.books as { basis?: string; startDate?: string } | undefined) ?? {};
+      const basis = booksMeta.basis === "accrual" ? "accrual" : "cash";
+      let exportTxns = st.txns;
+      let supportingDocs: { invoices?: unknown[]; bills?: unknown[]; payroll?: unknown[]; customers?: unknown[]; vendors?: unknown[] } | undefined;
+      if (basis === "accrual") {
+        const invoices = Array.isArray(st.docs?.invoices) ? st.docs.invoices : [];
+        const bills = Array.isArray(st.docs?.bills) ? st.docs.bills : [];
+        const payroll = Array.isArray(st.docs?.payroll) ? (st.docs.payroll as PayrollRun[]) : [];
+        const customers = Array.isArray(st.docs?.customers) ? (st.docs.customers as { id: string; name?: string }[]) : [];
+        const vendors = Array.isArray(st.docs?.vendors) ? (st.docs.vendors as { id: string; name?: string }[]) : [];
+        const custMap = new Map(customers.map((x) => [x.id, x.name ?? ""]));
+        const vendMap = new Map(vendors.map((x) => [x.id, x.name ?? ""]));
+        const coa = (st.docs?.coa as Coa | undefined) ?? {};
+        const cats = chartOfAccounts(
+          st.txns.map((t) => t.category),
+          [],
+          coa,
+        )
+          .filter((c) => !c.archived)
+          .map((c) => c.id);
+        exportTxns = accrualRows(
+          st.txns,
+          invoiceSources(invoices as Parameters<typeof invoiceSources>[0], (id) => (id ? (custMap.get(id) ?? "") : ""), { ledger: true }),
+          [...billSources(bills as Parameters<typeof billSources>[0], (id) => (id ? (vendMap.get(id) ?? "") : "")), ...payrollSources(payroll)],
+          {
+            revenue: cats.find((c) => plOf(c) === "revenue") ?? "revenue:sales",
+            expense: cats.find((c) => plOf(c) === "expense") ?? "expense:other",
+            ...(booksMeta.startDate ? { from: booksMeta.startDate } : {}),
+            currency: st.entity.currency ?? "USD",
+          },
+        );
+        supportingDocs = { invoices, bills, payroll, customers, vendors };
+      }
+      const bytes = buildClosePackage({
+        dir: join(home, e),
+        entity: e,
+        entityMeta: st.entity as unknown as Record<string, unknown>,
+        year,
+        basis,
+        txns: exportTxns,
+        cashTxns: st.txns,
+        ...(supportingDocs ? { supportingDocs } : {}),
+        splits: st.docs?.splits as SplitsDoc | undefined,
+        checks: st.checks as StatementCheck[],
+        formOverrides: (st.form?.[year] ?? {}) as Record<string, unknown>,
+        fxRates,
+        profile: st.profile ?? {},
+      });
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${e}-close-pack-${year}.zip"`,
+        },
       });
     }
     if (path === "/api/pack") {
@@ -389,6 +476,20 @@ export async function startServer(o: ServerOptions) {
         throw err;
       }
       return state(String(id));
+    }
+    if (path === "/api/laws/refresh") {
+      const b = body();
+      const jur = b.jurisdiction;
+      const urls = Array.isArray(b.urls) ? b.urls.filter((u): u is string => typeof u === "string") : undefined;
+      return json(
+        await run(
+          refreshLawSources({
+            primaryOnly: b.primaryOnly !== false,
+            ...(jur === "il" || jur === "us" || jur === "treaty" ? { jurisdiction: jur } : {}),
+            ...(urls?.length ? { urls } : {}),
+          }),
+        ),
+      );
     }
     if (path === "/api/person") {
       // {residence, facts}: replaces doc(_app, "person"); facts are flat answers (string | number | boolean)
@@ -480,8 +581,8 @@ export async function startServer(o: ServerOptions) {
         await books((bs) => Effect.flatMap(bs.doc(e, "profile", {}), (p) => bs.putDoc(e, "profile", { ...p, ...b })));
         break;
       case "/api/meta": {
-        // {name?, short?, flag?, currency?, types?: {year: business type}}: rename or change structure
-        const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types"].includes(k)));
+        // {name?, short?, flag?, currency?, formed?, disposed?, types?: {year: business type}}: rename or change structure
+        const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types", "formed", "disposed"].includes(k)));
         await books((bs) => bs.setMeta(e, patch));
         break;
       }
@@ -535,6 +636,7 @@ export async function startServer(o: ServerOptions) {
         // a locked vault fails VaultLocked → 423 (below); secrets never leave the connector
         const r = await run(handle(e, path, b));
         if (r && "error" in r) return json(r, 400);
+        await publish({ entity: e, topics: ["secrets", "statements"] });
         break;
       }
       case "/api/sync": {

@@ -28,6 +28,8 @@ import { goto } from "../nav.ts";
 import { api, ApiError, events, type Change, type Entity, type NoBooks, type State } from "../api.ts";
 import { t, has, lang, locale, autoLang, ltr, PACKS } from "../i18n.svelte.ts";
 import { scramble } from "../privacy.svelte.ts";
+import { refreshPerson } from "../person.ts";
+import { invalidateMissingFx } from "../fx.svelte.ts";
 
 export type Theme = "system" | "light" | "dark";
 export interface Toast {
@@ -53,6 +55,8 @@ export const S = $state({
   live: "" as "" | "sse" | "off",
   /** Last change version seen from /api/events. */
   v: 0,
+  /** Local accepted-state revision (bumps on every load/write even without SSE, keeping derived cross-border caches fresh). */
+  rev: 0,
 });
 
 // ---------- theme (html[data-theme]) and entity, both remembered per browser ----------
@@ -224,6 +228,7 @@ export const mdy = (iso: string) => new Intl.DateTimeFormat(locale(), { dateStyl
 export const mdyEn = (iso: string) => new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(dateOf(iso));
 export const fileUrl = (name: string, sub = "inbox") => api.fileUrl(S.e, name, sub);
 export const packUrl = (y: number) => api.packUrl(S.e, y);
+export const closePackUrl = (y: number) => api.closePackUrl(S.e, y);
 
 // ---------- loading and writes: every write answers with the new State ----------
 export function toast(msg: string, action?: Toast["action"]) {
@@ -237,6 +242,7 @@ function accept(d: State | NoBooks) {
   }
   S.setup = false;
   S.data = d;
+  S.rev++;
   autoLang(family());
   if (d.entity.id !== S.e) {
     S.e = d.entity.id; // server opened another business (unknown or missing ?e=)
@@ -376,12 +382,24 @@ export function live(): () => void {
   const stop = events({
     onHello(v) {
       S.live = "sse";
-      if (S.v && v > S.v) void load(); // missed changes while disconnected
+      if (S.v && v > S.v) {
+        invalidateMissingFx(true);
+        void refreshPerson();
+        void load(); // missed changes while disconnected
+      }
       S.v = v;
     },
     onChange(c: Change) {
       S.v = c.v;
-      if (c.entity === null || c.entity === S.e || c.topics.includes("entities")) void load();
+      if (c.topics.includes("txns") || c.topics.includes("statements") || c.topics.includes("external") || c.docs?.includes("fx")) {
+        invalidateMissingFx(c.topics.includes("external") || !!c.docs?.includes("fx"));
+      }
+      if (c.entity === null || c.entity === "_app") {
+        if (!c.docs || c.docs.includes("person") || c.topics.includes("external")) void refreshPerson();
+        void load();
+        return;
+      }
+      if (c.entity === S.e || c.topics.includes("entities")) void load();
     },
     onUnavailable() {
       // ponytail: no event stream (books.py) → re-fetch when the tab comes back, like a manual refresh; writes still answer with state

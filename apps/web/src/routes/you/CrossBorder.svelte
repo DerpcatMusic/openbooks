@@ -2,12 +2,13 @@
   // Cross-border: for the person's residence country, what each country's pack says about businesses abroad — the residence
   // pack's crossBorder hook (attributed income, foreign tax credit, reliefs that don't apply, forms) and the foreign pack's own
   // forms. No maths here. Amounts convert at the Bank of Israel rate of each transaction's date (lib/fx.ts); a missing rate is shown, never defaulted.
-  import type { CrossBorder, Obligation } from "@openbooks/core";
+  import type { CrossBorder, Obligation, ResidenceTreatment } from "@openbooks/core";
   import { S, mdy } from "#lib/stores/books.svelte.ts";
   import { t, I, bidi, has } from "#lib/i18n.svelte.ts";
-  import { businesses, foreignObligations, packById, withFact, taxKey, type Biz, type Person } from "#lib/person.ts";
+  import { foreignObligations, ilTreatmentKey, ilTreatmentOf, packById, withFact, taxDateKey, taxKey, type Biz, type Person } from "#lib/person.ts";
+  import { bizFor } from "#lib/crossborder.svelte.ts";
   import { rateOf } from "#lib/fx.svelte.ts";
-  import { Badge, Card, Input, Money, Skeleton } from "#lib/ui/index.ts";
+  import { Badge, Card, Input, Money, Select, Skeleton } from "#lib/ui/index.ts";
 
   let { person, y, onsave }: { person: Person; y: number; onsave: (p: Person) => void } = $props();
 
@@ -18,22 +19,22 @@
   };
   const flag = (id: string) => packById(id)?.manifest.flag ?? "";
 
-  let biz = $state<Biz[] | null>(null);
-  let failed = $state("");
-  // ponytail: other businesses' books are fetched per entity/year change; a shared multi-entity store would avoid it
-  const ids = $derived((S.data?.entities ?? []).map((e) => e.id + ":" + JSON.stringify(e.types ?? {})).join());
-  $effect(() => {
-    void ids;
-    const es = $state.snapshot(S.data?.entities ?? []),
-      yy = y;
-    biz = null;
-    failed = "";
-    businesses(es, yy).then(
-      (b) => (biz = b),
-      (x) => (failed = String((x as Error).message || x)),
-    );
-  });
-  const paid = (b: Biz): Biz => ({ ...b, year: { ...b.year, foreignTaxPaid: +(person.facts[taxKey(b.entity.id, y)] ?? 0) || 0 } });
+  // Uses shared stale-while-revalidate bizFor(y): automatically refreshes on every bank sync, upload, category edit, or SSE event.
+  const rawBiz = $derived(bizFor(y));
+  const biz = $derived(rawBiz && !("error" in rawBiz) ? rawBiz : null);
+  const failed = $derived(rawBiz && "error" in rawBiz ? rawBiz.error : "");
+  const paid = (b: Biz): Biz => {
+    const dt = person.facts[taxDateKey(b.entity.id, y)];
+    return {
+      ...b,
+      year: {
+        ...b.year,
+        ...(person.residence === "il" ? { ilTreatment: ilTreatmentOf(person.facts, b.entity.id, y, b.year.treatment) } : {}),
+        foreignTaxPaid: +(person.facts[taxKey(b.entity.id, y)] ?? 0) || 0,
+        ...(typeof dt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dt) ? { foreignTaxDate: dt } : {}),
+      },
+    };
+  };
   const own = $derived((biz ?? []).filter((b) => b.year.country === person.residence));
   const abroad = $derived((biz ?? []).filter((b) => b.year.country !== person.residence).map(paid));
   const cb = $derived.by((): CrossBorder | { error: string } | null => {
@@ -45,6 +46,10 @@
     }
   });
   const set = (k: string, v: string) => onsave(withFact(person, k, v === "" ? undefined : +v));
+  const setStr = (k: string, v: string) => onsave(withFact(person, k, v === "" ? undefined : v));
+  const treatmentOpts = $derived(
+    (["unresolved", "transparent", "company"] as ResidenceTreatment[]).map((k) => ({ value: k, label: t(`legal.ilTreatment.${k}`) })),
+  );
 
   const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const formName = (o: Obligation) => (has(`you.form.${o.country}.${slug(o.form)}`) ? t(`you.form.${o.country}.${slug(o.form)}`) : o.form);
@@ -75,31 +80,59 @@
   {:else}
     <ul class="divide-y divide-line">
       {#each abroad as b (b.entity.id)}
-        <li class="flex flex-wrap items-end gap-x-4 gap-y-3 py-3 first:pt-0">
-          <div class="min-w-0 flex-1 basis-56">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span aria-hidden="true">{b.pack.manifest.flag}</span>
-              <span class="text-[14px] text-ink" dir="auto">{b.entity.short || b.entity.name}</span>
-              <Badge size="sm">{t(`biz.${b.year.type}`)}</Badge>
-            </div>
-            <div class="mt-0.5 text-[12px] text-sub">{t(`you.cb.treatment.${b.year.treatment}`)}</div>
-            <div class="mt-1 text-[13px] text-ink-2">
-              {t("you.cb.profit", { y })}: <Money value={b.year.revenue - b.year.expenses} currency={b.year.currency} cents={false} />
+        <li class="space-y-3 py-4 first:pt-0">
+          <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            <div class="min-w-0 flex-1 basis-56">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span aria-hidden="true">{b.pack.manifest.flag}</span>
+                <span class="text-[14px] font-medium text-ink" dir="auto">{b.entity.short || b.entity.name}</span>
+                <Badge size="sm">{t(`biz.${b.year.type}`)}</Badge>
+                {#if b.year.ilTreatment === "unresolved"}
+                  <Badge size="sm" tone="warn">{t("legal.1301.incomplete")}</Badge>
+                {/if}
+              </div>
+              <div class="mt-0.5 text-[12px] text-sub">{t(`you.cb.treatment.${b.year.treatment}`)}</div>
+              <div class="mt-1 text-[13px] text-ink-2">
+                {t("you.cb.profit", { y })}: <Money value={b.year.revenue - b.year.expenses} currency={b.year.currency} cents={false} />
+              </div>
             </div>
           </div>
-          <Input
-            class="w-full sm:w-52"
-            numeric
-            type="number"
-            step="any"
-            min="0"
-            label={t("you.cb.taxPaid", { name: bidi(b.entity.short || b.entity.name || b.entity.id), country: name(b.year.country) })}
-            hint={t("you.cb.taxPaidHint", { cur: b.year.currency })}
-            value={String(person.facts[taxKey(b.entity.id, y)] ?? 0)}
-            onchange={(e) => set(taxKey(b.entity.id, y), e.currentTarget.value)} />
+          <div class="grid gap-3 sm:grid-cols-3">
+            {#if person.residence === "il"}
+              <Select
+                label={t("legal.ilTreatment", { y })}
+                value={b.year.ilTreatment ?? "unresolved"}
+                options={treatmentOpts}
+                onchange={(v) => setStr(ilTreatmentKey(b.entity.id, y), v)} />
+            {/if}
+            <Input
+              numeric
+              type="number"
+              step="any"
+              min="0"
+              label={t("you.cb.taxPaid", { name: bidi(b.entity.short || b.entity.name || b.entity.id), country: name(b.year.country) })}
+              hint={t("you.cb.taxPaidHint", { cur: b.year.currency })}
+              value={String(person.facts[taxKey(b.entity.id, y)] ?? 0)}
+              onchange={(e) => set(taxKey(b.entity.id, y), e.currentTarget.value)} />
+            <Input
+              type="date"
+              dir="ltr"
+              label={t("legal.foreignTaxDate")}
+              hint={t("legal.foreignTaxDateHint")}
+              value={String(person.facts[taxDateKey(b.entity.id, y)] ?? "")}
+              onchange={(e) => setStr(taxDateKey(b.entity.id, y), e.currentTarget.value)} />
+          </div>
+          {#if person.residence === "il"}
+            <p class="text-[12px] text-faint">{t("legal.ilTreatmentHint")}</p>
+          {/if}
         </li>
       {/each}
     </ul>
+    {#if cb && "unresolved" in cb && cb.unresolved?.length}
+      <p class="mt-4 rounded-xl border border-warn/30 bg-warn/8 px-3.5 py-2.5 text-[13px] text-ink" role="status">
+        {t("legal.unresolvedBanner", { n: cb.unresolved.length })}
+      </p>
+    {/if}
     {#if cb && "missingFx" in cb && cb.missingFx.length}
       <p class="mt-4 text-[13px] text-warn" role="status">
         {t("legal.fxMissingDates", { cur: [...new Set(cb.missingFx.map((m) => m.currency))].join(", "), n: cb.missingFx.length })}

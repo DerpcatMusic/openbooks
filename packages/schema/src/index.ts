@@ -131,6 +131,10 @@ export const EntityMeta = Schema.Struct({
   currency: Schema.optionalKey(Schema.String),
   flag: Schema.optionalKey(Schema.String),
   types: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)), // {"2025": "osek-zair", "2026": "osek-murshe"}
+  /** Formation / start date (YYYY-MM-DD): years ending before this date do not hold this entity. */
+  formed: Schema.optionalKey(IsoDate),
+  /** Optional dissolution / disposal date (YYYY-MM-DD): years starting after this date do not hold this entity. */
+  disposed: Schema.optionalKey(IsoDate),
   import: Schema.optionalKey(Schema.String), // "all": One Zero sync imports debits too
 });
 export type EntityMeta = typeof EntityMeta.Type;

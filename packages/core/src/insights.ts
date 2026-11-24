@@ -8,13 +8,14 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const cash = (ts: readonly Row[]) => ts.filter((t) => !isCard(t.account));
 
 /**
- * Money in, money out and the net of the cash accounts over the given transactions (a period's, already filtered). Transfers between
- * accounts, owner and personal movements and loan principal are not money in or out (reports.ts isFlow).
+ * Operating money in, money out and net flow over the given transactions (already period-filtered).
+ * Includes both bank and credit-card spending/income while excluding internal transfers (including card payoff transfers),
+ * owner/personal movements, and loan principal (reports.ts `isFlow`) — so card spending is counted exactly once and never lost.
  */
 export function cashFlow(ts: readonly Row[]) {
   let inn = 0,
     out = 0;
-  for (const t of cash(ts))
+  for (const t of ts)
     if (!isFlow(t.category)) continue;
     else if (t.amount > 0) inn += t.amount;
     else out -= t.amount;

@@ -10,6 +10,7 @@ import {
   form1120,
   form1120ProForma,
   form5472,
+  form5472Set,
   form8995,
   formScheduleC,
   formScheduleSE,
@@ -90,9 +91,15 @@ async function merge(parts: readonly (readonly [PDFDocument, readonly number[] |
 }
 
 export async function fill5472(d: IrsInput & { de?: boolean }) {
-  const doc = await blank("f5472");
-  write(doc, form5472(d), "5472");
-  return doc.save();
+  const set = form5472Set(d);
+  if (set.length === 1) {
+    const doc = await blank("f5472");
+    write(doc, set[0]!.fields, "5472");
+    return doc.save();
+  }
+  const parts: (readonly [PDFDocument, null])[] = [];
+  for (const item of set) parts.push([await flat("f5472", item.fields), null]);
+  return merge(parts);
 }
 
 /** The 1120 blank is per tax year: a year without its blank is refused (the 2025 form would carry the wrong year's lines). */
@@ -118,7 +125,7 @@ export async function fill1120(d: IrsInput | CorpInput) {
   return doc.save();
 }
 
-async function statement(d: IrsInput) {
+async function statement(d: IrsInput, partyName?: string) {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -127,12 +134,13 @@ async function statement(d: IrsInput) {
     page.drawText(s, { x: x - f.widthOfTextAtSize(s, 10), y, size: 10, font: f });
   let page!: PDFPage,
     y = 0;
+  const label = partyName || d.ownerLegalName?.trim() || d.owner || "";
   const newPage = () => {
     page = doc.addPage([612, 792]);
     y = 740;
     page.drawText(ascii(`${d.legalName}   EIN ${d.ein}   Tax year ${d.year}`), { x: 50, y, size: 11, font: bold });
     page.drawText("Form 5472, Part V - Reportable transactions of a foreign-owned U.S. DE", { x: 50, y: (y -= 18), size: 11, font: bold });
-    page.drawText(ascii(`Related party: ${d.owner || ""}. Contributions, distributions and other transactions with the owner (U.S. dollars).`), {
+    page.drawText(ascii(`Related party: ${label}. Part V transactions not reported in Part IV (U.S. dollars).`), {
       x: 50,
       y: (y -= 16),
       size: 9,
@@ -141,7 +149,7 @@ async function statement(d: IrsInput) {
     y -= 26;
     page.drawText("Date", { x: 50, y, size: 10, font: bold });
     page.drawText("Type", { x: 120, y, size: 10, font: bold });
-    page.drawText("Description", { x: 200, y, size: 10, font: bold });
+    page.drawText("Description", { x: 220, y, size: 10, font: bold });
     right(page, "Amount", 560, y, bold);
     y -= 16;
   };
@@ -151,8 +159,8 @@ async function statement(d: IrsInput) {
     page.drawText(ascii(t.date), { x: 50, y, size: 10, font });
     page.drawText(t.kind, { x: 120, y, size: 10, font });
     let desc = ascii(t.desc);
-    while (desc && font.widthOfTextAtSize(desc, 10) > 270) desc = desc.slice(0, -1);
-    page.drawText(desc, { x: 200, y, size: 10, font });
+    while (desc && font.widthOfTextAtSize(desc, 10) > 250) desc = desc.slice(0, -1);
+    page.drawText(desc, { x: 220, y, size: 10, font });
     right(page, cents(Math.abs(t.amount)), 560, y);
     y -= 14;
   }
@@ -161,8 +169,8 @@ async function statement(d: IrsInput) {
   for (const [k, n] of [
     ["Total contributions to the LLC", v.contributions],
     ["Total distributions to the owner", v.distributions],
-    ...(v.other ? ([["Total other transactions with the owner", v.other]] as const) : []),
-    ["Total reportable transactions (Form 5472, line 1f)", v.total],
+    ...(v.other ? ([["Total other Part V transactions", v.other]] as const) : []),
+    ["Total Part V reportable transactions", v.total],
   ] as const) {
     page.drawText(k, { x: 200, y, size: 10, font: bold });
     right(page, cents(n), 560, y, bold);
@@ -172,23 +180,24 @@ async function statement(d: IrsInput) {
 }
 
 /**
- * One printable packet: 1120 page 1 (the only page with required entries + signature), 5472, and for a DE the Part V statement.
- * Forms are flattened here because both blanks share field names (copied widgets would collide); fill1120/fill5472 alone stay fillable.
+ * One printable packet: 1120 page 1 (the only page with required entries + signature), one Form 5472 per reportable related party,
+ * and for a DE a Part V statement for each form that carries Part V transactions.
+ * Forms are flattened here because blanks share field names (copied widgets would collide); single fill1120/fill5472 stay fillable.
  */
 export async function filingPacket(d: IrsInput | CorpInput) {
   const corp = "revenue" in d;
   const out = await PDFDocument.create();
-  for (const [bytes, pages] of [
-    [await fill1120(d), [0]],
-    [await fill5472({ ...d, de: !corp }), null],
-  ] as const) {
-    const src = await PDFDocument.load(bytes);
-    src.getForm().flatten();
-    for (const p of await out.copyPages(src, pages ? [...pages] : src.getPageIndices())) out.addPage(p);
-  }
-  if (!corp) {
-    const st = await statement(d);
-    for (const p of await out.copyPages(st, st.getPageIndices())) out.addPage(p);
+  const f1120 = await PDFDocument.load(await fill1120(d));
+  f1120.getForm().flatten();
+  for (const p of await out.copyPages(f1120, [0])) out.addPage(p);
+  const forms = form5472Set({ ...d, de: !corp });
+  for (const item of forms) {
+    const src = await flat("f5472", item.fields);
+    for (const p of await out.copyPages(src, src.getPageIndices())) out.addPage(p);
+    if (!corp && item.partV.rows.length) {
+      const st = await statement({ ...d, transactions: item.partV.rows }, item.partyName);
+      for (const p of await out.copyPages(st, st.getPageIndices())) out.addPage(p);
+    }
   }
   return out.save();
 }

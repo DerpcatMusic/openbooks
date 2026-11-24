@@ -6,8 +6,11 @@
   // Inputs are saved per tax year in this business's doc "taxximizer"; the advisor's answers are the person's (doc _app/person).
   import { onMount } from "svelte";
   import { pl } from "@openbooks/core";
-  import { advise, il, taxximize, type IlRates, type Structure, type TaxximizeInput } from "@openbooks/country-il";
+  import { advise, il, strategyPlays, taxximize, zairExclusion, type IlRates, type StrategyHolding, type Structure, type TaxximizeInput } from "@openbooks/country-il";
   import { us } from "@openbooks/country-us";
+  import { api } from "#lib/api.ts";
+  import { ilTreatmentOf } from "#lib/facts.ts";
+  import { ME } from "#lib/me.svelte.ts";
   import { S, isUS, taxTable, yearTxns, doc, saveDoc, ent, bizLabel, bizType, toast } from "#lib/stores/books.svelte.ts";
   import { t, I, ltr, bidi, has } from "#lib/i18n.svelte.ts";
   import { scramble, axis } from "#lib/privacy.svelte.ts";
@@ -51,16 +54,154 @@
   // two modes: "books" = this year's real numbers (read-only), "whatif" = type any numbers and play
   const mode = $derived(saved.mode ?? "books"),
     whatif = $derived(mode === "whatif");
+  // ---------- Reactive person & live holdings (updates automatically via SSE on `_app/person` & entity changes) ----------
+  let legacyPerson = $state<Person | null>(null);
+  let legacy = $state(false); // server without /api/person (books.py): answers stay in this business's doc "advisor"
+  const person = $derived(legacy ? legacyPerson : ME.person);
+  onMount(async () => {
+    while (!S.data) await new Promise((ok) => setTimeout(ok, 50));
+    try {
+      await loadPerson(S.data.entities, S.year);
+    } catch {
+      legacy = true;
+      legacyPerson = { residence: "il", facts: doc<Person["facts"]>("advisor", {}) };
+    }
+  });
+  const answers = $derived(normalizeFacts(person?.facts ?? {}));
+  async function answer(k: string, v: string | number | boolean | undefined) {
+    if (!person) return;
+    const next = withFact(person, k, v);
+    if (legacy) legacyPerson = next;
+    try {
+      if (legacy) await saveDoc("advisor", next.facts);
+      else await savePerson(next);
+    } catch (x) {
+      toast(String((x as Error).message || x));
+    }
+  }
+  const PLAYBOOK = [...il.playbook, ...us.playbook];
+  const types = $derived([...new Set((S.data?.entities ?? []).map((e) => (e.id === ent().id ? bizType(y) : typeOf(e, y))).filter((x): x is string => !!x))]);
+  const ilType = $derived(types.find((x) => x.startsWith("osek-") || x === "ltd") ?? "osek-murshe");
+  const multiCountry = $derived(new Set((S.data?.entities ?? []).map((e) => e.currency)).size > 1);
+
+  const holdings = $derived<StrategyHolding[]>(
+    (S.data?.entities ?? []).flatMap((e): StrategyHolding[] => {
+      const ty = e.id === ent().id ? bizType(y) : typeOf(e, y);
+      const country = e.currency === "USD" || ty?.startsWith("llc-") || ty?.startsWith("us-") ? "us" : "il";
+      if (!ty || country === "il") return [];
+      const usTr = us.manifest.businessTypes.find((b) => b.key === ty)?.treatment ?? "transparent";
+      return [
+        {
+          entity: e.id,
+          name: e.short || e.name || e.id,
+          country,
+          type: ty,
+          ilTreatment: ilTreatmentOf(answers, e.id, y, usTr),
+        },
+      ];
+    }),
+  );
+  const zairBlocked = $derived(
+    zairExclusion(
+      (S.data?.entities ?? [])
+        .filter((e) => e.currency !== "USD")
+        .map((e) => {
+          const ty = e.id === ent().id ? bizType(y) : typeOf(e, y);
+          return { entity: e.id, type: ty ?? "", treatment: ty === "ltd" ? ("company" as const) : ("sole-proprietor" as const) };
+        }),
+      holdings.map((h) => ({
+        entity: h.entity,
+        type: h.type,
+        treatment: us.manifest.businessTypes.find((b) => b.key === h.type)?.treatment ?? ("transparent" as const),
+        ilTreatment: h.ilTreatment,
+      })),
+    ).length > 0,
+  );
+
+  const defaultPoints = $derived(person ? basePoints(answers, y) : 2.25);
   const i = $derived({
     revenue: whatif ? (saved.revenue ?? toIls(P.revenue)) : toIls(P.revenue),
     expenses: whatif ? (saved.expenses ?? toIls(P.cogs + P.opex - cut)) : toIls(P.cogs + P.opex - cut),
     clients: saved.clients ?? (isUS() ? "foreign" : "business"),
-    points: saved.points ?? 2.25,
+    points: saved.points ?? defaultPoints,
     paturOk: saved.paturOk ?? true,
+    zairExcluded: zairBlocked,
     fx,
     costs: saved.costs ?? {},
   } satisfies TaxximizeInput);
   const r = $derived(ready && !noFx ? taxximize({ ...i, vatExpenses: whatif ? (saved.vatExpenses ?? i.expenses) : i.expenses }, T, U) : null);
+  const formY = $derived((S.data?.form?.[String(y)] ?? {}) as Record<string, string>);
+  const plays = $derived(
+    ready && !noFx
+      ? strategyPlays(
+          {
+            year: y,
+            types,
+            currentType: bizType(y) ?? ilType,
+            holdings,
+            revenueIls: i.revenue,
+            expensesIls: i.expenses,
+            clients: i.clients,
+            points: i.points,
+            paturOk: i.paturOk,
+            zairExcluded: zairBlocked,
+            pensionDeposited: +(formY["135"] ?? answers.pension ?? 0) || 0,
+            khDeposited: +(formY["180"] ?? answers.kh ?? 0) || 0,
+            donations: +(formY["037"] ?? answers.donations ?? 0) || 0,
+            uncategorizedExpenseIls: P.uncat < 0 ? Math.abs(toIls(P.uncat)) : 0,
+            fx,
+            costs: i.costs,
+          },
+          T,
+          U,
+        )
+      : [],
+  );
+  const totalPlaySave = $derived(plays.reduce((s, x) => s + x.annualSavingIls, 0));
+
+  // ---------- Official statutory law sources & live verifier ----------
+  interface LawRes {
+    summary: { total: number; primary: number; verified: number; changed: number; unreachable: number; unverified: number; stale: number; lastCheckedAt: string | null };
+    sources: {
+      id: string;
+      url: string;
+      authority: string;
+      primary: boolean;
+      jurisdiction: string;
+      title: string;
+      topics: string[];
+      verification: { status: string; fetchedAt: string; matchedSignals: string[]; missingSignals: string[]; detectedChanges: string[]; error?: string } | null;
+    }[];
+  }
+  let laws = $state<LawRes | null>(null);
+  let lawsBusy = $state(false);
+  let showLaws = $state(false);
+  $effect(() => {
+    void S.v;
+    void S.rev;
+    let stale = false;
+    api
+      .laws({ primaryOnly: true })
+      .then((d) => {
+        if (!stale) laws = d as LawRes;
+      })
+      .catch(() => {
+        /* older server without /api/laws */
+      });
+    return () => {
+      stale = true;
+    };
+  });
+  async function verifyLawsNow() {
+    lawsBusy = true;
+    try {
+      laws = (await api.refreshLaws({ primaryOnly: true })) as LawRes;
+    } catch (x) {
+      toast(String((x as Error).message || x));
+    } finally {
+      lawsBusy = false;
+    }
+  }
   const NOW: Record<string, string> = { "osek-patur": "patur", "osek-zair": "murshe", "osek-murshe": "murshe", ltd: "ltd", "llc-disregarded": "llc", "llc-ccorp": "ccorp" };
   const base = $derived(
     r?.rows.find((x) => x.key === NOW[bizType(y) ?? ""] && x.ok) ?? r?.rows.find((x) => x.key === (isUS() ? "llc" : "patur") && x.ok) ?? r?.rows.find((x) => x.ok),
@@ -112,39 +253,19 @@
   const tick = (v: number) => ltr("₪" + compact.format(axis(v)));
   const xTicks = $derived(W < 420 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]);
   let hoverKey = $state<string | null>(null);
+  let hoverIdx = $state<number>(-1);
+  const hoverPt = $derived(hoverIdx >= 0 ? curve[hoverIdx] ?? null : null);
+  const moveCurve = (e: PointerEvent) => {
+    if (!curve.length) return;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / (rect.width || 1)));
+    hoverIdx = Math.round(frac * (curve.length - 1));
+  };
 
   const MODES = $derived(["books", "whatif"].map((key) => ({ key, label: t(`taxximizer.mode.${key}`) })));
   const CLIENTS = $derived(["business", "consumer", "foreign"].map((key) => ({ key, label: t(`taxximizer.clients.${key}`) })));
   const COSTS = ["patur", "zair", "murshe", "ltd", "llc", "ccorp"];
 
-  // ---------- What you should do: playbook moves for everything this person runs, savings from the pack's advisor ----------
-  let person = $state<Person | null>(null);
-  let legacy = false; // server without /api/person (books.py): answers stay in this business's doc "advisor"
-  onMount(async () => {
-    while (!S.data) await new Promise((ok) => setTimeout(ok, 50));
-    try {
-      person = await loadPerson(S.data.entities, S.year);
-    } catch {
-      legacy = true;
-      person = { residence: "il", facts: doc<Person["facts"]>("advisor", {}) };
-    }
-  });
-  const answers = $derived(normalizeFacts(person?.facts ?? {}));
-  async function answer(k: string, v: string | number | boolean | undefined) {
-    if (!person) return;
-    const next = withFact(person, k, v);
-    person = next;
-    try {
-      if (legacy) await saveDoc("advisor", next.facts);
-      else await savePerson(next);
-    } catch (x) {
-      toast(String((x as Error).message || x));
-    }
-  }
-  const PLAYBOOK = [...il.playbook, ...us.playbook];
-  const types = $derived([...new Set((S.data?.entities ?? []).map((e) => (e.id === ent().id ? bizType(y) : typeOf(e, y))).filter((x): x is string => !!x))]);
-  const ilType = $derived(types.find((x) => x.startsWith("osek-") || x === "ltd") ?? "osek-murshe");
-  const multiCountry = $derived(new Set((S.data?.entities ?? []).map((e) => e.currency)).size > 1);
   const tips = $derived(
     ready && person
       ? advise(PLAYBOOK, answers, { y, type: isUS() ? ilType : (bizType(y) ?? ilType), types, turnover: i.revenue, expenses: i.expenses, points: basePoints(answers, y), T, fx })
@@ -268,6 +389,45 @@
           </section>
         {/if}
 
+        <Card title={t("taxximizer.strat.title")} description={t("taxximizer.strat.sub", { types: types.map(typeLabel).join(" + ") || bizLabel(), y })}>
+          {#snippet actions()}
+            {#if totalPlaySave > 0}
+              <div class="text-end">
+                <div class="text-[12px] text-sub">{t("taxximizer.strat.total")}</div>
+                <div class="display num text-[20px] whitespace-nowrap text-good">+{ils(totalPlaySave)}</div>
+              </div>
+            {/if}
+          {/snippet}
+          {#if !plays.length}
+            <p class="text-[13px] text-sub">{t("taxximizer.strat.empty", { y })}</p>
+          {:else}
+            <ul class="-mt-2 divide-y divide-line">
+              {#each plays as play (play.id)}
+                <li class="py-3.5">
+                  <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+                    <div class="min-w-0 flex-1 basis-60">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <Badge size="sm" tone={play.category === "crossborder" ? "warn" : "accent"}>{t(`taxximizer.strat.cat.${play.category}`)}</Badge>
+                        {#if play.risk !== "none"}<Badge size="sm" tone={play.risk === "high" ? "bad" : "warn"}>{t(`taxximizer.risk.${play.risk}`)}</Badge>{/if}
+                        <a class="text-[11px] text-accent-ink hover:underline" dir="ltr" href={play.sourceUrl} target="_blank" rel="noreferrer">{play.statute}</a>
+                      </div>
+                      <h3 class="mt-1.5 text-[14px] font-medium text-ink">{he ? play.title_he : play.title_en}</h3>
+                      <p class="mt-1 text-[13px] text-ink-2">{he ? play.summary_he : play.summary_en}</p>
+                      <p class="mt-1.5 text-[12px] text-sub"><strong>{t("taxximizer.strat.why")}</strong> {he ? play.appliesBecause_he : play.appliesBecause_en}</p>
+                      <p class="mt-1 text-[12px] text-faint"><strong>{t("taxximizer.strat.guardrail")}</strong> {he ? play.guardrail_he : play.guardrail_en}</p>
+                    </div>
+                    <div class="flex shrink-0 flex-col items-end gap-1.5">
+                      {#if play.annualSavingIls > 0}<span class="num text-[15px] font-medium whitespace-nowrap text-good">+{ils(play.annualSavingIls)}</span>{/if}
+                      {#if play.deferralIls}<span class="text-[11px] whitespace-nowrap text-sub">{t("taxximizer.strat.deferral", { amount: ils(play.deferralIls) })}</span>{/if}
+                      <Button variant="ghost" size="sm" href="{BASE}{play.actionHref}">{t("taxximizer.strat.action")}</Button>
+                    </div>
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </Card>
+
         <Card title={t("taxximizer.todo")} description={t("taxximizer.todoSub", { types: types.map(typeLabel).join(" + "), y })}>
           {#snippet actions()}
             {#if totalSave}
@@ -356,20 +516,57 @@
         </section>
 
         <Card title={t("taxximizer.chartTitle")} description={t("taxximizer.chartSub")}>
-          <div bind:clientWidth={cw} class="w-full" dir="ltr">
-            <svg viewBox="-4 -6 {W + 8} {H + 28}" width="100%" height={H + 28} role="img" aria-label={t("taxximizer.chartAria")} class="block overflow-visible">
+          <div bind:clientWidth={cw} class="relative w-full" dir="ltr">
+            <svg
+              viewBox="-4 -6 {W + 8} {H + 28}"
+              width="100%"
+              height={H + 28}
+              role="img"
+              aria-label={t("taxximizer.chartAria")}
+              class="block overflow-visible"
+              onpointermove={moveCurve}
+              onpointerleave={() => (hoverIdx = -1)}>
               {#each [0.25, 0.5, 0.75, 1] as g (g)}
                 <line x1="0" x2={W} y1={sy(maxKeep * g)} y2={sy(maxKeep * g)} stroke="var(--color-line)" />
                 <text x="2" y={sy(maxKeep * g) - 4} class="fill-faint text-[11px]">{tick(maxKeep * g)}</text>
               {/each}
               <line x1={sx(i.revenue)} x2={sx(i.revenue)} y1="0" y2={H} stroke="var(--color-sub)" stroke-dasharray="3 3" />
+              {#if hoverPt}
+                <line x1={sx(hoverPt.rev)} x2={sx(hoverPt.rev)} y1="0" y2={H} stroke="var(--color-line-strong)" />
+              {/if}
               {#each Object.keys(COLORS) as key (key)}
                 <path d={line(key)} fill="none" stroke={COLORS[key]} stroke-width={hoverKey === key ? 3 : 1.75} opacity={hoverKey && hoverKey !== key ? 0.2 : 1} />
+                {#if hoverPt}
+                  {@const pt = hoverPt.rows.find((z) => z.key === key)}
+                  {#if pt?.ok}
+                    <circle cx={sx(hoverPt.rev)} cy={sy(pt.keep)} r={hoverKey === key ? 4.5 : 3.25} fill="var(--color-panel)" stroke={COLORS[key]} stroke-width="2" />
+                  {/if}
+                {/if}
               {/each}
               {#each xTicks as g (g)}
                 <text x={sx(MAXR * g)} y={H + 18} text-anchor={g === 0 ? "start" : g === 1 ? "end" : "middle"} class="fill-faint text-[11px]">{tick(MAXR * g)}</text>
               {/each}
             </svg>
+            {#if hoverPt}
+              {@const hx = sx(hoverPt.rev)}
+              {@const cardW = Math.min(220, W)}
+              <div
+                class="pointer-events-none absolute top-2 z-20 rounded-xl border border-line-strong bg-panel/96 p-2.5 text-[12px] shadow-[var(--shadow)] backdrop-blur"
+                dir="auto"
+                style:width="{cardW}px"
+                style:left="{hx + 14 + cardW > W ? Math.max(0, hx - 14 - cardW) : hx + 14}px">
+                <div class="mb-1.5 border-b border-line pb-1 text-sub">{t("taxximizer.hoverRev")} <span class="num text-ink">{ils(hoverPt.rev)}</span></div>
+                {#each hoverPt.rows.filter((z) => z.ok).sort((a, b) => (b.ok ? b.keep : 0) - (a.ok ? a.keep : 0)) as x (x.key)}
+                  {#if x.ok}
+                    <div class="flex items-center gap-2 py-0.5">
+                      <span class="size-2 shrink-0 rounded-full" style:background={COLORS[x.key]}></span>
+                      <span class="min-w-0 flex-1 truncate text-ink-2">{L(x)}</span>
+                      <span class="num text-ink">{ils(x.keep)}</span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
           </div>
           <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-sub">
             {#each r.rows as x (x.key)}
@@ -379,6 +576,53 @@
             {/each}
           </div>
         </Card>
+
+        {#if laws}
+          <Card title={t("taxximizer.laws.title")} description={t("taxximizer.laws.sub")}>
+            {#snippet actions()}
+              <Button variant="primary" size="sm" icon="refresh" disabled={lawsBusy} onclick={verifyLawsNow}>
+                {lawsBusy ? t("taxximizer.laws.refreshing") : t("taxximizer.laws.refresh")}
+              </Button>
+            {/snippet}
+            <div class="flex flex-wrap items-center gap-2 text-[12px]">
+              {#if laws.summary.verified > 0}<Badge size="sm" tone="good">{t("taxximizer.laws.verified", { n: laws.summary.verified })}</Badge>{/if}
+              {#if laws.summary.changed > 0}<Badge size="sm" tone="warn">{t("taxximizer.laws.changed", { n: laws.summary.changed })}</Badge>{/if}
+              {#if laws.summary.unreachable > 0}<Badge size="sm" tone="bad">{t("taxximizer.laws.unreachable", { n: laws.summary.unreachable })}</Badge>{/if}
+              {#if laws.summary.unverified > 0}<Badge size="sm">{t("taxximizer.laws.unverified", { n: laws.summary.unverified })}</Badge>{/if}
+              <span class="text-faint">
+                {laws.summary.lastCheckedAt ? t("taxximizer.laws.lastChecked", { at: laws.summary.lastCheckedAt.slice(0, 16).replace("T", " ") }) : t("taxximizer.laws.never")}
+              </span>
+            </div>
+            <div class="mt-3">
+              <Button variant="ghost" size="sm" onclick={() => (showLaws = !showLaws)}>
+                {showLaws ? t("taxximizer.laws.hideList") : t("taxximizer.laws.showList", { n: laws.sources.length })}
+              </Button>
+            </div>
+            {#if showLaws}
+              <ul class="mt-3 divide-y divide-line border-t border-line">
+                {#each laws.sources as src (src.id)}
+                  {@const st = src.verification?.status ?? "unverified"}
+                  <li class="py-2.5 text-[12px]">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Badge size="sm" tone={st === "verified" ? "good" : st === "changed" ? "warn" : st === "unreachable" ? "bad" : undefined}>{src.jurisdiction.toUpperCase()}</Badge>
+                      <span class="font-medium text-ink">{src.authority}</span>
+                      <a class="truncate text-accent-ink hover:underline" dir="ltr" href={src.url} target="_blank" rel="noreferrer">{src.url}</a>
+                    </div>
+                    {#if src.verification?.matchedSignals.length}
+                      <div class="mt-1 text-sub">{t("taxximizer.laws.signals", { list: src.verification.matchedSignals.join(", ") })}</div>
+                    {/if}
+                    {#if src.verification?.missingSignals.length}
+                      <div class="mt-0.5 text-warn">{t("taxximizer.laws.missingSignals", { list: src.verification.missingSignals.join(", ") })}</div>
+                    {/if}
+                    {#if src.verification?.error}
+                      <div class="mt-0.5 text-bad" dir="ltr">{src.verification.error}</div>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </Card>
+        {/if}
 
         <Card title={t("taxximizer.assumes")}>
           <ul class="list-disc space-y-1 ps-5 text-[13px] text-ink-2">

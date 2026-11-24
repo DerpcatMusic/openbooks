@@ -2,9 +2,11 @@ import cpi from "../tables/cpi.json";
 import { ORDINARY, PERSONAL, RATED, WITHHELD, proofsNeeded } from "./catalog.ts";
 // Form 1301 (annual return) from the books: port of books(y) in web/src/lib/books.svelte.js. Field keys are the form's box numbers
 // (layout in packages/countries/il/form/, from layout.py). Values the user typed on the Tax page (doc "form"[year]) override the automatic ones.
-import { group, isBiz, plOf } from "@openbooks/core";
+import { group, isBiz, plOf, type Facts } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
+import { extraPoints } from "./advisor.ts";
 import { bands, soldierPoints } from "./calc.ts";
+import { foreignTaxCreditCap } from "./crossborder.ts";
 import type { IlTable } from "./schema.ts";
 
 export interface Profile {
@@ -42,6 +44,13 @@ export interface Form1301Input {
    * and the foreign tax paid on it in ₪: reported on appendix 1324, taxed with the personal-exertion income, credited up to the Israeli tax.
    */
   foreign?: { income: number; taxPaid: number };
+  /**
+   * Automatic boxes derived from tagged expenses (form1301FromBooks: donations 037, study fund 136, life 036, disability 112).
+   * Merged BEFORE calculating tax so displayed boxes and calculated tax always agree 100%; user overrides in `form` still win.
+   */
+  bookBoxes?: Readonly<Record<string, string>>;
+  /** Person-level facts (/you: woman, children, single parent, degree, reservist §39ב, etc.) for full statutory credit points. */
+  facts?: Facts;
 }
 
 /** Per-bracket breakdown for the Tax page: [{ rate, part, tax }] for brackets that hold income. */
@@ -65,14 +74,20 @@ export function form1301Auto({
   vat,
   capital,
   zairExcluded,
-}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed" | "vat" | "capital" | "zairExcluded">): Record<string, string> {
+  bookBoxes,
+}: Pick<Form1301Input, "txns" | "type" | "profile" | "disallowed" | "vat" | "capital" | "zairExcluded" | "bookBoxes">): Record<string, string> {
   const turnover = vat ? vat.turnover : txns.filter((t) => isBiz(t.category)).reduce((a, t) => a + t.amount, 0);
+  // Tagged Keren Hishtalmut (box 136) is a personal deduction applied AFTER box 150, never a business expense inside box 150.
+  const khInExpenses = Math.max(0, +(bookBoxes?.["136"] ?? 0) || 0);
   const zair = type === "osek-zair" && !zairExcluded,
-    expenses =
+    expenses = Math.max(
+      0,
       -txns.filter((t) => ["cogs", "expense"].includes(plOf(t.category) ?? "")).reduce((a, t) => a + t.amount, 0) -
-      disallowed -
-      (vat?.reclaimed ?? 0) -
-      (capital ? capital.cost - capital.depreciation : 0);
+        disallowed -
+        khInExpenses -
+        (vat?.reclaimed ?? 0) -
+        (capital ? capital.cost - capital.depreciation : 0),
+    );
   return {
     last: p.last ?? "",
     first: p.first ?? "",
@@ -122,9 +137,9 @@ export function refundIndexation(amount: number, y: number, today: string, paid 
   return Math.round(linked - amount + (linked * 0.04 * days) / 365);
 }
 
-/** Everything the return needs for a year (the Tax page and tax_summary). */
+/** Everything the return needs for a year (the Tax page, Home, Documents, Print, and MCP tax_summary). */
 export function form1301(i: Form1301Input) {
-  const auto = form1301Auto(i),
+  const auto = { ...form1301Auto(i), ...i.bookBoxes },
     f = i.form ?? {},
     p = i.profile ?? {},
     T = i.T;
@@ -147,6 +162,7 @@ export function form1301(i: Form1301Input) {
   // Personal deductions the site computes from the amounts paid (1301 guide 2025 rows 49, 51, 53, 54), on business income (150 + attributed):
   // 135 pension §47 up to depositPct of qualifying income (the rest moves to the 268 credit), 136 study fund §17(5א), 112 loss of work capacity,
   // 030 52% of BL paid. A year table without these rates (2024) deducts nothing.
+  const zairActive = v("zair") === "X";
   const business = n("150") + foreign,
     qualifying = Math.min(business, (T.mezakaMonthly ?? 0) * 24),
     pensionDed = Math.min(n("135"), (T.depositPct ?? 0) * qualifying),
@@ -155,22 +171,30 @@ export function form1301(i: Form1301Input) {
       "135": pensionDed,
       "136": Math.min(n("136"), (T.khPct ?? 0) * Math.min(business, T.khIncomeCap ?? 0)),
       "112": disability,
-      "030": Math.min((T.blDeductPct ?? 0) * n("030"), Math.max(0, business - pensionDed)),
+      // Under osek-zair (§87ד / Circular 7/2025), 30% deemed expenses replace ALL deductions including §47א (52% BL).
+      "030": zairActive ? 0 : Math.min((T.blDeductPct ?? 0) * n("030"), Math.max(0, business - pensionDed)),
     },
     deducted = Object.values(deductions).reduce((a, x) => a + x, 0),
     taxable = Math.max(0, ord - deducted);
   const resident = v("020") ? 2.25 : 0,
     soldier = v("224") ? soldierPoints(p.discharge, p.serviceMonths, i.y) : 0,
-    points = resident + soldier;
-  const ordTax = bands(taxable, T.brackets),
-    capTax = special.reduce((a, x) => a + x.tax, 0),
+    extraPts = i.facts ? Object.values(extraPoints(i.facts, i.y)).reduce((a, x) => a + x, 0) : 0,
+    points = resident + soldier + extraPts;
+  const ordTax = bands(taxable, T.brackets);
+  // §121ב surtax: 3% general surtax when combined taxable + capital income exceeds surtaxThreshold (the 50% top bracket
+  // already embeds 3% on `taxable` above threshold; here we capture the 3% on `cap` pushing total income over threshold),
+  // plus Amendment 277 2% capital surtax on `cap` exceeding surtaxThreshold on its own (effective 2025+).
+  const surtaxThreshold = T.ltd?.surtaxThreshold ?? 721560;
+  const surtaxGeneralCap = cap > 0 && T.ltd?.surtax ? Math.max(0, Math.min(cap, taxable + cap - Math.max(taxable, surtaxThreshold))) * T.ltd.surtax : 0;
+  const surtaxCapital = cap > surtaxThreshold && i.y >= 2025 && T.ltd?.surtaxCapital ? (cap - surtaxThreshold) * T.ltd.surtaxCapital : 0;
+  const capTax = special.reduce((a, x) => a + x.tax, 0) + surtaxGeneralCap + surtaxCapital,
     gross = ordTax + capTax,
     // ponytail: personal exertion's share of the bracket tax, pro rata; exact would tax it first (it sits at the bottom brackets)
     personalTax = ord ? (ordTax * personal) / ord : 0;
   // the discharged-soldier credit (s.39א) only offsets tax on personal exertion. Credit points come off the bracket tax only:
-  // special-rate tax a fund withholds (a lump-sum חיסכון לכל ילד withdrawal, 25% of the real gain) is final, so the 040
-  // withholding pays it and is not refunded (Altshuler 14.10.2026; the 2025 assessment of 08.10.2026 left that balance at 0).
-  const creditsAvailable = resident * T.point + Math.min(soldier * T.point, personalTax),
+  // special-rate tax a fund withholds (e.g. a lump-sum child-savings or provident-fund withdrawal at 25% of the real gain) is final,
+  // so box 040 withholding settles it and is not refunded against unused credit points.
+  const creditsAvailable = (resident + extraPts) * T.point + Math.min(soldier * T.point, personalTax),
     credits = Math.min(creditsAvailable, ordTax);
   // Credits for payments, after the points (1301 guide 2025 rows 73, 76, 78א): 268 pension 35% of deposits up to 5.5% of qualifying income
   // (5% when 112 is claimed, §45א(ו)) plus what 135 could not deduct; 037 donations 35% above the minimum, up to 30% of taxable income;
@@ -185,9 +209,13 @@ export function form1301(i: Form1301Input) {
       Object.values(paymentCredits).reduce((a, x) => a + x, 0),
       ordTax - credits,
     );
-  // Foreign tax credit (appendix 1324): the foreign tax, up to the Israeli tax on that income (its pro-rata share of the bracket tax after credits)
-  const israeliOnForeign = ord ? ((ordTax - credits - otherCredits) * foreign) / ord : 0,
-    foreignTaxCredit = Math.max(0, Math.min(i.foreign?.taxPaid ?? 0, israeliOnForeign));
+  // Foreign tax credit (appendix 1324): uses the exact same shared Ordinance §204 cap formula as ilCrossBorder().
+  const foreignTaxCredit = foreignTaxCreditCap({
+    netOrdinaryTax: ordTax - credits - otherCredits,
+    ordinaryIncome: ord,
+    foreignIncome: foreign,
+    foreignTaxPaid: i.foreign?.taxPaid ?? 0,
+  });
   const due = Math.round(ordTax - credits - otherCredits - foreignTaxCredit) + Math.round(capTax),
     withheld = sum(WITHHELD),
     advances = Math.round(i.advances ?? 0);

@@ -13,6 +13,14 @@ export default {
   "charts.flow.by": "Group by",
   "charts.flow.byAccount": "Ledger account",
   "charts.flow.byPayer": "Counterparty",
+  "charts.flow.scope": "Scope",
+  "charts.flow.scopeThis": "This business",
+  "charts.flow.scopeAll": "All businesses",
+  "charts.flow.viaBanks": "Through banks",
+  "charts.flow.expandHint": "Click a business or bank hub in the middle to expand its child accounts, or click any category to view transactions.",
+  "charts.flow.showingSubtree": "Expanded: {name}",
+  "charts.flow.collapseSubtree": "Collapse",
+  "charts.flow.fxNote": "Converted to {cur} at Bank of Israel daily rates; inter-entity transfers excluded.",
 
   "charts.tree.title": "Spending against normal",
   "charts.tree.sub": "{period} · box size is what you spent; colour is the change from that account's average over the three periods before",
@@ -40,6 +48,8 @@ export default {
     one: "No {cur} exchange rate for {n} day (from {date}): those balances may be off.",
     other: "No {cur} exchange rate for {n} days (from {date}): those balances may be off.",
   },
+  "charts.nw.excluded":
+    "Excluded from Net Worth (deposits-only feed without withdrawals or balance anchor): {accounts}. Add a balance anchor in Reconciliation or full bank sync to include.",
   "charts.nw.more": { one: "and {n} more", other: "and {n} more" },
   "charts.nw.emptyTitle": "Net worth will show here",
   "charts.nw.emptyText": "Once the books have bank balances, this charts everything you own minus what you owe, across all your businesses.",

@@ -104,6 +104,23 @@ it("allocation number: above the threshold and to a dealer only", () => {
   expect(alloc({ items: [{ qty: 1, price: 10000 }], customerVatId: dealer })).toBe(false);
   expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer })).toBe(true);
   expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer, alloc: "123456789" })).toBe(false);
+  // Short or all-zero allocation numbers are flagged as allocationInvalid (not silently accepted)
+  expect(
+    vatReport({
+      period: jan,
+      docs: [doc({ id: "a", items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer, alloc: "123" })],
+      inputs: [],
+      rate: 0.18,
+    }).issues.map((i) => i.code),
+  ).toContain("allocationInvalid");
+  expect(
+    vatReport({
+      period: jan,
+      docs: [doc({ id: "a", items: [{ qty: 1, price: 10000.01 }], customerVatId: dealer, alloc: "000000000" })],
+      inputs: [],
+      rate: 0.18,
+    }).issues.map((i) => i.code),
+  ).toContain("allocationInvalid");
   expect(alloc({ items: [{ qty: 1, price: 10000.01 }], customerVatId: "123456789" })).toBe(false); // not a valid id: no dealer to deduct
   expect(alloc({ items: [{ qty: 1, price: 12000 }] })).toBe(false); // a private buyer (no VAT id) deducts nothing
 });

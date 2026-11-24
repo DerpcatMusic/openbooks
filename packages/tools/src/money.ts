@@ -3,6 +3,8 @@
 // (fx.ts, reports.ts dailyBalances, transfers.ts); this file reads the books and keeps the rates.
 import {
   accountCurrencies,
+  cashIn,
+  cashOut,
   checkAnchors,
   convert,
   currencyOf,
@@ -94,11 +96,18 @@ export const ratesFor = (rows: readonly { currency: string; date: string }[]) =>
 };
 
 // ---------- net worth ----------
+export interface NetWorthExcluded {
+  entity: string;
+  account: string;
+  reason: "credits-only";
+}
 export interface NetWorth {
   currency: string;
   dates: string[];
   series: { entity: string; account: string; currency: string; liability: boolean; values: number[] }[];
   missing: { currency: string; date: string }[];
+  /** Unanchored credits-only accounts (e.g. One Zero PDF / bit CSV with only deposits and no outflows or balance) excluded so balances aren't overstated. */
+  excluded?: NetWorthExcluded[];
 }
 
 /** Every entity's bank and card accounts, one end-of-day balance a day from..to, each converted to `currency` at that day's rate. */
@@ -112,6 +121,7 @@ export const netWorthDetail = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {
     const bs = yield* Books;
     const raw: { entity: string; account: string; currency: string; values: number[] }[] = [];
+    const excluded: NetWorthExcluded[] = [];
     let dates: string[] = [];
     for (const e of yield* bs.entities) {
       const txns = yield* bs.ledger(e.id).pipe(Effect.orDie),
@@ -119,9 +129,22 @@ export const netWorthDetail = (currency: string, from: string, to: string) =>
         stored = yield* bs.doc<Anchors>(e.id, "anchors", {}).pipe(Effect.orDie);
       const base = currencyOf(e),
         cur = accountCurrencies(txns, base);
-      const d = dailyBalances(txns, mergeAnchors(checkAnchors(checks), stored), from, to);
+      const anchors = mergeAnchors(checkAnchors(checks), stored);
+      const d = dailyBalances(txns, anchors, from, to);
       dates = d.dates;
-      for (const [account, values] of Object.entries(d.balances)) raw.push({ entity: e.id, account, currency: cur[account] ?? base, values });
+      for (const [account, values] of Object.entries(d.balances)) {
+        const hasAnchor = (anchors[account]?.length ?? 0) > 0;
+        const acctTxns = txns.filter((t) => t.source !== "journal" && t.account === account);
+        const isCreditsOnlyFeed = acctTxns.every((t) => t.source === "bit") || (account === "One Zero" && (e as { import?: string }).import !== "all");
+        const creditsOnly = !hasAnchor && acctTxns.length > 0 && acctTxns.every((t) => t.amount >= 0) && isCreditsOnlyFeed;
+        if (creditsOnly) {
+          // A credits-only feed (One Zero PDF, One Zero credits-only sync, bit CSV) never imports withdrawals/spending.
+          // Summing all-time deposits without outflows or a balance anchor would fabricate an inflated fake bank balance.
+          excluded.push({ entity: e.id, account, reason: "credits-only" });
+          continue;
+        }
+        raw.push({ entity: e.id, account, currency: cur[account] ?? base, values });
+      }
     }
     const table = yield* ensureRates(Object.fromEntries([...new Set([currency, ...raw.map((s) => s.currency)])].map((c) => [c, [from, to] as const])));
     const missing = new Map<string, { currency: string; date: string }>();
@@ -138,7 +161,123 @@ export const netWorthDetail = (currency: string, from: string, to: string) =>
         return 0;
       }),
     }));
-    return { currency, dates, series, missing: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency)) };
+    return {
+      currency,
+      dates,
+      series,
+      missing: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency)),
+      ...(excluded.length ? { excluded } : {}),
+    };
+  });
+
+// ---------- combined multi-entity money flow ----------
+export interface CombinedFlowTxn {
+  id: string;
+  entity: string;
+  entityName: string;
+  flag: string;
+  account: string;
+  date: string;
+  category: string;
+  desc: string;
+  who?: string;
+  /** Signed amount converted to the requested display `currency` at Bank of Israel daily rates. */
+  amount: number;
+  nativeAmount: number;
+  nativeCurrency: string;
+}
+
+export interface CombinedFlow {
+  currency: string;
+  from: string;
+  to: string;
+  entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
+  txns: CombinedFlowTxn[];
+  missing: { currency: string; date: string }[];
+}
+
+/**
+ * Every entity's real cash-flow transactions (inflows & outflows, excluding internal/inter-entity transfers, owner draws, and loans)
+ * in [from, to], converted to `currency` at Bank of Israel daily rates so the Sankey can show combined earnings and per-bank subtrees.
+ */
+export const combinedFlow = (currency: string, from: string, to: string) =>
+  Effect.gen(function* () {
+    const bs = yield* Books;
+    const raw: {
+      entity: string;
+      entityName: string;
+      flag: string;
+      account: string;
+      id: string;
+      date: string;
+      category: string;
+      desc: string;
+      who?: string;
+      nativeAmount: number;
+      nativeCurrency: string;
+    }[] = [];
+    const entities: CombinedFlow["entities"] = [];
+
+    for (const e of yield* bs.entities) {
+      const txns = yield* bs.ledger(e.id).pipe(Effect.orDie);
+      const base = currencyOf(e);
+      const accts = new Set<string>();
+      for (const t of txns) {
+        if (t.source === "journal") continue;
+        if (t.date < from || t.date > to) continue;
+        const ok = (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
+        if (!ok) continue;
+        accts.add(t.account);
+        raw.push({
+          entity: e.id,
+          entityName: e.short || e.name || e.id,
+          flag: e.flag ?? "",
+          account: t.account,
+          id: t.id,
+          date: t.date,
+          category: t.category,
+          desc: t.desc,
+          ...(t.who ? { who: t.who } : {}),
+          nativeAmount: t.amount,
+          nativeCurrency: t.currency ?? base,
+        });
+      }
+      entities.push({
+        id: e.id,
+        name: e.short || e.name || e.id,
+        flag: e.flag ?? "",
+        currency: base,
+        accounts: [...accts].sort(),
+      });
+    }
+
+    const currencies = [...new Set([currency, ...raw.map((r) => r.nativeCurrency)])];
+    const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [from, to] as const]))) : {};
+    const missing = new Map<string, { currency: string; date: string }>();
+    const txns: CombinedFlowTxn[] = [];
+
+    for (const r of raw) {
+      const converted = r.nativeCurrency === currency ? r.nativeAmount : convert(table, r.nativeAmount, r.nativeCurrency, currency, r.date);
+      if (converted === null) {
+        for (const c of [r.nativeCurrency, currency]) {
+          if (rateOn(table, c, r.date) === null) missing.set(`${c}|${r.date}`, { currency: c, date: r.date });
+        }
+        continue;
+      }
+      txns.push({
+        ...r,
+        amount: Math.round(converted * 100) / 100,
+      });
+    }
+
+    return {
+      currency,
+      from,
+      to,
+      entities,
+      txns,
+      missing: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency)),
+    } satisfies CombinedFlow;
   });
 
 // ---------- transfers ----------

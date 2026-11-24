@@ -13,6 +13,8 @@ export interface NetWorthData {
   series: NetWorthSeries[];
   /** Days a currency had no rate to convert with. */
   missing: { currency: string; date: string }[];
+  /** Unanchored credits-only feeds (e.g. One Zero PDF, bit CSV) omitted so cumulative deposits aren't shown as cash balance. */
+  excluded?: { entity: string; account: string; reason: string }[];
 }
 export type Range = "3m" | "6m" | "1y" | "ytd" | "all";
 

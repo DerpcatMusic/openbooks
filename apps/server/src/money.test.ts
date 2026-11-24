@@ -111,11 +111,37 @@ test("net_worth tool: the totals on one day, each account in its own currency an
   });
 });
 
-test("tax_summary: the LLC's income reaches the Israeli return at the Bank of Israel rate of its day", async () => {
+test("tax_summary: the LLC's income reaches the Israeli return once Israeli treatment is set, at the Bank of Israel rate of its day", async () => {
   const llc = (await get("/api/state?e=llc")).txns.find((t: J) => t.amount === 2000);
   expect((await http(s.port, "POST", "/api/category?e=llc", { ids: [llc.id], category: "revenue:music-royalties" })).status).toBe(200);
+  // Before Israeli tax treatment is set for 2026, the LLC stays explicitly unresolved instead of silently treated as transparent.
+  const unresolved = (await http(s.port, "POST", "/api/tools/run", { name: "tax_summary", args: { year: 2026 }, entity: "il" })).json() as J;
+  expect(unresolved.result.crossBorder).toMatchObject({
+    attributedIncome: 0,
+    onReturn: false,
+    unresolvedHoldings: [{ entity: "llc", country: "us", type: "llc-disregarded" }],
+  });
+
+  // Once the owner sets Israeli treatment for llc in 2026 to transparent (Circular 5/2004), its 2,000 USD on Mar 5 at 3.7 = 7,400 ₪ is attributed.
+  expect((await http(s.port, "POST", "/api/person", { residence: "il", facts: { "ilTreatment.llc.2026": "transparent" } })).status).toBe(200);
   const r = (await http(s.port, "POST", "/api/tools/run", { name: "tax_summary", args: { year: 2026 }, entity: "il" })).json() as J;
-  // 2,000 USD on Mar 5 at 3.7 = 7,400 ₪ attributed (the owner draw is equity, not an expense); every rate known, so it is on the return
   expect(r.result.crossBorder).toMatchObject({ attributedIncome: 7400, missingRates: 0, onReturn: true });
   expect(r.result.taxable).toBe(r.result.turnover + 7400); // osek zair closed: no 30% on the Israeli turnover either
+});
+
+test("combined /api/flow merges multi-entity inflows/outflows at daily BoI FX rates and excludes transfers", async () => {
+  const flow = await get("/api/flow?currency=ILS&from=2026-03-01&to=2026-03-31");
+  expect(flow.currency).toBe("ILS");
+  expect(flow.entities.map((e: J) => e.id).sort()).toEqual(["il", "llc"]);
+  // The confirmed equity:owner / own:transfer pair must be excluded, while the 2,000 USD royalty converts to 7,400 ILS
+  const llcRoyalty = flow.txns.find((t: J) => t.entity === "llc" && t.category === "revenue:music-royalties");
+  expect(llcRoyalty).toMatchObject({ nativeAmount: 2000, nativeCurrency: "USD", amount: 7400 });
+  expect(flow.txns.some((t: J) => t.category === "equity:owner" || t.category === "own:transfer")).toBe(false);
+});
+
+test("/api/laws returns cataloged official government law sources", async () => {
+  const laws = await get("/api/laws?primary=1");
+  expect(laws.summary.primary).toBeGreaterThan(0);
+  expect(laws.sources.length).toBe(laws.summary.primary);
+  expect(laws.sources.every((src: J) => src.primary === true)).toBe(true);
 });

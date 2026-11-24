@@ -24,10 +24,12 @@ const full: IrsInput = {
   businessCountries: "Israel",
   taxReturnCountry: "Israel",
   totalAssets: 12345.67,
+  partVII: { q37: false, q39: false, q40a: false, q41a: false, q42a: false, q42b: false, q43a: false },
   transactions: [
-    { date: "2025-04-02", desc: "Owner capital", amount: 5000 },
-    { date: "2025-05-02", desc: "Hosting the owner paid", amount: 90, related: true },
-    { date: "2025-11-20", desc: "Draw", amount: -1250.5 },
+    { date: "2025-04-02", desc: "Owner capital", amount: 5000, treatment: "contribution" },
+    { date: "2025-04-15", desc: "Owner services fee", amount: -1200, treatment: "services" },
+    { date: "2025-05-02", desc: "Hosting the owner paid", amount: 90, treatment: "reimbursement" },
+    { date: "2025-11-20", desc: "Draw", amount: -1250.5, treatment: "distribution" },
   ],
 };
 const corp = { ...full, revenue: 100000, cogs: 10000, advertising: 5000, otherDeductions: 25000, otherIncome: 100, corpRate: 0.21 };

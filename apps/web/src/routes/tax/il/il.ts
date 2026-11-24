@@ -32,12 +32,17 @@ export function ilYear(y = S.year) {
     capital = dep && (dep.rows.length || dep.totals.bought) ? { cost: dep.totals.bought, depreciation: dep.totals.amount } : undefined,
     extra = { ...(vat ? { vat } : {}), ...(capital ? { capital } : {}) };
   const advances = advancesPaid(y);
+  // boxes the tagged spending fills (donations 037, study fund 136, life 036, disability 112) MUST feed form1301() BEFORE tax is calculated
+  // so displayed boxes, calculated tax, print view, and MCP tax_summary always agree 100%; user overrides in `f` still win.
+  const bookBoxes = form1301FromBooks(result(y)?.byRule ?? []);
   const r = form1301({
     y,
     txns,
     type,
     T,
     form: f,
+    bookBoxes,
+    facts: personNow()?.facts,
     profile: p,
     disallowed: cut,
     advances,
@@ -46,8 +51,7 @@ export function ilYear(y = S.year) {
     ...(foreign ? { foreign } : {}),
     ...extra,
   });
-  // boxes the tagged spending can fill (donations, study fund, insurance): typed values still win
-  const auto = { ...form1301Auto({ txns, type, profile: p, disallowed: cut, zairExcluded, ...extra }), ...form1301FromBooks(result(y)?.byRule ?? []) };
+  const auto = { ...form1301Auto({ txns, type, profile: p, disallowed: cut, zairExcluded, bookBoxes, ...extra }), ...bookBoxes };
   const v = (k: string) => f[k] ?? auto[k] ?? "";
   const n = (k: string) => +String(v(k)).replace(/,/g, "") || 0;
   return {
@@ -58,25 +62,31 @@ export function ilYear(y = S.year) {
     p,
     f,
     auto,
+    bookBoxes,
     v,
     n,
     txns,
     biz: txns.filter((x) => isBiz(x.category)),
     zair,
-    /** Foreign holdings: what closes osek zair, the Form 150s, the crossBorder result (null while the other books load). */
+    /** Foreign holdings: what closes osek zair, unresolved Israeli positions, Form 150s, missing FX, and the crossBorder result. */
     foreignHoldings: fx.foreign,
+    unresolvedHoldings: fx.unresolved,
+    missingFx: cb?.missingFx ?? [],
     blocked: fx.blocked,
     zairExcluded,
     cb,
     /** Turnover figures without VAT / depreciation instead of equipment cost: what the page explains next to the boxes. */
     vat,
     dep,
-    /** Actual expenses the rules allow (non-zair 150 = turnover − expenses). */
-    expenses:
+    /** Actual expenses the rules allow (non-zair 150 = turnover − expenses, excluding personal box 136 KH). */
+    expenses: Math.max(
+      0,
       -txns.filter((x) => ["cogs", "expense"].includes(plOf(x.category) ?? "")).reduce((a, x) => a + x.amount, 0) -
-      cut -
-      (vat?.reclaimed ?? 0) -
-      (capital ? capital.cost - capital.depreciation : 0),
+        cut -
+        (+(bookBoxes["136"] ?? 0) || 0) -
+        (vat?.reclaimed ?? 0) -
+        (capital ? capital.cost - capital.depreciation : 0),
+    ),
     assessed: +(f.assessed ?? 0),
   };
 }

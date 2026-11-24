@@ -3,13 +3,16 @@
   // explanation, the automatic value (type over it to override; ↺ restores it) and the tax calculation beside it.
   import { S, fmt, knownYear, setForm, setProfile } from "#lib/stores/books.svelte.ts";
   import { t, lang, ltr } from "#lib/i18n.svelte.ts";
-  import { Button, Checkbox, IconButton, Input, toast } from "#lib/ui/index.ts";
+  import { Badge, Button, Checkbox, Icon, IconButton, Input, toast } from "#lib/ui/index.ts";
   import { SECTIONS } from "./fields.ts";
   import { ilYear } from "./il.ts";
   import { posterBookmarklet, posterScript } from "@openbooks/country-il";
   import { personNow, savePerson, withFact } from "#lib/person.ts";
 
   const b = $derived(ilYear(S.year));
+  const incomplete = $derived(b.unresolvedHoldings.length > 0 || b.missingFx.length > 0);
+  const creditsTotal = $derived(b.credits + b.otherCredits + b.f1324.credit);
+  const creditShare = $derived(b.gross > 0 ? Math.min(100, (creditsTotal / b.gross) * 100) : 0);
   // tax poster: fills the online 1301 on secapp.taxes.gov.il; the person checks חישוב and sends it themselves
   const poster = $derived(posterBookmarklet(b.y, b.fields, { balance: b.balance }));
   async function copyPoster() {
@@ -42,11 +45,40 @@
 {#if !knownYear(b.y)}
   <div role="note" class="border-y border-warn/30 bg-warn/8 px-4 py-2.5 text-[13px] text-warn sm:px-8">{t("taxReturn.noTable", { y: b.y, base: b.T.year })}</div>
 {/if}
+{#if b.unresolvedHoldings.length}
+  <div role="alert" class="flex flex-wrap items-center justify-between gap-3 border-b border-warn/30 bg-warn/8 px-4 py-2.5 text-[13px] text-ink sm:px-8">
+    <span class="flex items-center gap-2"><Icon name="alert" size={16} class="shrink-0 text-warn" />{t("legal.unresolvedBanner", { n: b.unresolvedHoldings.length })}</span>
+    <Button size="sm" href="/you#cross-border">{t("legal.resolveOnYou")}</Button>
+  </div>
+{/if}
+{#if b.missingFx.length}
+  <div role="alert" class="flex items-center gap-2 border-b border-warn/30 bg-warn/8 px-4 py-2.5 text-[13px] text-warn sm:px-8">
+    <Icon name="alert" size={16} class="shrink-0" />
+    <span>{t("legal.f1324NoRate", { cur: [...new Set(b.missingFx.map((m) => m.currency))].join(", "), n: b.missingFx.length })}</span>
+  </div>
+{/if}
+{#if b.type === "osek-zair" && b.zairExcluded}
+  <div role="note" class="flex items-center gap-2 border-b border-warn/30 bg-warn/8 px-4 py-2.5 text-[13px] text-ink sm:px-8">
+    <Icon name="info" size={16} class="shrink-0 text-warn" />
+    <span>{t("legal.zairExcluded")} · {b.blocked.map((x) => t(`legal.zairWhy.${x.key}`)).join(" ")}</span>
+  </div>
+{/if}
+
+<nav aria-label={t("tax.titleIL")} class="flex flex-wrap gap-1.5 border-b border-line px-4 py-2.5 sm:px-8">
+  {#each SECTIONS as sec, n (n)}
+    <button
+      type="button"
+      onclick={() => document.getElementById(`sec-${n}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      class="rounded-full border border-line px-3 py-1 text-[12px] text-ink-2 transition hover:border-line-strong hover:text-ink">
+      {t(`fields.section.${n + 1}`)}
+    </button>
+  {/each}
+</nav>
 
 <div class="grid items-start xl:grid-cols-[minmax(0,1fr)_360px]">
   <div class="min-w-0 xl:border-e xl:border-line">
     {#each SECTIONS as sec, n (n)}
-      <section class="border-b border-line" aria-labelledby="sec-{n}">
+      <section class="scroll-mt-4 border-b border-line" aria-labelledby="sec-{n}">
         <div class="flex flex-wrap items-baseline gap-x-3 border-t border-line bg-side px-4 py-2.5 sm:px-8">
           <h2 id="sec-{n}" class="text-[13px] font-medium text-ink">{t(`fields.section.${n + 1}`)}</h2>
           {#if lang() !== "he"}<span class="he text-[12px] text-sub" dir="rtl" lang="he">{sec.he}</span>{/if}
@@ -66,6 +98,7 @@
         {/if}
         {#each sec.fields as f (f.key)}
           {@const edited = f.key in b.f}
+          {@const fromBooks = !edited && f.key in b.bookBoxes}
           <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line px-4 py-3 sm:px-8">
             <span class="w-9 shrink-0 text-[13px] font-medium text-sub num" dir="ltr">{f.no ?? ""}</span>
             {#snippet reset()}
@@ -87,7 +120,11 @@
               {@render reset()}
             {:else}
               <div class="min-w-0 flex-1 basis-56">
-                <div class="he text-[14px] text-ink ob-he-text" lang="he" aria-hidden="true">{f.he}</div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="he text-[14px] text-ink ob-he-text" lang="he" aria-hidden="true">{f.he}</span>
+                  {#if edited}<Badge size="sm" tone="warn">{t("legal.1301.edited")}</Badge>
+                  {:else if fromBooks}<Badge size="sm" tone="accent">{t("legal.1301.fromBooks")}</Badge>{/if}
+                </div>
                 <p class="mt-0.5 text-[12px] text-sub">{t(`fields.${f.key}.help`)}</p>
                 {#if b.f[`note:${f.key}`]}<p class="mt-0.5 text-[12px] text-accent-ink" dir="auto">{b.f[`note:${f.key}`]}</p>{/if}
               </div>
@@ -110,8 +147,22 @@
   </div>
 
   <aside class="px-4 py-6 max-xl:border-b max-xl:border-line sm:px-8 xl:sticky xl:top-4" aria-labelledby="calc-h">
-    <h2 id="calc-h" class="text-[14px] font-medium text-ink">{t("taxReturn.calc")}</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 id="calc-h" class="text-[14px] font-medium text-ink">{t("taxReturn.calc")}</h2>
+      {#if incomplete}<Badge size="sm" tone="warn">{t("legal.1301.incomplete")}</Badge>{/if}
+    </div>
     <p class="mt-0.5 text-[12px] text-sub">{t("taxReturn.calcSub")}</p>
+    {#if b.gross > 0}
+      <div class="mt-3">
+        <div class="h-2 overflow-hidden rounded-full bg-bad/20">
+          <div class="h-full rounded-full bg-good transition-[width]" style:width="{creditShare}%"></div>
+        </div>
+        <div class="mt-1 flex justify-between text-[11px] text-sub">
+          <span>{t("home.credits")}: {fmt(creditsTotal)}</span>
+          <span>{t("taxReturn.due")}: {fmt(b.due)}</span>
+        </div>
+      </div>
+    {/if}
     {#snippet line(label: string, value: string, cls = "")}
       <div class="flex justify-between gap-3 py-1 text-[13px] {cls}"><span class="min-w-0">{label}</span><span class="shrink-0 num">{value}</span></div>
     {/snippet}

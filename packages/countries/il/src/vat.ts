@@ -190,12 +190,17 @@ export function vatReport(inp: VatReportInput): VatReport {
     if (!d.number) issues.push({ level: "error", code: "noNumber", ref: d.id });
     if (id && !validVatId(id)) issues.push({ level: "warn", code: "badCustomerId", ref: doc, receipt });
     if (!id && absNet > IDENTIFY_ABOVE && !d.noVat) issues.push({ level: "error", code: "customerIdNeeded", ref: doc, receipt, v: IDENTIFY_ABOVE });
-    // VAT Law §47(א2) ("Israel Invoices"): a tax invoice to a dealer whose amount before VAT *exceeds* the threshold needs an allocation number;
-    // a private buyer deducts no input VAT, so none is asked for. The buyer is a dealer when a valid VAT id is on the document (the books
-    // cannot tell an osek patur's id from a murshe's; ponytail: a patur buyer with an id is still flagged).
-    if (taxable && absNet > allocationThreshold(d.issued) && id && validVatId(id) && !digits(d.alloc))
-      issues.push({ level: "warn", code: "allocationNeeded", ref: doc, receipt, v: allocationThreshold(d.issued) });
-    const common = { side: "sale" as const, group: "0000", alloc: digits(d.alloc).slice(-9), taxable, equipment: false, label, doc, receipt, src: [d.id] };
+    // VAT Law §47(א2) ("Israel Invoices"): a tax invoice to a dealer whose amount before VAT *exceeds* the threshold needs an ITA-issued
+    // 9-digit allocation number (above ₪5,000 from 2026-06-01). Checking 9 non-zero digits catches truncated/placeholder entries, though it
+    // does not verify online issuance with the ITA API.
+    const allocDigits = digits(d.alloc),
+      alloc9 = allocDigits.slice(-9),
+      allocValid = allocDigits.length >= 9 && !/^0+$/.test(alloc9);
+    if (taxable && absNet > allocationThreshold(d.issued) && id && validVatId(id)) {
+      if (!allocDigits) issues.push({ level: "warn", code: "allocationNeeded", ref: doc, receipt, v: allocationThreshold(d.issued) });
+      else if (!allocValid) issues.push({ level: "warn", code: "allocationInvalid", ref: doc, receipt });
+    }
+    const common = { side: "sale" as const, group: "0000", alloc: allocValid ? alloc9 : "", taxable, equipment: false, label, doc, receipt, src: [d.id] };
     if (d.noVat && !id) {
       // Export of services / goods: counterparty 999999999 (spec note D), no VAT
       lines.push({ ...common, type: "Y", party: "999999999", date: d.issued, ref: refOf(d.number), vat: 0, net: nShekel });

@@ -399,7 +399,27 @@ export const onezeroSync = (dir: string, s: Record<string, string>, file = "onez
   Effect.gen(function* () {
     const credentials = { email: s.email!, password: s.password!, otpLongTermToken: s.otpLongTermToken! };
     const r = yield* scrape({ action: "scrape", companyId: "oneZero", credentials }); // library caps history at one year
-    const accts = r.accounts ?? [];
+    const accts = (r.accounts ?? []) as ScrapedAccount[];
+    // Preserve transactions older than the scraper's rolling window from previous syncs so >1yr history never vanishes.
+    const prev = yield* Effect.promise(() => readJson(path.join(dir, "inbox", file)));
+    const old = Array.isArray(prev?.accounts) ? (prev.accounts as ScrapedAccount[]) : [];
+    const sig = (t: ScrapedTxn) => JSON.stringify([String(t.date ?? "").slice(0, 10), t.chargedAmount ?? null, t.description ?? null, t.identifier ?? null]);
+    const freshDates = accts
+      .flatMap((a) => (a.txns ?? []).map((t) => String(t.date ?? "").slice(0, 10)))
+      .filter(Boolean)
+      .sort();
+    const cut = freshDates[0] ?? "";
+    const fresh = new Set(accts.flatMap((a) => (a.txns ?? []).map(sig)));
+    for (const oa of old) {
+      const keep = (oa.txns ?? []).filter((t) => {
+        const d = String(t.date ?? "").slice(0, 10);
+        return (!cut || d < cut) && t.status !== "pending" && !fresh.has(sig(t));
+      });
+      if (!keep.length) continue;
+      const na = accts.find((a) => a.accountNumber === oa.accountNumber);
+      if (na) na.txns = [...keep, ...(na.txns ?? [])];
+      else accts.push({ ...oa, txns: keep });
+    }
     yield* writeInbox(dir, file, { source: "onezero", syncedAt: now(), accounts: accts });
     return accts.map((a) => `One Zero ••${last4(a.accountNumber)}`);
   });
