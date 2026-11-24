@@ -140,6 +140,13 @@ test("combined /api/flow merges multi-entity inflows/outflows at daily BoI FX ra
   expect(flow.totals.in).toBeGreaterThanOrEqual(7400);
   expect(flow.totals.byEntity).toHaveLength(2);
   expect(flow.monthly.length).toBeGreaterThan(0);
+  // the confirmed owner transfer shows up as a journey, not as income or spending
+  expect(flow.transfers.journeys.length).toBeGreaterThan(0);
+  expect(flow.transfers.journeys.every((j: J) => j.legs.length > 0 && j.sent > 0)).toBe(true);
+  expect(flow.monthly.reduce((a: number, m: J) => a + m.moved, 0)).toBeCloseTo(flow.transfers.moved, 1);
+  // any move that cost something is booked as a fee and counted as money out
+  const fees = flow.txns.filter((t: J) => t.id.startsWith("fee~")).reduce((a: number, t: J) => a - t.amount, 0);
+  expect(fees).toBeCloseTo(flow.transfers.fees, 1);
 });
 
 test("/api/laws returns cataloged official government law sources", async () => {

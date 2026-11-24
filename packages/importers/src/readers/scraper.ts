@@ -91,6 +91,7 @@ export function scraperJson(file: ReaderFile): ReaderOut {
         file: file.name,
         page: rows.length + 1,
         key: `${acct}|${k}|${no}`,
+        ...(t.link && typeof t.link === "object" ? { link: t.link as StatementRow["link"] } : {}),
       });
     }
     // the bank's balance is as of the sync: books and bank agree when the rows since the account began add up to it

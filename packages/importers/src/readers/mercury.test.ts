@@ -56,6 +56,7 @@ describe("mercuryJson", () => {
       file: "mercury.json",
       page: 1,
       key: "t1",
+      link: { ref: "inv 7", party: "Client" },
     });
     expect(rows.map((r) => [r.date, r.desc, r.memo, r.account, r.page, uidAmount(r), uid(r)])).toEqual([
       ["2025-01-03", "Client", "WIRE IN inv 7", "Checking", 1, "1000", "8b8d17af14f4"],

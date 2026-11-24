@@ -179,6 +179,33 @@ describe("Wise", () => {
       return 404;
     };
 
+  it("keeps what Wise says about the other side: the amount the recipient got, the sender and reference, the fee", async () => {
+    const s = memStore();
+    const seen: Record<string, number> = {};
+    fakeFetch((c) => {
+      if (c.url.pathname === "/v1/transfers/55") return { targetValue: 3610, targetCurrency: "ILS", details: { reference: "Oct payout" } };
+      return route((c2) => {
+        if (seen[c2.url.pathname] || !c2.url.pathname.includes("/balance-statements/1/")) return stmt([], 0);
+        seen[c2.url.pathname] = 1;
+        return stmt(
+          [
+            { ...tx("TRANSFER-55", -1004, "Sent money to Dolmen One Zero"), totalFees: { value: 4, currency: "EUR" } },
+            {
+              ...tx("DEPOSIT-8", 990, "Received money from Dolmen Gate Media LLC"),
+              details: { description: "x", senderName: "DOLMEN GATE MEDIA LLC", paymentReference: "DGM 1025" },
+            },
+          ],
+          90,
+        );
+      })(c);
+    });
+    expect(await go(connect("t", { provider: "wise", credentials: { wiseToken: "tok-secret-1" } }), s.layer)).toEqual({});
+    expect(rowsOf("wise-sync.json").rows.map((r) => r.link)).toEqual([
+      { to: { amount: 3610, currency: "ILS" }, ref: "Oct payout", party: "Dolmen One Zero", fee: 4 },
+      { ref: "DGM 1025", party: "DOLMEN GATE MEDIA LLC" },
+    ]);
+  });
+
   it("one account per currency balance; a conversion is out of one balance and into the other; balances reconcile", async () => {
     const s = memStore();
     const seen: Record<string, number> = {};

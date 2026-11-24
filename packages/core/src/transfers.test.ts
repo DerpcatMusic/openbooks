@@ -1,7 +1,17 @@
 import { expect, test } from "vite-plus/test";
 import { convert } from "./fx.ts";
 import { isAutoCardPayoff, ledger } from "./ledger.ts";
-import { decideTransfer, detectMergedTransfers, refOf, suggestTransfers, transferAccounts, transferCandidates, type TransferRow } from "./transfers.ts";
+import {
+  decideTransfer,
+  detectMergedTransfers,
+  impliedFee,
+  refOf,
+  suggestTransfers,
+  transferAccounts,
+  transferCandidates,
+  transferJourneys,
+  type TransferRow,
+} from "./transfers.ts";
 
 const row = (entity: string, id: string, date: string, amount: number, account: string, currency = "ILS", category = "ask"): TransferRow => ({
   entity,
@@ -109,6 +119,59 @@ test("detectMergedTransfers deduplicates Mercury -> Wise -> Israeli bank chains 
   expect(matches[1]).toMatchObject({ out: { id: "w-out" }, in: { id: "oz-in" } });
   expect(matches[1]!.fee).toBeGreaterThan(80);
   expect(dedupRefs.size).toBe(4);
+});
+
+test("detectMergedTransfers never takes a row filed as income or spending out of the totals", () => {
+  const rs: TransferRow[] = [
+    row("llc", "rent", "2025-03-02", -1000, "Mercury Checking", "USD", "expense:rent"),
+    row("il", "client", "2025-03-03", 3650, "One Zero", "ILS", "revenue:services"),
+    row("llc", "m-out", "2025-03-02", -500, "Mercury Checking", "USD", "own:transfer"),
+    row("wise", "w-in", "2025-03-03", 497, "Wise USD", "USD"),
+  ];
+  const { matches } = detectMergedTransfers(rs, [], { convert: fx });
+  expect(matches.map((m) => [m.out.id, m.in.id])).toEqual([["m-out", "w-in"]]);
+});
+
+test("transferJourneys chains Mercury -> Wise -> One Zero into one journey and keeps an unrelated move apart", () => {
+  const rs: TransferRow[] = [
+    row("llc", "m-out", "2025-03-02", -1000, "Mercury Checking", "USD"),
+    row("wise", "w-in", "2025-03-03", 992, "Wise USD", "USD"),
+    row("wise", "w-out", "2025-03-03", -992, "Wise USD", "USD"),
+    row("il", "oz-in", "2025-03-06", 3580, "One Zero", "ILS"),
+    row("il", "b-out", "2025-03-04", -200, "Hapoalim"),
+    row("il", "s-in", "2025-03-04", 200, "Savings"),
+  ];
+  const js = transferJourneys(detectMergedTransfers(rs, [], { convert: fx }).matches);
+  expect(js.map((j) => j.map((m) => `${m.out.id}>${m.in.id}`))).toEqual([["m-out>w-in", "w-out>oz-in"], ["b-out>s-in"]]);
+  expect(impliedFee(rs[0]!, rs[1]!)).toBe(8);
+  expect(impliedFee(rs[4]!, rs[5]!)).toBe(0);
+});
+
+test("the bank's own data wins: Mercury's converted amount and a shared reference beat a closer-looking guess", () => {
+  const wire = { ...row("llc", "wire", "2025-03-03", -1000, "Mercury Checking", "USD"), link: { to: { amount: 3610, currency: "ILS" } } };
+  const rs: TransferRow[] = [
+    wire,
+    row("il", "decoy", "2025-03-04", 3700, "Hapoalim"), // exactly 1000 at the BoI rate: the amount-only guess
+    row("il", "real", "2025-03-05", 3610, "One Zero"), // what Mercury said would arrive
+  ];
+  const [m] = suggestTransfers(rs, [], { convert: fx });
+  expect(m).toMatchObject({ out: { id: "wire" }, in: { id: "real" }, evidence: 2, fee: 90 });
+
+  const memo = { ...row("llc", "ach", "2025-03-02", -500, "Mercury Checking", "USD"), link: { ref: "DGM payout 0325" } };
+  const byRef = suggestTransfers(
+    [
+      memo,
+      row("w", "other", "2025-03-02", 500, "Wise USD", "USD"),
+      { ...row("w", "mine", "2025-03-03", 500, "Wise USD", "USD"), link: { ref: "DGM payout 0325" } },
+    ],
+    [],
+  );
+  expect(byRef.map((x) => [x.in.id, x.evidence])).toEqual([["mine", 2]]);
+
+  const named = { ...row("llc", "n", "2025-03-02", -200, "Mercury Checking", "USD"), link: { party: "Dolmen Gate · Wise" } };
+  expect(suggestTransfers([named, row("il", "x", "2025-03-02", 200, "Bank", "USD"), row("w", "y", "2025-03-02", 200, "Wise USD", "USD")], [])[0]).toMatchObject(
+    { in: { id: "y" }, evidence: 1 },
+  );
 });
 
 test("isAutoCardPayoff & ledger: Mercury Credit card payments auto-classify as transfer:internal without duplicating expenses", () => {

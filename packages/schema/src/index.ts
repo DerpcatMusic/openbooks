@@ -11,6 +11,22 @@ export const LedgerAccount = Schema.String.check(Schema.isPattern(/^(ask|[a-z-]+
 });
 export const TxnId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9-]{1,40}$/));
 
+/**
+ * What the bank itself says about a payment, so its other side can be found by fact rather than by a guessed amount (Mercury and Wise
+ * report these). `to`: the exact amount that arrives on the other side when it changes currency on the way. `ref`: the reference the
+ * other side sees (Mercury's external memo, Wise's payment reference). `party`: who it went to or came from. `fee`: what the bank says
+ * it charged, in the row's currency. `url`: where the bank keeps the record and its receipts; `receipts`: how many are attached there.
+ */
+export const TransferLink = Schema.Struct({
+  to: Schema.optionalKey(Schema.Struct({ amount: Schema.Finite, currency: Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/)) })),
+  ref: Schema.optionalKey(Schema.String),
+  party: Schema.optionalKey(Schema.String),
+  fee: Schema.optionalKey(Schema.Finite),
+  url: Schema.optionalKey(Schema.String),
+  receipts: Schema.optionalKey(Schema.Int),
+});
+export type TransferLink = typeof TransferLink.Type;
+
 /** One row a statement reader produces (books.py readers). `key` feeds the dedupe uid and is not stored. */
 export const StatementRow = Schema.Struct({
   date: IsoDate,
@@ -27,6 +43,7 @@ export const StatementRow = Schema.Struct({
   who: Schema.optionalKey(Schema.String), // bit counterparty
   /** ISO 4217 of `amount` when the reader knows it and it isn't the entity's currency (ingest drops it when equal). Absent = the entity's currency. */
   currency: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/))),
+  link: Schema.optionalKey(TransferLink),
 });
 export type StatementRow = typeof StatementRow.Type;
 

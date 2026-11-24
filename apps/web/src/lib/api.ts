@@ -3,6 +3,20 @@
 import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 
 export type Entity = { id: string } & EntityMeta;
+export type NeedsYouReason = "otp" | "auth" | "expired" | "password" | "blocked" | "link";
+export type NeedsYouAction = "code" | "reconnect";
+export interface NeedsYou {
+  reason: NeedsYouReason;
+  action: NeedsYouAction;
+}
+export interface SyncRun {
+  startedAt: string;
+  endedAt: string;
+  ok: boolean;
+  error?: string | null;
+  rowsAdded: number;
+  auto?: boolean;
+}
 export interface Connection {
   provider: string;
   type: string;
@@ -13,6 +27,8 @@ export interface Connection {
   expiresAt?: string;
   lastSync: string | null;
   lastError: string | null;
+  needsYou?: NeedsYou | null;
+  history?: SyncRun[];
   accounts: unknown[];
   file: string;
 }
@@ -77,28 +93,31 @@ export interface CombinedFlowTxn {
   nativeAmount: number;
   nativeCurrency: string;
 }
+export interface TransferJourneySide {
+  ref: string;
+  entity: string;
+  account: string;
+  date: string;
+  desc: string;
+  native: number;
+  currency: string;
+  amount: number;
+}
+export interface TransferJourney {
+  legs: { out: TransferJourneySide; in: TransferJourneySide; fee: number; confirmed: boolean }[];
+  sent: number;
+  received: number;
+  fee: number;
+}
 export interface CombinedFlow {
   currency: string;
   from: string;
   to: string;
   entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
   txns: CombinedFlowTxn[];
-  dedupedTransfers?: {
-    count: number;
-    totalConverted: number;
-    feesConverted: number;
-    pairs: {
-      outEntity: string;
-      outAccount: string;
-      outDate: string;
-      inEntity: string;
-      inAccount: string;
-      inDate: string;
-      amount: number;
-      fee: number;
-    }[];
-  };
-  monthly?: { month: string; in: number; out: number; net: number }[];
+  /** Money moved between your own accounts, as journeys (Mercury → Wise → One Zero); each leg's cost is an expense:bank-fees row in `txns`. */
+  transfers?: { moved: number; fees: number; pending: number; journeys: TransferJourney[] };
+  monthly?: { month: string; in: number; out: number; net: number; moved: number }[];
   totals?: {
     in: number;
     out: number;

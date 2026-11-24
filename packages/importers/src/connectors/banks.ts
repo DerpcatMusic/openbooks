@@ -12,7 +12,17 @@ import path from "node:path";
 import { Effect } from "effect";
 import { fail, last4, now, readJson, str, writeInbox, type Json } from "./index.ts";
 
-type Txn = { date: string; chargedAmount: number; chargedCurrency: string; description: string; memo?: string; identifier?: string; status: "completed" };
+type Txn = {
+  date: string;
+  chargedAmount: number;
+  chargedCurrency: string;
+  description: string;
+  memo?: string;
+  identifier?: string;
+  status: "completed";
+  /** What the bank says about the other side (see TransferLink in @openbooks/schema). */
+  link?: { to?: { amount: number; currency: string }; ref?: string; party?: string; fee?: number };
+};
 type Acct = { accountNumber: string; balance: number | null; currency: string; txns: Txn[] };
 
 const DAY = 86400;
@@ -171,6 +181,47 @@ const wiseOk = (r: { status: number; ok: boolean }, p: string) =>
 /** Connect-time check: lists the profiles, so a wrong token is refused before anything is saved. */
 export const wiseCheck = (token: string) => wiseGet(token, "/v2/profiles").pipe(Effect.flatMap((r) => wiseOk(r, "/v2/profiles")));
 
+const money = (x: unknown) => {
+  const m = (x ?? null) as Json | null,
+    v = amount(m?.value),
+    c = str(m?.currency).toUpperCase();
+  return v !== null && /^[A-Z]{3}$/.test(c) ? { amount: Math.abs(v), currency: c } : undefined;
+};
+/**
+ * What Wise says about a statement line: its fee, who sent it (deposits) and their reference, the target amount of a conversion, and
+ * for money sent out (TRANSFER-<id>) the exact amount and currency the recipient got, from the transfer itself. A transfer Wise won't
+ * show is left without it (the amount match still works).
+ */
+const wiseLink = (token: string, t: Json, v: number) =>
+  Effect.gen(function* () {
+    const d = (t.details ?? null) as Json | null,
+      ref = str(t.referenceNumber);
+    let to = v < 0 ? money(d?.targetAmount) : undefined;
+    let reference = str(d?.paymentReference).trim();
+    let party = str(d?.senderName).trim();
+    const m = /^TRANSFER-(\d+)$/.exec(ref);
+    if (v < 0 && m) {
+      const r = yield* wiseGet(token, `/v1/transfers/${m[1]}`).pipe(Effect.orElseSucceed(() => null));
+      const x = r?.ok ? ((r.json ?? {}) as Json) : null;
+      const tv = amount(x?.targetValue),
+        tc = str(x?.targetCurrency).toUpperCase();
+      if (tv !== null && /^[A-Z]{3}$/.test(tc)) to = { amount: Math.abs(tv), currency: tc };
+      reference ||= str(((x?.details ?? null) as Json | null)?.reference).trim();
+    }
+    if (!party && v < 0)
+      party = str(d?.description)
+        .replace(/^Sent money to\s+/i, "")
+        .trim();
+    const fee = amount((t.totalFees as Json | undefined)?.value);
+    const link = {
+      ...(to && to.currency !== str((t.amount as Json | undefined)?.currency).toUpperCase() ? { to } : {}),
+      ...(reference ? { ref: clean(reference, 140) } : {}),
+      ...(party ? { party: clean(party, 140) } : {}),
+      ...(fee !== null && fee > 0 ? { fee: Math.abs(fee) } : {}),
+    };
+    return Object.keys(link).length ? link : undefined;
+  });
+
 export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wise-sync.json") =>
   Effect.gen(function* () {
     const token = s.token ?? "";
@@ -211,6 +262,7 @@ export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wis
               n = seen.get(ref) ?? 0;
             seen.set(ref, n + 1);
             // a conversion shows in both balances (out in one, in in the other), each under its own account
+            const link = yield* wiseLink(token, t, v);
             acct.txns.push({
               date: str(t.date).slice(0, 10),
               chargedAmount: v,
@@ -218,6 +270,7 @@ export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wis
               description: clean(d?.description || d?.type || "Wise", 300),
               identifier: ref ? (n ? `${ref}#${n + 1}` : ref) : undefined,
               status: "completed",
+              ...(link ? { link } : {}),
             });
           }
           if (!txs.length) break;

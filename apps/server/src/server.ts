@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSyn
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
 import { accrualRows, billSources, chartOfAccounts, invoiceSources, payrollSources, plOf, type Coa, type PayrollRun } from "@openbooks/core";
-import { csvPreview, ebStateEntity, handle, read } from "@openbooks/importers";
+import { csvPreview, ebStateEntity, handle, read, status as connectorStatus, sync as syncConnector } from "@openbooks/importers";
 import { type EntityMeta, isRuleInput, type RuleInput, type SplitsDoc, type StatementCheck } from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import {
@@ -28,6 +28,7 @@ import {
   transferSearch,
   transferSuggestions,
 } from "@openbooks/tools";
+import { createAutoSync, parseAutoSyncConfig, SyncLock, type AutoSyncOverride, type SyncCandidate } from "./autosync.ts";
 import { foreign } from "./guard.ts";
 import { buildClosePackage, buildPack } from "./pack.ts";
 import { Actor } from "@openbooks/storage";
@@ -44,6 +45,8 @@ export interface ServerOptions {
   layer?: Layer.Layer<Services>;
   /** Chrome for the proof-pack cover */
   chrome?: string;
+  /** Override background bank auto-sync (default: env OPENBOOKS_AUTOSYNC, 6h stale threshold). */
+  autosync?: AutoSyncOverride;
 }
 
 type R = Services;
@@ -100,7 +103,12 @@ export async function startServer(o: ServerOptions) {
     );
   const vault = <A, E>(f: (v: Vault["Service"]) => Effect.Effect<A, E, R>) => run(Vault.use(f));
   const publish = (c: Parameters<Changes["Service"]["publish"]>[0]) => run(Changes.use((ch) => ch.publish(c)));
-  const state = (e: string) => books((b) => b.state(e)).then((s) => json(s));
+  const syncLock = new SyncLock();
+  const state = async (e: string) => {
+    const s = await books((b) => b.state(e));
+    const connections = await run(connectorStatus(e));
+    return json({ ...s, connections });
+  };
   /** books.py Entity(eid): a known id ([a-z0-9-]+, JSON-era folders migrate on the way) or KeyError → 404. */
   const entity = async (id: string | null) => {
     if (!id || !/^[a-z0-9-]+$/.test(id) || !(await books((b) => b.entities)).some((x) => x.id === id)) throw new Reply({ error: "unknown entity" }, 404);
@@ -272,9 +280,13 @@ export async function startServer(o: ServerOptions) {
       const state = q.get("state") ?? "",
         e = ebStateEntity(state);
       if (!e) return new Response("Unknown authorization", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
-      const r = await run(handle(e, path, { state, code: q.get("code"), error: q.get("error"), error_description: q.get("error_description") }));
+      const r = await syncLock.runSerialized(e, undefined, async () => {
+        const res = await run(handle(e, path, { state, code: q.get("code"), error: q.get("error"), error_description: q.get("error_description") }));
+        if (res && "error" in res) return res;
+        await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
+        return res;
+      });
       if (r && "error" in r) return new Response(r.error, { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });
-      await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
       return new Response(null, { status: 302, headers: { location: "/connections" } });
     }
     if (path === "/api/state") {
@@ -643,9 +655,14 @@ export async function startServer(o: ServerOptions) {
       }
       case "/api/sync": {
         // what a sync brings in is the sync's doing in the audit log: the connector's writes and the ingest that follows
-        const r = await run(handle(e, path, b).pipe(Effect.provideService(Actor, "sync")));
+        const p = typeof b.provider === "string" ? b.provider.trim() : "";
+        const r = await syncLock.runSerialized(e, p || undefined, async () => {
+          const res = await run(handle(e, path, b).pipe(Effect.provideService(Actor, "sync")));
+          if (res && "error" in res) return res;
+          await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
+          return res;
+        });
         if (r && "error" in r) return json(r, 400);
-        await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync")));
         break;
       }
       default:
@@ -706,6 +723,34 @@ export async function startServer(o: ServerOptions) {
     },
   });
 
+  const autoCfg = parseAutoSyncConfig(process.env, o.autosync);
+  const autosync = autoCfg.enabled
+    ? createAutoSync({
+        lock: syncLock,
+        maxAgeMs: autoCfg.maxAgeMs,
+        checkEveryMs: autoCfg.checkEveryMs,
+        isLocked: async () => (await vault((v) => v.status)) === "locked",
+        list: async () => {
+          const es = await books((b) => b.entities);
+          const all: SyncCandidate[] = [];
+          for (const ent of es) {
+            const conns = await run(connectorStatus(ent.id));
+            for (const c of conns) all.push({ entity: ent.id, ...c });
+          }
+          return all;
+        },
+        syncOne: async (e, provider) => {
+          const exit = await rt.runPromiseExit(syncConnector(e, provider, { auto: true }).pipe(Effect.provideService(Actor, "sync")));
+          if (Exit.isFailure(exit)) return;
+          if (!("error" in exit.value)) {
+            await books((bs) => bs.ingest(e).pipe(Effect.provideService(Actor, "sync"))).catch(() => {});
+          }
+          await publish({ entity: e, topics: ["secrets", "statements"] }).catch(() => {});
+        },
+      })
+    : null;
+  autosync?.start();
+
   return {
     server,
     url: `http://127.0.0.1:${server.port}`,
@@ -713,6 +758,7 @@ export async function startServer(o: ServerOptions) {
     runtime: rt,
     /** stop serving and release the services (closes books.db) */
     async stop() {
+      autosync?.stop();
       await server.stop(true);
       await mcp.close();
       await rt.dispose(); // interrupts the watchers and the poll, closes books.db

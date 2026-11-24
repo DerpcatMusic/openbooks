@@ -15,6 +15,7 @@
   import { S, ent, catLabel, mdy, classify, closed, closeDate, toast, fileUrl, attach, attachmentsOf, suggest, tagsDoc, saveTags, splitsDoc, isReviewed, setReviewed } from "#lib/stores/books.svelte.ts";
   import { t, bidi } from "#lib/i18n.svelte.ts";
   import { Drawer, Money, Button, Icon } from "#lib/ui/index.ts";
+  import { moneyText } from "#lib/ui/money.ts";
   import CategorySelect from "./CategorySelect.svelte";
   import TagChip from "./TagChip.svelte";
   import TagPill from "./TagPill.svelte";
@@ -63,13 +64,17 @@
         : x.source === "bit" || x.who
           ? t("txn.src.bit", { row: x.page })
           : x.file;
-    const by = isSplit ? t("gaps2.why.split") : x.why === "manual" ? t("txn.by.you") : journal ? t("txn.src.journal") : x.why ? t("txn.by.rule", { rule: bidi(x.why) }) : t("txn.by.none");
+    const by = isSplit ? t("gaps2.why.split") : x.why === "manual" ? t("txn.by.you") : journal ? t("txn.src.journal") : x.why === "auto-transfer" ? t("txn.by.auto") : x.why ? t("txn.by.rule", { rule: bidi(x.why) }) : t("txn.by.none");
     return [
       [t("common.date"), mdy(x.date), false],
       [t("common.account"), x.account, true],
       x.memo && [t("txn.memo"), x.memo, true],
       x.mcat && [t("txn.mcat"), x.mcat, false],
       x.kind && [t("common.type"), x.kind.replace(/([A-Z])/g, " $1").toLowerCase(), false],
+      x.link?.party && [t(x.amount < 0 ? "txn.link.to" : "txn.link.from"), x.link.party, true],
+      x.link?.ref && [t("txn.link.ref"), x.link.ref, true],
+      x.link?.to && [t("txn.link.arrives"), moneyText(x.link.to.amount, x.link.to.currency), false],
+      x.link?.fee && [t("txn.link.fee"), moneyText(x.link.fee, x.currency ?? cur), false],
       [t("txn.source"), ref, !journal],
       [t("txn.by"), by, false],
     ].filter(Boolean) as [string, string, boolean][];
@@ -121,6 +126,13 @@
         </div>
       {/each}
     </dl>
+    {#if x.link?.url}
+      <div class="border-t border-line px-4 py-3 sm:px-5">
+        <Button size="sm" iconEnd="external" href={x.link.url} target="_blank">
+          {x.link.receipts ? t("txn.link.openReceipts", { n: x.link.receipts }) : t("txn.link.open")}
+        </Button>
+      </div>
+    {/if}
 
     {#if !journal}
       <div class="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3 sm:px-5">

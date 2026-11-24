@@ -21,6 +21,7 @@
   import { rateToday } from "#lib/fx.svelte.ts";
   import Ask from "./Ask.svelte";
   import Deductions from "./Deductions.svelte";
+  import Leverage from "./Leverage.svelte";
 
   type Saved = Partial<{ mode: string; revenue: number; expenses: number; vatExpenses: number; clients: TaxximizeInput["clients"]; points: number; paturOk: boolean; fx: number; costs: Record<string, number | undefined> }>;
   const y = $derived(S.year);
@@ -305,6 +306,9 @@
 </PageHeader>
 
 <div class="px-4 pt-5 pb-12 sm:px-8">
+  {#if S.data}
+    <div class="mb-4"><Leverage {y} zair={!isUS() && bizType(y) === "osek-zair" && T.zairCeiling ? { turnover: P.revenue, ceiling: T.zairCeiling } : undefined} /></div>
+  {/if}
   {#if !S.data}
     <Skeleton class="h-64" />
   {:else if !ready}
