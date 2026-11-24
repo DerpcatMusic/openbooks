@@ -31,6 +31,7 @@ import {
 } from "@openbooks/tools";
 import { createAutoSync, parseAutoSyncConfig, SyncLock, type AutoSyncOverride, type SyncCandidate } from "./autosync.ts";
 import { foreign } from "./guard.ts";
+import { createMarketsService } from "./markets.ts";
 import { buildClosePackage, buildPack } from "./pack.ts";
 import { Actor } from "@openbooks/storage";
 import { Books, Changes, defaultLayer, type Services, Vault } from "./services.ts";
@@ -105,6 +106,7 @@ export async function startServer(o: ServerOptions) {
   const vault = <A, E>(f: (v: Vault["Service"]) => Effect.Effect<A, E, R>) => run(Vault.use(f));
   const publish = (c: Parameters<Changes["Service"]["publish"]>[0]) => run(Changes.use((ch) => ch.publish(c)));
   const syncLock = new SyncLock();
+  const markets = createMarketsService();
   const state = async (e: string) => {
     const s = await books((b) => b.state(e));
     const connections = await run(connectorStatus(e));
@@ -315,6 +317,7 @@ export async function startServer(o: ServerOptions) {
       );
     }
     if (path === "/api/vault") return json({ status: await vault((v) => v.status) });
+    if (path === "/api/markets") return json(await markets.get());
     if (path === "/api/ai/config") return json(publicAi(await run(loadAi)));
     if (path === "/api/tools") return json({ tools: paletteTools() });
     if (path === "/api/networth") {

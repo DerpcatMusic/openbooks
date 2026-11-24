@@ -27,6 +27,7 @@ import money from "./parts/money.en.ts";
 import integrity from "./parts/integrity.en.ts";
 import legal from "./parts/legal.en.ts";
 import charts from "./parts/charts.en.ts";
+import markets from "./parts/markets.en.ts";
 export default {
   ...a,
   ...b,
@@ -55,6 +56,7 @@ export default {
   ...integrity,
   ...legal,
   ...charts,
+  ...markets,
   "common.cancel": "Cancel",
   "common.save": "Save",
   "common.delete": "Delete",

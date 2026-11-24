@@ -14,6 +14,7 @@
   import FlowCard from "#lib/home/FlowCard.svelte";
   import InOutCard from "#lib/home/InOutCard.svelte";
   import Insights from "#lib/home/Insights.svelte";
+  import MarketsStrip from "#lib/home/MarketsStrip.svelte";
   import NetWorthCard from "#lib/home/NetWorthCard.svelte";
   import RecurringList from "#lib/home/RecurringList.svelte";
   import { arrange, move, type CardId, type HomeLayout } from "#lib/home/layout.ts";
@@ -495,6 +496,8 @@
       {/each}
     </div>
   {/if}
+
+  <MarketsStrip context={homeScope === "merged" && multiEntity ? "merged" : us ? "us" : "il"} />
 </div>
 
 {#snippet metrics()}

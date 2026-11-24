@@ -26,6 +26,7 @@ import money from "./parts/money.he.ts";
 import integrity from "./parts/integrity.he.ts";
 import legal from "./parts/legal.he.ts";
 import charts from "./parts/charts.he.ts";
+import markets from "./parts/markets.he.ts";
 export default {
   ...a,
   ...b,
@@ -54,6 +55,7 @@ export default {
   ...integrity,
   ...legal,
   ...charts,
+  ...markets,
   "common.cancel": "ביטול",
   "common.save": "שמירה",
   "common.delete": "מחיקה",

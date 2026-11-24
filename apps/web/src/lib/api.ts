@@ -144,6 +144,31 @@ export interface TransferSuggestion {
   gap: number;
   diff: number;
 }
+/** One live/delayed market instrument from GET /api/markets (server-side quotes; public data). */
+export interface MarketQuote {
+  id: string;
+  symbol: string;
+  group: "world" | "il";
+  label: string;
+  format: "index" | "price" | "fx" | "yield";
+  currency?: string;
+  last: number;
+  change: number | null;
+  changePct: number | null;
+  asOf: string | null;
+  series: number[];
+  source: "yahoo" | "stooq";
+  delayed: boolean;
+  stale: boolean;
+}
+export interface MarketsResponse {
+  world: MarketQuote[];
+  il: MarketQuote[];
+  asOf: string;
+  stale: boolean;
+  delayed: boolean;
+  sources: ("yahoo" | "stooq")[];
+}
 
 export class ApiError extends Error {
   constructor(
@@ -191,6 +216,8 @@ export const api = {
   /** BoI representative rates, ILS per unit: currency → date → rate. */
   fx: (currencies: readonly string[], from: string, to: string) =>
     request<{ rates: Record<string, Record<string, number>> }>(`/api/fx?currencies=${currencies.map(encodeURIComponent).join(",")}&from=${from}&to=${to}`),
+  /** Live/delayed market quotes grouped into Worldwide and Israel (GET /api/markets). */
+  markets: () => request<MarketsResponse>("/api/markets"),
   /** Likely transfers touching this business; `ref` ("entity/txn id"): every possible other side of one row (manual search, wider window). */
   transfers: (e: string, ref?: string) =>
     request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),
