@@ -30,3 +30,4 @@ export * from "./transfers.ts";
 export * from "./leverage.ts";
 export * from "./documents.ts";
 export * from "./sha1.ts";
+export * from "./assets.ts";

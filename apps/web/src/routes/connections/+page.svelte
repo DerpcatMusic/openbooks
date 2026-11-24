@@ -10,6 +10,7 @@
   import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, Input, PageHeader, Search, Segmented, Select } from "#lib/ui/index.ts";
   import type { Tone } from "#lib/ui/index.ts";
   import FilePick from "../documents/FilePick.svelte";
+  import AssetsSection from "./AssetsSection.svelte";
   import { PROVIDERS, GROUPS, providerName, readText, guess, toProfile, canSave, type Mapping } from "./providers.ts";
   import { onMount } from "svelte";
 
@@ -572,6 +573,8 @@
       </ul>
     </Card>
   {/if}
+
+  <AssetsSection />
 
   <div class="space-y-2 text-[13px] text-sub">
     <p class="flex items-start gap-2"><Icon name="shield" size={15} class="mt-0.5 shrink-0" /><span>{t("connections.privacy")}</span></p>

@@ -3,6 +3,7 @@
 // (fx.ts, reports.ts dailyBalances, transfers.ts); this file reads the books and keeps the rates.
 import {
   accountCurrencies,
+  assetDailyValues,
   cashIn,
   cashOut,
   checkAnchors,
@@ -29,6 +30,7 @@ import {
   type TransfersDoc,
 } from "@openbooks/core";
 import { fetchBoiRates } from "@openbooks/importers";
+import type { AssetAccount } from "@openbooks/schema";
 import { Books } from "@openbooks/storage";
 import { Data, Effect } from "effect";
 
@@ -142,18 +144,20 @@ export const netWorth = (currency: string, from: string, to: string) =>
 export const netWorthDetail = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {
     const bs = yield* Books;
-    const raw: { entity: string; account: string; currency: string; values: number[] }[] = [];
+    const raw: { entity: string; account: string; currency: string; values: number[]; isAsset?: boolean }[] = [];
     const excluded: NetWorthExcluded[] = [];
     let dates: string[] = [];
     for (const e of yield* bs.entities) {
       const txns = yield* bs.ledger(e.id).pipe(Effect.orDie),
         { checks } = yield* bs.checks(e.id).pipe(Effect.orDie),
-        stored = yield* bs.doc<Anchors>(e.id, "anchors", {}).pipe(Effect.orDie);
+        stored = yield* bs.doc<Anchors>(e.id, "anchors", {}).pipe(Effect.orDie),
+        assets = yield* bs.doc<AssetAccount[]>(e.id, "assets", []).pipe(Effect.orDie);
       const base = currencyOf(e),
         cur = accountCurrencies(txns, base);
       const anchors = mergeAnchors(checkAnchors(checks), stored);
       const d = dailyBalances(txns, anchors, from, to);
       dates = d.dates;
+      const usedNames = new Set<string>();
       for (const [account, values] of Object.entries(d.balances)) {
         const hasAnchor = (anchors[account]?.length ?? 0) > 0;
         const acctTxns = txns.filter((t) => t.source !== "journal" && t.account === account);
@@ -165,18 +169,54 @@ export const netWorthDetail = (currency: string, from: string, to: string) =>
           excluded.push({ entity: e.id, account, reason: "credits-only" });
           continue;
         }
+        usedNames.add(account);
         raw.push({ entity: e.id, account, currency: cur[account] ?? base, values });
       }
+      if (Array.isArray(assets)) {
+        for (const a of assets) {
+          if (!a || !Array.isArray(a.valuations) || !a.valuations.length) continue;
+          if (!a.valuations.some((v) => v.date <= to)) continue;
+          const values = assetDailyValues(a.valuations, dates);
+          let label = a.name;
+          if (usedNames.has(label) && a.provider) label = `${a.name} (${a.provider})`;
+          if (usedNames.has(label)) {
+            let n = 2;
+            while (usedNames.has(`${label} #${n}`)) n++;
+            label = `${label} #${n}`;
+          }
+          usedNames.add(label);
+          raw.push({ entity: e.id, account: label, currency: a.currency || base, values, isAsset: true });
+        }
+      }
     }
-    const table = yield* ensureRates(Object.fromEntries([...new Set([currency, ...raw.map((s) => s.currency)])].map((c) => [c, [from, to] as const])));
+    const rateNeed: Record<string, [string, string]> = {};
+    const addNeed = (c: string, a: string, b: string) => {
+      if (a > b) return;
+      const r = rateNeed[c];
+      if (!r) rateNeed[c] = [a, b];
+      else rateNeed[c] = [a < r[0] ? a : r[0], b > r[1] ? b : r[1]];
+    };
+    if (dates.length) {
+      addNeed(currency, from, to);
+      for (const s of raw) {
+        if (s.isAsset) {
+          const firstIdx = s.values.findIndex((v) => v !== 0);
+          if (firstIdx >= 0) addNeed(s.currency, dates[firstIdx]!, to);
+        } else {
+          addNeed(s.currency, from, to);
+        }
+      }
+    }
+    const table = yield* ensureRates(rateNeed);
     const missing = new Map<string, { currency: string; date: string }>();
     const series = raw.map((s) => ({
       entity: s.entity,
       account: s.account,
       currency: s.currency,
-      liability: isCard(s.account),
+      liability: s.isAsset ? false : isCard(s.account),
       native: s.values,
       values: s.values.map((v, i) => {
+        if (s.isAsset && v === 0) return 0;
         const x = convert(table, v, s.currency, currency, dates[i]!);
         if (x !== null) return Math.round(x * 100) / 100;
         for (const c of [s.currency, currency]) if (rateOn(table, c, dates[i]!) === null) missing.set(`${c}|${dates[i]}`, { currency: c, date: dates[i]! });

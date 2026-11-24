@@ -1,6 +1,6 @@
 // Typed client for the local server's HTTP API (identical in books.py and apps/server; docs/architecture.md § HTTP API).
 // Stateless: the books store (stores/books.svelte.ts) decides which entity and what to do with the State that comes back.
-import type { EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
+import type { AssetAccount, AssetKind, AssetValuation, CryptoChain, EntityMeta, RuleInput, StatementCheck, Txn } from "@openbooks/schema";
 
 export type Entity = { id: string } & EntityMeta;
 export type NeedsYouReason = "otp" | "auth" | "expired" | "password" | "blocked" | "link";
@@ -218,6 +218,39 @@ export const api = {
     request<{ rates: Record<string, Record<string, number>> }>(`/api/fx?currencies=${currencies.map(encodeURIComponent).join(",")}&from=${from}&to=${to}`),
   /** Live/delayed market quotes grouped into Worldwide and Israel (GET /api/markets). */
   markets: () => request<MarketsResponse>("/api/markets"),
+  /** Asset accounts (pensions, savings wrappers, brokerage, read-only crypto wallets) in doc("assets"). */
+  assets: (e: string) => request<{ assets: AssetAccount[] }>(withEntity("/api/assets", e)),
+  saveAsset: (
+    e: string,
+    asset: {
+      id?: string;
+      kind: AssetKind;
+      name: string;
+      provider?: string;
+      currency: string;
+      valuations?: AssetValuation[];
+      value?: number;
+      date?: string;
+      address?: string;
+      chain?: CryptoChain;
+    },
+  ) => request<State>(withEntity("/api/assets", e), asset),
+  deleteAsset: (e: string, id: string) => request<State>(withEntity("/api/assets/delete", e), { id }),
+  refreshAssets: (e: string, opts: { id?: string; force?: boolean } = {}, onCounts?: (c: { refreshed: number; failed: number }) => void) =>
+    request<State>(withEntity("/api/assets/refresh", e), opts, (r) =>
+      onCounts?.({
+        refreshed: Number(r.headers.get("X-OpenBooks-Assets-Refreshed") ?? 0),
+        failed: Number(r.headers.get("X-OpenBooks-Assets-Failed") ?? 0),
+      }),
+    ),
+  importAssets: (e: string, f: File, onCounts?: (c: { added: number; updated: number; skipped: number }) => void) =>
+    request<State>(withEntity(`/api/assets/import?name=${encodeURIComponent(f.name)}`, e), f, (r) =>
+      onCounts?.({
+        added: Number(r.headers.get("X-OpenBooks-Assets-Added") ?? 0),
+        updated: Number(r.headers.get("X-OpenBooks-Assets-Updated") ?? 0),
+        skipped: Number(r.headers.get("X-OpenBooks-Assets-Skipped") ?? 0),
+      }),
+    ),
   /** Likely transfers touching this business; `ref` ("entity/txn id"): every possible other side of one row (manual search, wider window). */
   transfers: (e: string, ref?: string) =>
     request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),

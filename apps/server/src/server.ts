@@ -3,9 +3,34 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, normalize, resolve, sep } from "node:path";
-import { accrualRows, billSources, chartOfAccounts, currencyOf, invoiceSources, payrollSources, plOf, type Coa, type PayrollRun } from "@openbooks/core";
-import { csvPreview, ebStateEntity, handle, read, status as connectorStatus, sync as syncConnector } from "@openbooks/importers";
-import { type EntityMeta, isRuleInput, type RuleInput, type SplitsDoc, type StatementCheck } from "@openbooks/schema";
+import {
+  accrualRows,
+  assetProblem,
+  billSources,
+  chartOfAccounts,
+  convert,
+  currencyOf,
+  invoiceSources,
+  makeAssetId,
+  mergeImportedAssets,
+  payrollSources,
+  plOf,
+  upsertValuation,
+  type Coa,
+  type PayrollRun,
+} from "@openbooks/core";
+import { csvPreview, ebStateEntity, handle, parseAssetImport, read, status as connectorStatus, sync as syncConnector } from "@openbooks/importers";
+import {
+  type AssetAccount,
+  type AssetKind,
+  type AssetValuation,
+  type CryptoChain,
+  type EntityMeta,
+  isRuleInput,
+  type RuleInput,
+  type SplitsDoc,
+  type StatementCheck,
+} from "@openbooks/schema";
 import { Cause, Effect, Exit, Fiber, type Layer, ManagedRuntime, Stream } from "effect";
 import {
   ask,
@@ -30,6 +55,7 @@ import {
   transferSuggestions,
 } from "@openbooks/tools";
 import { createAutoSync, parseAutoSyncConfig, SyncLock, type AutoSyncOverride, type SyncCandidate } from "./autosync.ts";
+import { createCryptoService } from "./crypto.ts";
 import { foreign } from "./guard.ts";
 import { createMarketsService } from "./markets.ts";
 import { buildClosePackage, buildPack } from "./pack.ts";
@@ -107,6 +133,17 @@ export async function startServer(o: ServerOptions) {
   const publish = (c: Parameters<Changes["Service"]["publish"]>[0]) => run(Changes.use((ch) => ch.publish(c)));
   const syncLock = new SyncLock();
   const markets = createMarketsService();
+  const crypto = createCryptoService();
+  const convertFromUsd = async (amountUsd: number, toCurrency: string, date: string): Promise<number | null> => {
+    if (toCurrency === "USD") return amountUsd;
+    const table = await run(
+      ratesFor([
+        { currency: "USD", date },
+        { currency: toCurrency, date },
+      ]),
+    );
+    return convert(table, amountUsd, "USD", toCurrency, date);
+  };
   const state = async (e: string) => {
     const s = await books((b) => b.state(e));
     const connections = await run(connectorStatus(e));
@@ -318,6 +355,10 @@ export async function startServer(o: ServerOptions) {
     }
     if (path === "/api/vault") return json({ status: await vault((v) => v.status) });
     if (path === "/api/markets") return json(await markets.get());
+    if (path === "/api/assets") {
+      const e = await entity(q.get("e"));
+      return json({ assets: await books((bs) => bs.doc<AssetAccount[]>(e, "assets", [])) });
+    }
     if (path === "/api/ai/config") return json(publicAi(await run(loadAi)));
     if (path === "/api/tools") return json({ tools: paletteTools() });
     if (path === "/api/networth") {
@@ -555,6 +596,23 @@ export async function startServer(o: ServerOptions) {
       res.headers.set("X-OpenBooks-Filed", to === "inbox" ? "inbox" : "proofs"); // the app warns when a CSV or JSON wasn't taken as a statement
       return res;
     }
+    if (path === "/api/assets/import") {
+      // raw file body; ?e=il&name=har-hakesef.xlsx|.csv: import Har HaKesef / Mislaka or generic asset CSV into doc("assets")
+      const name = basename(q.get("name") ?? "assets.csv");
+      const fileExt = ext(name);
+      if (fileExt && ![".xlsx", ".csv", ".txt"].includes(fileExt)) return json({ error: "only XLSX, CSV or TXT" }, 400);
+      const entMeta = (await books((bs) => bs.entities)).find((x) => x.id === e)!;
+      const parsed = parseAssetImport({ name, bytes: raw }, { defaultCurrency: currencyOf(entMeta) });
+      if (!parsed.rows.length) return json({ error: "no asset rows found in file" }, 400);
+      const existing = await books((bs) => bs.doc<AssetAccount[]>(e, "assets", []));
+      const merged = mergeImportedAssets(Array.isArray(existing) ? existing : [], parsed.rows);
+      await books((bs) => bs.putDoc(e, "assets", merged.assets));
+      const res = await state(e);
+      res.headers.set("X-OpenBooks-Assets-Added", String(merged.added));
+      res.headers.set("X-OpenBooks-Assets-Updated", String(merged.updated));
+      res.headers.set("X-OpenBooks-Assets-Skipped", String(parsed.skipped));
+      return res;
+    }
     const b = body();
     if (path === "/api/csv-preview") {
       // {text, profile?}: column mapping for "Import a CSV from any bank"
@@ -619,6 +677,73 @@ export async function startServer(o: ServerOptions) {
         if (typeof name !== "string" || !/^[a-z0-9-]+$/.test(name) || RESERVED.has(name)) return json({ error: "bad name" }, 400);
         await books((bs) => bs.putDoc(e, name, b.value ?? null));
         break;
+      }
+      case "/api/assets": {
+        // Add or update one asset account in doc("assets")
+        const existing = await books((bs) => bs.doc<AssetAccount[]>(e, "assets", []));
+        const list = Array.isArray(existing) ? existing : [];
+        const rawId = typeof b.id === "string" && b.id.trim() ? b.id.trim() : "";
+        const prev = rawId ? list.find((x) => x.id === rawId) : undefined;
+        const id = rawId || makeAssetId(new Set(list.map((x) => x.id)), typeof b.kind === "string" ? b.kind : "asset");
+        let valuations: AssetValuation[] = Array.isArray(b.valuations) ? (b.valuations as AssetValuation[]) : prev ? [...prev.valuations] : [];
+        if (typeof b.value === "number" && typeof b.date === "string") {
+          valuations = upsertValuation(valuations, { date: b.date, value: b.value });
+        }
+        const provider = typeof b.provider === "string" && b.provider.trim() ? b.provider.trim() : undefined;
+        const address = typeof b.address === "string" && b.address.trim() ? b.address.trim() : undefined;
+        const chain = (b.chain === "btc" || b.chain === "eth" ? b.chain : undefined) as CryptoChain | undefined;
+        const asset: AssetAccount = {
+          id,
+          kind: (typeof b.kind === "string" ? b.kind : (prev?.kind ?? "other")) as AssetKind,
+          name: (typeof b.name === "string" ? b.name : (prev?.name ?? "")).trim(),
+          ...(provider ? { provider } : {}),
+          currency: (typeof b.currency === "string" ? b.currency : (prev?.currency ?? "ILS")).trim().toUpperCase(),
+          valuations,
+          ...(address ? { address } : {}),
+          ...(chain ? { chain } : {}),
+          ...(prev?.lastRefreshed && prev.address === address && prev.chain === chain ? { lastRefreshed: prev.lastRefreshed } : {}),
+          ...(typeof b.stale === "boolean" ? { stale: b.stale } : prev?.stale && !Array.isArray(b.valuations) && b.value === undefined ? { stale: true } : {}),
+        };
+        if (assetProblem(asset)) {
+          // Delegate to putDoc so guard.ts returns the exact BadInput message
+          await books((bs) => bs.putDoc(e, "assets", prev ? list.map((x) => (x.id === id ? asset : x)) : [...list, asset]));
+          break;
+        }
+        const next = prev ? list.map((x) => (x.id === id ? asset : x)) : [...list, asset];
+        await books((bs) => bs.putDoc(e, "assets", next));
+        break;
+      }
+      case "/api/assets/delete": {
+        const id = typeof b.id === "string" ? b.id.trim() : "";
+        if (!id) throw new Reply({ error: "asset id required" }, 400);
+        const existing = await books((bs) => bs.doc<AssetAccount[]>(e, "assets", []));
+        const list = Array.isArray(existing) ? existing : [];
+        const next = list.filter((x) => x.id !== id);
+        await books((bs) => bs.putDoc(e, "assets", next));
+        break;
+      }
+      case "/api/assets/refresh": {
+        const targetId = typeof b.id === "string" && b.id.trim() ? b.id.trim() : null;
+        const force = b.force === true;
+        const existing = await books((bs) => bs.doc<AssetAccount[]>(e, "assets", []));
+        const list = Array.isArray(existing) ? existing : [];
+        let refreshed = 0;
+        let failed = 0;
+        const next = await Promise.all(
+          list.map(async (a) => {
+            if (targetId && a.id !== targetId) return a;
+            if (a.kind !== "crypto" || !a.address || !a.chain) return a;
+            const r = await crypto.refreshAsset(a, { force, convertFromUsd });
+            if (r.ok) refreshed++;
+            else failed++;
+            return r.asset;
+          }),
+        );
+        await books((bs) => bs.putDoc(e, "assets", next));
+        const res = await state(e);
+        res.headers.set("X-OpenBooks-Assets-Refreshed", String(refreshed));
+        res.headers.set("X-OpenBooks-Assets-Failed", String(failed));
+        return res;
       }
       case "/api/year": {
         // {year, remove?}: a tax year exists once it has a documents folder (or transactions)

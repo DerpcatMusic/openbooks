@@ -147,6 +147,38 @@ export const JournalLine = Schema.Struct({
 export const JournalEntry = Schema.Struct({ id: Schema.String, date: IsoDate, memo: Schema.optionalKey(Schema.String), lines: Schema.Array(JournalLine) });
 export type JournalEntry = typeof JournalEntry.Type;
 
+/** Asset account kinds tracked in doc "assets" (pensions, Israeli savings wrappers, brokerage, crypto wallets, other). */
+export const AssetKind = Schema.Literals(["pension", "keren-hishtalmut", "gemel", "brokerage", "crypto", "other"]);
+export type AssetKind = typeof AssetKind.Type;
+export const CryptoChain = Schema.Literals(["btc", "eth"]);
+export type CryptoChain = typeof CryptoChain.Type;
+/** One dated valuation snapshot of an asset account, in the asset's own currency. */
+export const AssetValuation = Schema.Struct({
+  date: IsoDate,
+  value: Schema.Finite,
+  quantity: Schema.optionalKey(Schema.Finite),
+  unitPrice: Schema.optionalKey(Schema.Finite),
+});
+export type AssetValuation = typeof AssetValuation.Type;
+/** doc "assets": off-bank asset accounts (pensions, savings wrappers, brokerage, read-only crypto wallets) included in net worth. */
+export const AssetAccount = Schema.Struct({
+  id: Schema.String,
+  kind: AssetKind,
+  name: Schema.String,
+  provider: Schema.optionalKey(Schema.String),
+  currency: Schema.String.check(Schema.isPattern(/^[A-Z]{3}$/)),
+  valuations: Schema.Array(AssetValuation),
+  /** Public wallet address only (read-only crypto lookup; private keys and seed phrases are never accepted). */
+  address: Schema.optionalKey(Schema.String),
+  chain: Schema.optionalKey(CryptoChain),
+  lastRefreshed: Schema.optionalKey(Schema.String),
+  stale: Schema.optionalKey(Schema.Boolean),
+  lastError: Schema.optionalKey(Schema.String),
+});
+export type AssetAccount = typeof AssetAccount.Type;
+export const AssetsDoc = Schema.Array(AssetAccount);
+export type AssetsDoc = typeof AssetsDoc.Type;
+
 /** entity.meta. kind is legacy ("il-osek-zair" | "us-llc" | "other"); new code reads country + types. */
 export const EntityMeta = Schema.Struct({
   name: Schema.String,

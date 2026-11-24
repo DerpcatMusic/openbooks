@@ -2,9 +2,11 @@
 // browser-only store (IndexedDB) refuse exactly the same writes: the close date first, then each doc's own rules.
 import {
   accountProblem,
+  assetProblem,
   baseId,
   billProblem,
   issueDocs,
+  type AssetProblem,
   type DocProblem,
   type IssuedDoc,
   canon,
@@ -25,7 +27,7 @@ import {
   type Trip,
   type TripProblem,
 } from "@openbooks/core";
-import type { JournalEntry, RuleInput, SplitsDoc, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
+import type { AssetAccount, JournalEntry, RuleInput, SplitsDoc, StoredTxn, TagsDoc, Txn } from "@openbooks/schema";
 
 const JOURNAL: Record<JournalProblem, string> = {
   date: "has no valid date",
@@ -59,6 +61,16 @@ const PAYROLL: Record<PayrollProblem, string> = {
   amount: "needs gross pay above zero and no negative or missing figure",
   net: "has net pay that is not gross pay less withholding and benefits",
   over: "has payments above what the run costs (gross pay plus employer taxes)",
+};
+const ASSET: Record<AssetProblem, string> = {
+  id: "needs an id",
+  kind: "has an unknown asset kind",
+  name: "needs a name",
+  currency: "needs a 3-letter ISO currency code (e.g. ILS, USD)",
+  valuations: "has a valuation with an invalid date or negative/missing value",
+  chain: "needs a supported crypto chain (btc or eth)",
+  address: "has an invalid public wallet address",
+  privateKey: "looks like a private key or seed phrase — only public addresses are allowed",
 };
 const BOOKS = {
   date: "The close date and the entries start date must be real dates (YYYY-MM-DD).",
@@ -236,6 +248,18 @@ export function docRefusal(b: BooksView, name: string, value: unknown, today = l
         marks = (v: unknown) =>
           Object.entries((v ?? {}) as Record<string, unknown>).flatMap(([id, on]) => (dates.has(id) ? [{ id, date: dates.get(id)!, on: !!on }] : []));
       return refuse(close, movedBefore(marks(b.doc(name, {})), marks(value), close).length);
+    }
+    case "assets": {
+      if (value === null || value === undefined) return null;
+      if (!Array.isArray(value)) return { bad: "Assets must be a list." };
+      const seen = new Set<string>();
+      for (const x of value as Partial<AssetAccount>[]) {
+        const p = assetProblem(x);
+        if (p) return { bad: `Asset ${x?.name ? `“${x.name}” ` : ""}${ASSET[p]}.` };
+        if (seen.has(x.id!)) return { bad: `Duplicate asset id “${x.id}”.` };
+        seen.add(x.id!);
+      }
+      return null;
     }
     default:
       return null;
