@@ -581,8 +581,10 @@ export async function startServer(o: ServerOptions) {
         await books((bs) => Effect.flatMap(bs.doc(e, "profile", {}), (p) => bs.putDoc(e, "profile", { ...p, ...b })));
         break;
       case "/api/meta": {
-        // {name?, short?, flag?, currency?, formed?, disposed?, types?: {year: business type}}: rename or change structure
-        const patch = Object.fromEntries(Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types", "formed", "disposed"].includes(k)));
+        // {name?, short?, flag?, currency?, formed?, disposed?, import?, types?: {year: business type}}: rename or change structure
+        const patch = Object.fromEntries(
+          Object.entries(b).filter(([k]) => ["name", "short", "flag", "currency", "types", "formed", "disposed", "import"].includes(k)),
+        );
         await books((bs) => bs.setMeta(e, patch));
         break;
       }

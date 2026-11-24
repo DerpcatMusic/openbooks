@@ -137,6 +137,9 @@ test("combined /api/flow merges multi-entity inflows/outflows at daily BoI FX ra
   const llcRoyalty = flow.txns.find((t: J) => t.entity === "llc" && t.category === "revenue:music-royalties");
   expect(llcRoyalty).toMatchObject({ nativeAmount: 2000, nativeCurrency: "USD", amount: 7400 });
   expect(flow.txns.some((t: J) => t.category === "equity:owner" || t.category === "own:transfer")).toBe(false);
+  expect(flow.totals.in).toBeGreaterThanOrEqual(7400);
+  expect(flow.totals.byEntity).toHaveLength(2);
+  expect(flow.monthly.length).toBeGreaterThan(0);
 });
 
 test("/api/laws returns cataloged official government law sources", async () => {

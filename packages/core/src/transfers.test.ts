@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { convert } from "./fx.ts";
-import { decideTransfer, refOf, suggestTransfers, transferAccounts, transferCandidates, type TransferRow } from "./transfers.ts";
+import { isAutoCardPayoff, ledger } from "./ledger.ts";
+import { decideTransfer, detectMergedTransfers, refOf, suggestTransfers, transferAccounts, transferCandidates, type TransferRow } from "./transfers.ts";
 
 const row = (entity: string, id: string, date: string, amount: number, account: string, currency = "ILS", category = "ask"): TransferRow => ({
   entity,
@@ -93,4 +94,50 @@ test("what a confirmed pair is filed as", () => {
   expect(transferAccounts(il, il)).toEqual({ out: "transfer:internal", in: "transfer:internal" });
   expect(transferAccounts(llc, il)).toEqual({ out: "equity:owner", in: "own:transfer" }); // owner draw
   expect(transferAccounts(il, llc)).toEqual({ out: "own:transfer", in: "equity:owner" }); // owner contribution
+});
+
+test("detectMergedTransfers deduplicates Mercury -> Wise -> Israeli bank chains and reports implied fee", () => {
+  const rs: TransferRow[] = [
+    row("llc", "m-out", "2025-03-02", -1000, "Mercury Checking", "USD"),
+    row("wise", "w-in", "2025-03-03", 992, "Wise USD", "USD"), // $8 wire/Wise fee (0.8%)
+    row("wise", "w-out", "2025-03-03", -992, "Wise USD", "USD"),
+    row("il", "oz-in", "2025-03-06", 3580, "One Zero", "ILS"), // 992 * 3.7 = 3670.4 ILS (~2.5% FX spread/fee)
+  ];
+  const { matches, dedupRefs } = detectMergedTransfers(rs, [], { convert: fx });
+  expect(matches).toHaveLength(2);
+  expect(matches[0]).toMatchObject({ out: { id: "m-out" }, in: { id: "w-in" }, fee: 8 });
+  expect(matches[1]).toMatchObject({ out: { id: "w-out" }, in: { id: "oz-in" } });
+  expect(matches[1]!.fee).toBeGreaterThan(80);
+  expect(dedupRefs.size).toBe(4);
+});
+
+test("isAutoCardPayoff & ledger: Mercury Credit card payments auto-classify as transfer:internal without duplicating expenses", () => {
+  const mk = (id: string, account: string, amount: number, desc: string, kind?: string) => ({
+    id,
+    date: "2026-04-01",
+    amount,
+    desc,
+    source: "mercury",
+    account,
+    file: "mercury-sync.json",
+    page: 1,
+    ...(kind ? { kind } : {}),
+  });
+  const stored = [
+    mk("c1", "Mercury Credit", -120, "OpenAI", "creditCardTransaction"),
+    mk("p1", "Mercury Checking ••1234", -120, "Mercury Credit", "creditCardPayment"),
+    mk("p2", "Mercury Credit", 120, "Payment Thank You", "creditCardPayment"),
+    mk("p3", "Mercury Checking ••1234", -50, "Mercury Credit Autopay"),
+  ];
+  expect(isAutoCardPayoff(stored[0]!)).toBe(false);
+  expect(isAutoCardPayoff(stored[1]!)).toBe(true);
+  expect(isAutoCardPayoff(stored[2]!)).toBe(true);
+  expect(isAutoCardPayoff(stored[3]!)).toBe(true);
+
+  const rows = ledger(stored, { p3: "expense:other" }, [["OpenAI", "expense:software"]]);
+  expect(rows.find((r) => r.id === "c1")?.category).toBe("expense:software");
+  expect(rows.find((r) => r.id === "p1")).toMatchObject({ category: "transfer:internal", why: "auto-transfer" });
+  expect(rows.find((r) => r.id === "p2")).toMatchObject({ category: "transfer:internal", why: "auto-transfer" });
+  // Manual override always wins over auto-transfer
+  expect(rows.find((r) => r.id === "p3")).toMatchObject({ category: "expense:other", why: "manual" });
 });

@@ -135,6 +135,8 @@ export default {
   "connections.what.mercury": "Checking, savings and the Mercury credit card: every transaction and the current balance.",
   "connections.what.onezero":
     'The last 12 months. Anything on or before your latest One Zero PDF statement is skipped, and only money in counts unless the business is set to "import": "all".',
+  "connections.onezero.importAll": "Import full bank (debits + live balance)",
+  "connections.onezero.importAllHint": "Include outgoing spending and anchor the live One Zero balance in Net Worth (off = business deposits only).",
   "connections.what.ilBank": "About the last 12 months of account movements. Each sync keeps older rows from earlier syncs.",
   "connections.what.ilCard": "About the last 12 months of charges (in shekels, money out negative). Installments book on their charge date.",
   "connections.what.plaid":

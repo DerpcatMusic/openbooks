@@ -3,7 +3,7 @@
   // Secrets never reach the browser: the state only says whether a connection works. Login fields are type=password where
   // secret, autocomplete off, never pre-filled, and cleared right after the request. A locked vault answers 423: the unlock
   // prompt (lib/vault) opens and the request is resent.
-  import { S, ent, load, toast, saveDoc, upload, doc } from "#lib/stores/books.svelte.ts";
+  import { S, ent, load, setMeta, toast, saveDoc, upload, doc } from "#lib/stores/books.svelte.ts";
   import { api } from "#lib/api.ts";
   import { t, locale, bidi } from "#lib/i18n.svelte.ts";
   import { V, ask, refresh } from "#lib/vault/vault.svelte.ts";
@@ -263,6 +263,15 @@
           {/if}
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.accounts")}</dt><dd class="min-w-0 text-ink-2 [overflow-wrap:anywhere]" dir="auto">{c.accounts.length ? c.accounts.join(" · ") : "—"}</dd></div>
           <div class="flex flex-wrap gap-x-4 px-4 py-3 sm:px-5"><dt class="w-40 shrink-0 text-sub">{t("connections.writes")}</dt><dd class="min-w-0 font-mono text-[13px] text-ink-2 [overflow-wrap:anywhere]" dir="ltr">inbox/{c.file}</dd></div>
+          {#if c.type === "onezero"}
+            <div class="px-4 py-3 sm:px-5">
+              <Checkbox
+                label={t("connections.onezero.importAll")}
+                description={t("connections.onezero.importAllHint")}
+                checked={(ent() as { import?: string }).import === "all"}
+                onchange={(on) => void setMeta({ import: on ? "all" : undefined } as Record<string, unknown>)} />
+            </div>
+          {/if}
         </dl>
       {/if}
     </Card>

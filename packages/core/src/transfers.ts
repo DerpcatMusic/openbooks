@@ -38,6 +38,12 @@ export interface TransferOptions {
   same?: number;
   /** `amount` in `from` as `to` on `date`; null = no rate. */
   convert?: (amount: number, from: string, to: string, date: string) => number | null;
+  /**
+   * Rank every same-currency pair before any cross-currency one. A cross-currency amount difference mixes an FX spread with the
+   * fee, so the closer-looking pair is often the wrong one (Mercury USD → Wise USD → ILS: the direct Mercury → ILS match can look
+   * nearer than the real chain). Off by default, so the one-off transfer dialog keeps its old order.
+   */
+  preferSame?: boolean;
 }
 export interface TransferMatch {
   out: TransferRow;
@@ -46,6 +52,8 @@ export interface TransferMatch {
   gap: number;
   /** How far the amounts differ, as a fraction of the money in. */
   diff: number;
+  /** Implied transfer / wire / FX fee in `in.currency` (converted outflow minus received inflow, clamped >= 0). */
+  fee: number;
 }
 
 export const DEFAULT_WINDOW = 4;
@@ -54,14 +62,18 @@ export const refOf = (r: Pick<TransferRow, "entity" | "id">) => `${r.entity}/${r
 const key = (p: TransferPair) => `${p.out}|${p.in}`;
 const shift = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
-/** How far apart the two amounts are (a fraction of the money in), or null when they can't be compared or don't fit. */
-function fit(o: TransferRow, i: TransferRow, opt: TransferOptions): number | null {
+/** How far apart the two amounts are (a fraction of the money in) + implied fee, or null when they can't be compared or don't fit. */
+function fit(o: TransferRow, i: TransferRow, opt: TransferOptions): { diff: number; fee: number } | null {
   const want = i.amount;
   const got = o.currency === i.currency ? -o.amount : (opt.convert?.(-o.amount, o.currency, i.currency, o.date) ?? null);
   if (got === null || !(want > 0)) return null;
   const diff = Math.abs(got - want) / want;
   const tol = o.currency === i.currency ? (opt.same ?? 0.005) : (opt.tolerance ?? 0.03);
-  return Math.abs(got - want) <= 0.01 || diff <= tol ? diff : null;
+  if (Math.abs(got - want) <= 0.01 || diff <= tol) {
+    const fee = got > want + 0.01 ? Math.round((got - want) * 100) / 100 : 0;
+    return { diff, fee };
+  }
+  return null;
 }
 
 /** Rows that can be a side: a stored transaction (no split line, no journal), not in a pair already decided either way. */
@@ -93,13 +105,15 @@ function pairs(outs: readonly TransferRow[], ins: readonly TransferRow[], decide
       if (i.date > o.date && gap > window) break;
       if (o.entity === i.entity && o.account === i.account) continue;
       if (gap > window || rejected.has(key({ out: refOf(o), in: refOf(i) }))) continue;
-      const diff = fit(o, i, opt);
-      if (diff !== null) out.push({ out: o, in: i, gap, diff });
+      const m = fit(o, i, opt);
+      if (m !== null) out.push({ out: o, in: i, gap, diff: m.diff, fee: m.fee });
     }
   const filed = (m: TransferMatch) =>
     +!(NOT_FLOW.has(group(m.out.category)) || m.out.category === "ask") + +!(NOT_FLOW.has(group(m.in.category)) || m.in.category === "ask");
+  const tier = (m: TransferMatch) => (opt.preferSame && m.out.currency !== m.in.currency ? 1 : 0);
   return out.sort(
     (a, b) =>
+      tier(a) - tier(b) ||
       Math.round(a.diff * 1e4) - Math.round(b.diff * 1e4) ||
       a.gap - b.gap ||
       filed(a) - filed(b) ||
@@ -148,6 +162,31 @@ export function transferCandidates(
         decided,
         o,
       );
+}
+
+/**
+ * Detect unconfirmed inter-entity and cross-account transfer legs (e.g., Mercury -> Wise -> Israeli bank, allowing for
+ * wire/Wise fees up to 2.5% same-currency and 5% cross-currency FX spread within 7 days) so a merged multi-entity view
+ * automatically deduplicates the transferred principal without double-counting income or expenses.
+ */
+export function detectMergedTransfers(
+  rows: readonly TransferRow[],
+  decided: readonly TransfersDoc[],
+  opt: Pick<TransferOptions, "convert"> = {},
+): { matches: TransferMatch[]; dedupRefs: Set<string> } {
+  const matches = suggestTransfers(rows, decided, {
+    ...opt,
+    window: 7,
+    same: 0.025,
+    tolerance: 0.05,
+    preferSame: true,
+  }).filter((m) => m.out.entity !== m.in.entity || m.out.account !== m.in.account);
+  const dedupRefs = new Set<string>();
+  for (const m of matches) {
+    dedupRefs.add(refOf(m.out));
+    dedupRefs.add(refOf(m.in));
+  }
+  return { matches, dedupRefs };
 }
 
 /**

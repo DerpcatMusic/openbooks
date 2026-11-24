@@ -5,8 +5,23 @@ import type { JournalEntry, RuleInput, SplitsDoc, StoredTxn, TagsDoc, Txn } from
 import type { Coa } from "./coa.ts";
 import { pyRound } from "./py.ts";
 import { applyRules, cleanRules, normalizeRule } from "./rules.ts";
+import { isCard } from "./reports.ts";
 import { groupMap, pickByGroup } from "./tags.ts";
 import { splitId, splitOf } from "./splits.ts";
+
+/**
+ * Unambiguous bank-reported internal card payoffs and internal account transfers (e.g. Mercury Checking paying off
+ * Mercury Credit). Classified automatically as `transfer:internal` when no manual override or user rule applies,
+ * preventing credit-card payments from ever duplicating card expenses or cluttering the uncategorized queue.
+ */
+export function isAutoCardPayoff(t: Pick<StoredTxn, "source" | "account" | "amount" | "desc" | "memo" | "kind">): boolean {
+  if (t.source !== "mercury") return false;
+  if (t.kind === "creditCardPayment" || t.kind === "internalTransfer") return true;
+  const text = `${t.desc ?? ""} ${t.memo ?? ""}`;
+  if (isCard(t.account) && t.amount > 0 && /\b(credit card payment|autopay|payment thank you|mercury checking)\b/i.test(text)) return true;
+  if (!isCard(t.account) && t.amount < 0 && /\b(mercury credit|credit card payment)\b/i.test(text)) return true;
+  return false;
+}
 
 /** What else shapes the ledger. All optional: without them the ledger is the plain one. */
 export interface LedgerExtras {
@@ -62,7 +77,9 @@ export function ledger(
     }
     const manual = overrides[t.id];
     if (manual !== undefined) out.push({ ...row, category: manual, why: "manual" });
-    else out.push(hit.account ? { ...row, category: hit.account, why: hit.why } : { ...row, category: "ask", why: "" });
+    else if (hit.account) out.push({ ...row, category: hit.account, why: hit.why });
+    else if (isAutoCardPayoff(t)) out.push({ ...row, category: "transfer:internal", why: "auto-transfer" });
+    else out.push({ ...row, category: "ask", why: "" });
   }
   for (const je of journal) {
     if (je.date < from) continue;

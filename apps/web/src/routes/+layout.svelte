@@ -46,53 +46,68 @@
     sparkle: "M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2zM19 3v4M21 5h-4",
     user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
     shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10",
+    chevron: "m6 9 6 6 6-6",
   };
 
   type Item = { href: string; label: string; icon: string; sub?: boolean };
-  const NAV: [string | null, Item[]][] = $derived([
-    [
-      null,
-      [
+  type NavGroup = { label: string | null; collapsible?: boolean; items: Item[] };
+  const NAV: NavGroup[] = $derived([
+    {
+      label: null,
+      items: [
         { href: "/home", label: t("nav.home"), icon: "home" },
         { href: "/transactions", label: t("nav.transactions"), icon: "list" },
-        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear()), ilSettingsNow().vatStatus) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
-        { href: "/bills", label: t("nav.payableBills"), icon: "calendar" },
-        { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
         { href: "/review", label: t("nav.review"), icon: "sparkle" },
         { href: "/reports", label: t("nav.reports"), icon: "report" },
-        { href: "/counterparties", label: t("nav.counterparties"), icon: "users" },
-      ],
-    ],
-    [
-      t("nav.section.books"),
-      [
-        { href: "/rules", label: t("nav.rules"), icon: "rules" },
-        { href: "/tags", label: t("nav.tags"), icon: "tag" },
-        { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
-        { href: "/reconciliation", label: t("nav.reconciliation"), icon: "check" },
-        { href: "/journal", label: t("nav.journal"), icon: "file" },
-        { href: "/payroll", label: t("nav.payroll"), icon: "users" },
-        { href: "/documents", label: t("nav.documents"), icon: "folder" },
         { href: "/connections", label: t("nav.connections"), icon: "wallet" },
-        { href: "/history", label: t("nav.history"), icon: "list" },
       ],
-    ],
+    },
     ...(S.data && !family()
       ? []
       : ([
-          [
-            t("nav.section.tax"),
-            [
-              { href: "/filings", label: t("nav.filings"), icon: "calendar" },
-              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "form" } : { href: "/tax/il", label: t("nav.form1301"), icon: "form" },
-              { href: "/planner", label: t("nav.planner"), icon: "sparkle" },
+          {
+            label: t("nav.section.tax"),
+            items: [
               { href: "/taxximizer", label: t("nav.taxximizer"), icon: "shield" },
-              { href: "/trips", label: t("nav.trips"), icon: "calendar", sub: true },
+              { href: "/filings", label: t("nav.filings"), icon: "form" },
+              isUS() ? { href: "/tax/us", label: t(navKey()), icon: "file" } : { href: "/tax/il", label: t("nav.form1301"), icon: "file" },
               { href: "/you", label: t("nav.you"), icon: "user" },
             ],
-          ],
-        ] as [string, Item[]][])),
+          },
+        ] as NavGroup[])),
+    {
+      label: t("nav.section.books"),
+      collapsible: true,
+      items: [
+        { href: "/documents", label: t("nav.documents"), icon: "folder" },
+        { href: "/rules", label: t("nav.rules"), icon: "rules" },
+        { href: "/tags", label: t("nav.tags"), icon: "tag" },
+        { href: "/accounts", label: t("nav.accounts"), icon: "bank" },
+        { href: "/reconciliation", label: t("nav.reconciliation"), icon: "tick" },
+        { href: "/invoices", label: isUS() ? t("nav.invoices") : vatRegistered(bizType(new Date().getFullYear()), ilSettingsNow().vatStatus) ? t("invoices.title.ilVat") : t("nav.bills"), icon: "file" },
+        { href: "/bills", label: t("nav.payableBills"), icon: "file" },
+        { href: "/vendors", label: t("nav.vendors"), icon: "users", sub: true },
+        { href: "/counterparties", label: t("nav.counterparties"), icon: "users" },
+        { href: "/journal", label: t("nav.journal"), icon: "file" },
+        { href: "/payroll", label: t("nav.payroll"), icon: "users" },
+        { href: "/planner", label: t("nav.planner"), icon: "sparkle" },
+        { href: "/trips", label: t("nav.trips"), icon: "folder" },
+        { href: "/history", label: t("nav.history"), icon: "list" },
+      ],
+    },
   ]);
+  let booksOpenPref = $state<boolean | null>(
+    typeof localStorage !== "undefined" ? localStorage.getItem("ob-nav-books") === "1" : false,
+  );
+  const inBooksGroup = $derived(NAV.find((g) => g.collapsible)?.items.some((it) => active(it.href)) ?? false);
+  const booksOpen = $derived(booksOpenPref === null ? inBooksGroup : booksOpenPref || inBooksGroup);
+  const toggleBooks = () => {
+    const next = !booksOpen;
+    booksOpenPref = next;
+    try {
+      localStorage.setItem("ob-nav-books", next ? "1" : "0");
+    } catch {}
+  };
   const DEMO = !!import.meta.env.VITE_DEMO;
   const LOCAL = !!import.meta.env.VITE_LOCAL;
   const BARE = /^\/(setup|print|dev)(\/|$)|\/doc$/;
@@ -329,9 +344,24 @@
         </div>
 
         <nav aria-label={t("nav.main")} class="flex gap-0.5 px-3 pt-3 max-md:overflow-x-auto max-md:pb-3 md:flex-col">
-          {#each NAV as [section, items], i (i)}
-            {#if section}<div class="px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub max-md:hidden">{section}</div>{/if}
-            {#each items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
+          {#each NAV as grp, i (i)}
+            {#if grp.collapsible && grp.label}
+              <button
+                type="button"
+                onclick={toggleBooks}
+                aria-expanded={booksOpen}
+                class="flex items-center justify-between rounded-lg px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/50 max-md:hidden"
+              >
+                <span>{grp.label}</span>
+                {@render icon("chevron", 13, `transition-transform ${booksOpen ? "rotate-180" : ""}`)}
+              </button>
+              {#if booksOpen}
+                {#each grp.items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
+              {/if}
+            {:else}
+              {#if grp.label}<div class="px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub max-md:hidden">{grp.label}</div>{/if}
+              {#each grp.items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
+            {/if}
           {/each}
           {@render navLink({ href: "/settings", label: t("nav.settings"), icon: "settings" }, "md:hidden")}
         </nav>

@@ -10,6 +10,7 @@ import {
   currencyOf,
   dailyBalances,
   decideTransfer,
+  detectMergedTransfers,
   isCard,
   MAX_GAP_DAYS,
   mergeAnchors,
@@ -193,12 +194,39 @@ export interface CombinedFlow {
   to: string;
   entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
   txns: CombinedFlowTxn[];
+  /** Inter-entity / cross-account transfers automatically deduplicated from `txns` (e.g. Mercury -> Wise -> IL), plus estimated FX/wire fees. */
+  dedupedTransfers: {
+    count: number;
+    totalConverted: number;
+    feesConverted: number;
+    pairs: {
+      outEntity: string;
+      outAccount: string;
+      outDate: string;
+      inEntity: string;
+      inAccount: string;
+      inDate: string;
+      amount: number;
+      fee: number;
+    }[];
+  };
+  /** Monthly combined inflows, outflows, and net across all entities in `currency`. */
+  monthly: { month: string; in: number; out: number; net: number }[];
+  /** Worldwide totals and per-entity breakdown after transfer deduplication. */
+  totals: {
+    in: number;
+    out: number;
+    net: number;
+    uncatCount: number;
+    byEntity: { id: string; name: string; flag: string; in: number; out: number; net: number; uncatCount: number }[];
+  };
   missing: { currency: string; date: string }[];
 }
 
 /**
  * Every entity's real cash-flow transactions (inflows & outflows, excluding internal/inter-entity transfers, owner draws, and loans)
- * in [from, to], converted to `currency` at Bank of Israel daily rates so the Sankey can show combined earnings and per-bank subtrees.
+ * in [from, to], converted to `currency` at Bank of Israel daily rates. Also runs fee-aware transfer detection across entities
+ * (e.g. Mercury -> Wise -> One Zero) to auto-deduplicate unconfirmed inter-entity transfers and surface their wire/FX fees.
  */
 export const combinedFlow = (currency: string, from: string, to: string) =>
   Effect.gen(function* () {
@@ -217,14 +245,31 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       nativeCurrency: string;
     }[] = [];
     const entities: CombinedFlow["entities"] = [];
+    const allTransferRows: TransferRow[] = [];
+    const decidedDocs: TransfersDoc[] = [];
+    const uncatByEntity = new Map<string, number>();
 
     for (const e of yield* bs.entities) {
       const txns = yield* bs.ledger(e.id).pipe(Effect.orDie);
+      const decided = yield* bs.doc<TransfersDoc>(e.id, "transfers", {}).pipe(Effect.orDie);
+      decidedDocs.push(decided);
       const base = currencyOf(e);
       const accts = new Set<string>();
+      let uncat = 0;
       for (const t of txns) {
         if (t.source === "journal") continue;
         if (t.date < from || t.date > to) continue;
+        if (t.category === "ask") uncat++;
+        allTransferRows.push({
+          entity: e.id,
+          id: t.id,
+          date: t.date,
+          amount: t.amount,
+          currency: t.currency ?? base,
+          account: t.account,
+          desc: t.desc,
+          category: t.category,
+        });
         const ok = (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
         if (!ok) continue;
         accts.add(t.account);
@@ -242,6 +287,7 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
           nativeCurrency: t.currency ?? base,
         });
       }
+      uncatByEntity.set(e.id, uncat);
       entities.push({
         id: e.id,
         name: e.short || e.name || e.id,
@@ -251,24 +297,82 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       });
     }
 
-    const currencies = [...new Set([currency, ...raw.map((r) => r.nativeCurrency)])];
+    const currencies = [...new Set([currency, ...raw.map((r) => r.nativeCurrency), ...allTransferRows.map((r) => r.currency)])];
     const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [from, to] as const]))) : {};
+    const conv = (a: number, f: string, t: string, d: string) => (f === t ? a : convert(table, a, f, t, d));
+
+    // Auto-dedup unconfirmed inter-entity transfers (e.g. Mercury -> Wise -> One Zero) so the merged view never double-counts.
+    const { matches, dedupRefs } = detectMergedTransfers(allTransferRows, decidedDocs, { convert: conv });
+    const dedupPairs: CombinedFlow["dedupedTransfers"]["pairs"] = [];
+    let dedupTotal = 0;
+    let dedupFees = 0;
+    for (const m of matches) {
+      // Only count pairs that touch at least one flow row (already-categorized transfers are already excluded by cashIn/cashOut)
+      if (!raw.some((r) => refOf(r) === refOf(m.out) || refOf(r) === refOf(m.in))) continue;
+      const amt = conv(m.in.amount, m.in.currency, currency, m.in.date) ?? 0;
+      const fee = m.fee > 0 ? (conv(m.fee, m.in.currency, currency, m.in.date) ?? 0) : 0;
+      const rAmt = Math.round(amt * 100) / 100;
+      const rFee = Math.round(fee * 100) / 100;
+      dedupTotal += rAmt;
+      dedupFees += rFee;
+      dedupPairs.push({
+        outEntity: m.out.entity,
+        outAccount: m.out.account,
+        outDate: m.out.date,
+        inEntity: m.in.entity,
+        inAccount: m.in.account,
+        inDate: m.in.date,
+        amount: rAmt,
+        fee: rFee,
+      });
+    }
+
     const missing = new Map<string, { currency: string; date: string }>();
     const txns: CombinedFlowTxn[] = [];
+    const byMonth = new Map<string, { in: number; out: number }>();
+    const byEnt = new Map<string, { in: number; out: number }>();
+    for (const e of entities) byEnt.set(e.id, { in: 0, out: 0 });
 
     for (const r of raw) {
-      const converted = r.nativeCurrency === currency ? r.nativeAmount : convert(table, r.nativeAmount, r.nativeCurrency, currency, r.date);
+      if (dedupRefs.has(refOf(r))) continue;
+      const converted = conv(r.nativeAmount, r.nativeCurrency, currency, r.date);
       if (converted === null) {
         for (const c of [r.nativeCurrency, currency]) {
           if (rateOn(table, c, r.date) === null) missing.set(`${c}|${r.date}`, { currency: c, date: r.date });
         }
         continue;
       }
-      txns.push({
-        ...r,
-        amount: Math.round(converted * 100) / 100,
-      });
+      const amt = Math.round(converted * 100) / 100;
+      txns.push({ ...r, amount: amt });
+      const ym = r.date.slice(0, 7);
+      const mb = byMonth.get(ym) ?? { in: 0, out: 0 };
+      if (amt > 0) mb.in += amt;
+      else mb.out += Math.abs(amt);
+      byMonth.set(ym, mb);
+      const eb = byEnt.get(r.entity) ?? { in: 0, out: 0 };
+      if (amt > 0) eb.in += amt;
+      else eb.out += Math.abs(amt);
+      byEnt.set(r.entity, eb);
     }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const monthly = [...byMonth.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, v]) => ({ month, in: round2(v.in), out: round2(v.out), net: round2(v.in - v.out) }));
+    const entityBreakdown = entities.map((e) => {
+      const v = byEnt.get(e.id) ?? { in: 0, out: 0 };
+      return {
+        id: e.id,
+        name: e.name,
+        flag: e.flag,
+        in: round2(v.in),
+        out: round2(v.out),
+        net: round2(v.in - v.out),
+        uncatCount: uncatByEntity.get(e.id) ?? 0,
+      };
+    });
+    const totalIn = round2(entityBreakdown.reduce((a, x) => a + x.in, 0));
+    const totalOut = round2(entityBreakdown.reduce((a, x) => a + x.out, 0));
 
     return {
       currency,
@@ -276,6 +380,20 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       to,
       entities,
       txns,
+      dedupedTransfers: {
+        count: dedupPairs.length,
+        totalConverted: round2(dedupTotal),
+        feesConverted: round2(dedupFees),
+        pairs: dedupPairs,
+      },
+      monthly,
+      totals: {
+        in: totalIn,
+        out: totalOut,
+        net: round2(totalIn - totalOut),
+        uncatCount: entityBreakdown.reduce((a, x) => a + x.uncatCount, 0),
+        byEntity: entityBreakdown,
+      },
       missing: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date) || a.currency.localeCompare(b.currency)),
     } satisfies CombinedFlow;
   });

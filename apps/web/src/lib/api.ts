@@ -83,6 +83,29 @@ export interface CombinedFlow {
   to: string;
   entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
   txns: CombinedFlowTxn[];
+  dedupedTransfers?: {
+    count: number;
+    totalConverted: number;
+    feesConverted: number;
+    pairs: {
+      outEntity: string;
+      outAccount: string;
+      outDate: string;
+      inEntity: string;
+      inAccount: string;
+      inDate: string;
+      amount: number;
+      fee: number;
+    }[];
+  };
+  monthly?: { month: string; in: number; out: number; net: number }[];
+  totals?: {
+    in: number;
+    out: number;
+    net: number;
+    uncatCount: number;
+    byEntity: { id: string; name: string; flag: string; in: number; out: number; net: number; uncatCount: number }[];
+  };
   missing: { currency: string; date: string }[];
 }
 /** One side of a suggested transfer (GET /api/transfers). */
