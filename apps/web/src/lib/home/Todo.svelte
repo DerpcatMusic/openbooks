@@ -24,7 +24,7 @@
     for (const c of conns.filter((c) => c.needsYou || c.lastError)) out.push({ id: `conn:${c.provider}:${today}`, text: t("todo.reconnect", { name: c.provider }), href: "/connections", tone: "bad" });
     if (!conns.some((c) => c.connected)) out.push({ id: "connect-bank", text: t("todo.connect"), href: "/connections", tone: "accent" });
     const accts = (S.data.txns ?? []).map((x) => x.account).join("\n");
-    if (!/pension|hishtalmut|gemel|פנסי|השתלמות|גמל|provident/i.test(accts)) out.push({ id: `assets:${y}`, text: t("todo.assets"), href: "/connections", tone: "accent" });
+    if (!doc<unknown[]>("assets", []).length && !/pension|hishtalmut|gemel|פנסי|השתלמות|גמל|provident/i.test(accts)) out.push({ id: `assets:${y}`, text: t("todo.assets"), href: "/connections", tone: "accent" });
     if (family() === "il" && md >= "11-01") out.push({ id: `yearend:${y}`, text: t("todo.yearEnd"), href: "/taxximizer", tone: "warn" });
     if (new Set((S.data.entities ?? []).map((e) => e.currency)).size > 1) out.push({ id: `w8ben:${y}`, text: t("todo.w8ben"), href: "/taxximizer", tone: "accent" });
     return out.filter((x) => !done.has(x.id));
