@@ -126,7 +126,7 @@
         </div>
       {/each}
     </dl>
-    {#if x.link?.url}
+    {#if x.link?.url && /^https?:\/\//i.test(x.link.url)}
       <div class="border-t border-line px-4 py-3 sm:px-5">
         <Button size="sm" iconEnd="external" href={x.link.url} target="_blank">
           {x.link.receipts ? t("txn.link.openReceipts", { n: x.link.receipts }) : t("txn.link.open")}

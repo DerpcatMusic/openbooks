@@ -322,6 +322,8 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
     }[] = [];
     const entities: CombinedFlow["entities"] = [];
     const allTransferRows: TransferRow[] = [];
+    // every row of every date: a confirmed transfer that left Dec 31 and arrived Jan 2 still resolves (and books its fee) in January
+    const anyDate = new Map<string, TransferRow>();
     const decidedDocs: TransfersDoc[] = [];
     const uncatByEntity = new Map<string, number>();
 
@@ -334,9 +336,7 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       let uncat = 0;
       for (const t of txns) {
         if (t.source === "journal") continue;
-        if (t.date < from || t.date > to) continue;
-        if (t.category === "ask") uncat++;
-        allTransferRows.push({
+        const row: TransferRow = {
           entity: e.id,
           id: t.id,
           date: t.date,
@@ -347,7 +347,11 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
           category: t.category,
           memo: t.memo,
           link: t.link,
-        });
+        };
+        anyDate.set(refOf(row), row);
+        if (t.date < from || t.date > to) continue;
+        if (t.category === "ask") uncat++;
+        allTransferRows.push(row);
         const ok = (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
         if (!ok) continue;
         accts.add(t.account);
@@ -375,26 +379,39 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       });
     }
 
-    const currencies = [...new Set([currency, ...raw.map((r) => r.nativeCurrency), ...allTransferRows.map((r) => r.currency)])];
-    const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [from, to] as const]))) : {};
+    // confirmed pairs that arrived in the span (the sending leg may be earlier)
+    const confirmedPairs: { key: string; out: TransferRow; in: TransferRow }[] = [];
+    for (const d of decidedDocs)
+      for (const p of d.confirmed ?? []) {
+        const o = anyDate.get(p.out),
+          i = anyDate.get(p.in);
+        if (o && i && i.date >= from && i.date <= to) confirmedPairs.push({ key: `${p.out}|${p.in}`, out: o, in: i });
+      }
+    const lo = confirmedPairs.reduce((m, p) => (p.out.date < m ? p.out.date : m), from);
+    const currencies = [
+      ...new Set([currency, ...raw.map((r) => r.nativeCurrency), ...allTransferRows.map((r) => r.currency), ...confirmedPairs.map((p) => p.out.currency)]),
+    ];
+    const table = currencies.length > 1 ? yield* ensureRates(Object.fromEntries(currencies.map((c) => [c, [lo, to] as const]))) : {};
     const conv = (a: number, f: string, t: string, d: string) => (f === t ? a : convert(table, a, f, t, d));
 
     // Every movement in the span: confirmed pairs (both sides in range) plus detected, unconfirmed ones (left out of the totals).
     const { matches, dedupRefs } = detectMergedTransfers(allTransferRows, decidedDocs, { convert: conv });
-    const byRef = new Map(allTransferRows.map((r) => [refOf(r), r]));
-    const confirmed = new Map<string, { out: TransferRow; in: TransferRow }>();
-    for (const d of decidedDocs)
-      for (const p of d.confirmed ?? []) {
-        const o = byRef.get(p.out),
-          i = byRef.get(p.in);
-        if (o && i) confirmed.set(`${p.out}|${p.in}`, { out: o, in: i });
-      }
+    const confirmed = new Map(confirmedPairs.map((p) => [p.key, p]));
     const legs = [
       ...[...confirmed.values()].map((p) => ({ out: p.out, in: p.in, gap: 0, diff: 0, fee: impliedFee(p.out, p.in, conv), evidence: 0, confirmed: true })),
       ...matches.map((m) => ({ ...m, confirmed: false })),
     ];
     const round2 = (n: number) => Math.round(n * 100) / 100;
-    const inCur = (r: TransferRow, n: number) => round2(Math.abs(conv(n, r.currency, currency, r.date) ?? 0));
+    const missing = new Map<string, { currency: string; date: string }>();
+    const noteMissing = (cur: string, date: string) => {
+      for (const c of [cur, currency]) if (rateOn(table, c, date) === null) missing.set(`${c}|${date}`, { currency: c, date });
+    };
+    // a movement whose rate is missing counts as 0 here but is listed in `missing`, so the 0 is never presented as real
+    const inCur = (r: TransferRow, n: number) => {
+      const v = conv(n, r.currency, currency, r.date);
+      if (v === null) noteMissing(r.currency, r.date);
+      return round2(Math.abs(v ?? 0));
+    };
     const side = (r: TransferRow): TransferSideOut => ({
       ref: refOf(r),
       entity: r.entity,
@@ -434,7 +451,6 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
         });
       }
 
-    const missing = new Map<string, { currency: string; date: string }>();
     const txns: CombinedFlowTxn[] = [];
     const byMonth = new Map<string, { in: number; out: number }>();
     const byEnt = new Map<string, { in: number; out: number }>();
@@ -444,9 +460,7 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       if (dedupRefs.has(refOf(r))) continue;
       const converted = conv(r.nativeAmount, r.nativeCurrency, currency, r.date);
       if (converted === null) {
-        for (const c of [r.nativeCurrency, currency]) {
-          if (rateOn(table, c, r.date) === null) missing.set(`${c}|${r.date}`, { currency: c, date: r.date });
-        }
+        noteMissing(r.nativeCurrency, r.date);
         continue;
       }
       const amt = Math.round(converted * 100) / 100;

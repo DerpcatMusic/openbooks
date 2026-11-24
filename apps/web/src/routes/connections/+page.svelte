@@ -342,7 +342,7 @@
                 label={t("connections.onezero.importAll")}
                 description={t("connections.onezero.importAllHint")}
                 checked={(ent() as { import?: string }).import === "all"}
-                onchange={(on) => void setMeta({ import: on ? "all" : undefined } as Record<string, unknown>)} />
+                onchange={(on) => void setMeta({ import: on ? "all" : "" } as Record<string, unknown>)} />
             </div>
           {/if}
           {#if history.length}

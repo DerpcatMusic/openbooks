@@ -44,7 +44,7 @@ export default {
     "The wealthy rarely sell what grows tax-free; they borrow against it. If you need cash and have a keren hishtalmut, a loan against its balance keeps the tax-free growth going. A withdrawal before 6 years is taxed. Weigh the loan's interest against what the fund earns.",
   "lev.defer.title": "Let a company hold what you don't spend",
   "lev.defer.body":
-    "Profit you leave inside a company is taxed at the company rate now. Dividend tax comes only when you take it out. If you keep a lot in the business, compare the Ltd option in the table below.",
+    "Profit you leave inside a company is taxed at the company rate now. Dividend tax comes only when you take it out. If you keep a lot in the business, compare the Ltd option in the table below. A closely held company that keeps too much undistributed profit pays an extra 2% a year on the excess, even with no dividend.",
   "todo.title": "Do this next",
   "todo.late": "{what}: late by {n} days",
   "todo.due": "{what}: due in {n} days",

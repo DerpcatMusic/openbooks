@@ -1,5 +1,6 @@
 <script lang="ts">
   import { BASE } from "#lib/nav.ts";
+  import { untrack } from "svelte";
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
@@ -200,7 +201,12 @@
     const { from, to } = liveSpan;
     const c = mergedCur;
     let stale = false;
-    mergedBusy = !mergedFlow;
+    // untracked: this effect sets mergedFlow, so reading it here would refetch forever. An answer for another currency or span is
+    // dropped at once so its amounts are never shown under the new label.
+    untrack(() => {
+      if (mergedFlow && (mergedFlow.currency !== c || mergedFlow.from !== from || mergedFlow.to !== to)) mergedFlow = null;
+      mergedBusy = !mergedFlow;
+    });
     api
       .flow(c, from, to)
       .then((d) => {

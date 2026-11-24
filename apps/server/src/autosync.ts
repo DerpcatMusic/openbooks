@@ -103,69 +103,39 @@ export function pickStaleConnections<T extends SyncCandidate>(connections: reado
   return connections.filter((c) => isStaleConnection(c, nowMs, maxAgeMs));
 }
 
-/** In-process lock ensuring two syncs of the same (entity, provider) never overlap (shared between manual and automatic sync). */
+/**
+ * In-process lock: one sync per entity at a time (shared between manual and automatic sync). Per entity, not per connection, because
+ * connector load/save reads and rewrites every connection of the entity: two providers syncing at once would overwrite each other's
+ * status, history and credentials, and a running sync could resurrect a connection disconnected meanwhile.
+ */
 export class SyncLock {
-  private readonly active = new Map<string, Promise<unknown>>();
-  private readonly entityAll = new Map<string, Promise<unknown>>();
+  private readonly running = new Map<string, Promise<unknown>>();
 
-  /** True if this connection (or an all-connections sync for the entity) is already running. */
-  isBusy(entity: string, provider?: string): boolean {
-    if (this.entityAll.has(entity)) return true;
-    if (!provider) {
-      const prefix = `${entity}:`;
-      for (const k of this.active.keys()) if (k.startsWith(prefix)) return true;
-      return false;
-    }
-    return this.active.has(`${entity}:${provider}`);
+  /** True if any sync of this entity is running (the provider is accepted for callers' clarity; the lock is per entity). */
+  isBusy(entity: string, _provider?: string): boolean {
+    return this.running.has(entity);
   }
 
-  /** Run immediately if free, or skip without waiting when already in flight. */
-  async tryRun<T>(entity: string, provider: string, fn: () => Promise<T>): Promise<{ ran: true; value: T } | { ran: false }> {
-    if (this.isBusy(entity, provider)) return { ran: false };
-    const key = `${entity}:${provider}`;
-    const p = fn();
-    this.active.set(key, p);
-    try {
-      return { ran: true, value: await p };
-    } finally {
-      if (this.active.get(key) === p) this.active.delete(key);
-    }
-  }
-
-  /** Wait for any conflicting in-flight sync on the same connection (or entity) before running. */
-  async runSerialized<T>(entity: string, provider: string | undefined, fn: () => Promise<T>): Promise<T> {
-    const p = provider?.trim() || "";
-    if (!p) {
-      while (this.isBusy(entity)) {
-        const wait: Promise<unknown>[] = [];
-        const all = this.entityAll.get(entity);
-        if (all) wait.push(all);
-        const prefix = `${entity}:`;
-        for (const [k, v] of this.active) if (k.startsWith(prefix)) wait.push(v);
-        if (!wait.length) break;
-        await Promise.allSettled(wait);
-      }
-      const run = fn();
-      this.entityAll.set(entity, run);
-      try {
-        return await run;
-      } finally {
-        if (this.entityAll.get(entity) === run) this.entityAll.delete(entity);
-      }
-    }
-    const key = `${entity}:${p}`;
-    while (this.isBusy(entity, p)) {
-      const wait = [this.entityAll.get(entity), this.active.get(key)].filter((x): x is Promise<unknown> => !!x);
-      if (!wait.length) break;
-      await Promise.allSettled(wait);
-    }
+  private async hold<T>(entity: string, fn: () => Promise<T>): Promise<T> {
     const run = fn();
-    this.active.set(key, run);
+    this.running.set(entity, run);
     try {
       return await run;
     } finally {
-      if (this.active.get(key) === run) this.active.delete(key);
+      if (this.running.get(entity) === run) this.running.delete(entity);
     }
+  }
+
+  /** Run immediately if free, or skip without waiting when this entity is already syncing. */
+  async tryRun<T>(entity: string, _provider: string, fn: () => Promise<T>): Promise<{ ran: true; value: T } | { ran: false }> {
+    if (this.isBusy(entity)) return { ran: false };
+    return { ran: true, value: await this.hold(entity, fn) };
+  }
+
+  /** Wait for this entity's in-flight sync, then run. */
+  async runSerialized<T>(entity: string, _provider: string | undefined, fn: () => Promise<T>): Promise<T> {
+    for (let cur = this.running.get(entity); cur; cur = this.running.get(entity)) await Promise.allSettled([cur]);
+    return this.hold(entity, fn);
   }
 }
 

@@ -26,7 +26,7 @@ describe("autosync scheduler", () => {
     expect(picked.map((c) => `${c.entity}:${c.provider}`)).toEqual(["us:mercury", "us:wise"]);
   });
 
-  test("runs one connection at a time and never runs two syncs of the same connection concurrently", async () => {
+  test("runs one sync per entity at a time, never alongside a manual sync of the same entity", async () => {
     const lock = new SyncLock();
     const conns: SyncCandidate[] = [
       { entity: "us", provider: "mercury", connected: true, pending: false, lastSync: ago(8) },
@@ -66,8 +66,9 @@ describe("autosync scheduler", () => {
 
     // Trigger two overlapping runOnce calls while manual sync holds us:mercury
     const [r1, r2] = await Promise.all([sched.runOnce(), sched.runOnce()]);
-    // us:mercury was skipped (manual sync held its lock), il:max skipped (needsYou), us:wise ran once
-    expect(r1).toEqual([{ entity: "us", provider: "wise" }]);
+    // the manual sync holds the whole "us" entity (connection writes rewrite every connection of it): us:mercury and us:wise wait,
+    // il:max is skipped (needsYou)
+    expect(r1).toEqual([]);
     expect(r2).toEqual([]); // second overlapping tick was ignored
 
     releaseManual();
@@ -94,7 +95,7 @@ describe("autosync scheduler", () => {
       { entity: "us", provider: "wise" },
     ]);
     expect(seqMax).toBe(1);
-    expect(maxActive).toBe(2); // manual(mercury) + auto(wise) are different connections; same connection never overlapped
+    expect(maxActive).toBe(1); // nothing of "us" ran while the manual sync held it
     expect(order.filter((x) => x.startsWith("auto:us:mercury"))).toEqual([]);
   });
 

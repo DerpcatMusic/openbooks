@@ -93,9 +93,14 @@
       ],
     },
   ]);
-  let booksOpenPref = $state<boolean | null>(
-    typeof localStorage !== "undefined" ? localStorage.getItem("ob-nav-books") === "1" : false,
-  );
+  const readBooksPref = () => {
+    try {
+      return localStorage.getItem("ob-nav-books") === "1";
+    } catch {
+      return false;
+    }
+  };
+  let booksOpenPref = $state<boolean | null>(readBooksPref());
   const inBooksGroup = $derived(NAV.find((g) => g.collapsible)?.items.some((it) => active(it.href)) ?? false);
   const booksOpen = $derived(booksOpenPref === null ? inBooksGroup : booksOpenPref || inBooksGroup);
   const toggleBooks = () => {
@@ -352,9 +357,8 @@
                 <span>{grp.label}</span>
                 {@render icon("chevron", 13, `transition-transform ${booksOpen ? "rotate-180" : ""}`)}
               </button>
-              {#if booksOpen}
-                {#each grp.items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}
-              {/if}
+              <!-- the collapse is desktop-only: on phones the nav scrolls sideways and always lists these -->
+              {#each grp.items as it (it.href)}{@render navLink(it, `${it.sub ? "md:ps-8" : ""} ${booksOpen ? "" : "md:hidden"}`)}{/each}
             {:else}
               {#if grp.label}<div class="px-2.5 pt-5 pb-1 text-[12px] font-[480] text-sub max-md:hidden">{grp.label}</div>{/if}
               {#each grp.items as it (it.href)}{@render navLink(it, it.sub ? "md:ps-8" : "")}{/each}

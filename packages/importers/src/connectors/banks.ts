@@ -192,7 +192,7 @@ const money = (x: unknown) => {
  * for money sent out (TRANSFER-<id>) the exact amount and currency the recipient got, from the transfer itself. A transfer Wise won't
  * show is left without it (the amount match still works).
  */
-const wiseLink = (token: string, t: Json, v: number) =>
+const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean }) =>
   Effect.gen(function* () {
     const d = (t.details ?? null) as Json | null,
       ref = str(t.referenceNumber);
@@ -200,8 +200,10 @@ const wiseLink = (token: string, t: Json, v: number) =>
     let reference = str(d?.paymentReference).trim();
     let party = str(d?.senderName).trim();
     const m = /^TRANSFER-(\d+)$/.exec(ref);
-    if (v < 0 && m) {
+    // one failed lookup (Wise down, timing out) stops the rest for this sync: the amount match still works without them
+    if (v < 0 && m && budget.lookups) {
       const r = yield* wiseGet(token, `/v1/transfers/${m[1]}`).pipe(Effect.orElseSucceed(() => null));
+      if (!r) budget.lookups = false;
       const x = r?.ok ? ((r.json ?? {}) as Json) : null;
       const tv = amount(x?.targetValue),
         tc = str(x?.targetCurrency).toUpperCase();
@@ -224,6 +226,7 @@ const wiseLink = (token: string, t: Json, v: number) =>
 
 export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wise-sync.json") =>
   Effect.gen(function* () {
+    const budget = { lookups: true };
     const token = s.token ?? "";
     const pr = yield* wiseGet(token, "/v2/profiles");
     yield* wiseOk(pr, "/v2/profiles");
@@ -262,7 +265,7 @@ export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wis
               n = seen.get(ref) ?? 0;
             seen.set(ref, n + 1);
             // a conversion shows in both balances (out in one, in in the other), each under its own account
-            const link = yield* wiseLink(token, t, v);
+            const link = yield* wiseLink(token, t, v, budget);
             acct.txns.push({
               date: str(t.date).slice(0, 10),
               chargedAmount: v,

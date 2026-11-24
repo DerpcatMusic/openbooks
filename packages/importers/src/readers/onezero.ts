@@ -141,10 +141,12 @@ export function onezeroJson(file: ReaderFile, ctx: { meta: EntityMeta; siblingPd
     // so Net Worth and Reconciliation track the true One Zero balance automatically.
     if (ctx.meta.import === "all" && typeof a.balance === "number" && Number.isFinite(a.balance) && acctRows.length > 0) {
       const ds = acctRows.map((r) => r.date).sort();
+      // the live balance includes every row of the account (PDF-covered credits too), so the anchor sits at its latest activity
+      const last = (a.txns ?? []).reduce((m: string, t: { date: string }) => (t.date.slice(0, 10) > m ? t.date.slice(0, 10) : m), ds.at(-1)!);
       checks.push({
         file: file.name,
         label: "One Zero",
-        period: [ds[0]!, ds.at(-1)!],
+        period: [ds[0]!, last],
         parsed: pyRound(acctRows.reduce((s, r) => s + r.amount, 0)),
         total: a.balance,
         balance: true,
