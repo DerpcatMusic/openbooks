@@ -81,7 +81,7 @@ export default {
   // home metrics
   "home.m.title": "Key numbers",
   "home.m.netCash": "Net cash flow",
-  "home.m.netCashHint": "Money in minus money out of your bank accounts. Card spending counts when the card is paid.",
+  "home.m.netCashHint": "Money in minus money out across bank and card accounts (internal transfers, card payoffs, and owner draws excluded).",
   "home.m.vsAbs": "{amount} vs prior period",
   "home.m.burn": "Monthly burn",
   "home.m.build": "Monthly build",

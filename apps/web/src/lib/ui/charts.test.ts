@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { sankey, topN, type FlowItem } from "./sankey.ts";
+import { sankey, sankeyHubs, topN, type FlowItem } from "./sankey.ts";
+import { hubFlowData } from "../home/flow.ts";
 import { squarify } from "./treemap.ts";
 import { breakdown, netSeries, rangeStart } from "./networth.ts";
 
@@ -111,4 +112,42 @@ test("net worth: liabilities subtract whatever their sign, ranges, breakdown by 
   expect(rangeStart("3m", "2026-05-31")).toBe("2026-02-28");
   expect(rangeStart("ytd", "2026-05-31")).toBe("2026-01-01");
   expect(rangeStart("all", "2026-05-31")).toBe("");
+});
+
+test("sankeyHubs & hubFlowData: combined multi-bank subtrees conserve flow and expand child accounts", () => {
+  const rows = [
+    { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Checking", category: "revenue:sales", desc: "Polar", amount: 1000 },
+    { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Credit", category: "expense:software", desc: "AWS", amount: -300 },
+    { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Credit", category: "expense:software", desc: "AWS Refund", amount: 50 },
+    { entity: "il", entityName: "IL", flag: "🇮🇱", account: "One Zero", category: "business:royalties", desc: "ASCAP", amount: 500 },
+  ];
+  // Collapsed: two entity hubs, LLC expandable because it has 2 accounts
+  const collapsed = hubFlowData(rows, { scope: "all", mode: "account", label: (k) => k, other: "Other", expandedEntities: new Set() });
+  expect(collapsed.hubs.map((h) => [h.key, h.expandable])).toEqual([
+    ["ent:llc", true],
+    ["ent:il", false],
+  ]);
+  // Refund ($50) nets against AWS software ($300) → $250 outflow, $0 bogus income
+  expect(collapsed.totalIn).toBe(1500);
+  expect(collapsed.totalOut).toBe(250);
+
+  // Expanded LLC: splits into Mercury Checking + Mercury Credit child hubs while IL stays collapsed
+  const expanded = hubFlowData(rows, { scope: "all", mode: "account", label: (k) => k, other: "Other", expandedEntities: new Set(["llc"]) });
+  expect(expanded.hubs.map((h) => [h.key, !!h.isChild])).toEqual([
+    ["acct:llc:Mercury Checking", true],
+    ["ent:il", false],
+    ["acct:llc:Mercury Credit", true],
+  ]);
+
+  const lay = sankeyHubs(expanded.sources, expanded.hubs, expanded.targets, expanded.edges, {
+    width: 720,
+    height: 360,
+    surplus: meta.surplus,
+    deficit: meta.deficit,
+  });
+  expect(lay.total).toBeGreaterThan(0);
+  const sumCol = (c: number) => lay.nodes.filter((n) => n.col === c).reduce((a, n) => a + n.value, 0);
+  near(sumCol(0), lay.total);
+  near(sumCol(1), lay.total);
+  near(sumCol(2), lay.total);
 });

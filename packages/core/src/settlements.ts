@@ -129,7 +129,8 @@ export function settlementSplitLines(s: SettlementRow, cfg: SettlementPayerConfi
   }
   if (r2(s.withholding) !== 0) {
     lines.push({
-      account: cfg.accounts.withholding ?? "expense:foreign-withholding",
+      // Non-P&L withholding account prevents foreign tax from double-reducing profit AND claiming §204 Foreign Tax Credit.
+      account: cfg.accounts.withholding ?? "equity:tax-withheld",
       amount: -r2(Math.abs(s.withholding)),
       memo: `${s.payer} withholding${terr} ${tag}`,
     });
@@ -144,9 +145,20 @@ const sameSplit = (a: readonly SplitLine[] | undefined, b: readonly SplitLine[])
   return a.every((x, i) => x.account === b[i]!.account && r2(x.amount) === r2(b[i]!.amount) && (x.memo ?? "") === (b[i]!.memo ?? ""));
 };
 
+const SETTLEMENT_TAG_RE = /\[settlement:([^\]]+)\]/;
+const settlementTagOf = (lines: readonly SplitLine[] | undefined): string | null => {
+  if (!lines) return null;
+  for (const l of lines) {
+    const m = l.memo?.match(SETTLEMENT_TAG_RE);
+    if (m?.[1]) return m[1];
+  }
+  return null;
+};
+
 /**
  * Reconcile payer settlements against bank deposits without double-counting revenue.
- * Re-running on the same statements is 100% idempotent (returns empty `splitsPatch`).
+ * Re-running on the same statements (or any subset of them) is 100% idempotent (returns empty `splitsPatch`)
+ * and never overwrites a bank deposit already assigned to a different settlement.
  */
 export function reconcileSettlements(
   settlements: readonly SettlementRow[],
@@ -157,25 +169,70 @@ export function reconcileSettlements(
   const windowDays = cfg.dateWindowDays ?? 10;
   const needle = (cfg.bankMatch ?? cfg.payer).toLowerCase();
   const usedTxns = new Set<string>();
-  const items: SettlementReconciliationItem[] = [];
   const splitsPatch: Record<string, readonly SplitLine[]> = {};
+  const txnById = new Map(bankTxns.map((t) => [t.id, t]));
 
-  for (const s of settlements) {
+  // Map every bank deposit that already holds a tagged settlement split so existing matches are resolved first
+  // and deposits owned by another settlement are never overwritten on partial re-imports.
+  const existingTxnByExternalId = new Map<string, string>();
+  const ownerExternalIdByTxn = new Map<string, string>();
+  for (const [txnId, splitLines] of Object.entries(existingSplits ?? {})) {
+    const extId = settlementTagOf(splitLines);
+    if (!extId) continue;
+    ownerExternalIdByTxn.set(txnId, extId);
+    if (!existingTxnByExternalId.has(extId)) existingTxnByExternalId.set(extId, txnId);
+  }
+
+  const results: (SettlementReconciliationItem | undefined)[] = Array.from({ length: settlements.length });
+  const prepared = settlements.map((s) => {
     const expectedNet = r2(s.gross - Math.abs(s.fees) - Math.abs(s.refunds) - Math.abs(s.withholding));
     const variance = r2(expectedNet - s.net);
     const beforeEffectiveDate = !!cfg.effectiveDate && s.date < cfg.effectiveDate;
+    const lines = settlementSplitLines(s, cfg);
+    const needsSplit = lines.length >= 2 && splitProblem(s.net, lines) === null;
+    return { s, variance, beforeEffectiveDate, lines, needsSplit };
+  });
+
+  // Pass 1: handle math mismatches and preserve existing external-ID matches first.
+  for (let idx = 0; idx < prepared.length; idx++) {
+    const { s, variance, beforeEffectiveDate, lines, needsSplit } = prepared[idx]!;
     if (Math.abs(variance) >= 0.01) {
-      items.push({ settlement: s, status: "math_mismatch", variance, beforeEffectiveDate });
+      results[idx] = { settlement: s, status: "math_mismatch", variance, beforeEffectiveDate };
       continue;
     }
+    const priorTxnId = existingTxnByExternalId.get(s.externalId);
+    const priorTxn = priorTxnId ? txnById.get(priorTxnId) : undefined;
+    if (!priorTxn || usedTxns.has(priorTxn.id)) continue;
+    if (Math.abs(remaining(priorTxn.amount, [{ amount: s.net }])) !== 0) continue;
 
-    const lines = settlementSplitLines(s, cfg);
-    // Single-component settlement (e.g. gross === net, zero fees/refunds/withholding) needs no split, only matching check.
-    const needsSplit = lines.length >= 2 && splitProblem(s.net, lines) === null;
+    usedTxns.add(priorTxn.id);
+    const existing = existingSplits?.[priorTxn.id];
+    const tagMarker = `[settlement:${s.externalId}]`;
+    const already =
+      (needsSplit && sameSplit(existing, lines)) || (existing?.some((l) => l.memo?.includes(tagMarker)) && splitProblem(priorTxn.amount, existing) === null);
+    if (!already && needsSplit) splitsPatch[priorTxn.id] = lines;
+    results[idx] = {
+      settlement: s,
+      status: already ? "already_matched" : "matched",
+      bankTxnId: priorTxn.id,
+      bankDate: priorTxn.date,
+      lines,
+      variance: 0,
+      beforeEffectiveDate,
+    };
+  }
 
-    // Candidate bank deposits: same net amount to the cent, within dateWindowDays, matching payer keyword if present.
+  // Pass 2: match remaining settlements only to deposits not already used or owned by another settlement.
+  for (let idx = 0; idx < prepared.length; idx++) {
+    if (results[idx]) continue;
+    const { s, beforeEffectiveDate, lines, needsSplit } = prepared[idx]!;
     const candidates = bankTxns
-      .filter((t) => !usedTxns.has(t.id) && Math.abs(remaining(t.amount, [{ amount: s.net }])) === 0 && dayDiff(t.date, s.date) <= windowDays)
+      .filter((t) => {
+        if (usedTxns.has(t.id)) return false;
+        const owner = ownerExternalIdByTxn.get(t.id);
+        if (owner && owner !== s.externalId) return false;
+        return Math.abs(remaining(t.amount, [{ amount: s.net }])) === 0 && dayDiff(t.date, s.date) <= windowDays;
+      })
       .sort((a, b) => {
         const am = `${a.desc} ${a.memo ?? ""}`.toLowerCase().includes(needle) ? 0 : 1;
         const bm = `${b.desc} ${b.memo ?? ""}`.toLowerCase().includes(needle) ? 0 : 1;
@@ -184,7 +241,7 @@ export function reconcileSettlements(
 
     const hit = candidates[0];
     if (!hit) {
-      items.push({ settlement: s, status: "unmatched", variance: 0, beforeEffectiveDate });
+      results[idx] = { settlement: s, status: "unmatched", variance: 0, beforeEffectiveDate };
       continue;
     }
     usedTxns.add(hit.id);
@@ -195,7 +252,7 @@ export function reconcileSettlements(
       (needsSplit && sameSplit(existing, lines)) || (existing?.some((l) => l.memo?.includes(tagMarker)) && splitProblem(hit.amount, existing) === null);
 
     if (already || !needsSplit) {
-      items.push({
+      results[idx] = {
         settlement: s,
         status: already ? "already_matched" : "matched",
         bankTxnId: hit.id,
@@ -203,12 +260,14 @@ export function reconcileSettlements(
         lines,
         variance: 0,
         beforeEffectiveDate,
-      });
+      };
       continue;
     }
     splitsPatch[hit.id] = lines;
-    items.push({ settlement: s, status: "matched", bankTxnId: hit.id, bankDate: hit.date, lines, variance: 0, beforeEffectiveDate });
+    results[idx] = { settlement: s, status: "matched", bankTxnId: hit.id, bankDate: hit.date, lines, variance: 0, beforeEffectiveDate };
   }
+
+  const items = results as SettlementReconciliationItem[];
 
   return {
     items,

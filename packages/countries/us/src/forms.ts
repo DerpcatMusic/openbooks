@@ -96,7 +96,7 @@ export function llcObligations(y: number, T: UsTable, p: UsProfile = {}): (Oblig
     {
       form: "1120 (pro forma)",
       country: "us",
-      why: "name, address, EIN, total assets; 'Foreign-owned U.S. DE' across the top; 5472 attached; fax or mail",
+      why: "name, address, EIN, item E (initial/final/name/address change); 'Foreign-owned U.S. DE' across the top; 5472 attached; fax or mail",
       due: `${y + 1}-${T.dueMonthDay}`,
       extendedDue: `${y + 1}-${T.extendedMonthDay}`,
     },

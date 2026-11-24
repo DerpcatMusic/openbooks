@@ -85,7 +85,18 @@ export function buildClosePackage(opts: {
   entityMeta: Record<string, unknown>;
   year: number;
   basis: string;
+  /** Ledger rows on the declared accounting basis (accrual rows when basis === "accrual", cash ledger otherwise). */
   txns: readonly Txn[];
+  /** Underlying cash/bank ledger rows (used for broken-split and statement coverage checks, and exported separately on accrual). */
+  cashTxns?: readonly Txn[];
+  /** Supporting AR/AP/payroll documents included when exporting an accrual close package. */
+  supportingDocs?: {
+    invoices?: unknown[];
+    bills?: unknown[];
+    payroll?: unknown[];
+    customers?: unknown[];
+    vendors?: unknown[];
+  };
   splits?: SplitsDoc;
   checks: readonly { file: string; label?: string; period: readonly [string, string] | readonly string[]; parsed?: number; total?: number }[];
   formOverrides?: Record<string, unknown>;
@@ -97,8 +108,9 @@ export function buildClosePackage(opts: {
   const enc = new TextEncoder();
   const files: ZipFile[] = [];
   const yTxns = opts.txns.filter((t) => t.date.startsWith(`${y}-`));
+  const cashYearTxns = (opts.cashTxns ?? opts.txns).filter((t) => t.date.startsWith(`${y}-`));
   const uncategorized = yTxns.filter((t) => t.category === "ask");
-  const broken = brokenSplits(yTxns, opts.splits);
+  const broken = brokenSplits(cashYearTxns, opts.splits);
 
   // Source coverage across ALL statements touching the year (PDF, CSV, JSON)
   const yearChecks = opts.checks.filter((c) => (c.period[0] ?? "").slice(0, 4) <= y && y <= (c.period[1] ?? "").slice(0, 4));
@@ -107,7 +119,7 @@ export function buildClosePackage(opts: {
     .filter(Boolean)
     .sort();
   const inboxDir = join(dir, "inbox");
-  const stmtNames = [...new Set([...yearChecks.map((c) => c.file), ...yTxns.map((t) => t.file).filter(Boolean)])].sort();
+  const stmtNames = [...new Set([...yearChecks.map((c) => c.file), ...cashYearTxns.map((t) => t.file).filter(Boolean)])].sort();
   const includedStatements: string[] = [];
   for (const name of stmtNames) {
     const p = join(inboxDir, name);
@@ -130,18 +142,29 @@ export function buildClosePackage(opts: {
     }
   }
 
-  // Complete ledger CSV for the year
+  // Complete ledger CSV for the year (on the declared accounting basis)
   const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const ledgerCsv =
+  const csvOf = (rows: readonly Txn[]) =>
     [
       ["id", "date", "account", "category", "amount", "currency", "desc", "memo", "tags", "why", "source", "file"].join(","),
-      ...yTxns.map((t) =>
+      ...rows.map((t) =>
         [t.id, t.date, t.account, t.category, t.amount.toFixed(2), t.currency ?? "", t.desc, t.memo ?? "", (t.tags ?? []).join(";"), t.why, t.source, t.file]
           .map(esc)
           .join(","),
       ),
     ].join("\n") + "\n";
-  files.push({ name: `ledger-${year}.csv`, data: enc.encode("\ufeff" + ledgerCsv) });
+  files.push({ name: `ledger-${year}.csv`, data: enc.encode("\ufeff" + csvOf(yTxns)) });
+
+  const includedSupportingDocs: string[] = [];
+  if (opts.basis === "accrual") {
+    files.push({ name: `cash-ledger-${year}.csv`, data: enc.encode("\ufeff" + csvOf(cashYearTxns)) });
+    for (const [key, list] of Object.entries(opts.supportingDocs ?? {})) {
+      if (!Array.isArray(list)) continue;
+      const path = `accrual-sources/${key}.json`;
+      files.push({ name: path, data: enc.encode(JSON.stringify(list, null, 2) + "\n") });
+      includedSupportingDocs.push(path);
+    }
+  }
 
   const manifest = {
     schema: "openbooks-close-pack/v1",
@@ -157,6 +180,7 @@ export function buildClosePackage(opts: {
       statementChecks: yearChecks,
       includedStatements,
       includedProofs,
+      ...(includedSupportingDocs.length ? { includedSupportingDocs } : {}),
     },
     reconciliation: {
       transactionCount: yTxns.length,

@@ -128,3 +128,20 @@ test("tax_summary: the LLC's income reaches the Israeli return once Israeli trea
   expect(r.result.crossBorder).toMatchObject({ attributedIncome: 7400, missingRates: 0, onReturn: true });
   expect(r.result.taxable).toBe(r.result.turnover + 7400); // osek zair closed: no 30% on the Israeli turnover either
 });
+
+test("combined /api/flow merges multi-entity inflows/outflows at daily BoI FX rates and excludes transfers", async () => {
+  const flow = await get("/api/flow?currency=ILS&from=2026-03-01&to=2026-03-31");
+  expect(flow.currency).toBe("ILS");
+  expect(flow.entities.map((e: J) => e.id).sort()).toEqual(["il", "llc"]);
+  // The confirmed equity:owner / own:transfer pair must be excluded, while the 2,000 USD royalty converts to 7,400 ILS
+  const llcRoyalty = flow.txns.find((t: J) => t.entity === "llc" && t.category === "revenue:music-royalties");
+  expect(llcRoyalty).toMatchObject({ nativeAmount: 2000, nativeCurrency: "USD", amount: 7400 });
+  expect(flow.txns.some((t: J) => t.category === "equity:owner" || t.category === "own:transfer")).toBe(false);
+});
+
+test("/api/laws returns cataloged official government law sources", async () => {
+  const laws = await get("/api/laws?primary=1");
+  expect(laws.summary.primary).toBeGreaterThan(0);
+  expect(laws.sources.length).toBe(laws.summary.primary);
+  expect(laws.sources.every((src: J) => src.primary === true)).toBe(true);
+});

@@ -12,7 +12,9 @@
     busy = $state<string | null>(null);
   $effect(() => {
     const e = S.e;
-    void S.data?.txns; // any write that changes the ledger: ask again
+    void S.v;
+    void S.rev;
+    void S.data?.txns; // any write on this or a sibling entity: ask again
     let live = true;
     api
       .transfers(e)

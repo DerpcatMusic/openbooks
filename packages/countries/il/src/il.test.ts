@@ -14,6 +14,7 @@ import {
   mandatoryPension,
   reservistPoints,
   soldierPoints,
+  strategyPlays,
   taxximize,
   vatRegistered,
   zairExclusion,
@@ -194,8 +195,8 @@ describe("advisor (ported self-check of web/src/lib/advisor.js)", () => {
 });
 
 describe("pack data", () => {
-  it("every year decodes; 2025+ complete", () => {
-    expect(isComplete(il.table(2024))).toBe(false);
+  it("every year decodes and is complete (2024+)", () => {
+    expect(isComplete(il.table(2024))).toBe(true);
     expect(isComplete(il.table(2026))).toBe(true);
     expect(il.table(2030).year).toBe(2026);
     expect(il.table(2000).year).toBe(2024);
@@ -407,4 +408,34 @@ it("VAT-registered business types", () => {
   expect(vatRegistered("osek-zair") || vatRegistered("osek-patur") || vatRegistered(null)).toBe(false);
   expect(vatRegistered("osek-zair", "murshe")).toBe(true); // zair is an income-tax track; VAT status is separate (Kol Zchut עסק זעיר)
   expect(vatRegistered("osek-patur", "murshe")).toBe(false);
+});
+
+describe("strategyPlays", () => {
+  it("generates situation-adaptive legal plays for IL osek + US disregarded LLC with statutory citations", () => {
+    const plays = strategyPlays(
+      {
+        year: 2026,
+        types: ["osek-murshe", "llc-disregarded"],
+        currentType: "osek-murshe",
+        holdings: [{ entity: "llc", name: "Dolmen Gate LLC", country: "us", type: "llc-disregarded", ilTreatment: "unresolved" }],
+        revenueIls: 320_000,
+        expensesIls: 40_000,
+        clients: "foreign",
+        points: 2.25,
+        paturOk: true,
+        zairExcluded: false,
+        pensionDeposited: 0,
+        khDeposited: 0,
+        uncategorizedExpenseIls: 15_000,
+        fx: 3.6,
+      },
+      T26,
+    );
+    const ids = plays.map((p) => p.id);
+    expect(ids).toContain("strategy.kh");
+    expect(ids).toContain("strategy.pension");
+    expect(ids).toContain("strategy.crossborder-resolve");
+    expect(ids).toContain("strategy.classify-expenses");
+    expect(plays.every((p) => p.statute.length > 0 && p.sourceUrl.startsWith("https://"))).toBe(true);
+  });
 });

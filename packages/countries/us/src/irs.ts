@@ -147,7 +147,7 @@ const has = (v: unknown) => v != null && v !== "";
 export function irsPeriod(d: Pick<IrsInput, "year" | "formed">) {
   const y = String(d.year);
   const begin = d.formed?.startsWith(y) ? d.formed : `${y}-01-01`;
-  return { begin, end: `${y}-12-31`, initial: !!d.formed && d.formed.slice(0, 4) >= y };
+  return { begin, end: `${y}-12-31`, initial: !!d.formed && d.formed.slice(0, 4) === y };
 }
 
 /** Resolve the effective treatment of an IrsTxn (respects explicit `treatment`, falls back to legacy equity / related flag). */
@@ -317,9 +317,11 @@ export const form5472: FormHook<IrsInput & { de?: boolean }> = (d) => {
   const { out, text, check } = fields();
   const { begin, end, initial } = irsPeriod(d);
   const de = d.de ?? true;
+  const rp = d.partIII;
+  const rpForeign = rp ? (rp.foreign ?? true) : true;
   const p4 = partIV(d);
   const p5 = partV(d);
-  const formTotal = p4.total + (de ? p5.total : 0);
+  const formTotal = (rpForeign ? p4.total : 0) + (de ? p5.total : 0);
   const formCount = d.formCount ?? 1;
   const allTotal = d.allFormsTotal ?? formTotal;
 
@@ -329,8 +331,6 @@ export const form5472: FormHook<IrsInput & { de?: boolean }> = (d) => {
   const ownerCit = d.ownerCitizenship?.trim() || d.ownerCountry;
   const ownerRes = d.ownerResidence?.trim() || d.ownerCountry;
 
-  const rp = d.partIII;
-  const rpForeign = rp ? (rp.foreign ?? true) : true;
   const rpNameAddr = rp ? [rp.name, rp.address].filter(Boolean).join(", ") : owner;
   const rpTin = rp ? rp.tin : d.ownerTin;
   const rpBizCountry = rp ? rp.businessCountry || rp.residenceCountry : ownerBizCountry;

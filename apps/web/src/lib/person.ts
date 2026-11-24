@@ -45,6 +45,16 @@ export function personNow(): Person | null {
   }
   return ME.person;
 }
+/** Force-refresh the person doc behind any in-flight savePerson() write so optimistic edits are never clobbered by SSE echoes. */
+export function refreshPerson(): Promise<Person | null> {
+  const r = queue.then(() =>
+    request<Got>("/api/person")
+      .then((d) => (ME.person = { ...d.person, facts: normalizeFacts(d.person.facts) }))
+      .catch(() => ME.person),
+  );
+  queue = r.catch(() => {});
+  return r;
+}
 
 /** Credit points the person facts give before the advisor's extras: resident 2.25 + released soldier (IL). */
 export function basePoints(f: Facts, y: number) {
@@ -101,7 +111,7 @@ export async function businesses(es: readonly Entity[], y: number): Promise<Biz[
         revenue: r.revenue,
         expenses: r.cogs + r.opex,
         foreignTaxPaid: 0, // the caller fills it from facts[taxKey(entity, y)]
-        lines: ys.filter((x) => ["revenue", "cogs", "expense"].includes(plOf(x.category) ?? "")).map((x) => ({ date: x.date, amount: x.amount })),
+        lines: ys.filter((x) => ["revenue", "other", "cogs", "expense"].includes(plOf(x.category) ?? "")).map((x) => ({ date: x.date, amount: x.amount })),
       },
     });
   }

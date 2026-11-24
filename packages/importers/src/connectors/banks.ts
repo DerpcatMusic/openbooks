@@ -46,12 +46,14 @@ const call = (label: string, url: string, init: RequestInit = {}) =>
     catch: (x) => fail(`Can't reach ${label}: ${clean((x as Error)?.message ?? "network error", 100)}`),
   });
 
-/** Keeps what an earlier sync saw before `startDay` (the bank no longer returns it) and wasn't seen again. */
-const keepOld = (prev: Json | null, accts: Acct[], startDay: string) => {
+/** Keeps what an earlier sync saw before `startDay` (per account or global) and wasn't seen again. */
+const keepOld = (prev: Json | null, accts: Acct[], startDay: string | ReadonlyMap<string, string>) => {
   const old = Array.isArray(prev?.accounts) ? (prev.accounts as Acct[]) : [];
-  const fresh = new Set(accts.flatMap((a) => a.txns.map((t) => `${a.accountNumber}|${t.identifier}`)));
+  const sig = (acctNum: string, t: Txn) => (t.identifier ? `${acctNum}|id:${t.identifier}` : `${acctNum}|row:${t.date}|${t.chargedAmount}|${t.description}`);
+  const fresh = new Set(accts.flatMap((a) => a.txns.map((t) => sig(a.accountNumber, t))));
   for (const oa of old) {
-    const keep = (oa.txns ?? []).filter((t) => t.date < startDay && !fresh.has(`${oa.accountNumber}|${t.identifier}`));
+    const cut = typeof startDay === "string" ? startDay : (startDay.get(oa.accountNumber) ?? "");
+    const keep = (oa.txns ?? []).filter((t) => (!cut || t.date < cut) && !fresh.has(sig(oa.accountNumber, t)));
     const na = accts.find((a) => a.accountNumber === oa.accountNumber);
     if (na) na.txns = [...keep, ...na.txns];
     else accts.push({ ...oa, txns: keep });
@@ -339,6 +341,7 @@ export const enablebankingSync = (dir: string, s: Record<string, string>, fileNa
     const lastMs = prev?.syncedAt ? Date.parse(str(prev.syncedAt)) : NaN;
     const first = !Number.isFinite(lastMs);
     const accts: Acct[] = [];
+    const startByAcct = new Map<string, string>();
     let startDay = isoDay(Date.now() - 365 * DAY * 1000);
     for (const sa of sessAccts) {
       const bals = ((yield* ebJson(c, "GET", `/accounts/${sa.uid}/balances`)).balances ?? []) as Json[];
@@ -389,10 +392,12 @@ export const enablebankingSync = (dir: string, s: Record<string, string>, fileNa
         if (!next || next === key) break;
         key = next;
       }
-      startDay = isoDay(from);
+      const acctStart = isoDay(from);
+      startByAcct.set(acct.accountNumber, acctStart);
+      startDay = acctStart;
       accts.push(acct);
     }
-    keepOld(prev, accts, startDay);
+    keepOld(prev, accts, startByAcct);
     yield* writeInbox(dir, fileName, file("Enable Banking", "enablebanking", accts, { startDate: startDay }));
     return labels("Enable Banking", accts);
   });

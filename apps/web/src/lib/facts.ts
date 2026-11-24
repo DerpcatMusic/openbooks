@@ -100,7 +100,14 @@ export function normalizeFacts(f: Facts): Facts {
 export function profileFromPerson<P extends Record<string, unknown>>(profile: P, f: Facts | undefined): P & { discharge?: string; serviceMonths?: number } {
   if (!f) return profile;
   const discharge = String(f.dischargeDate ?? f.discharge ?? "") || (profile.discharge as string | undefined);
-  const months = f.serviceMonths !== undefined && f.serviceMonths !== "" ? +f.serviceMonths : (profile.serviceMonths as number | undefined);
+  const months =
+    f.serviceMonths !== undefined && f.serviceMonths !== ""
+      ? +f.serviceMonths
+      : f.fullService === true
+        ? 23
+        : f.fullService === false
+          ? 0
+          : (profile.serviceMonths as number | undefined);
   return { ...profile, ...(discharge ? { discharge } : {}), ...(months !== undefined ? { serviceMonths: months } : {}) };
 }
 /** An answer as the advisor asks it (legacy keys mapped, see normalizeFacts). */

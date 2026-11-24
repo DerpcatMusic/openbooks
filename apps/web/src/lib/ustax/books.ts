@@ -77,7 +77,8 @@ export function irsInput(y = S.year): IrsInput {
       ...(pid ? { partyId: pid } : {}),
     };
   });
-  const manualEvents = (fdoc.events?.[String(y)] ?? []).map((ev) => ({ ...ev }));
+  const yearPrefix = `${y}-`;
+  const manualEvents = (fdoc.events?.[String(y)] ?? []).filter((ev) => !ev.date || ev.date.startsWith(yearPrefix)).map((ev) => ({ ...ev }));
   return {
     year: y,
     ...S.data?.profile,

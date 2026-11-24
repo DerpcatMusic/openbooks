@@ -4,7 +4,7 @@
 // (dividends are taxed when paid). Unresolved entities are flagged clearly rather than silently attributed.
 import type { CrossBorder, EntityYear, FxFn, Obligation, Person, ResidenceTreatment } from "@openbooks/core";
 import { extraPoints } from "./advisor.ts";
-import { bands } from "./calc.ts";
+import { bands, soldierPoints } from "./calc.ts";
 import type { IlRates } from "./schema.ts";
 
 /** What decides osek zair eligibility: the type, foreign manifest treatment, and explicit Israeli treatment (if set). */
@@ -76,7 +76,7 @@ export function convert(currency: string, lines: readonly { date: string; amount
 }
 
 export function ilCrossBorder(
-  T: IlRates,
+  T: Pick<IlRates, "brackets" | "point">,
   person: Person,
   y: number,
   home: readonly EntityYear[],
@@ -101,7 +101,11 @@ export function ilCrossBorder(
   const attributedIncome = income.reduce((a, c) => a + c.total, 0);
   const foreignTax = tax.reduce((a, c) => a + c.total, 0);
   const blocked = zairExclusion(home, foreign);
-  const points = 2.25 + Object.values(extraPoints(person.facts, y)).reduce((a, p) => a + p, 0);
+  const f = person.facts;
+  const discharge = String(f.dischargeDate ?? f.discharge ?? "") || undefined;
+  const serviceMonths =
+    f.serviceMonths !== undefined && f.serviceMonths !== "" ? +f.serviceMonths : f.fullService === true ? 23 : f.fullService === false ? 0 : undefined;
+  const points = 2.25 + soldierPoints(discharge, serviceMonths, y) + Object.values(extraPoints(f, y)).reduce((a, p) => a + p, 0);
   const turnover = home.reduce((a, e) => a + e.revenue, 0);
   const expenses = home.reduce((a, e) => a + e.expenses, 0);
   const zair = home.some((e) => e.type === "osek-zair") && !blocked.length;

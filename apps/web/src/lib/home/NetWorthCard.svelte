@@ -14,6 +14,8 @@
     failed = $state(false);
   const today = new Date().toLocaleDateString("sv");
   $effect(() => {
+    void S.v;
+    void S.rev;
     const q = new URLSearchParams({ currency, from: rangeStart(range, today), to: today });
     let stale = false;
     request<NetWorthData>(`/api/networth?${q}`)

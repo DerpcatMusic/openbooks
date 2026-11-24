@@ -8,30 +8,38 @@ import { S } from "./stores/books.svelte.ts";
 import { businesses, holdings, ilTreatmentOf, personNow, taxDateKey, taxKey, type Biz } from "./person.ts";
 import { rateOf } from "./fx.svelte.ts";
 
-const books = $state<Record<string, Biz[] | { error: string }>>({});
-const asked = new Set<string>(); // not reactive: a derived may ask for a fetch, only the async result writes state
+// Stale-while-revalidate cache per tax year: keeps the last resolved Biz[] visible while refetching on SSE/write changes
+// so Form 1301 / Cross-Border never flash ₪0 or leak unbounded cache keys.
+const books = $state<Record<number, Biz[] | { error: string }>>({});
+const lastSig = new Map<number, string>();
+const gen = new Map<number, number>();
 
 /** Clear cached foreign books (e.g., after an explicit refresh). */
 export function invalidateCrossBorder() {
-  asked.clear();
-  for (const k of Object.keys(books)) delete books[k];
+  lastSig.clear();
+  for (const k of Object.keys(books)) delete books[+k];
 }
 
-/** Every business's year with its own books, or null while they load (`{ error }` if a fetch failed). */
+/** Every business's year with its own books, or null while first loading (`{ error }` if a fetch failed). */
 export function bizFor(y: number): Biz[] | { error: string } | null {
   const es = S.data?.entities ?? [];
-  // Include S.v (SSE change version) and current entity txn count so editing an LLC transaction invalidates the cache immediately.
   const txnSig = `${S.e}:${S.data?.txns.length ?? 0}`;
-  const key = `${y}|v${S.v}|${txnSig}|${es.map((e) => `${e.id}:${e.formed ?? ""}:${JSON.stringify(e.types ?? {})}`).join()}`;
-  if (!asked.has(key)) {
-    asked.add(key);
+  const sig = `v${S.v}|r${S.rev}|${txnSig}|${es.map((e) => `${e.id}:${e.formed ?? ""}:${JSON.stringify(e.types ?? {})}`).join()}`;
+  if (lastSig.get(y) !== sig) {
+    lastSig.set(y, sig);
+    const seq = (gen.get(y) ?? 0) + 1;
+    gen.set(y, seq);
     const snap = JSON.parse(JSON.stringify(es)) as typeof es;
     businesses(snap, y).then(
-      (b) => (books[key] = b),
-      (x) => (books[key] = { error: String((x as Error).message || x) }),
+      (b) => {
+        if (gen.get(y) === seq) books[y] = b;
+      },
+      (x) => {
+        if (gen.get(y) === seq) books[y] = { error: String((x as Error).message || x) };
+      },
     );
   }
-  return books[key] ?? null;
+  return books[y] ?? null;
 }
 
 /** The person's Israeli year with foreign holdings: what blocks osek zair, unresolved positions, Form 150s, and the crossBorder result. */

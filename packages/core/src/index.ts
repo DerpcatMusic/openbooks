@@ -4,6 +4,7 @@ export * from "./rules.ts";
 export * from "./tags.ts";
 export * from "./splits.ts";
 export * from "./settlements.ts";
+export * from "./laws.ts";
 export * from "./journal.ts";
 export * from "./method.ts";
 export * from "./deductions.ts";

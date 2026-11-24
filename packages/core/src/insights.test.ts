@@ -3,18 +3,19 @@ import { bankFees, burn, cashAt, cashDelta, cashFlow, margins, pctLabel, spendVs
 
 const tx = (date: string, amount: number, category = "expense:software", account = "Checking") => ({ date, amount, category, account });
 
-test("cash flow: cash accounts only (a card purchase is not cash out until the card is paid), movements between pockets are not in/out", () => {
+test("cash flow: counts real inflows and outflows across bank and card accounts once, excluding internal transfers and owner movements", () => {
   const ts = [
     tx("2026-01-05", 1000, "revenue:sales"),
     tx("2026-01-06", -300),
     tx("2026-01-07", -50, "expense:meals", "Visa Credit Card"),
     tx("2026-01-20", -200, "transfer:internal"),
+    tx("2026-01-20", 200, "transfer:internal", "Visa Credit Card"),
     tx("2026-01-21", 5000, "equity:owner"),
     tx("2026-01-22", -400, "own:transfer"),
     tx("2026-01-23", 900, "personal:family"),
     tx("2026-01-24", 2000, "loan:bank"),
   ];
-  expect(cashFlow(ts)).toEqual({ in: 1000, out: 300, net: 700 });
+  expect(cashFlow(ts)).toEqual({ in: 1000, out: 350, net: 650 });
   expect(cashAt(ts, "2026-01-06")).toBe(700);
   expect(cashAt(ts, "2026-12-31")).toBe(8000);
 });

@@ -69,4 +69,52 @@ describe("settlement-to-payout gross-to-net reconciliation", () => {
     expect(broken).toHaveLength(1);
     expect(broken[0]).toMatchObject({ id: "tx-mercury-1", txnAmount: 865, splitTotal: 870, diff: -5, problem: "sum" });
   });
+
+  it("preserves existing settlement matches and never overwrites another settlement's deposit on partial re-import", () => {
+    const sA = {
+      externalId: "pay-A",
+      payer: "Polar",
+      date: "2026-04-01",
+      currency: "USD",
+      gross: 100,
+      fees: 10,
+      refunds: 0,
+      withholding: 0,
+      net: 90,
+    };
+    const sB = {
+      externalId: "pay-B",
+      payer: "Polar",
+      date: "2026-04-02",
+      currency: "USD",
+      gross: 100,
+      fees: 10,
+      refunds: 0,
+      withholding: 0,
+      net: 90,
+    };
+    const deposits = [
+      { id: "dep-1", date: "2026-04-02", amount: 90, desc: "Polar Payout" },
+      { id: "dep-2", date: "2026-04-04", amount: 90, desc: "Polar Payout" },
+    ];
+    const cfg = {
+      payer: "Polar",
+      seller: "LLC",
+      accounts: { gross: "revenue:plugin-sales", fees: "cogs:platform-fees" },
+    };
+    const first = reconcileSettlements([sA, sB], deposits, {}, cfg);
+    expect(first.items.map((i) => [i.settlement.externalId, i.bankTxnId, i.status])).toEqual([
+      ["pay-A", "dep-1", "matched"],
+      ["pay-B", "dep-2", "matched"],
+    ]);
+    // Re-importing only sB (whose date is closer to dep-1!) must keep dep-2 and NEVER touch dep-1.
+    const subset = reconcileSettlements([sB], deposits, first.splitsPatch, cfg);
+    expect(subset.items[0]).toMatchObject({ bankTxnId: "dep-2", status: "already_matched" });
+    expect(subset.splitsPatch).toEqual({});
+    // Importing a brand new sC of $90 when both dep-1 and dep-2 are owned by pay-A/pay-B must NOT overwrite either.
+    const sC = { ...sB, externalId: "pay-C", date: "2026-04-03" };
+    const third = reconcileSettlements([sC], deposits, first.splitsPatch, cfg);
+    expect(third.items[0]?.status).toBe("unmatched");
+    expect(third.splitsPatch).toEqual({});
+  });
 });

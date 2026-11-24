@@ -50,6 +50,7 @@ import {
   withOverrides,
   type DeductionInput,
   type RuleOverrides,
+  type Trip,
   readFilings,
 } from "@openbooks/core";
 import { handle as connectorHandle, status as connectorStatus } from "@openbooks/importers";
@@ -74,6 +75,7 @@ import { prepare1099s, us, usReturn, usTrack, type UsInputs, type UsTable, type 
 import { Rule, RuleInput, type DeductionRule, type EntityMeta, type SplitsDoc, type TagsDoc, type Txn } from "@openbooks/schema";
 import { Effect, Schema } from "effect";
 import { filingTools } from "./filings.ts";
+import { listLawSources } from "./laws.ts";
 import { netWorthDetail, ratesFor } from "./money.ts";
 import { decodeArgs, defineTool, inputJsonSchema, type Needs, NeedsConfirm, type Tool, type ToolCtx, ToolError } from "./registry.ts";
 
@@ -1179,7 +1181,7 @@ const personYear = (y: number) =>
         expenses: r.cogs + r.opex,
         foreignTaxPaid: +(facts[`foreignTax.${e.id}.${y}`] ?? 0) || 0, // the web app's taxKey
         ...(typeof dt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dt) ? { foreignTaxDate: dt } : {}),
-        lines: ts.filter((t) => ["revenue", "cogs", "expense"].includes(plOf(t.category) ?? "")).map((t) => ({ date: t.date, amount: t.amount })),
+        lines: ts.filter((t) => ["revenue", "other", "cogs", "expense"].includes(plOf(t.category) ?? "")).map((t) => ({ date: t.date, amount: t.amount })),
       });
     }
     const home = years.filter((x) => x.country === residence),
@@ -1263,7 +1265,7 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
       for (const yy of assetYears) {
         const yd = yy === y ? ded : deductions((yield* dedCtx(e, yy)).inp);
         for (const r of yd.rows) {
-          if (r.rule !== "il.depreciation") continue;
+          if (r.rule !== "il.depreciation" && r.rule !== "il.vehicle.purchase") continue;
           assets.push({
             id: r.id,
             date: r.date,
@@ -1285,6 +1287,7 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
       T: T as unknown as IlTable,
       form,
       bookBoxes,
+      facts: pf as Facts,
       profile,
       disallowed: cut,
       advances,
@@ -1346,8 +1349,9 @@ const ilTax = (e: Entity, y: number, txns: readonly Txn[], type: string) =>
         total: Math.round(r.points * 1e4) / 1e4,
         pointValue: T.point,
       },
-      creditsAvailable: r2(r.credits),
+      creditsAvailable: r2(r.creditsAvailable),
       credits: r2(used),
+      otherCredits: r2(r.otherCredits),
       due: r.due,
       withheld: r2(r.withheld),
       balance: r2(r.balance),
@@ -1375,12 +1379,19 @@ const US_FIELDS: Record<string, string> = {
 const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
   Effect.gen(function* () {
     const p = yield* docOf<Record<string, unknown>>(e, "profile", {});
-    // 5472 Part V: equity rows plus rows carrying a related-party tag (other transactions with the owner, Reg. 1.482-1(i)(7))
+    const f5472 = yield* docOf<{
+      manualEvents?: { id: string; date: string; amount: number; desc: string; treatment?: string; partyId?: string }[];
+      treatments?: Record<string, string>;
+    }>(e, "form5472", {});
+    // 5472 Part IV/V: equity rows + related-party tagged rows + off-bank manual events for year y
     const rel = relatedPartyTags(yield* docOf<TagsDoc>(e, "tags", emptyTags()));
     const other = txns.filter((t) => group(t.category) !== "equity" && (t.tags ?? []).some((g) => rel.has(g)));
     const owner = txns.filter((t) => group(t.category) === "equity");
+    const manual = (f5472.manualEvents ?? []).filter((ev) => String(ev.date ?? "").startsWith(`${y}-`));
     const contrib = owner.filter((t) => t.amount > 0),
       dist = owner.filter((t) => t.amount < 0);
+    const manualIn = manual.filter((m) => m.amount > 0),
+      manualOut = manual.filter((m) => m.amount < 0);
     const b = yield* balancesAt(e, `${y}-12-31`);
     // line 1c: the balance-sheet total (bank accounts; open invoices too when the books are on the accrual basis, as the app's balance sheet)
     const accrual = (yield* docOf<{ basis?: string | null }>(e, "books", {})).basis === "accrual";
@@ -1401,7 +1412,7 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
       obligations: [
         {
           form: "5472",
-          what: "Information return: Part I total assets, Part II the foreign owner, Part V reportable transactions with the owner",
+          what: "Information return: Part I total assets, Part II foreign owner, Part IV monetary transactions / Part V DE reportable transactions, Part VII",
           due: `${y + 1}-04-15`,
           extendedDue: `${y + 1}-10-15`,
           extension: "Form 7004: on paper, 'Foreign-owned U.S. DE' across the top, faxed or mailed like the 5472 (not e-filed)",
@@ -1409,15 +1420,25 @@ const usTax = (e: Entity, y: number, txns: readonly Txn[]) =>
         },
         {
           form: "1120 (pro forma)",
-          what: "Name, address, EIN, total assets only; write 'Foreign-owned U.S. DE' across the top; attach 5472",
+          what: "Name, address, EIN, item E (initial/final/name/address change) only — leave item D blank per IRS instructions; write 'Foreign-owned U.S. DE' across the top; attach 5472",
           due: `${y + 1}-04-15`,
           filing: "Not e-filed: fax or mail to the IRS (see the app's US tax page)",
         },
         { form: "State annual report", what: `Depends on the state of formation (${(p.state as string | undefined) || "not set"})` },
       ],
-      ownerContributions: { count: contrib.length, total: r2(sum(contrib.map((t) => t.amount))) },
-      ownerDistributions: { count: dist.length, total: r2(-sum(dist.map((t) => t.amount))) },
-      otherOwnerTransactions: { count: other.length, net: r2(sum(other.map((t) => t.amount))) },
+      ownerContributions: {
+        count: contrib.length + manualIn.length,
+        total: r2(sum(contrib.map((t) => t.amount)) + sum(manualIn.map((m) => m.amount))),
+      },
+      ownerDistributions: {
+        count: dist.length + manualOut.length,
+        total: r2(-sum(dist.map((t) => t.amount)) - sum(manualOut.map((m) => m.amount))),
+      },
+      otherOwnerTransactions: {
+        count: other.length,
+        gross: r2(sum(other.map((t) => Math.abs(t.amount)))),
+        net: r2(sum(other.map((t) => t.amount))),
+      },
       totalAssetsYearEnd: r2(assets),
       missingProfileFields: Object.entries(US_FIELDS)
         .filter(([k]) => !p[k])
@@ -1474,12 +1495,13 @@ const dedCtx = (e: Entity, y: number) =>
   Effect.gen(function* () {
     const p = packFor(e.meta, y);
     if (!p) return yield* fail(`${e.id} has no deduction rules: its business type is not set or its country has no table. Set the business type in the app.`);
-    const [txns, tags, coa, edits, profile, person, home] = [
+    const [txns, tags, coa, edits, profile, trips, person, home] = [
       yield* ledgerOf(e),
       yield* docOf<TagsDoc>(e, "tags", emptyTags()),
       yield* docOf<Coa>(e, "coa", {}),
       yield* docOf<RuleOverrides>(e, "taxrules", {}),
       yield* docOf<Record<string, unknown>>(e, "profile", {}),
+      yield* docOf<Trip[]>(e, "trips", []),
       yield* Books.use((b) => b.doc<{ facts?: Record<string, unknown> } | null>("_app", "person", null)).pipe(Effect.orDie),
       yield* Books.use((b) => Effect.succeed(b.home)),
     ];
@@ -1502,6 +1524,7 @@ const dedCtx = (e: Entity, y: number) =>
       attachments,
       ...(p.pack.manifest.id === "il" ? { vatRate: vat ?? 0.18 } : {}),
       facts: { ...(car > 0 ? { carPrice: car } : {}), usTrade: profile.usTrade === true },
+      trips,
     };
     return { inp, table: p.table, country: p.pack.manifest.id };
   });
@@ -2045,6 +2068,33 @@ const audit_log = defineTool({
 });
 
 /** Every tool, in mcp_server.py's order (the bills tools are new in the TypeScript app, after the invoice tools). */
+const law_sources = defineTool({
+  name: "law_sources",
+  title: { en: "Official law sources", he: "מקורות חוק רשמיים" },
+  description:
+    "List every official government/statutory tax law source referenced by OpenBooks (IRS, Israel Tax Authority, Bituach Leumi, US Code, Income Tax Ordinance) along with its latest verification fingerprint, matched statutory signals, and any detected regulatory changes.",
+  kind: "read",
+  input: input({
+    jurisdiction: Schema.optionalKey(Schema.Literals(["il", "us", "treaty"])),
+    primary_only: Schema.optionalKey(Schema.Boolean),
+  }),
+  output: Schema.Struct({
+    summary: Schema.Record(Schema.String, Schema.Unknown),
+    sources: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+  }),
+  run: (a) =>
+    Effect.map(
+      listLawSources({
+        ...(a.primary_only ? { primaryOnly: true } : {}),
+        ...(a.jurisdiction ? { jurisdiction: a.jurisdiction } : {}),
+      }),
+      (res) => ({
+        summary: res.summary as unknown as Record<string, unknown>,
+        sources: res.sources as unknown as Record<string, unknown>[],
+      }),
+    ),
+});
+
 export const tools: readonly Tool[] = [
   list_entities,
   list_transactions,
@@ -2074,6 +2124,7 @@ export const tools: readonly Tool[] = [
   bank_sync,
   audit_log,
   recurring,
+  law_sources,
   ...filingTools({
     entityOf,
     ledgerOf,

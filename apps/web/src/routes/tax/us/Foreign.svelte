@@ -20,7 +20,7 @@
     type RelatedParty5472,
     type UsTable,
   } from "@openbooks/country-us";
-  import { S, catLabel, ent, fmt, mdy, saveTags, setProfile, splitsDoc, tagsDoc, taxTable, yearTxns } from "#lib/stores/books.svelte.ts";
+  import { S, catLabel, ent, fmt, mdy, saveTags, setProfile, splitsDoc, tagsDoc, taxTable, toast, yearTxns } from "#lib/stores/books.svelte.ts";
   import { brokenSplits, ensureRelatedPartyTag, group, relatedPartyTags } from "@openbooks/core";
   import { bidi, t } from "#lib/i18n.svelte.ts";
   import { Badge, Button, Card, Icon, IconButton, Input, Money, Segmented, Select, Table, type Column } from "#lib/ui/index.ts";
@@ -126,7 +126,9 @@
       treatment: fdoc.treatments?.[x.id],
       partyId: fdoc.parties?.[x.id],
     })),
-    ...(fdoc.events?.[String(y)] ?? []).map((ev, i) => ({ ...ev, _key: `m:${ev.id ?? i}`, _manual: true })),
+    ...(fdoc.events?.[String(y)] ?? [])
+      .filter((ev) => !ev.date || ev.date.startsWith(`${y}-`))
+      .map((ev, i) => ({ ...ev, _key: `m:${ev.id ?? i}`, _manual: true })),
   ].sort((a, b) => (a.date < b.date ? -1 : 1)));
 
   function setRowTreatment(r: LedgerRow5472, tr: Part5472Treatment) {
@@ -148,10 +150,18 @@
       void saveForm5472Doc({ ...fdoc, events: { ...fdoc.events, [String(y)]: list } });
     }
   }
-  let newEv = $state({ date: `${new Date().getFullYear()}-01-15`, desc: "", amount: "", treatment: "formation" as Part5472Treatment, partyId: "" });
+  let newEv = $state({ date: "", desc: "", amount: "", treatment: "formation" as Part5472Treatment, partyId: "" });
+  $effect(() => {
+    const targetPrefix = `${y}-`;
+    if (!newEv.date || (!newEv.desc && !newEv.amount && !newEv.date.startsWith(targetPrefix))) {
+      newEv.date = `${y}-01-15`;
+    }
+  });
   function addEvent() {
     const amt = Number(newEv.amount);
-    if (!newEv.date || !newEv.desc.trim() || !Number.isFinite(amt) || amt === 0) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newEv.date) || !newEv.desc.trim() || !Number.isFinite(amt) || amt === 0) return;
+    const evYear = Number(newEv.date.slice(0, 4));
+    if (!Number.isInteger(evYear) || evYear < 1990 || evYear > 2100) return;
     const ev: IrsTxn = {
       id: `ev-${crypto.randomUUID().slice(0, 8)}`,
       date: newEv.date,
@@ -160,9 +170,11 @@
       treatment: newEv.treatment,
       ...(newEv.partyId ? { partyId: newEv.partyId } : {}),
     };
-    const prev = fdoc.events?.[String(y)] ?? [];
-    void saveForm5472Doc({ ...fdoc, events: { ...fdoc.events, [String(y)]: [...prev, ev] } });
-    newEv = { ...newEv, desc: "", amount: "" };
+    const bucket = String(evYear);
+    const prev = fdoc.events?.[bucket] ?? [];
+    void saveForm5472Doc({ ...fdoc, events: { ...fdoc.events, [bucket]: [...prev, ev] } });
+    if (evYear !== y) toast(`Saved off-bank event under tax year ${evYear} (matching ${ev.date}).`);
+    newEv = { ...newEv, date: `${y}-01-15`, desc: "", amount: "" };
   }
   function removeEvent(id: string | undefined) {
     if (!id) return;
@@ -409,7 +421,7 @@
           <div class="text-[13px] font-medium text-ink">{t("legal.5472.addEvent")}</div>
           <p class="mt-0.5 text-[12px] text-sub">{t("legal.5472.addEventHint")}</p>
           <div class="mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <Input label={t("common.date")} type="date" dir="ltr" bind:value={newEv.date} />
+            <Input label={t("common.date")} type="date" min={`${y}-01-01`} max={`${y}-12-31`} dir="ltr" bind:value={newEv.date} />
             <Input label={t("common.description")} bind:value={newEv.desc} placeholder="e.g. Doola formation fee" />
             <Input label={t("common.amount")} numeric type="number" step="any" bind:value={newEv.amount} placeholder="+500 / -1200" />
             <Select label={t("legal.5472.treatment")} value={newEv.treatment} options={treatmentOpts} onchange={(v) => (newEv.treatment = v as Part5472Treatment)} />

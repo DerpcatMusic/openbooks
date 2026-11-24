@@ -5,7 +5,8 @@
   import type { CrossBorder, Obligation, ResidenceTreatment } from "@openbooks/core";
   import { S, mdy } from "#lib/stores/books.svelte.ts";
   import { t, I, bidi, has } from "#lib/i18n.svelte.ts";
-  import { businesses, foreignObligations, ilTreatmentKey, ilTreatmentOf, packById, withFact, taxDateKey, taxKey, type Biz, type Person } from "#lib/person.ts";
+  import { foreignObligations, ilTreatmentKey, ilTreatmentOf, packById, withFact, taxDateKey, taxKey, type Biz, type Person } from "#lib/person.ts";
+  import { bizFor } from "#lib/crossborder.svelte.ts";
   import { rateOf } from "#lib/fx.svelte.ts";
   import { Badge, Card, Input, Money, Select, Skeleton } from "#lib/ui/index.ts";
 
@@ -18,21 +19,10 @@
   };
   const flag = (id: string) => packById(id)?.manifest.flag ?? "";
 
-  let biz = $state<Biz[] | null>(null);
-  let failed = $state("");
-  // ponytail: other businesses' books are fetched per entity/year change; a shared multi-entity store would avoid it
-  const ids = $derived((S.data?.entities ?? []).map((e) => e.id + ":" + JSON.stringify(e.types ?? {})).join());
-  $effect(() => {
-    void ids;
-    const es = $state.snapshot(S.data?.entities ?? []),
-      yy = y;
-    biz = null;
-    failed = "";
-    businesses(es, yy).then(
-      (b) => (biz = b),
-      (x) => (failed = String((x as Error).message || x)),
-    );
-  });
+  // Uses shared stale-while-revalidate bizFor(y): automatically refreshes on every bank sync, upload, category edit, or SSE event.
+  const rawBiz = $derived(bizFor(y));
+  const biz = $derived(rawBiz && !("error" in rawBiz) ? rawBiz : null);
+  const failed = $derived(rawBiz && "error" in rawBiz ? rawBiz.error : "");
   const paid = (b: Biz): Biz => {
     const dt = person.facts[taxDateKey(b.entity.id, y)];
     return {

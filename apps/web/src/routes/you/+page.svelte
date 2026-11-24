@@ -6,23 +6,24 @@
   import { S, toast } from "#lib/stores/books.svelte.ts";
   import { t, I, PACKS } from "#lib/i18n.svelte.ts";
   import { loadPerson, savePerson, packById, question, withFact, answerOf, PERSON_GROUPS, type Person } from "#lib/person.ts";
+  import { ME } from "#lib/me.svelte.ts";
   import { Button, Card, PageHeader, Select, Skeleton } from "#lib/ui/index.ts";
   import Ask from "../taxximizer/Ask.svelte";
   import CrossBorder from "./CrossBorder.svelte";
 
-  let person = $state<Person | null>(null);
+  // Reactive single source of truth (ME.person): automatically updates on SSE `_app/person` changes from other tabs or MCP.
+  const person = $derived(ME.person);
   let error = $state("");
   onMount(async () => {
     while (!S.data) await new Promise((ok) => setTimeout(ok, 50));
     try {
-      person = await loadPerson(S.data.entities, S.year, () => toast(t("you.migrated")));
+      await loadPerson(S.data.entities, S.year, () => toast(t("you.migrated")));
     } catch (x) {
       error = String((x as Error).message || x);
     }
     if (location.hash === "#cross-border") requestAnimationFrame(() => document.getElementById("cross-border")?.scrollIntoView());
   });
   function save(next: Person) {
-    person = next;
     savePerson(next).catch((x) => toast(String((x as Error).message || x)));
   }
   const residences = $derived(PACKS.filter((p) => p.crossBorder).map((p) => ({ value: p.manifest.id, label: `${p.manifest.flag} ${p.manifest.names[I.lang]}` })));

@@ -60,6 +60,30 @@ export interface NetWorth {
   series: { entity: string; account: string; currency: string; liability: boolean; values: number[] }[];
   /** Currency-days without a rate (that account counts 0 that day). */
   missing: { currency: string; date: string }[];
+  excluded?: { entity: string; account: string; reason: string }[];
+}
+/** GET /api/flow: combined cash-flow rows across all entities, converted to `currency` at daily BoI rates. */
+export interface CombinedFlowTxn {
+  id: string;
+  entity: string;
+  entityName: string;
+  flag: string;
+  account: string;
+  date: string;
+  category: string;
+  desc: string;
+  who?: string;
+  amount: number;
+  nativeAmount: number;
+  nativeCurrency: string;
+}
+export interface CombinedFlow {
+  currency: string;
+  from: string;
+  to: string;
+  entities: { id: string; name: string; flag: string; currency: string; accounts: string[] }[];
+  txns: CombinedFlowTxn[];
+  missing: { currency: string; date: string }[];
 }
 /** One side of a suggested transfer (GET /api/transfers). */
 export interface TransferSide {
@@ -121,6 +145,7 @@ export const api = {
     request<State>(withEntity(`/api/attach?txn=${encodeURIComponent(txn)}&name=${encodeURIComponent(f.name)}`, e), f),
   csvPreview: (e: string, text: string, profile?: unknown) => request<unknown>(withEntity("/api/csv-preview", e), { text, profile }),
   netWorth: (currency: string, from: string, to: string) => request<NetWorth>(`/api/networth?currency=${encodeURIComponent(currency)}&from=${from}&to=${to}`),
+  flow: (currency: string, from: string, to: string) => request<CombinedFlow>(`/api/flow?currency=${encodeURIComponent(currency)}&from=${from}&to=${to}`),
   /** BoI representative rates, ILS per unit: currency → date → rate. */
   fx: (currencies: readonly string[], from: string, to: string) =>
     request<{ rates: Record<string, Record<string, number>> }>(`/api/fx?currencies=${currencies.map(encodeURIComponent).join(",")}&from=${from}&to=${to}`),
@@ -129,6 +154,15 @@ export const api = {
     request<{ suggestions: TransferSuggestion[] }>(withEntity(ref ? `/api/transfers?ref=${encodeURIComponent(ref)}` : "/api/transfers", e)),
   packUrl: (e: string, year: number) => withEntity(`/api/pack?year=${year}`, e),
   closePackUrl: (e: string, year: number) => withEntity(`/api/close-pack?year=${year}`, e),
+  laws: (opts?: { primaryOnly?: boolean; jurisdiction?: "il" | "us" | "treaty" }) => {
+    const q = new URLSearchParams();
+    if (opts?.primaryOnly) q.set("primary", "1");
+    if (opts?.jurisdiction) q.set("jurisdiction", opts.jurisdiction);
+    const qs = q.toString();
+    return request<{ summary: Record<string, any>; sources: Record<string, any>[] }>(qs ? `/api/laws?${qs}` : "/api/laws");
+  },
+  refreshLaws: (body: { primaryOnly?: boolean; jurisdiction?: "il" | "us" | "treaty"; urls?: string[] } = {}) =>
+    request<{ summary: Record<string, any>; sources: Record<string, any>[] }>("/api/laws/refresh", body),
   fileUrl: (e: string, name: string, sub = "inbox") => `/files/${e}/${sub}/${encodeURIComponent(name)}`,
 };
 

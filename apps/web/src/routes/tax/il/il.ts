@@ -42,6 +42,7 @@ export function ilYear(y = S.year) {
     T,
     form: f,
     bookBoxes,
+    facts: personNow()?.facts,
     profile: p,
     disallowed: cut,
     advances,
@@ -50,7 +51,7 @@ export function ilYear(y = S.year) {
     ...(foreign ? { foreign } : {}),
     ...extra,
   });
-  const auto = { ...form1301Auto({ txns, type, profile: p, disallowed: cut, zairExcluded, ...extra }), ...bookBoxes };
+  const auto = { ...form1301Auto({ txns, type, profile: p, disallowed: cut, zairExcluded, bookBoxes, ...extra }), ...bookBoxes };
   const v = (k: string) => f[k] ?? auto[k] ?? "";
   const n = (k: string) => +String(v(k)).replace(/,/g, "") || 0;
   return {
@@ -77,12 +78,15 @@ export function ilYear(y = S.year) {
     /** Turnover figures without VAT / depreciation instead of equipment cost: what the page explains next to the boxes. */
     vat,
     dep,
-    /** Actual expenses the rules allow (non-zair 150 = turnover − expenses). */
-    expenses:
+    /** Actual expenses the rules allow (non-zair 150 = turnover − expenses, excluding personal box 136 KH). */
+    expenses: Math.max(
+      0,
       -txns.filter((x) => ["cogs", "expense"].includes(plOf(x.category) ?? "")).reduce((a, x) => a + x.amount, 0) -
-      cut -
-      (vat?.reclaimed ?? 0) -
-      (capital ? capital.cost - capital.depreciation : 0),
+        cut -
+        (+(bookBoxes["136"] ?? 0) || 0) -
+        (vat?.reclaimed ?? 0) -
+        (capital ? capital.cost - capital.depreciation : 0),
+    ),
     assessed: +(f.assessed ?? 0),
   };
 }

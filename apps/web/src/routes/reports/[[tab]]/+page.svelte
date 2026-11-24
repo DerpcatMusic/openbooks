@@ -208,7 +208,7 @@
     <CashFlowAnalysis />
   {:else if tab === "flow"}
     <div class="grid gap-4">
-      <section class="panel min-w-0 p-4 sm:p-6"><FlowCard ts={flowTs} currency={cur} sub={periodLabel(p)} height={360} /></section>
+      <section class="panel min-w-0 p-4 sm:p-6"><FlowCard ts={flowTs} currency={cur} sub={periodLabel(p)} from={p.from} to={p.to} height={360} /></section>
       <section class="panel min-w-0 p-4 sm:p-6">
         <h2 class="text-[16px] text-ink">{t("charts.tree.title")}</h2>
         <p class="mb-4 text-[13px] text-sub">{t("charts.tree.sub", { period: periodLabel(p) })}</p>

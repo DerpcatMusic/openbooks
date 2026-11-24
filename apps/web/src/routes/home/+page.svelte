@@ -366,7 +366,7 @@
 {/snippet}
 
 {#snippet flow()}
-  <section class="panel rise min-w-0 p-5 sm:p-6"><FlowCard {ts} currency={cur} sub={periodLabel(p)} /></section>
+  <section class="panel rise min-w-0 p-5 sm:p-6"><FlowCard {ts} currency={cur} sub={periodLabel(p)} from={p.from} to={p.to} /></section>
 {/snippet}
 {#snippet inout()}
   <section class="panel rise h-full min-w-0 p-5 sm:p-6"><InOutCard to={p.to} currency={cur} /></section>
