@@ -50,7 +50,7 @@ test("one charge, irregular, wildly different amounts, transfers and lapsed seri
 test("income and spending from one payer are separate; the latest regular run counts", () => {
   const ts = [...monthly("Acme", [3000, 3000, 3000], 1, 10, "revenue:services"), row("2025-06-01", -5, "Acme"), row("2025-06-20", -5, "Acme")];
   const rs = recurring(ts, "2026-03-15");
-  expect(rs.map((r) => [r.key, r.cadence])).toEqual([["Acme|in", "monthly"]]);
+  expect(rs.map((r) => [r.key, r.cadence])).toEqual([["Acme|in|3000.00", "monthly"]]);
   expect(perMonth(rs[0]!)).toBe(3000);
 });
 
@@ -109,4 +109,17 @@ test("one charge at a new price continues the plan; equal charges on one day add
   expect(r).toMatchObject({ amount: -12, last: "2026-03-05", next: "2026-04-05", count: 3, priceChange: { from: -10, to: -12, date: "2026-03-05" } });
   const two = recurring([...monthly("Seats", [-10, -10, -10]), ...monthly("Seats", [-10, -10, -10])], "2026-03-10");
   expect(two.map((x) => x.amount)).toEqual([-20]);
+});
+
+test("an old plan still charging is a second plan, not the new one's past; a price change counts every charge", () => {
+  const rs = recurring(
+    [...monthly("Cloudflare", [-10, -10, -10, -10, -10]), row("2026-04-04", -12, "Cloudflare"), row("2026-05-04", -12, "Cloudflare")],
+    "2026-05-10",
+  );
+  expect(rs.map((r) => [r.amount, r.count, r.priceChange])).toEqual([
+    [-12, 2, undefined],
+    [-10, 5, undefined],
+  ]);
+  const [n] = recurring(monthly("Notion", [-10, -10, -10, -12, -12]), "2026-05-10");
+  expect(n).toMatchObject({ count: 5, key: "Notion|out|10.00" });
 });

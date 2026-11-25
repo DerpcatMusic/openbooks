@@ -249,7 +249,8 @@
       const ym = x.date.slice(0, 7),
         v = m.get(ym) ?? {},
         k = sliceOf(x);
-      v[k] = (v[k] ?? 0) + Math.abs(x.amount);
+      // signed: a refund shrinks the spending bar, a chargeback the income bar (inSide puts them on their own side)
+      v[k] = (v[k] ?? 0) + (k.startsWith("in:") ? x.amount : -x.amount);
       m.set(ym, v);
     }
     const net = new Map((mergedFlow?.monthly ?? []).map((r) => [r.month, r.net]));

@@ -15,7 +15,7 @@ const CADENCES: readonly [Cadence, number, number][] = [
 const STEP: Record<Cadence, [days: number, months: number]> = { weekly: [7, 0], biweekly: [14, 0], monthly: [0, 1], quarterly: [0, 3], yearly: [0, 12] };
 
 export interface Recurring {
-  /** Stable id for dismissing: payer and direction. */
+  /** Stable id for dismissing: payer and direction, plus the starting price for a fixed-price plan. */
   key: string;
   payer: string;
   /** The ledger account most of its payments are filed under. */
@@ -26,7 +26,7 @@ export interface Recurring {
   /** Dates of the last occurrence and the expected next one. */
   last: string;
   next: string;
-  /** Number of occurrences in the regular run. */
+  /** Charges in the series, the ones at an earlier price (before `priceChange`) included. */
   count: number;
   /** The amount stepped from `from` to `to` on `date` after at least two payments at the old price. */
   priceChange?: { from: number; to: number; date: string };
@@ -50,6 +50,8 @@ export function nextDate(iso: string, c: Cadence): string {
   return new Date(Date.UTC(y, mo, Math.min(dd, last) + d)).toISOString().slice(0, 10);
 }
 export const recurringKey = (payer: string, amount: number) => `${payer}|${amount < 0 ? "out" : "in"}`;
+/** The payer-and-direction part of a key (a dismissal stored under it covers every plan of that payer). */
+export const recurringBase = (key: string) => key.split("|").slice(0, 2).join("|");
 
 /**
  * Regular payers, per payer and direction:
@@ -136,17 +138,20 @@ export function recurring(txns: readonly Row[], now?: string): Recurring[] {
       const r = take(bump ? [...hit.run, [bump.date, bump.amount]] : hit.run, cadence, tol, bump ? [...rows, bump] : rows, true);
       if (!r) continue;
       if (bump) r.priceChange = { from: hit.run.at(-1)![1], to: bump.amount, date: bump.date };
-      if (prev && Math.abs(day(first) - day(prev.date) - g) <= tol && close(prev.amount, p, 0.6)) {
-        r.priceChange = { from: prev.amount, to: r.amount, date: first };
-        r.count++;
+      // ...only when the old price stopped: an old plan still charging alongside is a second plan, not this one's past
+      const ended = prev && !byDate.some((t) => t.date >= first && close(t.amount, prev.amount, 0.01));
+      if (prev && ended && Math.abs(day(first) - day(prev.date) - g) <= tol && close(prev.amount, p, 0.6)) {
         // the old price's own run ends where this one starts: it is this series, not a second plan
         const old = found.findIndex((x) => x !== r && x.last === prev.date);
+        r.priceChange = { from: prev.amount, to: r.amount, date: first };
+        const before = [...new Map(byDate.filter((t) => t.date < first && close(t.amount, prev.amount, 0.01)).map((t) => [t.date, t.amount]))];
+        r.count += runOf(before)?.run.length ?? 1;
         if (old >= 0) found.splice(old, 1);
       }
     }
     if (found.length) {
-      // a payer with two plans (two Cloudflare products): each gets its own dismiss key
-      if (found.length > 1) for (const r of found) r.key = `${key}|${Math.abs(r.amount)}`;
+      // each plan its own dismiss key, by the price it started at: stable when a sibling plan comes or goes, or the price changes
+      for (const r of found) r.key = `${key}|${Math.abs(r.priceChange?.from ?? r.amount).toFixed(2)}`;
       out.push(...found);
       continue;
     }

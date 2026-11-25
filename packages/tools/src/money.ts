@@ -403,6 +403,8 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       ...[...confirmed.values()].map((p) => ({ out: p.out, in: p.in, gap: 0, diff: 0, fee: impliedFee(p.out, p.in, conv), evidence: 0, confirmed: true })),
       ...matches.map((m) => ({ ...m, confirmed: false })),
     ].filter((m) => !(m.out.entity === m.in.entity && (isCard(m.out.account) || isCard(m.in.account))));
+    // a pair hidden above is not a move either: its rows count (or wait to be filed) like any other
+    for (const m of matches) if (!legs.some((l) => l.out === m.out && l.in === m.in)) [m.out, m.in].forEach((r) => dedupRefs.delete(refOf(r)));
     const round2 = (n: number) => Math.round(n * 100) / 100;
     const missing = new Map<string, { currency: string; date: string }>();
     const noteMissing = (cur: string, date: string) => {

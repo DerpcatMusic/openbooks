@@ -251,3 +251,8 @@ test("the bank's delivery estimate: a Wise payout pairs with the deposit on the 
   // without the estimate, the same pair is too far apart for the default window
   expect(suggestTransfers([{ ...out, link: { to: out.link.to } }, rs[2]!], [])).toEqual([]);
 });
+
+test("an impossible delivery date is ignored, not a crash", () => {
+  const out = { ...row("w", "p", "2025-03-03", -100, "Wise ILS"), link: { eta: "2025-13-09" } };
+  expect(suggestTransfers([out, row("il", "in", "2025-03-04", 100, "One Zero")], [])).toHaveLength(1);
+});

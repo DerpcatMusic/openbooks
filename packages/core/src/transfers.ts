@@ -137,7 +137,9 @@ function pairs(outs: readonly TransferRow[], ins: readonly TransferRow[], decide
   };
   for (const o of outs) {
     // the bank's own estimate of when it lands (a Wise payout, a Mercury wire): measure the gap from that day, not the day it left
-    const at = o.link?.eta && o.link.eta >= o.date ? o.link.eta : o.date,
+    const eta = o.link?.eta,
+      valid = !!eta && !Number.isNaN(Date.parse(`${eta}T00:00:00Z`)) && new Date(`${eta}T00:00:00Z`).toISOString().startsWith(eta);
+    const at = valid && eta >= o.date ? eta : o.date,
       last = shift(at, window);
     for (let k = first(shift(o.date, -window)); k < byDate.length; k++) {
       const i = byDate[k]!,

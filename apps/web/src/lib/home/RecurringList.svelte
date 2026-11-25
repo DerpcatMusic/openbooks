@@ -6,11 +6,11 @@
   import { t } from "#lib/i18n.svelte.ts";
   import { Badge, IconButton, Money } from "#lib/ui/index.ts";
   import { go } from "#lib/reports/go.ts";
-  import { allRecurring, dismissedDoc, setDismissed } from "./recurring.ts";
+  import { allRecurring, dismissedDoc, isDismissed, setDismissed } from "./recurring.ts";
   let { currency, limit = 0, restore = false }: { currency: string; limit?: number; restore?: boolean } = $props();
   const all = $derived(allRecurring());
   const hidden = $derived(dismissedDoc());
-  const live = $derived(all.filter((r) => !hidden[r.key]));
+  const live = $derived(all.filter((r) => !isDismissed(r, hidden)));
   const sides = $derived(
     (["out", "in"] as const)
       .map((side) => {
@@ -19,7 +19,7 @@
       })
       .filter((s) => s.rs.length),
   );
-  const gone = $derived(restore ? all.filter((r) => hidden[r.key]) : []);
+  const gone = $derived(restore ? all.filter((r) => isDismissed(r, hidden)) : []);
   // a price change after a 1% step: up = paying more (out) or getting more (in)
   const up = (r: Recurring) => Math.abs(r.priceChange!.to) > Math.abs(r.priceChange!.from);
 </script>
