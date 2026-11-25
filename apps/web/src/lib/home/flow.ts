@@ -1,7 +1,7 @@
 // Sankey data for a period: money in by source → bank/business hubs (with expandable child accounts) → money out by destination.
 // Which rows count as money in / out is core's cashIn / cashOut (transfers, owner and own money left out), asked one row at a time
 // so this never drifts from the totals shown elsewhere.
-import { group, inSide, isFlow, payerOf } from "@openbooks/core";
+import { group, inSide, isCard, isFlow, payerOf } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { topN, type FlowHubEdge, type FlowItem } from "../ui/sankey.ts";
 
@@ -72,7 +72,7 @@ export interface HubFlowTxn {
  * - In "this" scope: each bank/card account is its own hub in the middle.
  */
 export function hubFlowData(
-  rows: readonly HubFlowTxn[],
+  rawRows: readonly HubFlowTxn[],
   opts: {
     scope: "this" | "all";
     mode: FlowMode;
@@ -82,6 +82,16 @@ export function hubFlowData(
   },
 ) {
   const { scope, mode, label, other, expandedEntities } = opts;
+  // A card is paid off from the bank, so its spending flows through the business's main bank account, not a second "source".
+  const bankUse = new Map<string, Map<string, number>>();
+  for (const r of rawRows) {
+    if (isCard(r.account)) continue;
+    let m = bankUse.get(r.entity);
+    if (!m) bankUse.set(r.entity, (m = new Map()));
+    m.set(r.account, (m.get(r.account) ?? 0) + 1);
+  }
+  const bankOf = (entity: string) => [...(bankUse.get(entity) ?? [])].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const rows = rawRows.map((r) => (isCard(r.account) && bankOf(r.entity) ? { ...r, account: bankOf(r.entity)! } : r));
 
   // Count distinct accounts per entity so we know which entity hubs can expand into child subtrees.
   const entityAccounts = new Map<string, Set<string>>();
@@ -101,37 +111,54 @@ export function hubFlowData(
     return `ent:${r.entity}`;
   };
 
-  // Net expense refunds within each (hub, category) when in account mode so refunds shrink expenses instead of inflating income.
+  // Every row signed against its side (refunds shrink their expense, chargebacks their income), then netted per key across hubs.
   interface NormFlow {
     side: "in" | "out";
     rawKey: string;
     hubKey: string;
     amount: number;
   }
-  const normalized: NormFlow[] = [];
+  const raw: NormFlow[] = [];
+  // by row type (core inSide): an expense refund is a negative "out" and nets against that expense below
   if (mode === "account") {
-    const expNet = new Map<string, { hubKey: string; cat: string; net: number }>();
     for (const r of rows) {
-      const hubKey = hubKeyOf(r);
-      if (EXPENSE_GROUPS.has(group(r.category))) {
-        const k = `${hubKey}|${r.category}`;
-        const cur = expNet.get(k);
-        if (cur) cur.net += r.amount;
-        else expNet.set(k, { hubKey, cat: r.category, net: r.amount });
-      } else if (Math.abs(r.amount) > 0.005) {
-        normalized.push({ side: r.amount > 0 ? "in" : "out", rawKey: r.category, hubKey, amount: Math.abs(r.amount) });
-      }
-    }
-    for (const { hubKey, cat, net } of expNet.values()) {
-      if (net < -0.005) normalized.push({ side: "out", rawKey: cat, hubKey, amount: Math.abs(net) });
-      else if (net > 0.005) normalized.push({ side: "in", rawKey: cat, hubKey, amount: net });
+      if (Math.abs(r.amount) <= 0.005) continue;
+      const isIn = inSide(r);
+      raw.push({ side: isIn ? "in" : "out", rawKey: r.category, hubKey: hubKeyOf(r), amount: isIn ? r.amount : -r.amount });
     }
   } else {
     for (const r of rows) {
       if (Math.abs(r.amount) <= 0.005) continue;
-      const k = payerOf({ desc: r.desc, who: r.who } as Txn) || "?";
-      normalized.push({ side: r.amount > 0 ? "in" : "out", rawKey: k, hubKey: hubKeyOf(r), amount: Math.abs(r.amount) });
+      const k = payerOf({ desc: r.desc, who: r.who } as Txn) || "?",
+        isIn = inSide(r);
+      raw.push({ side: isIn ? "in" : "out", rawKey: k, hubKey: hubKeyOf(r), amount: isIn ? r.amount : -r.amount });
     }
+  }
+
+  // a refund or chargeback is signed against its side; net per (side, key, hub)
+  const net = new Map<string, NormFlow>();
+  for (const n of raw) {
+    const k = `${n.side}|${n.rawKey}|${n.hubKey}`,
+      cur = net.get(k);
+    if (cur) cur.amount += n.amount;
+    else net.set(k, { ...n });
+  }
+  // Chosen representation: a source/target keeps the same value whether hubs are collapsed or expanded, so each key is netted
+  // across hubs first. Its edges are the hub contributions on the winning sign, scaled to that net; the losing sign (a refund
+  // or chargeback that landed in another bank) is absorbed proportionally rather than drawn, since edges cannot be negative.
+  const byKey = new Map<string, NormFlow[]>();
+  for (const n of net.values()) {
+    const k = `${n.side}|${n.rawKey}`;
+    byKey.set(k, [...(byKey.get(k) ?? []), n]);
+  }
+  const normalized: NormFlow[] = [];
+  for (const group of byKey.values()) {
+    const total = group.reduce((a, n) => a + n.amount, 0);
+    if (Math.abs(total) <= 0.005) continue;
+    const win = group.filter((n) => Math.sign(n.amount) === Math.sign(total)),
+      scale = total / win.reduce((a, n) => a + n.amount, 0);
+    for (const n of win)
+      normalized.push(total > 0 ? { ...n, amount: n.amount * scale } : { ...n, side: n.side === "in" ? "out" : "in", amount: -n.amount * scale });
   }
 
   // Build top-N sources and targets
