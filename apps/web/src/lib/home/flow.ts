@@ -111,7 +111,7 @@ export function hubFlowData(
     return `ent:${r.entity}`;
   };
 
-  // Net expense refunds within each (hub, category) when in account mode so refunds shrink expenses instead of inflating income.
+  // Every row signed against its side (refunds shrink their expense, chargebacks their income), then netted per key across hubs.
   interface NormFlow {
     side: "in" | "out";
     rawKey: string;
@@ -119,23 +119,12 @@ export function hubFlowData(
     amount: number;
   }
   const raw: NormFlow[] = [];
+  // by row type (core inSide): an expense refund is a negative "out" and nets against that expense below
   if (mode === "account") {
-    const expNet = new Map<string, { hubKey: string; cat: string; net: number }>();
     for (const r of rows) {
-      const hubKey = hubKeyOf(r);
-      if (EXPENSE_GROUPS.has(group(r.category))) {
-        const k = `${hubKey}|${r.category}`;
-        const cur = expNet.get(k);
-        if (cur) cur.net += r.amount;
-        else expNet.set(k, { hubKey, cat: r.category, net: r.amount });
-      } else if (Math.abs(r.amount) > 0.005) {
-        const isIn = inSide(r);
-        raw.push({ side: isIn ? "in" : "out", rawKey: r.category, hubKey, amount: isIn ? r.amount : -r.amount });
-      }
-    }
-    for (const { hubKey, cat, net } of expNet.values()) {
-      if (net < -0.005) raw.push({ side: "out", rawKey: cat, hubKey, amount: Math.abs(net) });
-      else if (net > 0.005) raw.push({ side: "in", rawKey: cat, hubKey, amount: net });
+      if (Math.abs(r.amount) <= 0.005) continue;
+      const isIn = inSide(r);
+      raw.push({ side: isIn ? "in" : "out", rawKey: r.category, hubKey: hubKeyOf(r), amount: isIn ? r.amount : -r.amount });
     }
   } else {
     for (const r of rows) {
@@ -154,10 +143,23 @@ export function hubFlowData(
     if (cur) cur.amount += n.amount;
     else net.set(k, { ...n });
   }
-  // a hub that only saw the chargeback (revenue landed in another bank) nets negative: show it on the other side rather than drop it
-  const normalized = [...net.values()]
-    .filter((n) => Math.abs(n.amount) > 0.005)
-    .map((n) => (n.amount > 0 ? n : { ...n, side: n.side === "in" ? ("out" as const) : ("in" as const), amount: -n.amount }));
+  // Chosen representation: a source/target keeps the same value whether hubs are collapsed or expanded, so each key is netted
+  // across hubs first. Its edges are the hub contributions on the winning sign, scaled to that net; the losing sign (a refund
+  // or chargeback that landed in another bank) is absorbed proportionally rather than drawn, since edges cannot be negative.
+  const byKey = new Map<string, NormFlow[]>();
+  for (const n of net.values()) {
+    const k = `${n.side}|${n.rawKey}`;
+    byKey.set(k, [...(byKey.get(k) ?? []), n]);
+  }
+  const normalized: NormFlow[] = [];
+  for (const group of byKey.values()) {
+    const total = group.reduce((a, n) => a + n.amount, 0);
+    if (Math.abs(total) <= 0.005) continue;
+    const win = group.filter((n) => Math.sign(n.amount) === Math.sign(total)),
+      scale = total / win.reduce((a, n) => a + n.amount, 0);
+    for (const n of win)
+      normalized.push(total > 0 ? { ...n, amount: n.amount * scale } : { ...n, side: n.side === "in" ? "out" : "in", amount: -n.amount * scale });
+  }
 
   // Build top-N sources and targets
   const inn = new Map<string, number>(),

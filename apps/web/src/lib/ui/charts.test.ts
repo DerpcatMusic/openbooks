@@ -148,6 +148,19 @@ test("sankeyHubs & hubFlowData: combined multi-bank subtrees conserve flow and e
     { scope: "all", mode: "account", label: (k) => k, other: "Other", expandedEntities: new Set(["llc"]) },
   );
   expect(cb.totalIn - cb.totalOut).toBe(2000 - 250 - 400);
+  // ...and nets against the income itself, so expanding a business never changes its totals
+  const cbFlat = hubFlowData(
+    [...rows, { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Wise USD", category: "revenue:sales", desc: "Chargeback", amount: -400 }],
+    {
+      scope: "all",
+      mode: "account",
+      label: (k) => k,
+      other: "Other",
+      expandedEntities: new Set(),
+    },
+  );
+  expect([cb.totalIn, cb.totalOut]).toEqual([cbFlat.totalIn, cbFlat.totalOut]);
+  expect(cb.totalIn).toBeCloseTo(1600);
 
   const lay = sankeyHubs(expanded.sources, expanded.hubs, expanded.targets, expanded.edges, {
     width: 720,
