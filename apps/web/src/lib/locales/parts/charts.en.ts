@@ -67,6 +67,7 @@ export default {
   "charts.inout.empty": "Nothing came in or went out in these six months.",
 
   "charts.nw.title": "Net worth",
+  "charts.nw.sub": "Everything you have (bank and card balances, pensions, savings, investments, crypto) minus what you owe, across all your businesses.",
   "charts.nw.currency": "Currency",
   "charts.nw.range": "Range",
   "charts.nw.range.3m": "3M",

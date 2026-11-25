@@ -1,7 +1,7 @@
 // Sankey data for a period: money in by source → bank/business hubs (with expandable child accounts) → money out by destination.
 // Which rows count as money in / out is core's cashIn / cashOut (transfers, owner and own money left out), asked one row at a time
 // so this never drifts from the totals shown elsewhere.
-import { cashIn, cashOut, group, payerOf } from "@openbooks/core";
+import { group, isFlow, payerOf } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { topN, type FlowHubEdge, type FlowItem } from "../ui/sankey.ts";
 
@@ -10,7 +10,7 @@ const IN = ["var(--color-s3)", "var(--color-s1)", "var(--color-s5)", "var(--colo
 const OUT = ["var(--color-s2)", "var(--color-s4)", "var(--color-s5)", "var(--color-s1)", "var(--color-s3)", "var(--color-s6)", "var(--color-s6)"];
 const HUB_COLORS = ["var(--color-s1)", "var(--color-s3)", "var(--color-s4)", "var(--color-s5)", "var(--color-s2)", "var(--color-s6)"];
 
-export const counts = (t: Txn) => (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
+export const counts = (t: Txn) => t.amount !== 0 && isFlow(t.category);
 
 const EXPENSE_GROUPS = new Set(["expense", "cogs"]);
 

@@ -52,52 +52,108 @@ export function nextDate(iso: string, c: Cadence): string {
 export const recurringKey = (payer: string, amount: number) => `${payer}|${amount < 0 ? "out" : "in"}`;
 
 /**
- * Regular payers: at least 3 occurrences in a row whose gaps all fit one cadence and whose amounts stay within 35% of their median.
- * `now` (YYYY-MM-DD, default the latest date in txns) drops series that missed their next date by more than two gaps' tolerance.
- * ponytail: one run per payer and direction (the latest); a payer with two parallel subscriptions shows as irregular.
+ * Regular payers, per payer and direction:
+ * - fixed price (a subscription): charges at one price (within 1%) whose gaps fit one cadence, 2 in a row are enough (3 weekly). A payer can have
+ *   several (two Cloudflare plans), and a plan that changed price continues the old one (Tello 9.11 → 5.95 is one series, flagged).
+ * - otherwise a varying amount (a utility bill, royalties): at least 3 in a row on one cadence, amounts within 35% of their median.
+ * A series is lapsed when its account shows later activity well past the expected next charge (`now`, default the latest date in txns,
+ * caps it): books that stopped syncing say nothing about whether a subscription stopped.
  */
 export function recurring(txns: readonly Row[], now?: string): Recurring[] {
-  const groups = new Map<string, Row[]>();
+  const groups = new Map<string, Row[]>(),
+    seen = new Map<string, string>();
   for (const t of txns) {
-    if (!t.amount || t.source === "journal" || ["transfer", "own", "equity"].includes(group(t.category))) continue;
+    if (t.source === "journal") continue;
+    if ((seen.get(t.account ?? "") ?? "") < t.date) seen.set(t.account ?? "", t.date);
+    if (!t.amount || ["transfer", "own", "equity"].includes(group(t.category))) continue;
     const k = recurringKey(payerOf(t), t.amount);
     groups.set(k, [...(groups.get(k) ?? []), t]);
   }
-  const today = now ?? txns.reduce((m, t) => (t.date > m ? t.date : m), "");
+  const latest = now ?? txns.reduce((m, t) => (t.date > m ? t.date : m), "");
   const out: Recurring[] = [];
   for (const [key, ts] of groups) {
-    if (ts.length < 3) continue;
-    // same-day rows from one payer are one occurrence
-    const byDay = new Map<string, number>();
-    for (const t of ts) byDay.set(t.date, (byDay.get(t.date) ?? 0) + t.amount);
-    const occ = [...byDay].sort((a, b) => (a[0] < b[0] ? -1 : 1));
-    if (occ.length < 3) continue;
-    const gaps = occ.slice(1).map(([d], i) => day(d) - day(occ[i]![0]));
-    const recent = median(gaps.slice(-4));
-    const cad = CADENCES.find(([, g, tol]) => Math.abs(recent - g) <= tol);
-    if (!cad) continue;
-    const [cadence, g, tol] = cad;
-    // the latest unbroken run at this cadence
-    let start = occ.length - 1;
-    while (start > 0 && Math.abs(gaps[start - 1]! - g) <= tol) start--;
-    const run = occ.slice(start);
-    if (run.length < 3) continue;
-    const amounts = run.map(([, a]) => a),
-      mid = median(amounts);
-    if (!amounts.every((a) => close(a, mid, 0.35))) continue;
-    const last = run.at(-1)![0];
-    const next = nextDate(last, cadence);
-    if (today && day(today) > day(next) + 2 * tol + 1) continue; // lapsed
+    if (ts.length < 2) continue;
     const payer = key.slice(0, key.lastIndexOf("|"));
     const cats = new Map<string, number>();
     for (const t of ts) cats.set(t.category, (cats.get(t.category) ?? 0) + 1);
-    const r: Recurring = { key, payer, account: [...cats].sort((a, b) => b[1] - a[1])[0]![0], cadence, amount: amounts.at(-1)!, last, next, count: run.length };
-    // a step change: the last change of more than 1%, after at least two payments at the old price, and steady since
-    let j = amounts.length - 1;
-    while (j > 0 && close(amounts[j]!, amounts[j - 1]!, 0.01)) j--;
-    if (j >= 2 && close(amounts[j - 2]!, amounts[j - 1]!, 0.01) && amounts.slice(j).every((a) => close(a, amounts.at(-1)!, 0.01)))
-      r.priceChange = { from: amounts[j - 1]!, to: amounts.at(-1)!, date: run[j]![0] };
-    out.push(r);
+    const account = [...cats].sort((a, b) => b[1] - a[1])[0]![0];
+    const seenTill = (rows: readonly Row[]) => {
+      const a = rows.map((t) => seen.get(t.account ?? "") ?? "").reduce((m, d) => (d > m ? d : m), "");
+      return latest && latest < a ? latest : a;
+    };
+    const found: Recurring[] = [];
+    const take = (occ: [string, number][], cadence: Cadence, tol: number, rows: readonly Row[], fixed: boolean) => {
+      const last = occ.at(-1)![0],
+        next = nextDate(last, cadence),
+        till = seenTill(rows);
+      if (till && day(till) > day(next) + 2 * tol + 1) return; // lapsed
+      const amounts = occ.map(([, a]) => a);
+      const r: Recurring = { key, payer, account, cadence, amount: amounts.at(-1)!, last, next, count: occ.length };
+      if (!fixed) {
+        // a step change: the last change of more than 1%, after at least two payments at the old price, and steady since
+        let j = amounts.length - 1;
+        while (j > 0 && close(amounts[j]!, amounts[j - 1]!, 0.01)) j--;
+        if (j >= 2 && close(amounts[j - 2]!, amounts[j - 1]!, 0.01) && amounts.slice(j).every((a) => close(a, amounts.at(-1)!, 0.01)))
+          r.priceChange = { from: amounts[j - 1]!, to: amounts.at(-1)!, date: occ[j]![0] };
+      }
+      found.push(r);
+      return r;
+    };
+    // the latest unbroken run of occ at one cadence (judged on the recent gaps), or null
+    const runOf = (occ: [string, number][]) => {
+      if (occ.length < 2) return null;
+      const gaps = occ.slice(1).map(([d], i) => day(d) - day(occ[i]![0]));
+      const cad = CADENCES.find(([, g, tol]) => Math.abs(median(gaps.slice(-4)) - g) <= tol);
+      if (!cad) return null;
+      let start = occ.length - 1;
+      while (start > 0 && Math.abs(gaps[start - 1]! - cad[1]) <= cad[2]) start--;
+      return { run: occ.slice(start), cad, start };
+    };
+    const byDate = ts.toSorted((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    // 1. fixed-price plans: one series per price
+    const prices: number[] = [];
+    for (const t of byDate) if (!prices.some((p) => close(t.amount, p, 0.01))) prices.push(t.amount);
+    for (const p of prices) {
+      const rows = byDate.filter((t) => close(t.amount, p, 0.01));
+      const occ = [...new Map(rows.map((t) => [t.date, t.amount]))];
+      const hit = runOf(occ);
+      if (!hit) continue;
+      const [cadence, g, tol] = hit.cad;
+      if (hit.run.length < (g < 28 ? 3 : 2)) continue; // two weekly charges are a coincidence more often than a plan
+      // a plan is most of what the payer charges while it runs: two equal amounts among many varying ones (cashback, ad spend) are chance
+      const [from, to] = [hit.run[0]![0], hit.run.at(-1)![0]];
+      if (byDate.filter((t) => t.date >= from && t.date <= to && !close(t.amount, p, 0.01)).length > hit.run.length) continue;
+      // the plan before a price change: the payer's charge one cadence before this run, at another price, continues the series
+      const first = hit.run[0]![0],
+        prev = byDate.filter((t) => t.date < first && !close(t.amount, p, 0.01)).at(-1);
+      const r = take(hit.run, cadence, tol, rows, true);
+      if (!r) continue;
+      if (prev && Math.abs(day(first) - day(prev.date) - g) <= tol && close(prev.amount, p, 0.6)) {
+        r.priceChange = { from: prev.amount, to: r.amount, date: first };
+        r.count++;
+        // the old price's own run ends where this one starts: it is this series, not a second plan
+        const old = found.findIndex((x) => x !== r && x.last === prev.date);
+        if (old >= 0) found.splice(old, 1);
+      }
+    }
+    if (found.length) {
+      // a payer with two plans (two Cloudflare products): each gets its own dismiss key
+      if (found.length > 1) for (const r of found) r.key = `${key}|${Math.abs(r.amount)}`;
+      out.push(...found);
+      continue;
+    }
+
+    // 2. a varying amount: same-day rows from one payer are one occurrence
+    const byDay = new Map<string, number>();
+    for (const t of byDate) byDay.set(t.date, (byDay.get(t.date) ?? 0) + t.amount);
+    const hit = runOf([...byDay]);
+    if (!hit || hit.run.length < 3) continue;
+    const amounts = hit.run.map(([, a]) => a),
+      mid = median(amounts);
+    if (!amounts.every((a) => close(a, mid, 0.35))) continue;
+    take(hit.run, hit.cad[0], hit.cad[2], byDate, false);
+    out.push(...found);
   }
   return out.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 }

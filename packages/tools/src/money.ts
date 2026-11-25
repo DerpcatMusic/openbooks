@@ -4,8 +4,8 @@
 import {
   accountCurrencies,
   assetDailyValues,
-  cashIn,
-  cashOut,
+  inSide,
+  isFlow,
   checkAnchors,
   convert,
   currencyOf,
@@ -352,7 +352,7 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
         if (t.date < from || t.date > to) continue;
         if (t.category === "ask") uncat++;
         allTransferRows.push(row);
-        const ok = (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
+        const ok = t.amount !== 0 && isFlow(t.category);
         if (!ok) continue;
         accts.add(t.account);
         raw.push({
@@ -397,10 +397,12 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
     // Every movement in the span: confirmed pairs (both sides in range) plus detected, unconfirmed ones (left out of the totals).
     const { matches, dedupRefs } = detectMergedTransfers(allTransferRows, decidedDocs, { convert: conv });
     const confirmed = new Map(confirmedPairs.map((p) => [p.key, p]));
+    // paying off a card from the same business's bank (Mercury Checking → Mercury Credit autopay) is the card bill, not money
+    // moving between accounts: the card's own charges are the spending, so it is neither a move to confirm nor "moved"
     const legs = [
       ...[...confirmed.values()].map((p) => ({ out: p.out, in: p.in, gap: 0, diff: 0, fee: impliedFee(p.out, p.in, conv), evidence: 0, confirmed: true })),
       ...matches.map((m) => ({ ...m, confirmed: false })),
-    ];
+    ].filter((m) => !(m.out.entity === m.in.entity && (isCard(m.out.account) || isCard(m.in.account))));
     const round2 = (n: number) => Math.round(n * 100) / 100;
     const missing = new Map<string, { currency: string; date: string }>();
     const noteMissing = (cur: string, date: string) => {
@@ -467,12 +469,14 @@ export const combinedFlow = (currency: string, from: string, to: string) =>
       txns.push({ ...r, amount: amt });
       const ym = r.date.slice(0, 7);
       const mb = byMonth.get(ym) ?? { in: 0, out: 0 };
-      if (amt > 0) mb.in += amt;
-      else mb.out += Math.abs(amt);
+      // by what the row is, not its sign: a refund on spending shrinks the money out (core inSide)
+      const isIn = inSide({ amount: amt, category: r.category });
+      if (isIn) mb.in += amt;
+      else mb.out -= amt;
       byMonth.set(ym, mb);
       const eb = byEnt.get(r.entity) ?? { in: 0, out: 0 };
-      if (amt > 0) eb.in += amt;
-      else eb.out += Math.abs(amt);
+      if (isIn) eb.in += amt;
+      else eb.out -= amt;
       byEnt.set(r.entity, eb);
     }
 

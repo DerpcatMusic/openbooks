@@ -199,6 +199,7 @@ const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean 
     let to = v < 0 ? money(d?.targetAmount) : undefined;
     let reference = str(d?.paymentReference).trim();
     let party = str(d?.senderName).trim();
+    let eta = "";
     const m = /^TRANSFER-(\d+)$/.exec(ref);
     // one failed lookup (Wise down, timing out) stops the rest for this sync: the amount match still works without them
     if (v < 0 && m && budget.lookups) {
@@ -209,6 +210,12 @@ const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean 
         tc = str(x?.targetCurrency).toUpperCase();
       if (tv !== null && /^[A-Z]{3}$/.test(tc)) to = { amount: Math.abs(tv), currency: tc };
       reference ||= str(((x?.details ?? null) as Json | null)?.reference).trim();
+      // when Wise expects it to land: the other bank's deposit is looked for around this day, not the day it left
+      if (r?.ok) {
+        const e = yield* wiseGet(token, `/v1/delivery-estimates/${m[1]}`).pipe(Effect.orElseSucceed(() => null));
+        const when = e?.ok ? str((e.json as Json | undefined)?.estimatedDeliveryDate) : "";
+        if (/^\d{4}-\d{2}-\d{2}/.test(when)) eta = when.slice(0, 10);
+      }
     }
     if (!party && v < 0)
       party = str(d?.description)
@@ -220,6 +227,7 @@ const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean 
       ...(reference ? { ref: clean(reference, 140) } : {}),
       ...(party ? { party: clean(party, 140) } : {}),
       ...(fee !== null && fee > 0 ? { fee: Math.abs(fee) } : {}),
+      ...(eta ? { eta } : {}),
     };
     return Object.keys(link).length ? link : undefined;
   });

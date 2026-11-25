@@ -60,6 +60,7 @@ function mercuryLink(t: Json): StatementRow["link"] {
     ...(fx && typeof fx.feeAmount === "number" && fx.feeAmount > 0 ? { fee: fx.feeAmount } : {}),
     ...(s(t.dashboardLink) ? { url: s(t.dashboardLink) } : {}),
     ...(receipts ? { receipts } : {}),
+    ...(/^\d{4}-\d{2}-\d{2}/.test(s(t.estimatedDeliveryDate)) ? { eta: s(t.estimatedDeliveryDate).slice(0, 10) } : {}),
   };
   return Object.keys(link).length ? link : undefined;
 }

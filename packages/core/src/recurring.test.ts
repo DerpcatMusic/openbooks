@@ -38,12 +38,13 @@ test("noisy amounts (a utility bill) are recurring but not a price change", () =
   expect(r!.priceChange).toBeUndefined();
 });
 
-test("fewer than 3, irregular, wildly different amounts, transfers and lapsed series are left out", () => {
-  expect(recurring(monthly("A", [-10, -10]))).toEqual([]);
+test("one charge, irregular, wildly different amounts, transfers and lapsed series are left out", () => {
+  expect(recurring(monthly("A", [-10]))).toEqual([]);
   expect(recurring([row("2026-01-01", -10, "B"), row("2026-01-09", -10, "B"), row("2026-03-20", -10, "B"), row("2026-03-25", -10, "B")])).toEqual([]);
-  expect(recurring(monthly("C", [-10, -80, -10, -10]))).toEqual([]);
+  expect(recurring(monthly("C", [-10, -80, -14, -12]))).toEqual([]);
   expect(recurring(monthly("D", [-500, -500, -500], 1, 1, "transfer:savings"))).toEqual([]);
-  expect(recurring(monthly("E", [-9, -9, -9]), "2026-09-01")).toEqual([]);
+  // lapsed: the account went on past the expected charge without it
+  expect(recurring([...monthly("E", [-9, -9, -9]), row("2026-08-20", -3, "Coffee")], "2026-09-01")).toEqual([]);
 });
 
 test("income and spending from one payer are separate; the latest regular run counts", () => {
@@ -57,4 +58,47 @@ test("next date clamps month ends", () => {
   expect(nextDate("2026-01-31", "monthly")).toBe("2026-02-28");
   expect(nextDate("2026-11-30", "quarterly")).toBe("2027-02-28");
   expect(nextDate("2026-12-28", "weekly")).toBe("2027-01-04");
+});
+
+test("two charges at one price a month apart are a subscription; a payer's two plans are two series", () => {
+  const rs = recurring([
+    ...monthly("Anthropic", [-200, -200], 9, 3),
+    ...monthly("Cloudflare", [-5, -5], 8, 30),
+    ...monthly("Cloudflare", [-10.46, -10.46], 8, 20),
+  ]);
+  expect(rs.map((r) => [r.payer, r.amount, r.cadence])).toEqual([
+    ["Anthropic", -200, "monthly"],
+    ["Cloudflare", -10.46, "monthly"],
+    ["Cloudflare", -5, "monthly"],
+  ]);
+  expect(new Set(rs.map((r) => r.key)).size).toBe(3);
+});
+
+test("a plan that changed price is one series with the change flagged", () => {
+  const [r, ...rest] = recurring([
+    row("2026-06-23", -9.11, "Tello"),
+    row("2026-07-23", -5.95, "Tello"),
+    row("2026-08-22", -5.95, "Tello"),
+    row("2026-09-21", -5.95, "Tello"),
+  ]);
+  expect(rest).toEqual([]);
+  expect(r).toMatchObject({ amount: -5.95, count: 4, priceChange: { from: -9.11, to: -5.95, date: "2026-07-23" } });
+});
+
+test("books that stopped syncing don't make a subscription look cancelled", () => {
+  // the data ends 2026-10-05; today is 2026-11-25
+  expect(recurring(monthly("OpenAI", [-200, -200, -200], 7, 12), "2026-11-25")).toHaveLength(1);
+});
+
+test("ad spend and one-off shopping are not subscriptions", () => {
+  const fb = ["07-02", "07-03", "07-05", "07-06", "07-07", "07-09", "07-11", "07-13", "08-01"].map((d, i) =>
+    row(`2026-${d}`, -[2, 4, 47, 12, 12, 25, 25, 25, 21.73][i]!, "Facebook"),
+  );
+  const ali = [
+    row("2026-05-14", -13.16, "AliExpress"),
+    row("2026-06-04", -13.3, "AliExpress"),
+    row("2026-06-29", -26.12, "AliExpress"),
+    row("2026-08-07", -54.76, "AliExpress"),
+  ];
+  expect(recurring([...fb, ...ali])).toEqual([]);
 });

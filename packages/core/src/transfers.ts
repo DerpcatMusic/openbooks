@@ -51,7 +51,7 @@ export interface TransferOptions {
 export interface TransferMatch {
   out: TransferRow;
   in: TransferRow;
-  /** Days between the sides. */
+  /** Days between the sides (from the day the bank said it would land, when it said). */
   gap: number;
   /** How far the amounts differ, as a fraction of the money in. */
   diff: number;
@@ -135,16 +135,20 @@ function pairs(outs: readonly TransferRow[], ins: readonly TransferRow[], decide
     }
     return lo;
   };
-  for (const o of outs)
+  for (const o of outs) {
+    // the bank's own estimate of when it lands (a Wise payout, a Mercury wire): measure the gap from that day, not the day it left
+    const at = o.link?.eta && o.link.eta >= o.date ? o.link.eta : o.date,
+      last = shift(at, window);
     for (let k = first(shift(o.date, -window)); k < byDate.length; k++) {
       const i = byDate[k]!,
-        gap = Math.abs(daysBetween(o.date, i.date));
-      if (i.date > o.date && gap > window) break;
+        gap = Math.abs(daysBetween(at, i.date));
+      if (i.date > last) break;
       if (o.entity === i.entity && o.account === i.account) continue;
       if (gap > window || rejected.has(key({ out: refOf(o), in: refOf(i) }))) continue;
       const m = fit(o, i, opt);
       if (m !== null) out.push({ out: o, in: i, gap, diff: m.diff, fee: m.fee, evidence: evidence(o, i) });
     }
+  }
   const filed = (m: TransferMatch) =>
     +!(NOT_FLOW.has(group(m.out.category)) || m.out.category === "ask") + +!(NOT_FLOW.has(group(m.in.category)) || m.in.category === "ask");
   const tier = (m: TransferMatch) => (opt.preferSame && m.out.currency !== m.in.currency ? 1 : 0);

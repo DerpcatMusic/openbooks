@@ -91,8 +91,17 @@ export function pl(ts: readonly Row[]): PL {
 export const NOT_FLOW: ReadonlySet<string> = new Set(["transfer", "own", "equity", "personal", "loan"]);
 /** The row is money really coming in or going out (not a movement between pockets). */
 export const isFlow = (c: string) => !NOT_FLOW.has(group(c));
-export const cashIn = (ts: readonly Row[]) => ts.filter((t) => t.amount > 0 && isFlow(t.category)).reduce((a, t) => a + baseOf(t), 0);
-export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => t.amount < 0 && isFlow(t.category)).reduce((a, t) => a + baseOf(t), 0);
+/**
+ * Which side of money in / out a row counts on: by what it is, not its sign. A refund filed under spending (the Cursor charge
+ * coming back on the card) shrinks the money out instead of showing up as income; a chargeback on income shrinks the money in.
+ * Rows still to file go by their sign.
+ */
+export const inSide = (t: Pick<Row, "amount" | "category">) => {
+  const p = plOf(t.category);
+  return p === "expense" || p === "cogs" ? false : p === "revenue" || p === "other" ? true : t.amount > 0;
+};
+export const cashIn = (ts: readonly Row[]) => ts.filter((t) => isFlow(t.category) && inSide(t)).reduce((a, t) => a + baseOf(t), 0);
+export const cashOut = (ts: readonly Row[]) => -ts.filter((t) => isFlow(t.category) && !inSide(t)).reduce((a, t) => a + baseOf(t), 0);
 
 /** Bank/card accounts seen in the books (journal excluded). */
 export const accounts = (txns: readonly Txn[]) => [...new Set(txns.filter((t) => t.source !== "journal").map((t) => t.account))];

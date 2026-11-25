@@ -4,7 +4,7 @@
   // Home (port of web/src/views/Home.svelte): greeting, review nudge, three headline cards (cash or money in · revenue ·
   // expenses or the Israeli tax estimate), the big monthly chart (earnings / spending / P&L, or business vs all money in) and
   // recent activity. Every number compares with the prior period of the same length; hovering a type anywhere spotlights it.
-  import { baseOf, burn as burnRate, cashDelta, cashFlow, cashIn, cashOut, group, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
+  import { baseOf, burn as burnRate, cashDelta, cashFlow, cashIn, cashOut, group, inSide, isCard, isFlow, margins, pctLabel, pl, priorPeriod, TYPES } from "@openbooks/core";
   import type { Txn } from "@openbooks/schema";
   import { api, type CombinedFlow, type CombinedFlowTxn, type TransferJourney } from "#lib/api.ts";
   import { S, ent, isUS, period, periodTxns, periodLabel, monthsIn, balances, catLabel, typeLabel, fmt, mdy, mon, monthYear, SERIES, doc, saveDoc, setEntity, decideTransfer } from "#lib/stores/books.svelte.ts";
@@ -231,7 +231,7 @@
     return `${e?.flag ?? ""} ${e?.name ?? id}`.trim();
   };
   const entFlag = (id: string) => mergedEnts.find((x) => x.id === id)?.flag || entTag(id);
-  const sliceOf = (x: CombinedFlowTxn) => (x.category === "expense:bank-fees" ? "fees" : x.amount > 0 ? `in:${x.entity}` : "out");
+  const sliceOf = (x: CombinedFlowTxn) => (x.category === "expense:bank-fees" ? "fees" : inSide(x) ? `in:${x.entity}` : "out");
   const IN_COLORS = ["var(--color-s3)", "var(--color-s1)", "var(--color-s5)", "var(--color-s6)"];
   const slices = $derived([
     ...mergedEnts.map((e, i) => ({ key: `in:${e.id}`, label: t("charts.merged.hl.in", { name: entTag(e.id) }), color: IN_COLORS[i % IN_COLORS.length]! })),

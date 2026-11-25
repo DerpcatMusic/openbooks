@@ -1,7 +1,7 @@
 // Home-dashboard numbers (docs/mercury-books-spec.md section 11): net cash flow, monthly burn, runway, coverage, margins. Pure.
 // "Cash" is every bank account that is not a credit card (the same as the Cash card); a card purchase is not cash out until the card is paid.
 import type { Txn } from "@openbooks/schema";
-import { baseOf, inPeriod, isCard, isFlow, pl, plOf, priorPeriod, type Period } from "./reports.ts";
+import { baseOf, inPeriod, inSide, isCard, isFlow, pl, plOf, priorPeriod, type Period } from "./reports.ts";
 
 type Row = Pick<Txn, "date" | "amount" | "category" | "account"> & { baseAmount?: number | undefined };
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -17,7 +17,7 @@ export function cashFlow(ts: readonly Row[]) {
     out = 0;
   for (const t of ts)
     if (!isFlow(t.category)) continue;
-    else if (t.amount > 0) inn += baseOf(t);
+    else if (inSide(t)) inn += baseOf(t);
     else out -= baseOf(t);
   return { in: r2(inn), out: r2(out), net: r2(inn - out) };
 }

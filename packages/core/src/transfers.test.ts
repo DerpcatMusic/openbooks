@@ -243,3 +243,11 @@ test("totals add a foreign-currency row at its converted amount, never its raw n
   expect(pl(rows).revenue).toBe(2850);
   expect(cashIn(rows)).toBe(2850);
 });
+
+test("the bank's delivery estimate: a Wise payout pairs with the deposit on the day Wise said, even past the usual window", () => {
+  const out = { ...row("w", "payout", "2025-03-03", -3610, "Wise ILS"), link: { to: { amount: 3610, currency: "ILS" }, eta: "2025-03-09" } };
+  const rs: TransferRow[] = [out, row("il", "early", "2025-03-04", 3610, "Hapoalim"), row("il", "landed", "2025-03-09", 3610, "One Zero")];
+  expect(suggestTransfers(rs, [])[0]).toMatchObject({ in: { id: "landed" }, gap: 0, evidence: 2 });
+  // without the estimate, the same pair is too far apart for the default window
+  expect(suggestTransfers([{ ...out, link: { to: out.link.to } }, rs[2]!], [])).toEqual([]);
+});
