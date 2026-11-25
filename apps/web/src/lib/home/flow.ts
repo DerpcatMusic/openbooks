@@ -146,7 +146,7 @@ export function hubFlowData(
     }
   }
 
-  // a refund or chargeback is signed against its side; net per (side, key, hub) and drop what nets to nothing
+  // a refund or chargeback is signed against its side; net per (side, key, hub)
   const net = new Map<string, NormFlow>();
   for (const n of raw) {
     const k = `${n.side}|${n.rawKey}|${n.hubKey}`,
@@ -154,7 +154,10 @@ export function hubFlowData(
     if (cur) cur.amount += n.amount;
     else net.set(k, { ...n });
   }
-  const normalized = [...net.values()].filter((n) => n.amount > 0.005);
+  // a hub that only saw the chargeback (revenue landed in another bank) nets negative: show it on the other side rather than drop it
+  const normalized = [...net.values()]
+    .filter((n) => Math.abs(n.amount) > 0.005)
+    .map((n) => (n.amount > 0 ? n : { ...n, side: n.side === "in" ? ("out" as const) : ("in" as const), amount: -n.amount }));
 
   // Build top-N sources and targets
   const inn = new Map<string, number>(),

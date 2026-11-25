@@ -142,6 +142,13 @@ test("sankeyHubs & hubFlowData: combined multi-bank subtrees conserve flow and e
   ]);
   expect(expanded.edges.find((e) => e.to === "out:expense:software")).toMatchObject({ from: "acct:llc:Mercury Checking", value: 250 });
 
+  // a chargeback landing in another bank than its revenue still counts, as money out of that bank
+  const cb = hubFlowData(
+    [...rows, { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Wise USD", category: "revenue:sales", desc: "Chargeback", amount: -400 }],
+    { scope: "all", mode: "account", label: (k) => k, other: "Other", expandedEntities: new Set(["llc"]) },
+  );
+  expect(cb.totalIn - cb.totalOut).toBe(2000 - 250 - 400);
+
   const lay = sankeyHubs(expanded.sources, expanded.hubs, expanded.targets, expanded.edges, {
     width: 720,
     height: 360,
