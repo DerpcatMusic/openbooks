@@ -119,6 +119,8 @@ test("sankeyHubs & hubFlowData: combined multi-bank subtrees conserve flow and e
     { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Checking", category: "revenue:sales", desc: "Polar", amount: 1000 },
     { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Credit", category: "expense:software", desc: "AWS", amount: -300 },
     { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Credit", category: "expense:software", desc: "AWS Refund", amount: 50 },
+    { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Mercury Checking", category: "revenue:sales", desc: "Gumroad", amount: 200 },
+    { entity: "llc", entityName: "LLC", flag: "🇺🇸", account: "Wise USD", category: "revenue:sales", desc: "Client", amount: 300 },
     { entity: "il", entityName: "IL", flag: "🇮🇱", account: "One Zero", category: "business:royalties", desc: "ASCAP", amount: 500 },
   ];
   // Collapsed: two entity hubs, LLC expandable because it has 2 accounts
@@ -128,16 +130,17 @@ test("sankeyHubs & hubFlowData: combined multi-bank subtrees conserve flow and e
     ["ent:il", false],
   ]);
   // Refund ($50) nets against AWS software ($300) → $250 outflow, $0 bogus income
-  expect(collapsed.totalIn).toBe(1500);
+  expect(collapsed.totalIn).toBe(2000);
   expect(collapsed.totalOut).toBe(250);
 
-  // Expanded LLC: splits into Mercury Checking + Mercury Credit child hubs while IL stays collapsed
+  // Expanded LLC: splits into its banks; the card's spending runs through Mercury Checking (which pays the card), never its own hub
   const expanded = hubFlowData(rows, { scope: "all", mode: "account", label: (k) => k, other: "Other", expandedEntities: new Set(["llc"]) });
   expect(expanded.hubs.map((h) => [h.key, !!h.isChild])).toEqual([
     ["acct:llc:Mercury Checking", true],
     ["ent:il", false],
-    ["acct:llc:Mercury Credit", true],
+    ["acct:llc:Wise USD", true],
   ]);
+  expect(expanded.edges.find((e) => e.to === "out:expense:software")).toMatchObject({ from: "acct:llc:Mercury Checking", value: 250 });
 
   const lay = sankeyHubs(expanded.sources, expanded.hubs, expanded.targets, expanded.edges, {
     width: 720,
