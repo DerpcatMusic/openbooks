@@ -52,6 +52,8 @@ export function nextDate(iso: string, c: Cadence): string {
 export const recurringKey = (payer: string, amount: number) => `${payer}|${amount < 0 ? "out" : "in"}`;
 /** The payer-and-direction part of a key (a dismissal stored under it covers every plan of that payer). */
 export const recurringBase = (key: string) => key.split("|").slice(0, 2).join("|");
+/** Dismissed (doc "recurring-dismissed") by its own key, or by the payer-wide key older dismissals were stored under. */
+export const recurringDismissed = (key: string, d: Readonly<Record<string, boolean>> | null | undefined) => !!(d?.[key] || d?.[recurringBase(key)]);
 
 /**
  * Regular payers, per payer and direction:
@@ -151,6 +153,7 @@ export function recurring(txns: readonly Row[], now?: string): Recurring[] {
     }
     if (found.length) {
       // each plan its own dismiss key, by the price it started at: stable when a sibling plan comes or goes, or the price changes
+      // ponytail: only the last price change is linked, so a second change re-keys the plan; chain priceChange history if that bites
       for (const r of found) r.key = `${key}|${Math.abs(r.priceChange?.from ?? r.amount).toFixed(2)}`;
       out.push(...found);
       continue;

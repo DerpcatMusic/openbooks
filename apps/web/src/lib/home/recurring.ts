@@ -1,6 +1,6 @@
 // Recurring payments and income of the open books (core recurring()), minus the ones the user dismissed (doc "recurring-dismissed":
 // { key: true }). Shared by the Home card, the Reports list and the insights.
-import { recurring as detect, recurringBase, type Recurring } from "@openbooks/core";
+import { recurring as detect, recurringBase, recurringDismissed, type Recurring } from "@openbooks/core";
 import { S, doc, saveDoc } from "#lib/stores/books.svelte.ts";
 
 const today = () => new Date().toLocaleDateString("sv");
@@ -13,7 +13,7 @@ export function allRecurring() {
   return memo.out;
 }
 /** Dismissed by its own key, or by the payer-wide key older dismissals were stored under. */
-export const isDismissed = (r: Pick<Recurring, "key">, d = dismissedDoc()) => !!(d[r.key] || d[recurringBase(r.key)]);
+export const isDismissed = (r: Pick<Recurring, "key">, d = dismissedDoc()) => recurringDismissed(r.key, d);
 export const activeRecurring = () => allRecurring().filter((r) => !isDismissed(r));
 export function setDismissed(key: string, on: boolean) {
   const next = { ...dismissedDoc() };

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { nextDate, perMonth, recurring } from "./recurring.ts";
+import { nextDate, perMonth, recurring, recurringDismissed } from "./recurring.ts";
 
 const row = (date: string, amount: number, desc: string, category = "expense:software") => ({ date, amount, desc, category, source: "mercury" });
 const monthly = (desc: string, amounts: number[], from = 1, day = 5, category?: string) =>
@@ -122,4 +122,9 @@ test("an old plan still charging is a second plan, not the new one's past; a pri
   ]);
   const [n] = recurring(monthly("Notion", [-10, -10, -10, -12, -12]), "2026-05-10");
   expect(n).toMatchObject({ count: 5, key: "Notion|out|10.00" });
+});
+
+test("a dismissal under the older payer-wide key still hides every plan of that payer", () => {
+  expect(recurringDismissed("Cloudflare|out|5.00", { "Cloudflare|out": true })).toBe(true);
+  expect(recurringDismissed("Cloudflare|out|5.00", { "Cloudflare|out|10.46": true })).toBe(false);
 });
