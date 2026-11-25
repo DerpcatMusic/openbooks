@@ -192,13 +192,14 @@ const money = (x: unknown) => {
  * for money sent out (TRANSFER-<id>) the exact amount and currency the recipient got, from the transfer itself. A transfer Wise won't
  * show is left without it (the amount match still works).
  */
-const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean }) =>
+const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean; eta: boolean }) =>
   Effect.gen(function* () {
     const d = (t.details ?? null) as Json | null,
       ref = str(t.referenceNumber);
     let to = v < 0 ? money(d?.targetAmount) : undefined;
     let reference = str(d?.paymentReference).trim();
     let party = str(d?.senderName).trim();
+    let eta = "";
     const m = /^TRANSFER-(\d+)$/.exec(ref);
     // one failed lookup (Wise down, timing out) stops the rest for this sync: the amount match still works without them
     if (v < 0 && m && budget.lookups) {
@@ -209,6 +210,13 @@ const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean 
         tc = str(x?.targetCurrency).toUpperCase();
       if (tv !== null && /^[A-Z]{3}$/.test(tc)) to = { amount: Math.abs(tv), currency: tc };
       reference ||= str(((x?.details ?? null) as Json | null)?.reference).trim();
+      // when Wise expects it to land: the other bank's deposit is looked for around this day, not the day it left
+      if (r?.ok && budget.eta) {
+        const e = yield* wiseGet(token, `/v1/delivery-estimates/${m[1]}`).pipe(Effect.orElseSucceed(() => null));
+        if (!e) budget.eta = false; // one failed estimate stops the rest for this sync, like the transfer lookups
+        const when = e?.ok ? str((e.json as Json | undefined)?.estimatedDeliveryDate) : "";
+        if (/^\d{4}-\d{2}-\d{2}/.test(when)) eta = when.slice(0, 10);
+      }
     }
     if (!party && v < 0)
       party = str(d?.description)
@@ -220,13 +228,14 @@ const wiseLink = (token: string, t: Json, v: number, budget: { lookups: boolean 
       ...(reference ? { ref: clean(reference, 140) } : {}),
       ...(party ? { party: clean(party, 140) } : {}),
       ...(fee !== null && fee > 0 ? { fee: Math.abs(fee) } : {}),
+      ...(eta ? { eta } : {}),
     };
     return Object.keys(link).length ? link : undefined;
   });
 
 export const wiseSync = (dir: string, s: Record<string, string>, fileName = "wise-sync.json") =>
   Effect.gen(function* () {
-    const budget = { lookups: true };
+    const budget = { lookups: true, eta: true };
     const token = s.token ?? "";
     const pr = yield* wiseGet(token, "/v2/profiles");
     yield* wiseOk(pr, "/v2/profiles");

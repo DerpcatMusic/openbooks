@@ -38,6 +38,7 @@ import {
   perMonth,
   pyRound,
   recurring as detectRecurring,
+  recurringDismissed,
   pyStr,
   relevantMoves,
   remaining,
@@ -516,7 +517,7 @@ const recurring = defineTool({
       const e = yield* entityOf(a, ctx);
       const hidden = yield* docOf<Record<string, boolean>>(e, "recurring-dismissed", {});
       const rs = detectRecurring(yield* ledgerOf(e), today())
-        .map((r) => ({ ...r, dismissed: !!hidden?.[r.key] }))
+        .map((r) => ({ ...r, dismissed: recurringDismissed(r.key, hidden) }))
         .filter((r) => a.includeDismissed || !r.dismissed);
       const live = rs.filter((r) => !r.dismissed);
       return {

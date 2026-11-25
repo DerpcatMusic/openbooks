@@ -83,3 +83,15 @@ test("account currency: what most of its rows are in, else the books'", () => {
     ),
   ).toEqual({ Card: "ILS", "USD acct": "USD" });
 });
+
+test("a refund on spending shrinks the money out instead of counting as income", () => {
+  const ts = [
+    { date: "2026-06-17", amount: -60, category: "expense:software" },
+    { date: "2026-06-18", amount: 4.77, category: "expense:software" }, // Cursor refund on the card
+    { date: "2026-06-18", amount: 100, category: "revenue:services" },
+    { date: "2026-06-19", amount: -10, category: "revenue:services" }, // chargeback
+    { date: "2026-06-20", amount: 60, category: "transfer:internal" }, // card autopay
+  ];
+  expect(cashIn(ts)).toBe(90);
+  expect(cashOut(ts)).toBeCloseTo(55.23, 9);
+});

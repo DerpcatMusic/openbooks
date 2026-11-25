@@ -30,7 +30,8 @@
   const name = (id: string) => S.data?.entities.find((e) => e.id === id)?.name ?? id;
 </script>
 
-<h2 class="mb-4 text-[16px] text-ink">{t("charts.nw.title")}</h2>
+<h2 class="text-[16px] text-ink">{t("charts.nw.title")}</h2>
+<p class="mt-0.5 mb-4 text-[12px] text-sub">{t("charts.nw.sub")}</p>
 {#if data && data.dates.length && data.series.length}
   <NetWorth {data} bind:currency bind:range label={t("charts.nw.title")} entityLabel={name} dateLabel={mdy} />
 {:else if failed || data}

@@ -1,7 +1,7 @@
 // Sankey data for a period: money in by source → bank/business hubs (with expandable child accounts) → money out by destination.
 // Which rows count as money in / out is core's cashIn / cashOut (transfers, owner and own money left out), asked one row at a time
 // so this never drifts from the totals shown elsewhere.
-import { cashIn, cashOut, group, payerOf } from "@openbooks/core";
+import { group, inSide, isFlow, payerOf } from "@openbooks/core";
 import type { Txn } from "@openbooks/schema";
 import { topN, type FlowHubEdge, type FlowItem } from "../ui/sankey.ts";
 
@@ -10,7 +10,7 @@ const IN = ["var(--color-s3)", "var(--color-s1)", "var(--color-s5)", "var(--colo
 const OUT = ["var(--color-s2)", "var(--color-s4)", "var(--color-s5)", "var(--color-s1)", "var(--color-s3)", "var(--color-s6)", "var(--color-s6)"];
 const HUB_COLORS = ["var(--color-s1)", "var(--color-s3)", "var(--color-s4)", "var(--color-s5)", "var(--color-s2)", "var(--color-s6)"];
 
-export const counts = (t: Txn) => (t.amount > 0 ? cashIn([t]) : cashOut([t])) !== 0;
+export const counts = (t: Txn) => t.amount !== 0 && isFlow(t.category);
 
 const EXPENSE_GROUPS = new Set(["expense", "cogs"]);
 
@@ -26,8 +26,10 @@ export function flowData(ts: readonly Txn[], mode: FlowMode, label: (account: st
       if (EXPENSE_GROUPS.has(group(t.category))) {
         netByCat.set(t.category, (netByCat.get(t.category) ?? 0) + t.amount);
       } else {
-        const m = t.amount > 0 ? inn : out;
-        m.set(t.category, (m.get(t.category) ?? 0) + Math.abs(t.amount));
+        // by row type (core inSide): a chargeback shrinks its income, never adds to spending
+        const isIn = inSide(t),
+          m = isIn ? inn : out;
+        m.set(t.category, (m.get(t.category) ?? 0) + (isIn ? t.amount : -t.amount));
       }
     }
     for (const [cat, net] of netByCat) {
@@ -37,15 +39,16 @@ export function flowData(ts: readonly Txn[], mode: FlowMode, label: (account: st
   } else {
     for (const t of ts) {
       if (!counts(t)) continue;
-      const k = payerOf(t) || "?";
-      const m = t.amount > 0 ? inn : out;
-      m.set(k, (m.get(k) ?? 0) + Math.abs(t.amount));
+      const k = payerOf(t) || "?",
+        isIn = inSide(t),
+        m = isIn ? inn : out;
+      m.set(k, (m.get(k) ?? 0) + (isIn ? t.amount : -t.amount));
     }
   }
   // keys "in:<k>" / "out:<k>": an account can be on both sides (a refund); `flowKey` gives <k> back
   const items = (side: string, m: Map<string, number>, colors: string[], n: number) =>
     topN(
-      [...m].map(([k, value]) => ({ key: `${side}:${k}`, label: mode === "account" ? label(k) : k, value, color: "" })),
+      [...m].filter(([, v]) => v > 0.005).map(([k, value]) => ({ key: `${side}:${k}`, label: mode === "account" ? label(k) : k, value, color: "" })),
       n,
       { key: `${side}:~other`, label: other, color: "" },
     ).map((x, i) => ({ ...x, color: x.key.endsWith(":~other") ? "var(--color-s6)" : colors[i % colors.length]! }) as FlowItem);

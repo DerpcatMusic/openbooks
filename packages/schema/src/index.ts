@@ -24,6 +24,8 @@ export const TransferLink = Schema.Struct({
   fee: Schema.optionalKey(Schema.Finite),
   url: Schema.optionalKey(Schema.String),
   receipts: Schema.optionalKey(Schema.Int),
+  /** When the bank said the money lands on the other side (YYYY-MM-DD): Mercury estimatedDeliveryDate, Wise delivery estimate. */
+  eta: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))),
 });
 export type TransferLink = typeof TransferLink.Type;
 
