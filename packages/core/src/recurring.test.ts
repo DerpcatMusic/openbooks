@@ -102,3 +102,11 @@ test("ad spend and one-off shopping are not subscriptions", () => {
   ];
   expect(recurring([...fb, ...ali])).toEqual([]);
 });
+
+test("one charge at a new price continues the plan; equal charges on one day add up", () => {
+  const [r, ...rest] = recurring(monthly("Notion", [-10, -10, -12]), "2026-03-10");
+  expect(rest).toEqual([]);
+  expect(r).toMatchObject({ amount: -12, last: "2026-03-05", next: "2026-04-05", count: 3, priceChange: { from: -10, to: -12, date: "2026-03-05" } });
+  const two = recurring([...monthly("Seats", [-10, -10, -10]), ...monthly("Seats", [-10, -10, -10])], "2026-03-10");
+  expect(two.map((x) => x.amount)).toEqual([-20]);
+});

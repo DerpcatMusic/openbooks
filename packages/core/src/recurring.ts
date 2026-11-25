@@ -116,7 +116,10 @@ export function recurring(txns: readonly Row[], now?: string): Recurring[] {
     for (const t of byDate) if (!prices.some((p) => close(t.amount, p, 0.01))) prices.push(t.amount);
     for (const p of prices) {
       const rows = byDate.filter((t) => close(t.amount, p, 0.01));
-      const occ = [...new Map(rows.map((t) => [t.date, t.amount]))];
+      // two equal charges on one day (two seats, two plans billed together) add up, never overwrite
+      const sums = new Map<string, number>();
+      for (const t of rows) sums.set(t.date, (sums.get(t.date) ?? 0) + t.amount);
+      const occ = [...sums];
       const hit = runOf(occ);
       if (!hit) continue;
       const [cadence, g, tol] = hit.cad;
@@ -127,8 +130,12 @@ export function recurring(txns: readonly Row[], now?: string): Recurring[] {
       // the plan before a price change: the payer's charge one cadence before this run, at another price, continues the series
       const first = hit.run[0]![0],
         prev = byDate.filter((t) => t.date < first && !close(t.amount, p, 0.01)).at(-1);
-      const r = take(hit.run, cadence, tol, rows, true);
+      // the plan's first charge at a new price, one cadence after the run (once so far): the series goes on at the new price
+      const later = byDate.filter((t) => t.date > to && !close(t.amount, p, 0.01)),
+        bump = later.length === 1 && Math.abs(day(later[0]!.date) - day(to) - g) <= tol && close(later[0]!.amount, p, 0.6) ? later[0]! : null;
+      const r = take(bump ? [...hit.run, [bump.date, bump.amount]] : hit.run, cadence, tol, bump ? [...rows, bump] : rows, true);
       if (!r) continue;
+      if (bump) r.priceChange = { from: hit.run.at(-1)![1], to: bump.amount, date: bump.date };
       if (prev && Math.abs(day(first) - day(prev.date) - g) <= tol && close(prev.amount, p, 0.6)) {
         r.priceChange = { from: prev.amount, to: r.amount, date: first };
         r.count++;
